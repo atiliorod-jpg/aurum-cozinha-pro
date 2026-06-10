@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import NavBar from './NavBar';
+import Icon from './Icons';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+
+const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
 export default function Layout({ title, children, actions }) {
   const { sessao, logout, temPermissao } = useAuth();
@@ -14,9 +17,10 @@ export default function Layout({ title, children, actions }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-polo-beige pb-24">
-      <header className="bg-gradient-to-r from-polo-navy via-polo-navy to-[#24375456] bg-polo-navy text-white px-4 py-3 flex items-center justify-between sticky top-0 z-40 shadow-lg">
+      <header className="bg-gradient-to-r from-polo-navy via-polo-navy to-[#24375456] bg-polo-navy text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-lg">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="w-8 h-8 rounded-xl bg-polo-gold/15 ring-1 ring-polo-gold/30 flex items-center justify-center text-base flex-shrink-0">🍺</span>
+          <img src={LOGO} alt="Aurum Serviços Gastronômicos"
+            className="w-9 h-9 rounded-xl ring-1 ring-polo-gold/40 object-cover flex-shrink-0" />
           <h1 className="text-base font-bold text-polo-gold tracking-wide truncate">{title}</h1>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -24,13 +28,15 @@ export default function Layout({ title, children, actions }) {
           {sessao && (
             <div className="flex items-center gap-1.5">
               {temPermissao('gerencia') && (
-                <Link to="/auditoria" title="Histórico de mudanças"
-                  className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm active:scale-90 transition-transform">
-                  🕘
+                <Link to="/auditoria" aria-label="Histórico de mudanças" title="Histórico de mudanças"
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-polo-gold/80 active:scale-90 transition-transform
+                             focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+                  <Icon name="historico" size={17} />
                 </Link>
               )}
-              <button onClick={sair} title={`${sessao.nome} — sair`}
-                className="flex items-center gap-1.5 bg-white/10 rounded-full pl-2.5 pr-3 py-1.5 active:scale-95 transition-transform">
+              <button onClick={sair} aria-label={`Sessão de ${sessao.nome} — sair`} title={`${sessao.nome} — sair`}
+                className="flex items-center gap-1.5 bg-white/10 rounded-full pl-2.5 pr-3 py-1.5 active:scale-95 transition-transform
+                           focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
                 <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-[10px] font-bold flex items-center justify-center">
                   {sessao.nome.slice(0, 1).toUpperCase()}
                 </span>

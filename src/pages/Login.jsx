@@ -32,7 +32,8 @@ export default function Login() {
     <div className="min-h-screen bg-polo-navy flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-polo-gold/30 to-polo-gold/5 border border-polo-gold/40 flex items-center justify-center text-4xl mb-4">🍺</div>
+          <img src={`${import.meta.env.BASE_URL}logo-aurum.png`} alt="Aurum Serviços Gastronômicos"
+            className="w-40 h-40 mx-auto rounded-3xl ring-1 ring-polo-gold/30 shadow-2xl object-cover mb-5" />
           <h1 className="text-2xl font-bold text-polo-gold">Polo Estoque</h1>
           <p className="text-white/50 text-sm mt-1">Controle de produção — Polo Central & Beer</p>
         </div>
