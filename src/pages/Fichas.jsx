@@ -5,7 +5,8 @@ import { useUI } from '../store/UIContext';
 import { fatorCorrecaoItem } from '../utils/analise';
 import { fmtNum } from '../utils/formatters';
 
-const CORRECAO_PADRAO = 10; // % usado quando ainda não há histórico de compras/aparas do item
+// Sem histórico de compras/aparas do item, parte de 0% — o usuário ajusta se souber a perda real
+const CORRECAO_PADRAO = 0;
 
 function ModalFicha({ ficha, onSalvar, onFechar }) {
   const [form, setForm] = useState(ficha || { materiaPrima: '', preparacao: '', gramatura: '', coccao: '' });
@@ -173,7 +174,7 @@ export default function Fichas() {
             <p className="text-xs text-gray-500 -mt-1">
               {correcaoHistorica != null
                 ? `Correção real do seu histórico de compras de ${ficha?.materiaPrima}: ${(correcaoHistorica * 100).toFixed(1)}%.`
-                : `Sem histórico de aparas/perdas associadas a compras de ${ficha?.materiaPrima || 'este item'} — usando ${CORRECAO_PADRAO}% padrão (edite se quiser).`}
+                : `Sem histórico de aparas/perdas associadas a compras de ${ficha?.materiaPrima || 'este item'} — começa em 0%; digite a perda de limpeza se você já a conhece.`}
             </p>
           </div>
 
