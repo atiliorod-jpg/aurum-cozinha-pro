@@ -32,7 +32,7 @@ function ModalProduto({ produto, sugestao, onSalvar, onFechar }) {
       <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="font-bold text-lg text-polo-navy">{produto ? 'Editar Produto' : 'Novo Produto'}</h2>
-          <button onClick={onFechar} className="text-2xl text-gray-400">×</button>
+          <button onClick={onFechar} className="text-2xl text-gray-500">×</button>
         </div>
 
         <div>
@@ -70,7 +70,7 @@ function ModalProduto({ produto, sugestao, onSalvar, onFechar }) {
           <input type="number" min="0" step="0.5" value={form.estoqueInicial} onChange={e => set('estoqueInicial', e.target.value)}
             placeholder="0"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          <p className="text-xs text-gray-400 mt-1">Quanto há hoje. A partir daqui, entradas/saídas/perdas calculam sozinhas.</p>
+          <p className="text-xs text-gray-500 mt-1">Quanto há hoje. A partir daqui, entradas/saídas/perdas calculam sozinhas.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -91,7 +91,7 @@ function ModalProduto({ produto, sugestao, onSalvar, onFechar }) {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
         </div>
-        <p className="text-xs text-gray-400 -mt-2">Mín/Máx: 0 = sem meta definida (não exibe alerta)</p>
+        <p className="text-xs text-gray-500 -mt-2">Mín/Máx: 0 = sem meta definida (não exibe alerta)</p>
 
         {sugestao && (
           <div className="flex items-center justify-between bg-polo-beige border border-polo-gold/50 rounded-xl px-3 py-2 -mt-1">
@@ -126,7 +126,7 @@ function ModalProduto({ produto, sugestao, onSalvar, onFechar }) {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
         </div>
-        <p className="text-xs text-gray-400 -mt-2">Ao registrar uma entrada, o vencimento é calculado sozinho com esses prazos. 0 = sem controle de validade.</p>
+        <p className="text-xs text-gray-500 -mt-2">Ao registrar uma entrada, o vencimento é calculado sozinho com esses prazos. 0 = sem controle de validade.</p>
 
         <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
           <span className="text-sm text-gray-700 flex-1">Produto ativo</span>
@@ -332,7 +332,7 @@ export default function Configuracoes() {
           <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''} ${!p.ativo ? 'opacity-50' : ''}`}>
             <div className="flex-1 min-w-0">
               <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-500">
                 {p.categoria} • {p.unidade}
                 {(p.estoqueInicial > 0) && ` • Inicial ${p.estoqueInicial}`}
                 {(p.min > 0 || p.max > 0) && ` • Mín ${p.min} / Máx ${p.max}`}
@@ -355,7 +355,7 @@ export default function Configuracoes() {
           </div>
         ))}
         {produtosFiltrados.length === 0 && (
-          <div className="text-center text-gray-400 py-8 text-sm">Nenhum produto encontrado.</div>
+          <div className="text-center text-gray-500 py-8 text-sm">Nenhum produto encontrado.</div>
         )}
       </div>
       </>}
@@ -410,7 +410,7 @@ export default function Configuracoes() {
             className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm">+ Add</button>
         </div>
         <div className="flex flex-wrap gap-2">
-          {pessoas.length === 0 && <span className="text-xs text-gray-400">Nenhuma pessoa cadastrada ainda.</span>}
+          {pessoas.length === 0 && <span className="text-xs text-gray-500">Nenhuma pessoa cadastrada ainda.</span>}
           {pessoas.map(p => (
             <span key={p} className="inline-flex items-center gap-2 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-sm font-medium text-polo-navy">
               {p}
@@ -509,7 +509,7 @@ export default function Configuracoes() {
                   }}
                   className="text-red-400 font-bold text-sm leading-none">×</button>
               ) : (
-                <span className="text-gray-400 text-[9px]">(fixo)</span>
+                <span className="text-gray-500 text-[9px]">(fixo)</span>
               )}
             </span>
           ))}

@@ -123,7 +123,7 @@ export default function Compras() {
               <datalist id="lista-itens-compra">
                 {itensSugeridos.map(i => <option key={i} value={i} />)}
               </datalist>
-              <p className="text-xs text-gray-400 mt-1">Digite e escolha da lista — o fornecedor do último recebimento deste item entra sozinho.</p>
+              <p className="text-xs text-gray-500 mt-1">Digite e escolha da lista — o fornecedor do último recebimento deste item entra sozinho.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -155,7 +155,7 @@ export default function Compras() {
       ) : (
         <div className="space-y-3">
           {comprasOrdenadas.length === 0 && (
-            <div className="text-center text-gray-400 py-12">Nenhuma compra registrada ainda.</div>
+            <div className="text-center text-gray-500 py-12">Nenhuma compra registrada ainda.</div>
           )}
           {comprasOrdenadas.map(c => {
             const correcao = correcaoDaCompra(c.id);

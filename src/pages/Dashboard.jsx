@@ -93,7 +93,7 @@ export default function Dashboard() {
           <div className="space-y-1">
             {vencendo.map(({ p, lote, dias }, i) => (
               <div key={`${p.id}-${i}`} className="flex justify-between items-center text-xs">
-                <span className="font-medium text-gray-700">{p.nome} <span className="text-gray-400">({fmtNum(lote.restante)} {p.unidade})</span></span>
+                <span className="font-medium text-gray-700">{p.nome} <span className="text-gray-500">({fmtNum(lote.restante)} {p.unidade})</span></span>
                 <span className={`font-bold ${dias < 0 ? 'text-red-600' : dias <= 2 ? 'text-orange-600' : 'text-amber-600'}`}>
                   {dias < 0 ? `VENCIDO (${fmtData(lote.validade)})` : dias === 0 ? 'vence HOJE' : `vence em ${dias}d (${fmtData(lote.validade)})`}
                 </span>
@@ -221,7 +221,7 @@ export default function Dashboard() {
                             <div key={i} className="flex justify-between items-center text-xs">
                               <span className="text-gray-600">
                                 {l.armazenamento === 'resfriado' ? '🧊' : '❄️'} {fmtNum(l.restante)} {p.unidade}
-                                <span className="text-gray-400"> • entrou {fmtData(l.dataEntrada)}</span>
+                                <span className="text-gray-500"> • entrou {fmtData(l.dataEntrada)}</span>
                               </span>
                               <span className={`font-bold ${dias < 0 ? 'text-red-600' : dias <= 3 ? 'text-orange-600' : 'text-gray-600'}`}>
                                 {dias < 0 ? 'VENCIDO ' : 'vence '}{fmtData(l.validade)}
@@ -240,7 +240,7 @@ export default function Dashboard() {
       </div>
 
       {produtosFiltrados.length === 0 && (
-        <div className="text-center text-gray-400 py-12">Nenhum produto nesta categoria.</div>
+        <div className="text-center text-gray-500 py-12">Nenhum produto nesta categoria.</div>
       )}
     </Layout>
   );

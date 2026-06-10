@@ -148,13 +148,13 @@ export default function Saidas() {
 
           <div className="bg-white rounded-xl overflow-hidden">
             {produtosVisiveis.length === 0 && (
-              <div className="text-center text-gray-400 py-6 text-sm">Nenhum produto encontrado.</div>
+              <div className="text-center text-gray-500 py-6 text-sm">Nenhum produto encontrado.</div>
             )}
             {produtosVisiveis.map((p, i, arr) => (
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-gray-500">
                     Em estoque: <span className={`font-semibold ${(estoque[p.id] ?? 0) <= 0 ? 'text-red-500' : 'text-gray-600'}`}>{fmtNum(estoque[p.id] ?? 0)} {p.unidade}</span>
                   </div>
                   {(lotes[p.id] || []).length > 0 && (
@@ -174,18 +174,21 @@ export default function Saidas() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setQtd(p.id, Math.max(0, (parseFloat(qtds[p.id]) || 0) - 1).toString())}
-                    className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center">−</button>
+                <div className="flex items-center gap-1.5">
+                  <button aria-label={`Diminuir quantidade de ${p.nome}`}
+                    onClick={() => setQtd(p.id, Math.max(0, (parseFloat(qtds[p.id]) || 0) - 1).toString())}
+                    className="w-11 h-11 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center flex-shrink-0">−</button>
                   <input
                     type="number" min="0" step="0.5"
                     value={qtds[p.id] ?? ''}
                     onChange={e => setQtd(p.id, e.target.value)}
                     placeholder="0"
-                    className="w-16 text-center border border-gray-200 rounded-lg py-1.5 text-sm font-semibold"
+                    aria-label={`Quantidade de ${p.nome}`}
+                    className="w-16 text-center border border-gray-200 rounded-lg py-2.5 text-sm font-semibold"
                   />
-                  <button onClick={() => setQtd(p.id, ((parseFloat(qtds[p.id]) || 0) + 1).toString())}
-                    className="w-8 h-8 rounded-full bg-polo-navy text-polo-gold font-bold text-lg flex items-center justify-center">+</button>
+                  <button aria-label={`Aumentar quantidade de ${p.nome}`}
+                    onClick={() => setQtd(p.id, ((parseFloat(qtds[p.id]) || 0) + 1).toString())}
+                    className="w-11 h-11 rounded-full bg-polo-navy text-polo-gold font-bold text-lg flex items-center justify-center flex-shrink-0">+</button>
                 </div>
               </div>
             ))}
@@ -224,7 +227,7 @@ export default function Saidas() {
       ) : (
         <div className="space-y-3">
           {saidasOrdenadas.length === 0 && (
-            <div className="text-center text-gray-400 py-12">Nenhuma saída registrada ainda.</div>
+            <div className="text-center text-gray-500 py-12">Nenhuma saída registrada ainda.</div>
           )}
           {saidasOrdenadas.map(s => {
             const dest = DESTINOS.find(d => d.value === s.destino);
@@ -253,7 +256,7 @@ export default function Saidas() {
                     </div>
                   );
                 })}
-                {s.obs && <p className="text-xs text-gray-400 mt-2 italic">{s.obs}</p>}
+                {s.obs && <p className="text-xs text-gray-500 mt-2 italic">{s.obs}</p>}
               </div>
             );
           })}

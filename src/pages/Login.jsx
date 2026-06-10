@@ -69,7 +69,7 @@ export default function Login() {
                     className={`p-3 rounded-xl border-2 text-left transition-all
                       ${usuarioId === u.id ? 'border-polo-gold bg-polo-navy text-white' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
                     <div className="font-semibold text-sm truncate">{u.nome}</div>
-                    <div className={`text-[10px] ${usuarioId === u.id ? 'text-polo-gold' : 'text-gray-400'}`}>
+                    <div className={`text-[10px] ${usuarioId === u.id ? 'text-polo-gold' : 'text-gray-500'}`}>
                       {CARGOS.find(c => c.id === u.cargo)?.label}
                     </div>
                   </button>

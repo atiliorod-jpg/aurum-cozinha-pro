@@ -233,19 +233,19 @@ export default function Relatorio() {
 
       <Card titulo="🚚 Rendimento por fornecedor">
         {fornecedores.length === 0 ? (
-          <p className="text-center text-gray-400 text-xs py-4">Nenhuma compra no período. Registre compras e associe aparas/perdas a elas.</p>
+          <p className="text-center text-gray-500 text-xs py-4">Nenhuma compra no período. Registre compras e associe aparas/perdas a elas.</p>
         ) : (
           <div className="space-y-2.5">
             {fornecedores.map(f => (
               <div key={f.fornecedor}>
                 <div className="flex justify-between text-xs mb-0.5">
                   <span className="font-medium text-gray-700">{f.fornecedor}</span>
-                  <span className="text-gray-400">{f.n} receb. • {fmtNum(f.comprado)} comprado • {fmtNum(f.correcao)} correção</span>
+                  <span className="text-gray-500">{f.n} receb. • {fmtNum(f.comprado)} comprado • {fmtNum(f.correcao)} correção</span>
                 </div>
                 <BarraRendimento pct={f.rendimento} />
               </div>
             ))}
-            <p className="text-[10px] text-gray-400 pt-1">Rendimento = 100% − (aparas e perdas associadas ÷ total comprado). Verde ≥ 90%, âmbar ≥ 80%, vermelho abaixo.</p>
+            <p className="text-[10px] text-gray-500 pt-1">Rendimento = 100% − (aparas e perdas associadas ÷ total comprado). Verde ≥ 90%, âmbar ≥ 80%, vermelho abaixo.</p>
           </div>
         )}
       </Card>
@@ -290,7 +290,7 @@ export default function Relatorio() {
           </tbody>
         </table>
         {!Object.keys(totalEntradas).length && !Object.keys(totalSaidas).length && (
-          <div className="text-center text-gray-400 py-8 text-sm">Nenhum registro neste período.</div>
+          <div className="text-center text-gray-500 py-8 text-sm">Nenhum registro neste período.</div>
         )}
       </div>
 

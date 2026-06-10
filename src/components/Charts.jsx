@@ -85,7 +85,7 @@ export function LinhaDias({ dados }) {
           <circle key={d.data} cx={x(i)} cy={y(d.total)} r="2.6" fill="#C9A24B" stroke="#1B2A41" strokeWidth="1" />
         ))}
       </svg>
-      <div className="flex justify-between text-[10px] text-gray-400 px-1">
+      <div className="flex justify-between text-[10px] text-gray-500 px-1">
         <span>{dados[0].data.slice(5).split('-').reverse().join('/')}</span>
         <span>pico: {fmt(max)}</span>
         <span>{dados[dados.length - 1].data.slice(5).split('-').reverse().join('/')}</span>
@@ -96,7 +96,7 @@ export function LinhaDias({ dados }) {
 
 // Barra de rendimento 0–100%
 export function BarraRendimento({ pct }) {
-  if (pct == null) return <span className="text-xs text-gray-400">—</span>;
+  if (pct == null) return <span className="text-xs text-gray-500">—</span>;
   const cor = pct >= 90 ? 'bg-green-500' : pct >= 80 ? 'bg-amber-500' : 'bg-red-500';
   return (
     <div className="flex items-center gap-2">
@@ -109,5 +109,5 @@ export function BarraRendimento({ pct }) {
 }
 
 function Vazio({ msg = 'Sem dados no período.' }) {
-  return <div className="text-center text-gray-400 text-xs py-6">{msg}</div>;
+  return <div className="text-center text-gray-500 text-xs py-6">{msg}</div>;
 }

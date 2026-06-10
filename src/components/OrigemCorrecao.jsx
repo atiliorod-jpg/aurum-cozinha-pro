@@ -46,7 +46,7 @@ export default function OrigemCorrecao({ form, onChange }) {
               <option key={c.id} value={c.id}>{fmtData(c.data)} • {c.item} ({c.quantidade}{c.unidade})</option>
             ))}
           </select>
-          <p className="text-xs text-gray-400 mt-1">Monitoramento de rendimento. Não mexe no estoque.</p>
+          <p className="text-xs text-gray-500 mt-1">Monitoramento de rendimento. Não mexe no estoque.</p>
         </div>
       ) : (
         <div>

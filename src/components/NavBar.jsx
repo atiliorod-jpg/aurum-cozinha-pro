@@ -38,7 +38,7 @@ export default function NavBar() {
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center pt-1.5 pb-2 gap-1 text-[10px] font-semibold transition-all relative
                focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg
-               ${isActive ? 'text-polo-gold' : 'text-white/45 active:text-white/75'}`
+               ${isActive ? 'text-polo-gold' : 'text-white/60 active:text-white/80'}`
             }
           >
             {({ isActive }) => (

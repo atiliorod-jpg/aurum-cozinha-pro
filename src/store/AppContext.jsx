@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef } f
 import { PRODUTOS_INICIAIS, PESSOAS_INICIAIS, DESTINOS_APARA } from '../data/produtos';
 import { FICHAS_INICIAIS } from '../data/fichas';
 import { calcSugestoesMinMax } from '../utils/sugestoes';
+import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
 
 const KEY = {
@@ -164,54 +165,11 @@ export function AppProvider({ children }) {
   const addAjuste = useCallback(makeAdd(setAjustesState, KEY.ajustes, 'contagem física'), []);
   const removeAjuste = useCallback(makeRemove(setAjustesState, KEY.ajustes, 'contagem física'), []);
 
-  // Estoque automático: base = Estoque Inicial do produto (ou a última contagem física,
-  // se houver). A partir da base, soma entradas e abate saídas, desperdício e aparas.
-  const calcEstoque = useCallback(() => {
-    const estoque = {};
-    const baseTs = {};
-    // base inicial = estoqueInicial cadastrado no produto
-    produtos.forEach(p => {
-      estoque[p.id] = parseFloat(p.estoqueInicial) || 0;
-      baseTs[p.id] = 0;
-    });
-
-    // se houve contagem física (ajuste), ela vira a nova base a partir do seu momento
-    [...ajustes].sort((a, b) => ordemTs(a) - ordemTs(b)).forEach(aj => {
-      if (estoque[aj.produtoId] !== undefined) {
-        estoque[aj.produtoId] = parseFloat(aj.quantidade) || 0;
-        baseTs[aj.produtoId] = ordemTs(aj);
-      }
-    });
-
-    // soma entradas posteriores à base
-    entradas.forEach(e => {
-      const t = ordemTs(e);
-      (e.itens || []).forEach(item => {
-        if (estoque[item.produtoId] !== undefined && t > baseTs[item.produtoId]) {
-          estoque[item.produtoId] += parseFloat(item.quantidade) || 0;
-        }
-      });
-    });
-    // abate saídas posteriores à base
-    saidas.forEach(s => {
-      const t = ordemTs(s);
-      (s.itens || []).forEach(item => {
-        if (estoque[item.produtoId] !== undefined && t > baseTs[item.produtoId]) {
-          estoque[item.produtoId] -= parseFloat(item.quantidade) || 0;
-        }
-      });
-    });
-    // Perdas (desperdício) abatem SÓ quando a origem é o estoque (item estragou no freezer).
-    // Perda no recebimento é fator de correção da compra bruta: não abate.
-    // Aparas NUNCA abatem: são subproduto da manipulação (rendimento), não baixa de estoque.
-    desperdicio.forEach(r => {
-      const t = ordemTs(r);
-      if (r.origem === 'estoque' && r.produtoId && estoque[r.produtoId] !== undefined && t > baseTs[r.produtoId]) {
-        estoque[r.produtoId] -= parseFloat(r.quantidade) || 0;
-      }
-    });
-    return estoque;
-  }, [produtos, entradas, saidas, ajustes, desperdicio]);
+  // Estoque automático — regra completa (e coberta por testes) em utils/estoque.js
+  const calcEstoque = useCallback(
+    () => calcEstoquePuro({ produtos, entradas, saidas, ajustes, desperdicio }),
+    [produtos, entradas, saidas, ajustes, desperdicio]
+  );
 
   // Modo automático: quando ligado em Configurações, o mín/máx de cada produto
   // acompanha sozinho a média de saídas (3 dias = mín, 6 dias = máx).

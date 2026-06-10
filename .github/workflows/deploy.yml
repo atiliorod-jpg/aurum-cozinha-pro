@@ -24,6 +24,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # regras de cálculo quebradas derrubam o deploy aqui
+      - run: npm test
       - run: npm run build
         env:
           VITE_BASE: /polo-estoque/

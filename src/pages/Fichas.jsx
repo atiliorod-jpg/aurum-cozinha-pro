@@ -15,7 +15,7 @@ function ModalFicha({ ficha, onSalvar, onFechar }) {
       <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="font-bold text-lg text-polo-navy">{ficha ? 'Editar Ficha' : 'Nova Ficha'}</h2>
-          <button onClick={onFechar} className="text-2xl text-gray-400">×</button>
+          <button onClick={onFechar} className="text-2xl text-gray-500">×</button>
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Matéria-prima</label>
@@ -40,7 +40,7 @@ function ModalFicha({ ficha, onSalvar, onFechar }) {
           <input type="number" min="0" max="90" step="0.5" value={form.coccao ?? ''} onChange={e => set('coccao', e.target.value)}
             placeholder="Ex: 30 (deixe vazio se não cozinha antes de porcionar)"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Quanto o item perde de peso ao cozinhar, medido na sua cozinha (pese antes e depois). Ex.: carne de sol e charque encolhem bastante no cozimento.
           </p>
         </div>
@@ -170,7 +170,7 @@ export default function Fichas() {
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
             </div>
-            <p className="text-xs text-gray-400 -mt-1">
+            <p className="text-xs text-gray-500 -mt-1">
               {correcaoHistorica != null
                 ? `Correção real do seu histórico de compras de ${ficha?.materiaPrima}: ${(correcaoHistorica * 100).toFixed(1)}%.`
                 : `Sem histórico de aparas/perdas associadas a compras de ${ficha?.materiaPrima || 'este item'} — usando ${CORRECAO_PADRAO}% padrão (edite se quiser).`}
@@ -238,7 +238,7 @@ export default function Fichas() {
             </div>
           ))}
           {grupos.length === 0 && (
-            <div className="text-center text-gray-400 py-10 text-sm">Nenhuma ficha encontrada.</div>
+            <div className="text-center text-gray-500 py-10 text-sm">Nenhuma ficha encontrada.</div>
           )}
         </div>
       )}

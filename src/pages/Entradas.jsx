@@ -111,7 +111,7 @@ export default function Entradas() {
                   🧊 Resfriado
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-1">A validade de cada item é calculada sozinha pelos prazos do produto (Config).</p>
+              <p className="text-xs text-gray-500 mt-1">A validade de cada item é calculada sozinha pelos prazos do produto (Config).</p>
             </div>
           </div>
 
@@ -136,7 +136,7 @@ export default function Entradas() {
           {/* Produtos */}
           <div className="bg-white rounded-xl overflow-hidden">
             {produtosVisiveis.length === 0 && (
-              <div className="text-center text-gray-400 py-6 text-sm">Nenhum produto encontrado.</div>
+              <div className="text-center text-gray-500 py-6 text-sm">Nenhum produto encontrado.</div>
             )}
             {produtosVisiveis.map((p, i, arr) => {
               const diasVal = armazenamento === 'congelado' ? (p.valCongelado || 0) : (p.valResfriado || 0);
@@ -145,28 +145,31 @@ export default function Entradas() {
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
-                  <div className="text-xs text-gray-400">{p.unidade}</div>
+                  <div className="text-xs text-gray-500">{p.unidade}</div>
                   {temQtd && diasVal > 0 && (
                     <div className="text-[10px] font-semibold text-polo-navy bg-polo-beige rounded px-1.5 py-0.5 mt-1 inline-block">
                       🏷️ Etiqueta: fab. {fmtData(data)} • venc. {fmtData(addDias(data, diasVal))}
                     </div>
                   )}
                   {temQtd && diasVal === 0 && (
-                    <div className="text-[10px] text-gray-400 mt-0.5">sem prazo de validade cadastrado (Config → produto)</div>
+                    <div className="text-[10px] text-gray-500 mt-0.5">sem prazo de validade cadastrado (Config → produto)</div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setQtd(p.id, Math.max(0, (parseFloat(qtds[p.id]) || 0) - 1).toString())}
-                    className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center">−</button>
+                <div className="flex items-center gap-1.5">
+                  <button aria-label={`Diminuir quantidade de ${p.nome}`}
+                    onClick={() => setQtd(p.id, Math.max(0, (parseFloat(qtds[p.id]) || 0) - 1).toString())}
+                    className="w-11 h-11 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center flex-shrink-0">−</button>
                   <input
                     type="number" min="0" step="0.5"
                     value={qtds[p.id] ?? ''}
                     onChange={e => setQtd(p.id, e.target.value)}
                     placeholder="0"
-                    className="w-16 text-center border border-gray-200 rounded-lg py-1.5 text-sm font-semibold"
+                    aria-label={`Quantidade de ${p.nome}`}
+                    className="w-16 text-center border border-gray-200 rounded-lg py-2.5 text-sm font-semibold"
                   />
-                  <button onClick={() => setQtd(p.id, ((parseFloat(qtds[p.id]) || 0) + 1).toString())}
-                    className="w-8 h-8 rounded-full bg-polo-navy text-polo-gold font-bold text-lg flex items-center justify-center">+</button>
+                  <button aria-label={`Aumentar quantidade de ${p.nome}`}
+                    onClick={() => setQtd(p.id, ((parseFloat(qtds[p.id]) || 0) + 1).toString())}
+                    className="w-11 h-11 rounded-full bg-polo-navy text-polo-gold font-bold text-lg flex items-center justify-center flex-shrink-0">+</button>
                 </div>
               </div>
             );})}
@@ -204,7 +207,7 @@ export default function Entradas() {
       ) : (
         <div className="space-y-3">
           {entradasOrdenadas.length === 0 && (
-            <div className="text-center text-gray-400 py-12">Nenhuma entrada registrada ainda.</div>
+            <div className="text-center text-gray-500 py-12">Nenhuma entrada registrada ainda.</div>
           )}
           {entradasOrdenadas.map(e => (
             <div key={e.id} className="bg-white rounded-xl p-4">
@@ -230,7 +233,7 @@ export default function Entradas() {
                   </div>
                 );
               })}
-              {e.obs && <p className="text-xs text-gray-400 mt-2 italic">{e.obs}</p>}
+              {e.obs && <p className="text-xs text-gray-500 mt-2 italic">{e.obs}</p>}
             </div>
           ))}
         </div>

@@ -93,7 +93,7 @@ export default function Inventario() {
                   <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
-                      <div className="text-xs text-gray-400">Sistema: {fmtNum(calc)} {p.unidade}</div>
+                      <div className="text-xs text-gray-500">Sistema: {fmtNum(calc)} {p.unidade}</div>
                     </div>
                     <input
                       type="number" min="0" step="0.5"
@@ -122,7 +122,7 @@ export default function Inventario() {
       ) : (
         <div className="space-y-3">
           {ajustesOrdenados.length === 0 && (
-            <div className="text-center text-gray-400 py-12">Nenhuma contagem registrada ainda.</div>
+            <div className="text-center text-gray-500 py-12">Nenhuma contagem registrada ainda.</div>
           )}
           {ajustesOrdenados.map(aj => {
             const p = produtos.find(x => x.id === aj.produtoId);

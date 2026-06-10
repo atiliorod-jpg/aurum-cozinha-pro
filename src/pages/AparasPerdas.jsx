@@ -165,7 +165,7 @@ export default function AparasPerdas() {
                       <option key={c.id} value={c.id}>{fmtData(c.data)} • {c.item} ({c.quantidade}{c.unidade})</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-400 mt-1">Liga a apara ao recebimento para calcular o rendimento da compra.</p>
+                  <p className="text-xs text-gray-500 mt-1">Liga a apara ao recebimento para calcular o rendimento da compra.</p>
                 </div>
 
                 <div>
@@ -303,7 +303,7 @@ export default function AparasPerdas() {
       ) : (
         <div className="space-y-3">
           {historico.length === 0 && (
-            <div className="text-center text-gray-400 py-12">Nenhum registro ainda.</div>
+            <div className="text-center text-gray-500 py-12">Nenhum registro ainda.</div>
           )}
           {historico.map(r => {
             const ehApara = r._tipo === 'apara';
