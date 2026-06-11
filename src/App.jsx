@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './store/AuthContext';
 import { AppProvider } from './store/AppContext';
 import { UIProvider } from './store/UIContext';
 import Login from './pages/Login';
+import NovaSenha from './pages/NovaSenha';
 import Dashboard from './pages/Dashboard';
 import Compras from './pages/Compras';
 import Entradas from './pages/Entradas';
@@ -31,9 +32,11 @@ function Splash({ texto = 'Carregando…' }) {
 }
 
 function Rotas() {
-  const { sessao, carregando, logout } = useAuth();
+  const { sessao, carregando, logout, recuperando } = useAuth();
 
   if (carregando) return <Splash />;
+  // Veio do link de recuperação de senha → tela de nova senha (tem prioridade)
+  if (recuperando) return <NovaSenha />;
   if (!sessao) return <Login />;
 
   // Conta autenticada mas sem perfil/cargo (cadastro interrompido)

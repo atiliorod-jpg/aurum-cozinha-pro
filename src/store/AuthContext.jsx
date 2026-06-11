@@ -15,6 +15,7 @@ export function AuthProvider({ children }) {
   const [sessao,     setSessao]     = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [usuarios,   setUsuarios]   = useState([]);
+  const [recuperando, setRecuperando] = useState(false); // veio do link "esqueci a senha"
 
   // Carrega o perfil do banco e monta a sessão
   const carregarPerfil = useCallback(async (userId) => {
@@ -52,7 +53,9 @@ export function AuthProvider({ children }) {
       else setCarregando(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Usuário clicou no link de recuperação de senha → abre a tela de nova senha
+      if (event === 'PASSWORD_RECOVERY') { setRecuperando(true); setCarregando(false); return; }
       if (session?.user) carregarPerfil(session.user.id);
       else { setSessao(null); setUsuarios([]); setCarregando(false); }
     });
@@ -115,26 +118,17 @@ export function AuthProvider({ children }) {
   }, [sessao]);
 
   // ── Funcionário usa token de convite para se cadastrar ────────
+  // A validação roda numa função segura no banco (aceitar_convite), que NÃO
+  // expõe a tabela de convites — evita que alguém liste/adivinhe os códigos.
   const usarConvite = useCallback(async ({ token, nome, email, senha }) => {
-    const { data: convite, error: errC } = await supabase
-      .from('convites')
-      .select('*')
-      .eq('token', token)
-      .eq('usado', false)
-      .gte('expira_em', new Date().toISOString())
-      .single();
-    if (errC || !convite) return 'Código inválido ou expirado.';
-
     const { data, error } = await supabase.auth.signUp({ email, password: senha });
     if (error) return error.message;
     if (!data.user) return 'Erro ao criar conta.';
 
-    const { error: errP } = await supabase
-      .from('perfis')
-      .insert({ id: data.user.id, nome, cargo: convite.cargo, restaurante_id: convite.restaurante_id });
-    if (errP) return errP.message;
+    const { data: aceito, error: errRpc } = await supabase.rpc('aceitar_convite', { p_token: token, p_nome: nome });
+    if (errRpc) return errRpc.message;
+    if (aceito === false) return 'Código de convite inválido ou expirado.';
 
-    await supabase.from('convites').update({ usado: true }).eq('token', token);
     await carregarPerfil(data.user.id);
     return null;
   }, [carregarPerfil]);
@@ -150,6 +144,14 @@ export function AuthProvider({ children }) {
     setUsuarios(prev => prev.map(u => u.id === usuarioId ? { ...u, cargo: novoCargo } : u));
   }, [sessao]);
 
+  // ── Definir/trocar a própria senha ───────────────────────────
+  const atualizarSenha = useCallback(async (novaSenha) => {
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+    if (error) return error.message;
+    setRecuperando(false);
+    return null;
+  }, []);
+
   const temPermissao = useCallback((cargoMinimo) => {
     if (!sessao?.cargo) return false;
     return nivelDoCargo(sessao.cargo) >= nivelDoCargo(cargoMinimo);
@@ -157,8 +159,8 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      sessao, carregando, usuarios,
-      login, logout, esqueceuSenha,
+      sessao, carregando, usuarios, recuperando,
+      login, logout, esqueceuSenha, atualizarSenha,
       criarPrimeiroAdmin, criarConvite, usarConvite, alterarCargo,
       temPermissao,
     }}>

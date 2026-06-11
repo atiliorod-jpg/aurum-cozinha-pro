@@ -83,7 +83,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-3 gap-2 mb-2">
           <div className="bg-green-600 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.ok}</div>
-            <div className="text-xs">No Estoque</div>
+            <div className="text-xs">Em nível OK</div>
           </div>
           <div className="bg-orange-500 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.critico}</div>

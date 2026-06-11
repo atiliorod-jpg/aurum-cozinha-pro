@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth, CARGOS } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+import NovaSenha from './NovaSenha';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
@@ -329,6 +330,7 @@ export default function Configuracoes() {
   const [busca, setBusca] = useState('');
   const [novaPessoa, setNovaPessoa] = useState('');
   const [secao, setSecao] = useState('produtos'); // produtos | acessos | sistema
+  const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
 
   const handleAddPessoa = () => {
@@ -554,6 +556,18 @@ export default function Configuracoes() {
       </>}
 
       {secao === 'sistema' && <>
+      {/* Minha conta */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-bold text-polo-navy">🔒 Minha senha</p>
+            <p className="text-xs text-gray-500 mt-0.5">Troque a senha de acesso da sua conta.</p>
+          </div>
+          <button onClick={() => setTrocandoSenha(true)}
+            className="bg-polo-navy text-polo-gold font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">Trocar senha</button>
+        </div>
+      </div>
+
       {/* Ajuste automático de mín/máx */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="flex items-center gap-3">
@@ -790,6 +804,12 @@ export default function Configuracoes() {
           }}
           onFechar={() => { setEditandoFicha(null); setCriandoFicha(false); }}
         />
+      )}
+
+      {trocandoSenha && (
+        <div className="fixed inset-0 z-[70]">
+          <NovaSenha titulo="Trocar minha senha" aoConcluir={() => setTrocandoSenha(false)} />
+        </div>
       )}
     </Layout>
   );

@@ -79,10 +79,26 @@ CREATE POLICY "perfis_select" ON perfis FOR SELECT USING (restaurante_id = meu_r
 CREATE POLICY "perfis_insert" ON perfis FOR INSERT WITH CHECK (id = auth.uid());
 CREATE POLICY "perfis_update" ON perfis FOR UPDATE USING (restaurante_id = meu_restaurante_id());
 
--- convites (token aleatório de 8 hex ≈ 4 bilhões de combinações)
-CREATE POLICY "conv_select" ON convites FOR SELECT USING (true);
+-- convites: só a diretoria do próprio restaurante enxerga/cria.
+-- A aceitação roda pela função segura aceitar_convite() (abaixo), que NÃO
+-- expõe a tabela — evita listar/adivinhar códigos de outros restaurantes.
+CREATE POLICY "conv_select" ON convites FOR SELECT USING (restaurante_id = meu_restaurante_id());
 CREATE POLICY "conv_insert" ON convites FOR INSERT WITH CHECK (restaurante_id = meu_restaurante_id());
-CREATE POLICY "conv_update" ON convites FOR UPDATE USING (true);
+
+-- Valida o token e cria o perfil do usuário recém-cadastrado, sem expor convites.
+CREATE OR REPLACE FUNCTION aceitar_convite(p_token text, p_nome text)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_conv convites%ROWTYPE;
+BEGIN
+  SELECT * INTO v_conv FROM convites
+    WHERE token = p_token AND usado = false AND expira_em > now();
+  IF v_conv.token IS NULL THEN RETURN false; END IF;
+  INSERT INTO perfis (id, restaurante_id, nome, cargo)
+    VALUES (auth.uid(), v_conv.restaurante_id, p_nome, v_conv.cargo)
+    ON CONFLICT (id) DO NOTHING;
+  UPDATE convites SET usado = true WHERE token = p_token;
+  RETURN true;
+END $$;
 
 -- documentos
 CREATE POLICY "doc_all" ON documentos FOR ALL

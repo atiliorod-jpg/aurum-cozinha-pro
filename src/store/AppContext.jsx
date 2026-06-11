@@ -27,6 +27,13 @@ const ROTULO = {
 const semIdTs = ({ id, ts, ...resto }) => resto;
 const linhaParaRegistro = (row) => ({ id: row.id, ts: Number(row.ts), ...row.dados });
 
+// Preferências de APARELHO (ficam só no tablet, não sincronizam):
+// "último responsável/turno/destino" são conveniência local de cada aparelho.
+// As demais (ex.: autoMinMax) são do restaurante e vão para a nuvem.
+const PREFS_APARELHO = ['responsavel', 'turno', 'destino'];
+const soRestaurante = (p) => { const o = { ...p }; PREFS_APARELHO.forEach(k => delete o[k]); return o; };
+const soAparelho = (p) => { const o = {}; PREFS_APARELHO.forEach(k => { if (p[k] !== undefined) o[k] = p[k]; }); return o; };
+
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -107,9 +114,23 @@ export function AppProvider({ children }) {
   const setFichas     = useCallback((v) => persistCatalogo('fichas',     setFichasRaw,     v), [persistCatalogo]);
 
   const setPref = useCallback((chave, valor) => {
+    const r = ridRef.current;
     const next = { ...dadosRef.current.prefs, [chave]: valor };
-    persistCatalogo('prefs', setPrefsRaw, next);
-  }, [persistCatalogo]);
+    setPrefsRaw(next);
+    if (PREFS_APARELHO.includes(chave)) {
+      // só neste aparelho — não sobe para a nuvem
+      cacheSet(r, '_prefs_device', soAparelho(next));
+    } else {
+      // preferência do restaurante → nuvem (sem as chaves de aparelho)
+      const restPrefs = soRestaurante(next);
+      cacheSet(r, 'prefs', restPrefs);
+      if (r) {
+        const payload = { restaurante_id: r, chave: 'prefs', dados: restPrefs, updated_at: new Date().toISOString() };
+        supabase.from('documentos').upsert(payload)
+          .then(({ error }) => { if (error) outboxAdd(r, { kind: 'doc', op: 'upsert', payload }); });
+      }
+    }
+  }, []);
 
   const addPessoa = useCallback((nome) => {
     const n = (nome || '').trim();
@@ -236,7 +257,8 @@ export function AppProvider({ children }) {
     setPessoasRaw(cacheGet(rid, 'pessoas', CAT.pessoas));
     setDestinosRaw(cacheGet(rid, 'destinos', CAT.destinos));
     setFichasRaw(cacheGet(rid, 'fichas', CAT.fichas));
-    setPrefsRaw(cacheGet(rid, 'prefs', CAT.prefs));
+    // prefs = restaurante (nuvem) + aparelho (local), mescladas
+    setPrefsRaw({ ...cacheGet(rid, 'prefs', CAT.prefs), ...cacheGet(rid, '_prefs_device', {}) });
     setComprasRaw(cacheGet(rid, 'compras', []));
     setEntradasRaw(cacheGet(rid, 'entradas', []));
     setSaidasRaw(cacheGet(rid, 'saidas', []));
@@ -259,6 +281,8 @@ export function AppProvider({ children }) {
             ({ error } = await supabase.from('registros').update({ deleted: true }).eq('id', item.payload.id));
           else if (item.kind === 'doc' && item.op === 'upsert')
             ({ error } = await supabase.from('documentos').upsert(item.payload));
+          else if (item.kind === 'clearAll')
+            ({ error } = await supabase.from('registros').update({ deleted: true }).eq('restaurante_id', rid).neq('tipo', 'auditoria'));
           if (error) restantes.push(item);
         } catch { restantes.push(item); }
       }
@@ -286,7 +310,15 @@ export function AppProvider({ children }) {
       aplicaCat('pessoas', setPessoasRaw, CAT.pessoas);
       aplicaCat('destinos', setDestinosRaw, CAT.destinos);
       aplicaCat('fichas', setFichasRaw, CAT.fichas);
-      aplicaCat('prefs', setPrefsRaw, CAT.prefs);
+      // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
+      const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
+      if (mapa['prefs'] === undefined) {
+        supabase.from('documentos')
+          .upsert({ restaurante_id: rid, chave: 'prefs', dados: prefsNuvem, updated_at: new Date().toISOString() })
+          .then(() => {});
+      }
+      cacheSet(rid, 'prefs', prefsNuvem);
+      setPrefsRaw({ ...prefsNuvem, ...cacheGet(rid, '_prefs_device', {}) });
 
       const { data: regs } = await supabase.from('registros').select('*').eq('restaurante_id', rid).eq('deleted', false);
       if (!ativo) return;
@@ -316,7 +348,7 @@ export function AppProvider({ children }) {
     };
     const setterDoc = {
       produtos: setProdutosRaw, categorias: setCategoriasRaw, pessoas: setPessoasRaw,
-      destinos: setDestinosRaw, fichas: setFichasRaw, prefs: setPrefsRaw,
+      destinos: setDestinosRaw, fichas: setFichasRaw,
     };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
@@ -333,6 +365,11 @@ export function AppProvider({ children }) {
     };
     const aplicaDocRT = (row) => {
       if (!row) return;
+      if (row.chave === 'prefs') { // mescla com as preferências locais do aparelho
+        cacheSet(rid, 'prefs', row.dados);
+        setPrefsRaw({ ...row.dados, ...cacheGet(rid, '_prefs_device', {}) });
+        return;
+      }
       const setRaw = setterDoc[row.chave];
       if (!setRaw) return;
       setRaw(row.dados);
@@ -362,7 +399,8 @@ export function AppProvider({ children }) {
     [['compras', setComprasRaw], ['entradas', setEntradasRaw], ['saidas', setSaidasRaw],
      ['aparas', setAparasRaw], ['desperdicio', setDesperdicioRaw], ['ajustes', setAjustesRaw]]
       .forEach(([key, setRaw]) => { setRaw([]); cacheSet(r, key, []); });
-    if (r) supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).neq('tipo', 'auditoria').then(() => {});
+    if (r) supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).neq('tipo', 'auditoria')
+      .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: {} }); });
     logAudit('apagou todos os registros', 'compras, entradas, saídas, aparas, perdas e contagens');
   }, [logAudit]);
 
