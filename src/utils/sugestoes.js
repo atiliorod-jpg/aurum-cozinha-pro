@@ -1,10 +1,12 @@
 import { hoje } from './formatters';
 
-// Janela de análise do consumo (últimos N dias de saídas)
-const JANELA_DIAS = 30;
-// Só sugere após 1 mês completo desde a primeira saída registrada —
-// antes disso a média seria distorcida pela falta de histórico.
-const MIN_DIAS_DADOS = 30;
+// Janela de análise do consumo (últimos N dias de saídas).
+// 15 dias: responde mais rápido a mudanças de demanda (ex.: alta temporada
+// puxa o mín/máx pra cima, sugerindo compras maiores) sem ficar tão ruidoso.
+const JANELA_DIAS = 15;
+// Só sugere depois de 15 dias de histórico desde a primeira saída —
+// antes disso a média seria distorcida pela falta de dados.
+const MIN_DIAS_DADOS = 15;
 // Política do restaurante: mínimo cobre 3 dias de produção, máximo cobre 6
 export const DIAS_MIN = 3;
 export const DIAS_MAX = 6;

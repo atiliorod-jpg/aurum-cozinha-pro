@@ -575,7 +575,7 @@ export default function Configuracoes() {
             <p className="text-sm font-bold text-polo-navy">🤖 Ajuste automático de Mín/Máx</p>
             <p className="text-xs text-gray-500 mt-0.5">
               O sistema recalcula sozinho o estoque mínimo ({DIAS_MIN} dias de consumo) e máximo ({DIAS_MAX} dias)
-              de cada produto pela média de saídas dos últimos 30 dias. Desligado, ele apenas sugere e você aprova.
+              de cada produto pela média de saídas dos últimos 15 dias. Desligado, ele apenas sugere e você aprova.
             </p>
           </div>
           <button onClick={() => {

@@ -93,11 +93,11 @@ describe('calcSugestoesMinMax — mín 3 dias / máx 6 dias', () => {
       data: addDias(ref, -i), itens: [{ produtoId: 'charque', quantidade: 10 }],
     }));
 
-  it('não sugere antes de 30 dias de histórico', () => {
+  it('não sugere antes de 15 dias de histórico', () => {
     expect(calcSugestoesMinMax(produtos, saidasEm(10, '2026-06-10'), '2026-06-10')).toEqual({});
   });
 
-  it('com 30 dias: média diária × 3 = mín, × 6 = máx', () => {
+  it('com 15+ dias: média diária × 3 = mín, × 6 = máx', () => {
     const sug = calcSugestoesMinMax(produtos, saidasEm(30, '2026-06-10'), '2026-06-10');
     expect(sug.charque.min).toBe(30); // média 10/dia
     expect(sug.charque.max).toBe(60);
