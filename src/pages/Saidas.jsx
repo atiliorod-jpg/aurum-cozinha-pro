@@ -8,21 +8,15 @@ import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, diasAte } from '../utils/datas';
 import { calcLotes } from '../utils/lotes';
 
-const DESTINOS = [
-  { value: 'polo_central', label: '🏠 Polo Central' },
-  { value: 'polo_beer', label: '🍺 Polo Beer' },
-];
-
-// Rótulo de destino para exibição (inclui as saídas internas de produção)
-const rotuloDestino = (v) =>
-  v === 'producao' ? '🍲 Produção' : (DESTINOS.find(d => d.value === v)?.label || v);
 
 export default function Saidas() {
-  const { produtos, addSaida, saidas, removeSaida, restaurarRegistro, calcEstoque, entradas, desperdicio, categorias, prefs, setPref } = useApp();
+  const { produtos, addSaida, saidas, removeSaida, restaurarRegistro, calcEstoque, entradas, desperdicio, categorias, locais, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
+  // rótulo do destino (inclui a saída interna de produção)
+  const rotuloDestino = (v) => v === 'producao' ? '🍲 Produção' : (locais.find(l => l.id === v)?.nome || v);
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
-  const [destino, setDestino] = useState(prefs.destino || 'polo_central');
+  const [destino, setDestino] = useState(prefs.destino || locais[0]?.id || '');
   const [obs, setObs] = useState('');
   const [qtds, setQtds] = useState({});
   const [catAtiva, setCatAtiva] = useState(categorias[0]);
@@ -113,17 +107,21 @@ export default function Saidas() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Destino</label>
-              <div className="flex gap-2">
-                {DESTINOS.map(d => (
-                  <button key={d.value} onClick={() => setDestino(d.value)}
-                    className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-colors
-                      ${destino === d.value
-                        ? 'border-polo-gold bg-polo-navy text-polo-gold'
-                        : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                    {d.label}
-                  </button>
-                ))}
-              </div>
+              {locais.length === 0 ? (
+                <p className="text-xs text-amber-600">Nenhum destino cadastrado. Crie em Configurações → Sistema.</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {locais.map(l => (
+                    <button key={l.id} onClick={() => setDestino(l.id)}
+                      className={`flex-1 min-w-[40%] py-3 rounded-xl text-sm font-semibold border-2 transition-colors
+                        ${destino === l.id
+                          ? 'border-polo-gold bg-polo-navy text-polo-gold'
+                          : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                      {l.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
           </div>
@@ -202,7 +200,7 @@ export default function Saidas() {
           {itensPreenchidos.length > 0 && (
             <div className="bg-red-50 rounded-xl p-3 border border-red-100">
               <p className="text-xs font-semibold text-red-700 mb-1">
-                Saída para {DESTINOS.find(d => d.value === destino)?.label}:
+                Saída para {rotuloDestino(destino)}:
               </p>
               {itensPreenchidos.map(([id, qtd]) => {
                 const p = produtos.find(x => x.id === id);

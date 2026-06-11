@@ -5,15 +5,14 @@ import { useUI } from '../store/UIContext';
 import { fmtData, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
 
-const DEST = { polo_central: 'Polo Central', polo_beer: 'Polo Beer', producao: '🍲 Produção' };
-
 export default function Historico() {
   const {
-    produtos, compras, entradas, saidas, aparas, desperdicio,
+    produtos, compras, entradas, saidas, aparas, desperdicio, locais,
     removeCompra, removeEntrada, removeSaida, removeApara, removeDesperdicio,
     restaurarRegistro,
   } = useApp();
   const { toast, confirm } = useUI();
+  const destNome = (v) => v === 'producao' ? '🍲 Produção' : (locais.find(l => l.id === v)?.nome || v);
   const [filtro, setFiltro] = useState('todas');
   const [busca, setBusca] = useState('');
 
@@ -38,7 +37,7 @@ export default function Historico() {
       resumo: itensTxt(r) + ((r.monitorados || []).length ? ` · monitorado: ${r.monitorados.map(m => `${fmtNum(m.quantidade)} ${m.nome}`).join(', ')}` : ''),
       remover: () => { removerProducao(r); return null; } })),
     ...saidas.filter(s => s.destino !== 'producao').map(r => ({ id: r.id, grupo: 'saidas', icon: '📤', cor: 'text-red-600', r,
-      resumo: `${itensTxt(r)} → ${DEST[r.destino] || r.destino}`, remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
+      resumo: `${itensTxt(r)} → ${destNome(r.destino)}`, remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
     ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: '✂️', cor: 'text-teal-600', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,
       remover: () => { removeApara(r.id); return { tipo: 'apara', reg: r }; } })),

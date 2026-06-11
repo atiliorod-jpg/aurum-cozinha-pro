@@ -367,7 +367,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
 export default function Configuracoes() {
   const { produtos, setProdutos, saidas, limparTudo, resetarProdutos, exportarBackup, importarBackup,
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
-          fichas, setFichas, producoes, setProducoes, logAudit, prefs, setPref } = useApp();
+          fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref } = useApp();
   const { usuarios, sessao, criarConvite, alterarCargo } = useAuth();
   const { toast, confirm } = useUI();
   const sugestoes = calcSugestoesMinMax(produtos, saidas);
@@ -381,6 +381,18 @@ export default function Configuracoes() {
     return falta;
   };
   const [novoDestino, setNovoDestino] = useState('');
+  const [novoLocal, setNovoLocal] = useState('');
+
+  const handleAddLocal = () => {
+    const nome = novoLocal.trim();
+    if (!nome) return;
+    if (locais.some(l => l.nome.toLowerCase() === nome.toLowerCase())) { toast('Esse destino já existe.', 'aviso'); return; }
+    const id = nome.normalize('NFD').replace(/[^a-zA-Z0-9]/g, '').toLowerCase().slice(0, 16) || `loc${Date.now()}`;
+    setLocais([...locais, { id: locais.some(l => l.id === id) ? id + Date.now() : id, nome }]);
+    setNovoLocal('');
+    logAudit('adicionou destino de saída', nome);
+    toast('Destino adicionado.', 'sucesso');
+  };
   const [novaCategoria, setNovaCategoria] = useState('');
   const [conviteCargo, setConviteCargo] = useState('cozinha');
   const [conviteGerado, setConviteGerado] = useState(null); // { token, cargo }
@@ -856,6 +868,35 @@ export default function Configuracoes() {
       </>}
 
       {secao === 'sistema' && <>
+      {/* Destinos de saída (para onde o estoque vai) */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
+        <div>
+          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">📤 Destinos de Saída</p>
+          <p className="text-xs text-gray-500 mt-1">Para onde o estoque é enviado (ex.: unidades, salão, delivery). Aparecem na tela de Saídas.</p>
+        </div>
+        <div className="flex gap-2">
+          <input type="text" value={novoLocal} onChange={e => setNovoLocal(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAddLocal(); }}
+            placeholder="Novo destino (ex: Polo Beer)"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          <button onClick={handleAddLocal}
+            className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm">+ Add</button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {locais.length === 0 && <span className="text-xs text-gray-500">Nenhum destino — adicione ao menos um para registrar saídas.</span>}
+          {locais.map(l => (
+            <span key={l.id} className="inline-flex items-center gap-2 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-sm font-medium text-polo-navy">
+              {l.nome}
+              <button onClick={async () => {
+                  const ok = await confirm({ titulo: 'Remover destino', mensagem: `Remover "${l.nome}"? Saídas antigas não mudam.`, perigo: true, confirmar: 'Remover' });
+                  if (ok) { setLocais(locais.filter(x => x.id !== l.id)); logAudit('removeu destino de saída', l.nome); toast('Destino removido.', 'sucesso'); }
+                }}
+                className="text-red-400 font-bold text-base leading-none">×</button>
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* Destinos de apara */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
