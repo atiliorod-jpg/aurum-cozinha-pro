@@ -78,7 +78,12 @@ export default function Saidas() {
       if (!okData) return;
     }
     if (!responsavel) {
-      toast('Saída sem responsável identificado — considere selecionar quem está registrando.', 'aviso');
+      const okResp = await confirm({
+        titulo: 'Sem responsável',
+        mensagem: 'Nenhum responsável foi selecionado. Sem isso a saída fica sem rastreio de quem registrou. Deseja continuar mesmo assim?',
+        confirmar: 'Registrar sem responsável',
+      });
+      if (!okResp) return;
     }
     // Verifica se alguma saída deixa o estoque negativo
     const negativos = itensPreenchidos
@@ -100,13 +105,22 @@ export default function Saidas() {
   const [buscaHist, setBuscaHist] = useState('');
   const saidasOrdenadas = useMemo(() => [...saidas]
     .filter(s => s.destino !== 'producao')
-    .sort((a, b) => b.data.localeCompare(a.data) || b.hora?.localeCompare(a.hora || ''))
+    .sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.hora || '').localeCompare(a.hora || ''))
     .filter(s => !buscaHist ||
       `${s.responsavel || ''} ${(s.itens || []).map(i => nomeProduto(produtos, i.produtoId)).join(' ')}`.toLowerCase().includes(buscaHist.toLowerCase())),
     [saidas, buscaHist, produtos]);
 
   return (
     <Layout title="Saídas para Restaurantes">
+      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
+        {[['novo', '+ Nova saída'], ['historico', '📋 Histórico']].map(([v, l]) => (
+          <button key={v} onClick={() => setTab(v)}
+            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
+              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
       {tab === 'novo' ? (
         <div className="space-y-4">
           <div className="bg-white rounded-xl p-4 space-y-3">
@@ -179,7 +193,7 @@ export default function Saidas() {
                           : dias <= 3 ? 'bg-orange-100 text-orange-700 border-orange-300'
                           : 'bg-gray-50 text-gray-500 border-gray-200';
                         return (
-                          <span key={`${l.validade}_${l.dataEntrada || ''}`} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cor}`}>
+                          <span key={`${l.validade}_${l.dataEntrada || ''}_${i}`} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cor}`}>
                             {fmtNum(l.restante)} {p.unidade} • {dias < 0 ? 'VENCIDO ' : dias === 0 ? 'vence HOJE ' : 'vence '}{fmtData(l.validade)}
                             {i === 0 && lotes[p.id].length > 1 && ' ← pegar deste'}
                           </span>

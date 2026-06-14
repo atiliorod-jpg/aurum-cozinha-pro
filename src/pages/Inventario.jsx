@@ -148,7 +148,8 @@ export default function Inventario() {
                     sessao.itens.forEach(aj => removeAjuste(aj.id));
                     toast('Contagem removida.', 'sucesso');
                   }
-                }} className="text-red-400 text-lg font-semibold ml-2">×</button>
+                }} aria-label="Remover esta contagem"
+                  className="text-red-500 text-lg font-semibold ml-2 min-w-11 min-h-11 flex items-center justify-center flex-shrink-0">×</button>
               </div>
               {sessao.itens.map(aj => {
                 const p = produtos.find(x => x.id === aj.produtoId);

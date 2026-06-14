@@ -1,4 +1,9 @@
 import { hoje } from './formatters';
+import { addDias } from './datas';
+
+// Dia da semana (0=domingo) de uma data YYYY-MM-DD, no fuso local (meio-dia evita
+// virada de dia na conversão UTC).
+const weekdayOf = (iso) => new Date(iso + 'T12:00:00').getDay();
 
 // Janela de análise do consumo (últimos N dias de saídas).
 // 15 dias: responde mais rápido a mudanças de demanda (ex.: alta temporada
@@ -24,7 +29,7 @@ const arredondar = (v, unidade) =>
  * Retorna { [produtoId]: { min, max, mediaDiaria, dias } } apenas para
  * produtos com saídas registradas e histórico suficiente.
  */
-export function calcSugestoesMinMax(produtos, saidas, ref = hoje(), diasMin = DIAS_MIN, diasMax = DIAS_MAX) {
+export function calcSugestoesMinMax(produtos, saidas, ref = hoje(), diasMin = DIAS_MIN, diasMax = DIAS_MAX, porDiaSemana = false) {
   if (!saidas.length) return {};
 
   const primeira = saidas.reduce((m, s) => (s.data < m ? s.data : m), saidas[0].data);
@@ -34,11 +39,28 @@ export function calcSugestoesMinMax(produtos, saidas, ref = hoje(), diasMin = DI
   const inicioJanela = new Date(new Date(ref).getTime() - (JANELA_DIAS - 1) * DIA_MS)
     .toISOString().slice(0, 10);
 
-  const totais = {};
+  const totais = {};        // consumo total por produto na janela
+  const totaisWd = {};      // consumo por produto por dia-da-semana (modo sazonal)
+  const cntWd = [0, 0, 0, 0, 0, 0, 0]; // quantas vezes cada dia-da-semana ocorreu na janela
+
+  if (porDiaSemana) {
+    for (let d = 0; d < diasObservados; d++) {
+      const dia = addDias(ref, -d);
+      if (dia < inicioJanela) break;
+      cntWd[weekdayOf(dia)]++;
+    }
+  }
+
   saidas.forEach(s => {
     if (s.data < inicioJanela || s.data > ref) return;
+    const wd = porDiaSemana ? weekdayOf(s.data) : 0;
     (s.itens || []).forEach(it => {
-      totais[it.produtoId] = (totais[it.produtoId] || 0) + (parseFloat(it.quantidade) || 0);
+      const q = parseFloat(it.quantidade) || 0;
+      totais[it.produtoId] = (totais[it.produtoId] || 0) + q;
+      if (porDiaSemana) {
+        const m = totaisWd[it.produtoId] || (totaisWd[it.produtoId] = [0, 0, 0, 0, 0, 0, 0]);
+        m[wd] += q;
+      }
     });
   });
 
@@ -47,11 +69,27 @@ export function calcSugestoesMinMax(produtos, saidas, ref = hoje(), diasMin = DI
     const total = totais[p.id];
     if (!total) return;
     const media = total / diasObservados;
+    let minVal, maxVal;
+    if (porDiaSemana) {
+      // média por dia-da-semana (cai para a média geral quando aquele dia não ocorreu)
+      const wdAvg = cntWd.map((c, wd) => (c > 0 ? (totaisWd[p.id]?.[wd] || 0) / c : media));
+      // soma o consumo previsto dos próximos N dias (cobre picos de fim de semana)
+      const somaProximos = (n) => {
+        let soma = 0;
+        for (let i = 1; i <= n; i++) soma += wdAvg[weekdayOf(addDias(ref, i))];
+        return soma;
+      };
+      minVal = somaProximos(diasMin);
+      maxVal = somaProximos(diasMax);
+    } else {
+      minVal = media * diasMin;
+      maxVal = media * diasMax;
+    }
     sug[p.id] = {
       mediaDiaria: media,
       dias: diasObservados,
-      min: arredondar(media * diasMin, p.unidade),
-      max: arredondar(media * diasMax, p.unidade),
+      min: arredondar(minVal, p.unidade),
+      max: arredondar(maxVal, p.unidade),
     };
   });
   return sug;

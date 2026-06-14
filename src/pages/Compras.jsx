@@ -146,7 +146,7 @@ export default function Compras() {
                     <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Abaixo do mínimo</p>
                     <span className="text-xs text-gray-400">{lista.length} {lista.length === 1 ? 'item' : 'itens'} • mais crítico primeiro</span>
                   </div>
-                  {lista.map(({ p, atual, brutoKg, liquidoKg, fc, fornecedor }) => {
+                  {lista.map(({ p, atual, sugerido, brutoKg, liquidoKg, fc, fornecedor }) => {
                     const zerado = atual <= 0;
                     const pctMin = p.min > 0 ? Math.min(100, Math.round((atual / p.min) * 100)) : 0;
                     const urgencia = zerado ? 'zerado' : pctMin < 30 ? 'critico' : 'alerta';
@@ -161,7 +161,7 @@ export default function Compras() {
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0
                               ${urgencia === 'zerado' ? 'bg-red-600 text-white'
                                 : urgencia === 'critico' ? 'bg-orange-500 text-white'
-                                : 'bg-yellow-500 text-white'}`}>
+                                : 'bg-yellow-400 text-yellow-950'}`}>
                               {urgencia === 'zerado' ? 'Zerado' : urgencia === 'critico' ? 'Crítico' : 'Alerta'}
                             </span>
                             <span className="text-[10px] text-gray-500 flex-shrink-0">{p.categoria}</span>
@@ -214,6 +214,13 @@ export default function Compras() {
                               )}
                             </div>
                           </div>
+                          {/* Conversão para embalagem de compra (caixa/fardo) */}
+                          {p.unidEmbalagem > 0 && sugerido > 0 && (
+                            <div className="text-xs text-polo-navy bg-polo-beige rounded-lg px-3 py-1.5 font-semibold">
+                              📦 ≈ {Math.ceil(sugerido / p.unidEmbalagem)} {p.nomeEmbalagem || 'embalagem'}(s)
+                              <span className="font-normal text-gray-500"> ({p.unidEmbalagem} {p.unidade} cada)</span>
+                            </div>
+                          )}
                           {/* Fornecedor */}
                           <div className="text-xs text-gray-500 flex items-center gap-1">
                             <span>🏪</span>

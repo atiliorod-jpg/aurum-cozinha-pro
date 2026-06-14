@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import { AppProvider } from './store/AppContext';
 import { UIProvider } from './store/UIContext';
+import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import Login from './pages/Login';
 import NovaSenha from './pages/NovaSenha';
 import Dashboard from './pages/Dashboard';
@@ -29,7 +30,7 @@ function Splash({ texto = 'Carregando…' }) {
     <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-5 p-6">
       <img src={`${import.meta.env.BASE_URL}logo-aurum.png`} alt="Aurum"
         className="w-24 h-24 rounded-2xl ring-1 ring-polo-gold/30 object-cover animate-pulse" />
-      <p className="text-white/60 text-sm">{texto}</p>
+      <p className="text-white/90 text-sm">{texto}</p>
     </div>
   );
 }
@@ -82,6 +83,7 @@ export default function App() {
         <AuthProvider>
           <AppProvider>
             <Rotas />
+            <PwaUpdatePrompt />
           </AppProvider>
         </AuthProvider>
       </UIProvider>

@@ -15,7 +15,7 @@ export function UIProvider({ children }) {
     setToasts(prev => [...prev, { id, mensagem, tipo, acao: opts.acao }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, opts.duracao ?? (opts.acao ? 6000 : 2800));
+    }, opts.duracao ?? (opts.acao ? 7000 : 4500));
   }, []);
 
   const fecharToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
@@ -53,9 +53,11 @@ export function UIProvider({ children }) {
       {children}
 
       {/* Toasts */}
-      <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-[90%] max-w-sm pointer-events-none">
+      <div role="status" aria-live="polite"
+        className="fixed top-16 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-[90%] max-w-sm pointer-events-none">
         {toasts.map(t => (
           <div key={t.id}
+            role={t.tipo === 'erro' ? 'alert' : undefined}
             className={`pointer-events-auto rounded-xl px-4 py-3 shadow-lg text-sm font-semibold flex items-center gap-2 animate-[slideDown_0.2s_ease-out]
               ${t.tipo === 'sucesso' ? 'bg-green-600 text-white' :
                 t.tipo === 'erro' ? 'bg-red-600 text-white' :
@@ -78,13 +80,14 @@ export function UIProvider({ children }) {
       {confirmState && (
         <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6"
           onClick={e => { if (e.target === e.currentTarget && !confirmState.perigo) fecharConfirm(false); }}>
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+          <div role="dialog" aria-modal="true" aria-label={confirmState.titulo}
+            className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
             <h2 className={`font-bold text-lg ${confirmState.perigo ? 'text-red-600' : 'text-polo-navy'}`}>
               {confirmState.titulo}
             </h2>
             <p className="text-sm text-gray-600 whitespace-pre-line">{confirmState.mensagem}</p>
             <div className="flex gap-3 pt-2">
-              <button onClick={() => fecharConfirm(false)}
+              <button onClick={() => fecharConfirm(false)} autoFocus
                 className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">
                 {confirmState.cancelar}
               </button>

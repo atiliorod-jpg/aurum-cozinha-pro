@@ -65,7 +65,7 @@ export default function GuideTour() {
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-bold text-polo-navy">📋 Fluxo do turno</p>
         <button onClick={dispensar} aria-label="Dispensar guia por hoje"
-          className="text-gray-400 text-lg font-bold leading-none">×</button>
+          className="text-gray-500 text-lg font-bold leading-none min-w-11 min-h-11 flex items-center justify-center -mr-2">×</button>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">

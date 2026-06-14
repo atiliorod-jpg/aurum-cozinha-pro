@@ -25,7 +25,7 @@ export default function Layout({ title, children, actions }) {
           <div className="min-w-0 leading-tight">
             <h1 className="text-base font-bold text-polo-gold tracking-wide truncate">{title}</h1>
             {sessao?.restauranteNome && (
-              <p className="text-[10px] text-white/50 truncate">{sessao.restauranteNome}</p>
+              <p className="text-[10px] text-white/80 truncate">{sessao.restauranteNome}</p>
             )}
           </div>
         </div>
@@ -35,7 +35,7 @@ export default function Layout({ title, children, actions }) {
             <div className="flex items-center gap-1.5">
               {temPermissao('gerencia') && (
                 <Link to="/auditoria" aria-label="Histórico de mudanças" title="Histórico de mudanças"
-                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-polo-gold/80 active:scale-90 transition-transform
+                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-polo-gold active:scale-90 transition-transform
                              focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
                   <Icon name="historico" size={17} />
                 </Link>
@@ -46,7 +46,7 @@ export default function Layout({ title, children, actions }) {
                 <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-[10px] font-bold flex items-center justify-center">
                   {sessao.nome.slice(0, 1).toUpperCase()}
                 </span>
-                <span className="text-[10px] font-semibold text-white/80 max-w-16 truncate">{sessao.nome.split(' ')[0]}</span>
+                <span className="text-[10px] font-semibold text-white/90 max-w-16 truncate">{sessao.nome.split(' ')[0]}</span>
               </button>
             </div>
           )}
@@ -56,7 +56,7 @@ export default function Layout({ title, children, actions }) {
       <div aria-hidden="true" className="fixed inset-0 pointer-events-none flex items-center justify-center print:hidden">
         <img src={LOGO} alt="" className="w-72 h-72 opacity-[0.05] rounded-full" />
       </div>
-      <main className="flex-1 p-4 max-w-2xl mx-auto w-full relative">
+      <main className="flex-1 p-4 max-w-2xl lg:max-w-4xl mx-auto w-full relative">
         <GuideTour />
         {children}
       </main>

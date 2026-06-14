@@ -1,4 +1,9 @@
-export const hoje = () => new Date().toISOString().slice(0, 10);
+// Data local no formato YYYY-MM-DD (NUNCA usar toISOString aqui: ele converte
+// para UTC e, no horário de Brasília, vira o dia seguinte das 21h à meia-noite).
+export const isoLocal = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+export const hoje = () => isoLocal();
 
 export const fmtData = (iso) => {
   if (!iso) return '';
@@ -25,8 +30,8 @@ export const semanaAtual = () => {
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   return {
-    inicio: start.toISOString().slice(0, 10),
-    fim: end.toISOString().slice(0, 10),
+    inicio: isoLocal(start),
+    fim: isoLocal(end),
   };
 };
 

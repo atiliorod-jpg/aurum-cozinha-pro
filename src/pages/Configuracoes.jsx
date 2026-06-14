@@ -13,6 +13,15 @@ import { POLO_PRESET } from '../data/presetPolo';
 // a conversão para número acontece só no salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
 
+// Fecha o modal com a tecla Escape (acessibilidade — WCAG 2.1.2)
+function useEscClose(onFechar) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onFechar(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onFechar]);
+}
+
 function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin = 3, diasMax = 6, onSalvar, onFechar }) {
   const [form, setForm] = useState(() => produto
     ? {
@@ -23,6 +32,8 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
         valCongelado: numVazio(produto.valCongelado),
         valResfriado: numVazio(produto.valResfriado),
         pesoUnidade: numVazio(produto.pesoUnidade),
+        unidEmbalagem: numVazio(produto.unidEmbalagem),
+        nomeEmbalagem: produto.nomeEmbalagem || '',
         gramatura: numVazio(produto.gramatura),
         coccao: numVazio(produto.coccao),
         entradaCozida: produto.entradaCozida || false,
@@ -30,9 +41,11 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
     : {
         nome: '', categoria: categorias[0], unidade: 'kg',
         estoqueInicial: '', min: '', max: '', valCongelado: '', valResfriado: '', pesoUnidade: '',
+        unidEmbalagem: '', nomeEmbalagem: '',
         gramatura: '', coccao: '', entradaCozida: false, ativo: true,
       });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  useEscClose(onFechar);
 
   // Coccão só faz sentido quando a cozinha processa o produto (há receita que o usa)
   const temReceita = produto?.id
@@ -52,7 +65,7 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
 
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Nome do produto</label>
-          <input type="text" value={form.nome} onChange={e => set('nome', e.target.value)}
+          <input type="text" value={form.nome} onChange={e => set('nome', e.target.value)} autoFocus
             placeholder="Ex: Filé de tilápia"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         </div>
@@ -156,6 +169,24 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
           </div>
         )}
 
+        {/* Embalagem de compra (caixa/fardo → unidade de estoque) */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-600 mb-1">📦 Embalagem de compra (opcional)</label>
+          <div className="grid grid-cols-2 gap-3">
+            <input type="number" min="0" step="1" value={form.unidEmbalagem}
+              onChange={e => set('unidEmbalagem', e.target.value)}
+              placeholder={`Qtd por embalagem`}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            <input type="text" value={form.nomeEmbalagem}
+              onChange={e => set('nomeEmbalagem', e.target.value)}
+              placeholder="Nome (ex: caixa, fardo)"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Ex.: 1 caixa = 24 {form.unidade}. A lista de compras mostra também quantas embalagens comprar.
+          </p>
+        </div>
+
         {/* Gramatura / Porcionamento */}
         <div className="border border-gray-100 rounded-xl p-3 space-y-3">
           <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🍽️ Gramatura / Porcionamento</p>
@@ -217,6 +248,8 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
               valCongelado: parseInt(form.valCongelado) || 0,
               valResfriado: parseInt(form.valResfriado) || 0,
               pesoUnidade: parseFloat(form.pesoUnidade) || 0,
+              unidEmbalagem: parseFloat(form.unidEmbalagem) || 0,
+              nomeEmbalagem: (form.nomeEmbalagem || '').trim(),
               gramatura: parseFloat(form.gramatura) || 0,
               coccao: Math.min(parseFloat(form.coccao) || 0, 90),
               entradaCozida: form.entradaCozida || false,
@@ -233,6 +266,7 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
 function ModalFicha({ ficha, fichas, categorias, onSalvar, onFechar }) {
   const [form, setForm] = useState(ficha || { materiaPrima: '', categoria: categorias[0] || '', preparacao: '', gramatura: '', coccao: '' });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  useEscClose(onFechar);
 
   // matérias-primas já existentes (sem repetição) para sugerir e evitar grupos duplicados
   const materiasPrimas = [...new Map(fichas.map(f => [f.materiaPrima.toLowerCase(), f.materiaPrima])).values()].sort();
@@ -311,6 +345,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
     ingredientes: [{ abate: false, produtoId: '', quantidade: '', nome: '', unidade: 'kg' }],
   });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+  useEscClose(onFechar);
   const setIng = (i, k, v) => setForm(prev => {
     const ing = [...prev.ingredientes];
     ing[i] = { ...ing[i], [k]: v };
@@ -433,7 +468,7 @@ export default function Configuracoes() {
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref } = useApp();
   const { usuarios, sessao, criarConvite, alterarCargo } = useAuth();
   const { toast, confirm } = useUI();
-  const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6);
+  const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
 
   // O que falta preencher em cada produto (marcação pedida pelo cliente)
   const pendenciasDoProduto = (p) => {
@@ -530,6 +565,7 @@ export default function Configuracoes() {
   const [secao, setSecao] = useState('produtos'); // produtos | acessos | sistema
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
+  const planilhaRef = useRef(null);
 
   const handleAddPessoa = () => {
     const n = novaPessoa.trim();
@@ -552,7 +588,7 @@ export default function Configuracoes() {
         const dados = JSON.parse(ev.target.result);
         const ok = await confirm({
           titulo: 'Restaurar backup',
-          mensagem: 'Isso vai SUBSTITUIR todos os dados atuais pelos do arquivo. Continuar?',
+          mensagem: 'Isso vai adicionar e atualizar os dados com os do arquivo (registros que existem hoje e não estão no backup são mantidos). Continuar?',
           perigo: true,
           confirmar: 'Restaurar',
         });
@@ -560,12 +596,120 @@ export default function Configuracoes() {
           importarBackup(dados);
           toast('Backup restaurado com sucesso!', 'sucesso');
         }
-      } catch {
-        toast('Arquivo inválido. Selecione um backup válido.', 'erro');
+      } catch (err) {
+        toast(err?.message || 'Arquivo inválido. Selecione um backup válido.', 'erro');
       }
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  // Colunas da planilha modelo de produtos (ordem fixa no download; na importação
+  // as colunas são localizadas por palavra-chave, então podem estar em qualquer ordem)
+  const COLS_PLANILHA = [
+    'Nome', 'Categoria', 'Unidade (kg/unid/g/L)', 'Estoque inicial', 'Mínimo', 'Máximo',
+    'Validade congelado (dias)', 'Validade resfriado (dias)', 'Peso por unidade (g)',
+    'Qtd por embalagem', 'Nome da embalagem', 'Gramatura (g/porção)', 'Cocção (%)', 'Entra cozido (sim/não)',
+  ];
+
+  const baixarPlanilhaModelo = async () => {
+    const XLSX = await import('xlsx');
+    const linhas = (POLO_PRESET.produtos || []).map(p => [
+      p.nome, p.categoria, p.unidade, p.estoqueInicial || 0, p.min || 0, p.max || 0,
+      p.valCongelado || 0, p.valResfriado || 0, p.pesoUnidade || 0,
+      p.unidEmbalagem || 0, p.nomeEmbalagem || '', p.gramatura || 0, p.coccao || 0, p.entradaCozida ? 'sim' : 'não',
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([COLS_PLANILHA, ...linhas]);
+    ws['!cols'] = COLS_PLANILHA.map(() => ({ wch: 20 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+    XLSX.writeFile(wb, 'modelo_produtos.xlsx');
+    toast('Planilha modelo baixada — preencha e importe.', 'sucesso');
+  };
+
+  const numBR = (v) => parseFloat(String(v ?? '').replace(',', '.')) || 0;
+
+  const importarPlanilha = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+        if (rows.length < 2) { toast('A planilha não tem linhas de produto.', 'erro'); return; }
+        const head = rows[0].map(h => String(h || '').toLowerCase().trim());
+        const col = (fn) => head.findIndex(fn);
+        const iNome = col(h => h === 'nome' || (h.includes('nome') && !h.includes('embalagem')));
+        const iCat = col(h => h.includes('categoria'));
+        const iUnid = col(h => h.includes('unidade') && !h.includes('peso'));
+        const iEst = col(h => h.includes('estoque'));
+        const iMin = col(h => h.includes('mín') || h.includes('minimo'));
+        const iMax = col(h => h.includes('máx') || h.includes('maximo'));
+        const iCong = col(h => h.includes('congelado'));
+        const iResf = col(h => h.includes('resfriado'));
+        const iPeso = col(h => h.includes('peso'));
+        const iEmbQ = col(h => h.includes('embalagem') && (h.includes('qtd') || h.includes('por')));
+        const iEmbN = col(h => h.includes('embalagem') && h.includes('nome'));
+        const iGram = col(h => h.includes('gramatura'));
+        const iCoc = col(h => h.includes('cocç') || h.includes('coccao') || h.includes('cocc'));
+        const iCozido = col(h => h.includes('cozido'));
+        if (iNome < 0) { toast('A planilha precisa de uma coluna "Nome".', 'erro'); return; }
+
+        const unidsValidas = ['kg', 'unid', 'g', 'L'];
+        const novos = []; const novasCats = new Set(categorias);
+        rows.slice(1).forEach(r => {
+          const nome = String(r[iNome] ?? '').trim();
+          if (!nome) return;
+          let unidade = iUnid >= 0 ? String(r[iUnid] ?? '').trim() : 'kg';
+          unidade = unidsValidas.find(u => u.toLowerCase() === unidade.toLowerCase()) || 'kg';
+          const categoria = (iCat >= 0 ? String(r[iCat] ?? '').trim() : '') || (categorias[0] || 'GERAL');
+          novasCats.add(categoria.toUpperCase());
+          const cozido = iCozido >= 0 ? /^s/i.test(String(r[iCozido] ?? '').trim()) : false;
+          novos.push({
+            nome, categoria: categoria.toUpperCase(), unidade,
+            estoqueInicial: iEst >= 0 ? numBR(r[iEst]) : 0,
+            min: iMin >= 0 ? numBR(r[iMin]) : 0,
+            max: iMax >= 0 ? numBR(r[iMax]) : 0,
+            valCongelado: iCong >= 0 ? numBR(r[iCong]) : 0,
+            valResfriado: iResf >= 0 ? numBR(r[iResf]) : 0,
+            pesoUnidade: iPeso >= 0 ? numBR(r[iPeso]) : 0,
+            unidEmbalagem: iEmbQ >= 0 ? numBR(r[iEmbQ]) : 0,
+            nomeEmbalagem: iEmbN >= 0 ? String(r[iEmbN] ?? '').trim() : '',
+            gramatura: iGram >= 0 ? numBR(r[iGram]) : 0,
+            coccao: iCoc >= 0 ? Math.min(numBR(r[iCoc]), 90) : 0,
+            entradaCozida: cozido, ativo: true,
+          });
+        });
+        if (!novos.length) { toast('Nenhum produto válido na planilha.', 'erro'); return; }
+
+        const ok = await confirm({
+          titulo: 'Importar planilha',
+          mensagem: `Encontrei ${novos.length} produto(s). Os que já existem (mesmo nome) serão atualizados; os novos serão criados. Continuar?`,
+          confirmar: 'Importar',
+        });
+        if (!ok) return;
+
+        // mescla por nome (case-insensitive), preservando id e estoque dos existentes
+        const porNome = new Map(produtos.map(p => [p.nome.toLowerCase().trim(), p]));
+        let criados = 0, atualizados = 0;
+        novos.forEach(n => {
+          const ex = porNome.get(n.nome.toLowerCase().trim());
+          if (ex) { porNome.set(n.nome.toLowerCase().trim(), { ...ex, ...n, id: ex.id }); atualizados++; }
+          else { porNome.set(n.nome.toLowerCase().trim(), { ...n, id: `custom_${Date.now()}_${criados}` }); criados++; }
+        });
+        setCategorias([...novasCats]);
+        setProdutos([...porNome.values()]);
+        logAudit('importou planilha de produtos', `${criados} novos, ${atualizados} atualizados`);
+        toast(`Planilha importada: ${criados} novo(s), ${atualizados} atualizado(s).`, 'sucesso');
+      } catch (err) {
+        toast(err?.message || 'Não foi possível ler a planilha. Use o modelo.', 'erro');
+      }
+    };
+    reader.readAsArrayBuffer(file);
   };
 
   const produtosFiltrados = produtos.filter(p => {
@@ -684,8 +828,8 @@ export default function Configuracoes() {
                 className={`text-xs font-semibold px-2 py-1.5 rounded-lg ${p.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                 {p.ativo ? 'Ativo' : 'Inativo'}
               </button>
-              <button onClick={() => excluir(p.id)}
-                className="text-xs text-red-400 font-semibold px-2 py-1.5 rounded-lg bg-red-50">
+              <button onClick={() => excluir(p.id)} aria-label={`Desativar produto ${p.nome}`}
+                className="text-base text-red-500 font-semibold min-w-11 min-h-11 flex items-center justify-center rounded-lg bg-red-50">
                 ×
               </button>
             </div>
@@ -834,6 +978,27 @@ export default function Configuracoes() {
           <p className="text-[11px] text-gray-400 mt-2">
             Ex: mín 3 dias → com esse estoque a cozinha trabalha por 3 dias sem repor. Máx 6 dias → meta de compra para 6 dias de produção.
           </p>
+        </div>
+        <div className="border-t border-gray-100 pt-3">
+          <div className="flex items-start gap-3">
+            <div className="flex-1">
+              <p className="text-sm font-bold text-polo-navy">📅 Considerar o dia da semana</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Em vez da média lisa, dimensiona o mín/máx pelo consumo previsto dos próximos dias —
+                sobe na véspera do fim de semana e cai no início da semana. Útil para casas com pico no sábado/domingo.
+              </p>
+            </div>
+            <button
+              role="switch" aria-checked={!!prefs.minMaxPorDiaSemana}
+              onClick={() => {
+                const novo = !prefs.minMaxPorDiaSemana;
+                setPref('minMaxPorDiaSemana', novo);
+                toast(novo ? 'Mín/máx agora consideram o dia da semana.' : 'Mín/máx voltaram à média simples.', 'sucesso');
+              }}
+              className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${prefs.minMaxPorDiaSemana ? 'bg-green-500' : 'bg-gray-300'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.minMaxPorDiaSemana ? 'left-6' : 'left-0.5'}`} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1025,42 +1190,48 @@ export default function Configuracoes() {
         </div>
       </div>
 
-      {/* Backup */}
+      {/* Planilha de produtos — cadastro padronizado em massa */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Backup dos Dados</p>
+          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">📊 Planilha de produtos</p>
           <p className="text-xs text-gray-500 mt-1">
-            Exporte um arquivo de segurança regularmente. Se trocar de tablet ou limpar o navegador, restaure por aqui.
+            Forma rápida de montar um restaurante novo: baixe a planilha modelo (já vem com produtos de exemplo),
+            ajuste no Excel/Google Sheets e importe. Produtos com o mesmo nome são atualizados; os novos, criados.
           </p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => { exportarBackup(); toast('Backup exportado!', 'sucesso'); }}
+          <button onClick={baixarPlanilhaModelo}
+            className="flex-1 border border-polo-navy text-polo-navy font-semibold py-2.5 rounded-xl text-sm">
+            ↓ Baixar planilha modelo
+          </button>
+          <button onClick={() => planilhaRef.current?.click()}
             className="flex-1 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm">
-            ↓ Exportar backup
+            ↑ Importar planilha
+          </button>
+        </div>
+        <input ref={planilhaRef} type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={importarPlanilha} className="hidden" />
+      </div>
+
+      {/* Cópia de segurança — recuperação de desastre (apagar tudo, clonar restaurante) */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
+        <div>
+          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🛟 Cópia de segurança</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Seus dados já ficam na nuvem e sincronizam entre tablets. Esta cópia é uma rede de segurança extra:
+            exporte de vez em quando para conseguir voltar atrás caso alguém apague tudo por engano, ou para clonar o restaurante (com receitas) em outra conta.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={() => { exportarBackup(); toast('Cópia de segurança exportada!', 'sucesso'); }}
+            className="flex-1 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm">
+            ↓ Exportar cópia
           </button>
           <button onClick={() => fileRef.current?.click()}
             className="flex-1 border border-polo-navy text-polo-navy font-semibold py-2.5 rounded-xl text-sm">
-            ↑ Restaurar backup
+            ↑ Restaurar cópia
           </button>
         </div>
         <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImportar} className="hidden" />
-      </div>
-
-      {/* Modelo Polo (só pra montar rápido o restaurante Polo) */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
-        <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Modelo de exemplo (Polo)</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Carrega a montagem completa do Polo (produtos, fichas, categorias) por cima do que existe agora. Use para entregar o Polo já pronto.
-          </p>
-        </div>
-        <button onClick={async () => {
-          const ok = await confirm({ titulo: 'Carregar modelo Polo', mensagem: 'Isso substitui os catálogos atuais (produtos, fichas, categorias, equipe, destinos) pelos do modelo Polo. Continuar?', confirmar: 'Carregar' });
-          if (ok) { importarBackup(POLO_PRESET); logAudit('carregou modelo Polo', ''); toast('Modelo Polo carregado!', 'sucesso'); }
-        }}
-          className="w-full border border-polo-gold text-polo-navy font-semibold py-2.5 rounded-xl text-sm">
-          Carregar modelo Polo
-        </button>
       </div>
 
       {/* Zona de perigo */}

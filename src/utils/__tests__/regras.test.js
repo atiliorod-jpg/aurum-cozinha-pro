@@ -103,6 +103,27 @@ describe('calcSugestoesMinMax — mín 3 dias / máx 6 dias', () => {
     expect(sug.charque.min).toBe(30); // média 10/dia
     expect(sug.charque.max).toBe(60);
   });
+
+  it('modo por dia da semana: consumo uniforme dá o mesmo que o modo plano', () => {
+    const sug = calcSugestoesMinMax(produtos, saidasEm(30, '2026-06-10'), '2026-06-10', 3, 6, true);
+    expect(sug.charque.min).toBe(30);
+    expect(sug.charque.max).toBe(60);
+  });
+
+  it('modo por dia da semana: véspera de fim de semana eleva a sugestão vs. plano', () => {
+    // fim de semana (sáb+dom) consome 70, demais dias 10
+    const ref = '2026-06-12'; // sexta — os próximos dias caem no fim de semana
+    const saidas = Array.from({ length: 30 }, (_, i) => {
+      const data = addDias(ref, -i);
+      const wd = new Date(data + 'T12:00:00').getDay();
+      const fds = wd === 0 || wd === 6;
+      return { data, itens: [{ produtoId: 'charque', quantidade: fds ? 70 : 10 }] };
+    });
+    const plano = calcSugestoesMinMax(produtos, saidas, ref, 3, 6, false);
+    const sazonal = calcSugestoesMinMax(produtos, saidas, ref, 3, 6, true);
+    // próximos 3 dias = sáb+dom+seg → muito acima da média lisa
+    expect(sazonal.charque.min).toBeGreaterThan(plano.charque.min);
+  });
 });
 
 describe('validarDataRegistro — travas de data', () => {

@@ -25,6 +25,7 @@ export default function Historico() {
     const saidaPar = saidas.find(s => s.producaoId === entrada.producaoId);
     if (saidaPar) removeSaida(saidaPar.id);
     removeEntrada(entrada.id);
+    return { producao: true, entrada, saida: saidaPar || null };
   };
 
   // Monta a lista unificada
@@ -36,7 +37,7 @@ export default function Historico() {
       resumo: itensTxt(r), remover: () => { removeEntrada(r.id); return { tipo: 'entrada', reg: r }; } })),
     ...entradas.filter(e => e.producaoId).map(r => ({ id: r.id, grupo: 'producao', icon: '🍲', cor: 'text-amber-600', r,
       resumo: itensTxt(r) + ((r.monitorados || []).length ? ` · monitorado: ${r.monitorados.map(m => `${fmtNum(m.quantidade)} ${m.nome}`).join(', ')}` : ''),
-      remover: () => { removerProducao(r); return null; } })),
+      remover: () => removerProducao(r) })),
     ...saidas.filter(s => s.destino !== 'producao').map(r => ({ id: r.id, grupo: 'saidas', icon: '📤', cor: 'text-red-600', r,
       resumo: `${itensTxt(r)} → ${destNome(r.destino)}`, remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
     ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: '✂️', cor: 'text-teal-600', r,
@@ -61,8 +62,18 @@ export default function Historico() {
     const ok = await confirm({ titulo: 'Remover registro', mensagem: 'Remover este lançamento? O estoque será recalculado.', perigo: true, confirmar: 'Remover' });
     if (!ok) return;
     const undo = ev.remover();
-    if (undo) toast('Registro removido.', 'sucesso', { acao: { label: 'Desfazer', onClick: () => restaurarRegistro(undo.tipo, undo.reg) } });
-    else toast('Produção removida (entrada e ingredientes).', 'sucesso');
+    if (undo?.producao) {
+      toast(
+        undo.saida ? 'Produção removida (produto final e ingredientes).' : 'Produção removida (ingredientes não encontrados — só o produto final foi retirado).',
+        'sucesso',
+        { acao: { label: 'Desfazer', onClick: () => {
+          restaurarRegistro('entrada', undo.entrada);
+          if (undo.saida) restaurarRegistro('saida', undo.saida);
+        } } },
+      );
+    } else if (undo) {
+      toast('Registro removido.', 'sucesso', { acao: { label: 'Desfazer', onClick: () => restaurarRegistro(undo.tipo, undo.reg) } });
+    }
   };
 
   return (

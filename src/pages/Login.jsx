@@ -71,7 +71,7 @@ export default function Login() {
           <img src={`${import.meta.env.BASE_URL}logo-aurum.png`} alt="Aurum Serviços Gastronômicos"
             className="w-32 h-32 mx-auto rounded-3xl ring-1 ring-polo-gold/30 shadow-2xl object-cover mb-5" />
           <h1 className="text-2xl font-bold text-polo-gold">Aurum Cozinha Pro</h1>
-          <p className="text-white/50 text-sm mt-1">Controle de produção na nuvem</p>
+          <p className="text-white/85 text-sm mt-1">Controle de produção na nuvem</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 space-y-3 shadow-2xl">

@@ -119,6 +119,15 @@ export default function AparasPerdas() {
 
   return (
     <Layout title="Aparas & Perdas">
+      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
+        {[['novo', '+ Novo registro'], ['historico', '📋 Histórico']].map(([v, l]) => (
+          <button key={v} onClick={() => setTab(v)}
+            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
+              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
       {tab === 'novo' ? (
         <div className="space-y-4">
           {/* Tipo: Apara ou Perda */}
@@ -361,8 +370,9 @@ export default function AparasPerdas() {
                     </div>
                   </div>
                   <button onClick={() => removerRegistro(r)}
-                    className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50 ml-2">
-                    ×
+                    aria-label={`Remover ${ehApara ? 'apara' : 'perda'} ${r.item}`}
+                    className="text-red-500 text-xs font-semibold min-w-11 min-h-11 flex items-center justify-center rounded hover:bg-red-50 ml-2">
+                    Remover
                   </button>
                 </div>
               </div>

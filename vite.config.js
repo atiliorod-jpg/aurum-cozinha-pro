@@ -1,15 +1,25 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { copyFileSync } from 'fs'
 
 // Em produção (GitHub Pages) o app vive em /polo-estoque/ — o workflow define VITE_BASE.
 const base = process.env.VITE_BASE || '/'
+
+// Copia index.html → 404.html para que GitHub Pages sirva o app em rotas diretas (SPA fallback)
+const ghPagesFallback = {
+  name: 'gh-pages-404-fallback',
+  closeBundle() {
+    try { copyFileSync('dist/index.html', 'dist/404.html') } catch {}
+  },
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   base,
   plugins: [
     react(),
+    ghPagesFallback,
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png'],

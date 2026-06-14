@@ -76,13 +76,22 @@ export default function Entradas() {
 
   const [buscaHist, setBuscaHist] = useState('');
   const entradasOrdenadas = useMemo(() => [...entradas]
-    .sort((a, b) => b.data.localeCompare(a.data) || b.hora?.localeCompare(a.hora || ''))
+    .sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.hora || '').localeCompare(a.hora || ''))
     .filter(e => !buscaHist ||
       `${e.responsavel || ''} ${(e.itens || []).map(i => nomeProduto(produtos, i.produtoId)).join(' ')}`.toLowerCase().includes(buscaHist.toLowerCase())),
     [entradas, buscaHist, produtos]);
 
   return (
     <Layout title="Entrada de Mercadoria">
+      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
+        {[['novo', '+ Nova entrada'], ['historico', '📋 Histórico']].map(([v, l]) => (
+          <button key={v} onClick={() => setTab(v)}
+            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
+              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
       {tab === 'novo' ? (
         <div className="space-y-4">
           {/* Cabeçalho */}

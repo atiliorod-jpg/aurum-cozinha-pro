@@ -29,6 +29,14 @@ input[type="number"]::-webkit-outer-spin-button {
 
 button { -webkit-tap-highlight-color: transparent; }
 
+/* Foco visível por teclado em todos os controles (acessibilidade WCAG 2.4.7) */
+:focus-visible {
+  outline: 2px solid #C9A24B;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+[role="dialog"] { outline: none; }
+
 /* cartões com sombra suave e elevação ao toque */
 main .bg-white.rounded-xl {
   box-shadow: 0 1px 3px rgba(27, 42, 65, 0.07), 0 1px 2px rgba(27, 42, 65, 0.04);

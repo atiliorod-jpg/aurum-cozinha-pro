@@ -256,22 +256,27 @@ export function AppProvider({ children }) {
   }, [fichas, produtos, prefs.gramaturasMigradas, setProdutos]);
 
   // Modo automático mín/máx
-  // Usa saidas como trigger principal; produtos via ref para não criar loop de re-render
+  // Usa saidas como trigger principal; produtos via ref para não criar loop de re-render.
+  // O ref é atualizado em efeito (não durante o render) e o recálculo é debounced para
+  // evitar tempestade de writes entre tablets quando uma saída chega via realtime.
   const produtosAutoRef = useRef(null);
-  produtosAutoRef.current = produtos;
+  useEffect(() => { produtosAutoRef.current = produtos; }, [produtos]);
   useEffect(() => {
     if (!prefs.autoMinMax) return;
-    const prods = produtosAutoRef.current;
-    const sug = calcSugestoesMinMax(prods, saidas, undefined, prefs.diasMin || DIAS_MIN, prefs.diasMax || DIAS_MAX);
-    let mudou = false;
-    const next = prods.map(p => {
-      const s = sug[p.id];
-      if (s && (p.min !== s.min || p.max !== s.max)) { mudou = true; return { ...p, min: s.min, max: s.max }; }
-      return p;
-    });
-    if (mudou) setProdutos(next);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saidas, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, setProdutos]);
+    const t = setTimeout(() => {
+      const prods = produtosAutoRef.current;
+      if (!prods) return;
+      const sug = calcSugestoesMinMax(prods, saidas, undefined, prefs.diasMin || DIAS_MIN, prefs.diasMax || DIAS_MAX, prefs.minMaxPorDiaSemana);
+      let mudou = false;
+      const next = prods.map(p => {
+        const s = sug[p.id];
+        if (s && (p.min !== s.min || p.max !== s.max)) { mudou = true; return { ...p, min: s.min, max: s.max }; }
+        return p;
+      });
+      if (mudou) setProdutos(next);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [saidas, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana, setProdutos]);
 
   // ── Hidratação (cache → rede) + tempo real + offline ───────
   useEffect(() => {
@@ -473,7 +478,26 @@ export function AppProvider({ children }) {
   }, []);
 
   const importarBackup = useCallback((dados) => {
-    if (!dados || typeof dados !== 'object') throw new Error('Arquivo inválido');
+    if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
+      throw new Error('Arquivo inválido: não é um backup do Aurum Cozinha.');
+    }
+    // 1) Valida TODAS as chaves ANTES de aplicar qualquer coisa (evita restauração pela metade).
+    const listas = ['produtos', 'categorias', 'pessoas', 'destinos', 'fichas', 'producoes', 'locais', 'listaManual',
+                    'compras', 'entradas', 'saidas', 'aparas', 'desperdicio', 'ajustes', 'auditoria'];
+    for (const k of listas) {
+      if (dados[k] != null && !Array.isArray(dados[k])) {
+        throw new Error(`Arquivo inválido: "${k}" deveria ser uma lista.`);
+      }
+    }
+    if (dados.prefs != null && (typeof dados.prefs !== 'object' || Array.isArray(dados.prefs))) {
+      throw new Error('Arquivo inválido: "prefs" deveria ser um objeto.');
+    }
+    // Exige pelo menos uma chave reconhecível para não aceitar um JSON qualquer.
+    if (![...listas, 'prefs'].some(k => dados[k] != null)) {
+      throw new Error('Arquivo inválido: nenhum dado reconhecido neste backup.');
+    }
+
+    // 2) Aplica (catálogos primeiro, depois registros).
     const cat = (chave, setRaw, val) => { if (val) persistCatalogo(chave, setRaw, val); };
     cat('produtos', setProdutosRaw, dados.produtos);
     cat('categorias', setCategoriasRaw, dados.categorias);
@@ -491,7 +515,9 @@ export function AppProvider({ children }) {
       setRaw(arr); cacheSet(r, key, arr);
       if (r && arr.length) {
         const rows = arr.map(x => ({ id: x.id, restaurante_id: r, tipo, ts: x.ts || Date.now(), dados: semIdTs(x), deleted: false }));
-        supabase.from('registros').upsert(rows).then(() => {});
+        supabase.from('registros').upsert(rows).then(({ error }) => {
+          if (error) console.error('[importarBackup] falha ao subir', key, error);
+        });
       }
     };
     reg('compras', setComprasRaw, 'compra', dados.compras);

@@ -2,7 +2,16 @@
 // sobrescrita pela contagem física mais recente; depois soma entradas e
 // abate saídas e perdas de origem 'estoque'. Aparas nunca abatem.
 
-const ordemTs = (r) => r.ts || parseInt(r.id, 10) || 0;
+// IDs são `Date.now().toString(36)_random`, então o fallback precisa ler base36
+// (não base10) para recuperar o timestamp de registros antigos sem `ts`.
+const ordemTs = (r) => {
+  if (r.ts) return r.ts;
+  if (typeof r.id === 'string') {
+    const v = parseInt(r.id.split('_')[0], 36);
+    if (!Number.isNaN(v)) return v;
+  }
+  return 0;
+};
 
 export function calcEstoquePuro({ produtos, entradas, saidas, ajustes, desperdicio }) {
   const estoque = {};

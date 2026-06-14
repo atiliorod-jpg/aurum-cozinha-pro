@@ -21,7 +21,7 @@ export default function Dashboard() {
   const dataHoje = hoje();
 
   // Sugestões de mín/máx pela média de saídas (escondidas se o modo automático estiver ligado)
-  const sugestoes = useMemo(() => calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6), [produtos, saidas, prefs.diasMin, prefs.diasMax]);
+  const sugestoes = useMemo(() => calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana), [produtos, saidas, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana]);
   const divergentes = useMemo(
     () => (prefs.autoMinMax ? [] : produtosDivergentes(produtos, sugestoes)),
     [produtos, sugestoes, prefs.autoMinMax]
@@ -73,6 +73,15 @@ export default function Dashboard() {
     toast(ids.length === 1 ? 'Mín/Máx atualizado.' : `Mín/Máx de ${ids.length} produtos atualizados.`, 'sucesso');
   };
 
+  // Estoque negativo: quase sempre é um lançamento faltando (entrada/produção não registrada)
+  const negativos = useMemo(
+    () => produtos
+      .filter(p => p.ativo && (estoque[p.id] ?? 0) < 0)
+      .map(p => ({ p, atual: estoque[p.id] ?? 0 }))
+      .sort((a, b) => a.atual - b.atual),
+    [produtos, estoque]
+  );
+
   const produtosAtivos = produtos.filter(p => p.ativo);
   const produtosFiltrados = catAtiva === 'TODOS'
     ? produtosAtivos
@@ -110,6 +119,24 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Estoque negativo — provável lançamento faltando */}
+      {negativos.length > 0 && (
+        <div className="bg-red-100 border border-red-400 rounded-xl p-3 mb-4">
+          <p className="text-xs font-bold text-red-800 mb-2">
+            ⚠️ {negativos.length} item(ns) com estoque negativo — provável entrada ou produção não registrada
+          </p>
+          <div className="space-y-1">
+            {negativos.map(({ p, atual }) => (
+              <div key={p.id} className="flex justify-between items-center text-xs">
+                <span className="font-medium text-gray-700">{p.nome}</span>
+                <span className="font-bold text-red-700">{fmtNum(atual)} {p.unidade}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-red-600 mt-2">Confira se faltou registrar uma entrada/produção, ou ajuste pela contagem física (Inventário).</p>
+        </div>
+      )}
 
       {/* Calculadora rápida de produção (apoio à equipe) */}
       <CalculadoraProducao />
@@ -260,7 +287,12 @@ export default function Dashboard() {
                 const aberto = expandido === p.id;
                 return (
                   <div key={p.id}
-                    onClick={() => lotesProduto.length && setExpandido(aberto ? null : p.id)}
+                    {...(lotesProduto.length ? {
+                      role: 'button', tabIndex: 0, 'aria-expanded': aberto,
+                      'aria-label': `${p.nome}: ${lotesProduto.length} lote(s), toque para ${aberto ? 'recolher' : 'ver'}`,
+                      onClick: () => setExpandido(aberto ? null : p.id),
+                      onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandido(aberto ? null : p.id); } },
+                    } : {})}
                     className={`${cor.bg} rounded-xl p-3 mb-2 border border-white/60 ${lotesProduto.length ? 'cursor-pointer active:scale-[0.995] transition-transform' : ''}`}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold text-sm text-gray-800 flex items-center gap-1 flex-wrap">
@@ -304,10 +336,10 @@ export default function Dashboard() {
                     )}
                     {aberto && lotesProduto.length > 0 && (
                       <div className="mt-2 bg-white/70 rounded-lg p-2 space-y-1">
-                        {lotesProduto.map((l) => {
+                        {lotesProduto.map((l, i) => {
                           const dias = diasAte(l.validade);
                           return (
-                            <div key={`${l.validade}_${l.dataEntrada}`} className="flex justify-between items-center text-xs">
+                            <div key={`${l.validade}_${l.dataEntrada}_${i}`} className="flex justify-between items-center text-xs">
                               <span className="text-gray-600">
                                 {l.armazenamento === 'resfriado' ? '🧊' : '❄️'} {fmtNum(l.restante)} {p.unidade}
                                 <span className="text-gray-500"> • entrou {fmtData(l.dataEntrada)}</span>
