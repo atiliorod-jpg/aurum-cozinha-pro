@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { PRODUTOS_BASE, PESSOAS_BASE, DESTINOS_APARA, CATEGORIAS_BASE } from '../data/produtos';
 import { FICHAS_BASE } from '../data/fichas';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
@@ -94,7 +94,7 @@ export function AppProvider({ children }) {
     };
     setAuditoriaRaw(prev => {
       const next = [...prev.slice(-1999), reg];
-      cacheSet(r, 'auditoria', next);
+      if (r) cacheSet(r, 'auditoria', next);
       return next;
     });
     if (!r) return;
@@ -230,8 +230,8 @@ export function AppProvider({ children }) {
     logAudit(`restaurou ${rotulo} (desfazer)`, RESUMOS[rotulo]?.(registro) || '');
   }, [logAudit]);
 
-  // ── Estoque automático (regra completa em utils/estoque.js) ─
-  const calcEstoque = useCallback(
+  // ── Estoque (calculado uma vez, partilhado por todos os componentes) ─
+  const estoque = useMemo(
     () => calcEstoquePuro({ produtos, entradas, saidas, ajustes, desperdicio }),
     [produtos, entradas, saidas, ajustes, desperdicio]
   );
@@ -256,17 +256,22 @@ export function AppProvider({ children }) {
   }, [fichas, produtos, prefs.gramaturasMigradas, setProdutos]);
 
   // Modo automático mín/máx
+  // Usa saidas como trigger principal; produtos via ref para não criar loop de re-render
+  const produtosAutoRef = useRef(null);
+  produtosAutoRef.current = produtos;
   useEffect(() => {
     if (!prefs.autoMinMax) return;
-    const sug = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || DIAS_MIN, prefs.diasMax || DIAS_MAX);
+    const prods = produtosAutoRef.current;
+    const sug = calcSugestoesMinMax(prods, saidas, undefined, prefs.diasMin || DIAS_MIN, prefs.diasMax || DIAS_MAX);
     let mudou = false;
-    const next = produtos.map(p => {
+    const next = prods.map(p => {
       const s = sug[p.id];
       if (s && (p.min !== s.min || p.max !== s.max)) { mudou = true; return { ...p, min: s.min, max: s.max }; }
       return p;
     });
     if (mudou) setProdutos(next);
-  }, [produtos, saidas, prefs.autoMinMax, setProdutos]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saidas, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, setProdutos]);
 
   // ── Hidratação (cache → rede) + tempo real + offline ───────
   useEffect(() => {
@@ -333,9 +338,9 @@ export function AppProvider({ children }) {
         else { // catálogo ainda não existe na nuvem → semeia
           setRaw(def); cacheSet(rid, chave, def);
           // .then() é obrigatório: a query do Supabase só é ENVIADA quando consumida
-          supabase.from('documentos')
-            .upsert({ restaurante_id: rid, chave, dados: def, updated_at: new Date().toISOString() })
-            .then(() => {});
+          const payload = { restaurante_id: rid, chave, dados: def, updated_at: new Date().toISOString() };
+          supabase.from('documentos').upsert(payload)
+            .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload }); });
         }
       };
       aplicaCat('produtos', setProdutosRaw, CAT.produtos);
@@ -349,9 +354,9 @@ export function AppProvider({ children }) {
       // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
       const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
       if (mapa['prefs'] === undefined) {
-        supabase.from('documentos')
-          .upsert({ restaurante_id: rid, chave: 'prefs', dados: prefsNuvem, updated_at: new Date().toISOString() })
-          .then(() => {});
+        const prefPayload = { restaurante_id: rid, chave: 'prefs', dados: prefsNuvem, updated_at: new Date().toISOString() };
+        supabase.from('documentos').upsert(prefPayload)
+          .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload: prefPayload }); });
       }
       cacheSet(rid, 'prefs', prefsNuvem);
       setPrefsRaw({ ...prefsNuvem, ...cacheGet(rid, '_prefs_device', {}) });
@@ -362,7 +367,15 @@ export function AppProvider({ children }) {
       (regs || []).forEach(r => { (porTipo[r.tipo] = porTipo[r.tipo] || []).push(linhaParaRegistro(r)); });
       const aplicaReg = (tipo, setRaw, key) => {
         const arr = (porTipo[tipo] || []).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        setRaw(arr); cacheSet(rid, key, arr);
+        setRaw(prev => {
+          const fetchedIds = new Set(arr.map(x => x.id));
+          const localOnly = prev.filter(x => !fetchedIds.has(x.id));
+          const merged = localOnly.length
+            ? [...arr, ...localOnly].sort((a, b) => (a.ts || 0) - (b.ts || 0))
+            : arr;
+          cacheSet(rid, key, merged);
+          return merged;
+        });
       };
       aplicaReg('compra', setComprasRaw, 'compras');
       aplicaReg('entrada', setEntradasRaw, 'entradas');
@@ -509,7 +522,7 @@ export function AppProvider({ children }) {
       auditoria, logAudit,
       restaurarRegistro,
       prefs, setPref,
-      calcEstoque,
+      estoque,
       limparTudo, resetarProdutos,
       exportarBackup, importarBackup,
     }}>

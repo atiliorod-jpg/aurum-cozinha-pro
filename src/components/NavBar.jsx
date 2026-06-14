@@ -6,7 +6,6 @@ import Icon from './Icons';
 
 const NAV = [
   { to: '/',              icon: 'inicio',    label: 'Início' },
-  { to: '/producao',      icon: 'producao',  label: 'Produção' },
   { to: '/registrar',     icon: 'registrar', label: 'Registrar' },
   { to: '/historico',     icon: 'historico', label: 'Histórico' },
   { to: '/relatorio',     icon: 'relatorio', label: 'Relatório', cargo: 'gerencia' },
@@ -14,9 +13,8 @@ const NAV = [
 ];
 
 export default function NavBar() {
-  const { produtos, calcEstoque, producoes } = useApp();
+  const { produtos, estoque, producoes } = useApp();
   const { temPermissao } = useAuth();
-  const estoque = calcEstoque();
   const alertas = produtos.filter(p => {
     const s = statusEstoque(estoque[p.id] ?? 0, p.min, p.max);
     return s === 'critico' || s === 'zerado';
@@ -57,10 +55,10 @@ export default function NavBar() {
                     {alertas > 9 ? '9+' : alertas}
                   </span>
                 )}
-                {to === '/producao' && precisaProduzir > 0 && (
+                {to === '/' && precisaProduzir > 0 && (
                   <span aria-label={`${precisaProduzir} receita(s) precisam ser produzidas`}
-                    className="absolute top-0.5 right-1/4 bg-amber-500 text-white text-[9px] rounded-full min-w-4 h-4 px-0.5 flex items-center justify-center font-bold ring-2 ring-polo-navy">
-                    {precisaProduzir > 9 ? '9+' : precisaProduzir}
+                    className="absolute top-0.5 left-1/4 bg-amber-500 text-white text-[9px] rounded-full min-w-4 h-4 px-0.5 flex items-center justify-center font-bold ring-2 ring-polo-navy">
+                    🍲
                   </span>
                 )}
               </>

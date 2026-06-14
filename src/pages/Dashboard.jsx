@@ -12,13 +12,12 @@ import { fmtNum, fmtData, hoje } from '../utils/formatters';
 import CalculadoraProducao from '../components/CalculadoraProducao';
 
 export default function Dashboard() {
-  const { produtos, setProdutos, saidas, entradas, desperdicio, compras, aparas, producoes, calcEstoque, categorias, listaManual, prefs } = useApp();
+  const { produtos, setProdutos, saidas, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs } = useApp();
   const { toast } = useUI();
   const navigate = useNavigate();
   const [catAtiva, setCatAtiva] = useState('TODOS');
   const [verSugestoes, setVerSugestoes] = useState(false);
   const [expandido, setExpandido] = useState(null); // produtoId com lotes abertos
-  const estoque = calcEstoque();
   const dataHoje = hoje();
 
   // Sugestões de mín/máx pela média de saídas (escondidas se o modo automático estiver ligado)
@@ -29,7 +28,7 @@ export default function Dashboard() {
   );
 
   // Lotes restantes por produto (FEFO) e os que vencem em até 5 dias
-  const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio), [entradas, saidas, desperdicio]);
+  const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio, produtos), [entradas, saidas, desperdicio, produtos]);
   const vencendo = useMemo(() => {
     const lista = [];
     produtos.forEach(p => {

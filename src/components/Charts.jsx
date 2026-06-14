@@ -1,6 +1,6 @@
 // Gráficos leves em SVG/CSS puro — sem bibliotecas, rápidos no tablet.
 
-const fmt = (v) => (Number.isInteger(v) ? v : v.toFixed(1));
+const fmt = (v) => (v == null ? '—' : Number.isInteger(v) ? v : Number(v).toFixed(1));
 
 const CORES_BARRAS = ['#1B2A41', '#C9A24B', '#B0413E', '#3E7C59', '#6B5B95', '#D97742'];
 

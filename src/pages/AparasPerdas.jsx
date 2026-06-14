@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -29,7 +29,7 @@ export default function AparasPerdas() {
     data: hoje(), turno: prefs.turno || 'Manhã', compraId: '', item: '', quantidade: '', unidade: 'kg', destino: 'STG', destinoOutro: '', responsavel: prefs.responsavel || '',
   });
   const [formPerda, setFormPerda] = useState({
-    data: hoje(), turno: prefs.turno || 'Manhã', origem: 'recebimento', produtoId: '', compraId: '', item: '', quantidade: '', unidade: 'kg', motivo: 'S', motivoOutro: '', responsavel: prefs.responsavel || '',
+    data: hoje(), turno: prefs.turno || 'Manhã', origem: 'estoque', produtoId: '', compraId: '', item: '', quantidade: '', unidade: 'kg', motivo: 'S', motivoOutro: '', responsavel: prefs.responsavel || '',
   });
 
   const setA = (k, v) => setFormApara(prev => ({ ...prev, [k]: v }));
@@ -54,7 +54,10 @@ export default function AparasPerdas() {
       return;
     }
     // Apara é sempre monitoramento de rendimento: nunca abate estoque
-    addApara({ ...formApara, origem: 'recebimento', hora: fmtHora(), quantidade: parseFloat(formApara.quantidade) });
+    let qtdApara = parseFloat(formApara.quantidade);
+    let unidApara = formApara.unidade;
+    if (unidApara === 'g') { qtdApara = qtdApara / 1000; unidApara = 'kg'; }
+    addApara({ ...formApara, origem: 'recebimento', hora: fmtHora(), quantidade: qtdApara, unidade: unidApara });
     if (formApara.responsavel) setPref('responsavel', formApara.responsavel);
     setPref('turno', formApara.turno);
     setFormApara(prev => ({ ...prev, compraId: '', item: '', quantidade: '', destinoOutro: '' }));
@@ -80,7 +83,10 @@ export default function AparasPerdas() {
       toast('Escreva o motivo do descarte.', 'aviso');
       return;
     }
-    addDesperdicio({ ...formPerda, hora: fmtHora(), quantidade: parseFloat(formPerda.quantidade) });
+    let qtdPerda = parseFloat(formPerda.quantidade);
+    let unidPerda = formPerda.unidade;
+    if (unidPerda === 'g') { qtdPerda = qtdPerda / 1000; unidPerda = 'kg'; }
+    addDesperdicio({ ...formPerda, hora: fmtHora(), quantidade: qtdPerda, unidade: unidPerda });
     if (formPerda.responsavel) setPref('responsavel', formPerda.responsavel);
     setPref('turno', formPerda.turno);
     setFormPerda(prev => ({ ...prev, produtoId: '', compraId: '', item: '', quantidade: '', motivoOutro: '' }));
@@ -88,10 +94,13 @@ export default function AparasPerdas() {
   };
 
   const [buscaHist, setBuscaHist] = useState('');
-  const historico = [
+  const historicoOrdenado = useMemo(() => [
     ...aparas.map(a => ({ ...a, _tipo: 'apara' })),
     ...desperdicio.map(d => ({ ...d, _tipo: 'perda' })),
-  ].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  ].sort((a, b) => (b.ts || 0) - (a.ts || 0)), [aparas, desperdicio]);
+  const historico = useMemo(() =>
+    buscaHist ? historicoOrdenado.filter(r => `${r.item} ${r.responsavel || ''}`.toLowerCase().includes(buscaHist.toLowerCase())) : historicoOrdenado,
+    [historicoOrdenado, buscaHist]);
 
   const removerRegistro = async (r) => {
     const ok = await confirm({
@@ -304,7 +313,7 @@ export default function AparasPerdas() {
           {historico.length === 0 && (
             <div className="text-center text-gray-500 py-12">Nenhum registro ainda.</div>
           )}
-          {historico.filter(r => !buscaHist || `${r.item} ${r.responsavel || ''}`.toLowerCase().includes(buscaHist.toLowerCase())).map(r => {
+          {historico.map(r => {
             const ehApara = r._tipo === 'apara';
             const dest = ehApara
               ? (r.destino === 'OUT' && r.destinoOutro

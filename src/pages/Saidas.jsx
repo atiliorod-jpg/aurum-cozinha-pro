@@ -10,26 +10,27 @@ import { calcLotes } from '../utils/lotes';
 
 
 export default function Saidas() {
-  const { produtos, addSaida, saidas, removeSaida, restaurarRegistro, calcEstoque, entradas, desperdicio, categorias, locais, prefs, setPref } = useApp();
+  const { produtos, addSaida, saidas, removeSaida, restaurarRegistro, estoque, entradas, desperdicio, categorias, locais, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   // rótulo do destino (inclui a saída interna de produção)
-  const rotuloDestino = (v) => v === 'producao' ? '🍲 Produção' : (locais.find(l => l.id === v)?.nome || v);
+  const rotuloDestino = (v) => v === 'producao' ? '🍲 Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [destino, setDestino] = useState(prefs.destino || locais[0]?.id || '');
   const [obs, setObs] = useState('');
   const [qtds, setQtds] = useState({});
-  const [catAtiva, setCatAtiva] = useState(categorias[0]);
+  const [catAtiva, setCatAtiva] = useState('');
   const [busca, setBusca] = useState('');
   const [tab, setTab] = useState('novo');
 
   const produtosAtivos = produtos.filter(p => p.ativo);
-  const estoque = calcEstoque();
-  const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio), [entradas, saidas, desperdicio]);
+  const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio, produtos), [entradas, saidas, desperdicio, produtos]);
   const buscando = busca.trim().length > 0;
   const produtosVisiveis = buscando
     ? produtosAtivos.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()))
-    : produtosAtivos.filter(p => p.categoria === catAtiva);
+    : catAtiva === ''
+      ? produtosAtivos
+      : produtosAtivos.filter(p => p.categoria === catAtiva);
 
   const setQtd = (id, val) => {
     const num = parseFloat(val);
@@ -76,6 +77,9 @@ export default function Saidas() {
       });
       if (!okData) return;
     }
+    if (!responsavel) {
+      toast('Saída sem responsável identificado — considere selecionar quem está registrando.', 'aviso');
+    }
     // Verifica se alguma saída deixa o estoque negativo
     const negativos = itensPreenchidos
       .map(([id, qtd]) => ({ p: produtos.find(x => x.id === id), atual: estoque[id] ?? 0, saida: parseFloat(qtd) }))
@@ -94,10 +98,12 @@ export default function Saidas() {
   };
 
   const [buscaHist, setBuscaHist] = useState('');
-  const saidasOrdenadas = [...saidas]
+  const saidasOrdenadas = useMemo(() => [...saidas]
+    .filter(s => s.destino !== 'producao')
     .sort((a, b) => b.data.localeCompare(a.data) || b.hora?.localeCompare(a.hora || ''))
     .filter(s => !buscaHist ||
-      `${s.responsavel || ''} ${(s.itens || []).map(i => nomeProduto(produtos, i.produtoId)).join(' ')}`.toLowerCase().includes(buscaHist.toLowerCase()));
+      `${s.responsavel || ''} ${(s.itens || []).map(i => nomeProduto(produtos, i.produtoId)).join(' ')}`.toLowerCase().includes(buscaHist.toLowerCase())),
+    [saidas, buscaHist, produtos]);
 
   return (
     <Layout title="Saídas para Restaurantes">
@@ -136,13 +142,21 @@ export default function Saidas() {
 
           {!buscando && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {categorias.map(c => (
-                <button key={c} onClick={() => setCatAtiva(c)}
-                  className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
-                    ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                  {c}
-                </button>
-              ))}
+              <button onClick={() => setCatAtiva('')}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                  ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
+                Todos{itensPreenchidos.length > 0 && ` (${itensPreenchidos.length})`}
+              </button>
+              {categorias.map(c => {
+                const nCat = itensPreenchidos.filter(([id]) => produtos.find(p => p.id === id)?.categoria === c).length;
+                return (
+                  <button key={c} onClick={() => setCatAtiva(c)}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                      ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
+                    {c}{nCat > 0 && <span className="ml-1 bg-polo-gold text-polo-navy rounded-full px-1.5 text-[10px] font-bold">{nCat}</span>}
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -165,8 +179,8 @@ export default function Saidas() {
                           : dias <= 3 ? 'bg-orange-100 text-orange-700 border-orange-300'
                           : 'bg-gray-50 text-gray-500 border-gray-200';
                         return (
-                          <span key={i} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cor}`}>
-                            {fmtNum(l.restante)} {p.unidade} • {dias < 0 ? 'VENCIDO ' : 'vence '}{fmtData(l.validade)}
+                          <span key={`${l.validade}_${l.dataEntrada || ''}`} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cor}`}>
+                            {fmtNum(l.restante)} {p.unidade} • {dias < 0 ? 'VENCIDO ' : dias === 0 ? 'vence HOJE ' : 'vence '}{fmtData(l.validade)}
                             {i === 0 && lotes[p.id].length > 1 && ' ← pegar deste'}
                           </span>
                         );

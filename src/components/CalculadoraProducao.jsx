@@ -8,7 +8,7 @@ import { fmtNum } from '../utils/formatters';
 // Modo Gramatura: escolhe produto + kg disponível → calcula quantas porções dá para produzir.
 // Nenhum dos modos registra — é só para a equipe se organizar antes de começar.
 export default function CalculadoraProducao() {
-  const { producoes, produtos, calcEstoque } = useApp();
+  const { producoes, produtos, estoque } = useApp();
   const [aberto, setAberto] = useState(false);
   const [modo, setModo] = useState('receita'); // 'receita' | 'gramatura'
 
@@ -28,7 +28,6 @@ export default function CalculadoraProducao() {
   const temProdGram = produtosComGramatura.length > 0;
   if (!temReceitas && !temProdGram) return null;
 
-  const estoque = calcEstoque();
   const prodNome = (id) => produtos.find(p => p.id === id)?.nome || id;
   const prodUnid = (id) => produtos.find(p => p.id === id)?.unidade || '';
 
@@ -43,7 +42,7 @@ export default function CalculadoraProducao() {
   // ── Cálculos Gramatura ────────────────────────────────────
   // Fórmula inversa: dado X kg bruto → quantas porções saem?
   // porções = kg_bruto × (1 - correção%) × (1 - cocção%) × 1000 / gramatura
-  const prodGram = produtosComGramatura.find(p => p.id === prodGramId) || produtosComGramatura[0];
+  const prodGram = produtosComGramatura.find(p => p.id === prodGramId) || null;
   const kgNum = parseFloat(kgDisponivel) || 0;
   const correcao = parseFloat(correcaoPct) || 0;
   const coccao = prodGram?.coccao || 0;

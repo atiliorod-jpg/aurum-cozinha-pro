@@ -20,7 +20,7 @@ export const pctBarra = (atual, max) => {
 };
 
 export const filtrarPorPeriodo = (registros, inicio, fim) =>
-  registros.filter(r => r.data >= inicio && r.data <= fim);
+  registros.filter(r => r.data && r.data >= inicio && r.data <= fim);
 
 export const totalPorProduto = (registros) => {
   const totais = {};

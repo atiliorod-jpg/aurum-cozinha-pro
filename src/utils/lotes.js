@@ -8,7 +8,7 @@
 
 const num = (v) => parseFloat(v) || 0;
 
-export function calcLotes(entradas, saidas, desperdicio) {
+export function calcLotes(entradas, saidas, desperdicio, produtos = []) {
   const eventos = [];
 
   entradas.forEach(e => {
@@ -55,8 +55,12 @@ export function calcLotes(entradas, saidas, desperdicio) {
     }
   });
 
+  const prodMap = {};
+  produtos.forEach(p => { prodMap[p.id] = p; });
+
   Object.keys(lotes).forEach(k => {
-    lotes[k] = lotes[k].filter(l => l.restante > 0.001);
+    const threshold = prodMap[k]?.unidade === 'unid' ? 1 : 0.001;
+    lotes[k] = lotes[k].filter(l => l.restante >= threshold);
   });
   return lotes;
 }

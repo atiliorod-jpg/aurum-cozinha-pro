@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 
 const UIContext = createContext(null);
 
@@ -33,13 +33,20 @@ export function UIProvider({ children }) {
     });
   }, []);
 
-  const fecharConfirm = (resultado) => {
+  const fecharConfirm = useCallback((resultado) => {
     setConfirmState(null);
     if (resolverRef.current) {
       resolverRef.current(resultado);
       resolverRef.current = null;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!confirmState) return;
+    const handler = (e) => { if (e.key === 'Escape') fecharConfirm(false); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [confirmState, fecharConfirm]);
 
   return (
     <UIContext.Provider value={{ toast, confirm }}>
@@ -69,7 +76,8 @@ export function UIProvider({ children }) {
 
       {/* Confirm modal */}
       {confirmState && (
-        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6">
+        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6"
+          onClick={e => { if (e.target === e.currentTarget && !confirmState.perigo) fecharConfirm(false); }}>
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
             <h2 className={`font-bold text-lg ${confirmState.perigo ? 'text-red-600' : 'text-polo-navy'}`}>
               {confirmState.titulo}

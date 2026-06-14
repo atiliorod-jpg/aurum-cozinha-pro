@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -8,22 +8,24 @@ import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, addDias } from '../utils/datas';
 
 export default function Entradas() {
-  const { produtos, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref } = useApp();
+  const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [obs, setObs] = useState('');
   const [armazenamento, setArmazenamento] = useState('congelado');
   const [qtds, setQtds] = useState({});
-  const [catAtiva, setCatAtiva] = useState(categorias[0]);
+  const [catAtiva, setCatAtiva] = useState('');
   const [busca, setBusca] = useState('');
   const [tab, setTab] = useState('novo'); // 'novo' | 'historico'
 
-  const produtosAtivos = produtos.filter(p => p.ativo);
+  const produtosAtivos = produtos.filter(p => p.ativo && !producoes.some(r => r.produtoFinalId === p.id));
   const buscando = busca.trim().length > 0;
   const produtosVisiveis = buscando
     ? produtosAtivos.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()))
-    : produtosAtivos.filter(p => p.categoria === catAtiva);
+    : catAtiva === ''
+      ? produtosAtivos
+      : produtosAtivos.filter(p => p.categoria === catAtiva);
 
   const setQtd = (id, val) => {
     const num = parseFloat(val);
@@ -73,13 +75,14 @@ export default function Entradas() {
   };
 
   const [buscaHist, setBuscaHist] = useState('');
-  const entradasOrdenadas = [...entradas]
+  const entradasOrdenadas = useMemo(() => [...entradas]
     .sort((a, b) => b.data.localeCompare(a.data) || b.hora?.localeCompare(a.hora || ''))
     .filter(e => !buscaHist ||
-      `${e.responsavel || ''} ${(e.itens || []).map(i => nomeProduto(produtos, i.produtoId)).join(' ')}`.toLowerCase().includes(buscaHist.toLowerCase()));
+      `${e.responsavel || ''} ${(e.itens || []).map(i => nomeProduto(produtos, i.produtoId)).join(' ')}`.toLowerCase().includes(buscaHist.toLowerCase())),
+    [entradas, buscaHist, produtos]);
 
   return (
-    <Layout title="Entradas de Produção">
+    <Layout title="Entrada de Mercadoria">
       {tab === 'novo' ? (
         <div className="space-y-4">
           {/* Cabeçalho */}
@@ -116,6 +119,11 @@ export default function Entradas() {
           {/* Categorias */}
           {!buscando && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <button onClick={() => setCatAtiva('')}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                  ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
+                Todos
+              </button>
               {categorias.map(c => (
                 <button key={c} onClick={() => setCatAtiva(c)}
                   className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0

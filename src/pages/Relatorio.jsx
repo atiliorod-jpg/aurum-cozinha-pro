@@ -11,7 +11,7 @@ import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../componen
 const rotuloMotivo = (cod) => MOTIVOS_DESPERDICIO.find(m => m.cod === cod)?.label || cod;
 
 export default function Relatorio() {
-  const { produtos, compras, entradas, saidas, aparas, desperdicio, calcEstoque, categorias, destinos, locais } = useApp();
+  const { produtos, compras, entradas, saidas, aparas, desperdicio, estoque, categorias, destinos, locais } = useApp();
   // destinos criados pelo usuário em Config também precisam aparecer com o nome certo
   const rotuloDestino = (cod) =>
     destinos.find(d => d.cod === cod)?.label || DESTINOS_APARA.find(d => d.cod === cod)?.label || cod;
@@ -57,7 +57,6 @@ export default function Relatorio() {
   // Rendimento considera as compras do período, mas correções associadas de qualquer data
   const fornecedores = useMemo(() => rendimentoPorFornecedor(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
 
-  const estoque = useMemo(() => calcEstoque(), [calcEstoque]);
   const produtosAtivos = produtos.filter(p => p.ativo);
 
   const somaQtd = (regs) => regs.reduce((s, r) => s + (parseFloat(r.quantidade) || 0), 0);

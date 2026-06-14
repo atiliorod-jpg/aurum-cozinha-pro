@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
@@ -84,7 +84,7 @@ function ModalProduto({ produto, sugestao, categorias, diasMin = 3, diasMax = 6,
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
-              Estoque Mínimo ({diasMin} dias)
+              Estoque Mínimo — alertar quando abaixo
             </label>
             <input type="number" min="0" step="0.5" value={form.min} onChange={e => set('min', e.target.value)}
               placeholder="0"
@@ -92,7 +92,7 @@ function ModalProduto({ produto, sugestao, categorias, diasMin = 3, diasMax = 6,
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
-              Estoque Máximo ({diasMax} dias)
+              Estoque Máximo — meta de reposição
             </label>
             <input type="number" min="0" step="0.5" value={form.max} onChange={e => set('max', e.target.value)}
               placeholder="0"
@@ -351,6 +351,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
             <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento</label>
             <select value={form.armazenamento} onChange={e => set('armazenamento', e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+              <option value="ambos">🔄 Ambos (decide na hora)</option>
               <option value="congelado">❄️ Congelado</option>
               <option value="resfriado">🧊 Resfriado</option>
             </select>
@@ -445,6 +446,9 @@ export default function Configuracoes() {
   // Inputs de dias de cobertura: string enquanto edita, converte só no onBlur
   const [diasMinStr, setDiasMinStr] = useState(String(prefs.diasMin || 3));
   const [diasMaxStr, setDiasMaxStr] = useState(String(prefs.diasMax || 6));
+  // Sincroniza quando prefs muda por realtime (outro dispositivo alterou)
+  useEffect(() => { setDiasMinStr(String(prefs.diasMin || 3)); }, [prefs.diasMin]);
+  useEffect(() => { setDiasMaxStr(String(prefs.diasMax || 6)); }, [prefs.diasMax]);
   const [novaCategoria, setNovaCategoria] = useState('');
   const [conviteCargo, setConviteCargo] = useState('cozinha');
   const [conviteGerado, setConviteGerado] = useState(null); // { token, cargo }
@@ -576,14 +580,14 @@ export default function Configuracoes() {
 
   const excluir = async (id) => {
     const ok = await confirm({
-      titulo: 'Excluir produto',
-      mensagem: 'Excluir este produto? Os registros históricos não serão afetados.',
+      titulo: 'Desativar produto',
+      mensagem: 'Desativar este produto? Ele não aparecerá mais nas listas, mas o histórico é preservado. Use o botão ativo/inativo se quiser reativar depois.',
       perigo: true,
-      confirmar: 'Excluir',
+      confirmar: 'Desativar',
     });
     if (ok) {
-      setProdutos(produtos.filter(p => p.id !== id));
-      toast('Produto excluído.', 'sucesso');
+      setProdutos(produtos.map(p => p.id === id ? { ...p, ativo: false } : p));
+      toast('Produto desativado. Pode ser reativado a qualquer momento.', 'sucesso');
     }
   };
 

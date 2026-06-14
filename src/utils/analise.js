@@ -8,7 +8,7 @@ const DIA_MS = 86400000;
  * Diferente das sugestões de mín/máx, funciona desde os primeiros dias de uso
  * (com pelo menos 3 dias de histórico) — serve para prever ruptura.
  */
-export function mediaDiariaSaidas(saidas, ref = hoje(), janelaDias = 14) {
+export function mediaDiariaSaidas(saidas, ref = hoje(), janelaDias = 15) {
   if (!saidas.length) return {};
   const primeira = saidas.reduce((m, s) => (s.data < m ? s.data : m), saidas[0].data);
   const diasObservados = Math.min(janelaDias, Math.round((new Date(ref) - new Date(primeira)) / DIA_MS) + 1);
@@ -65,8 +65,9 @@ export function listaDeCompras(produtos, estoque, compras = [], aparas = [], des
       // (cupim porcionado, carne de sol desfiada etc.) — o cozimento acontece ANTES de entrar no estoque.
       const coccaoFator = p.entradaCozida && p.coccao > 0 ? p.coccao / 100 : 0;
       // kg bruto = líquido / (1 - FC) / (1 - coccão)
+      // Cap: bruto nunca pode ser mais que 5× o líquido (combinações absurdas de FC + coccão)
       const brutoKg = liquidoKg != null
-        ? Math.ceil(liquidoKg / (1 - (fc || 0)) / (1 - coccaoFator) * 10) / 10
+        ? Math.min(Math.ceil(liquidoKg / (1 - (fc || 0)) / (1 - coccaoFator) * 10) / 10, liquidoKg * 5)
         : null;
 
       // Último fornecedor que vendeu este produto

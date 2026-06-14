@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -6,15 +6,13 @@ import ResponsavelSelect from '../components/ResponsavelSelect';
 import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
 
 export default function Inventario() {
-  const { produtos, calcEstoque, addAjuste, ajustes, removeAjuste, restaurarRegistro, categorias, prefs, setPref } = useApp();
+  const { produtos, estoque, addAjuste, ajustes, removeAjuste, restaurarRegistro, categorias, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [contagem, setContagem] = useState({});
   const [catAtiva, setCatAtiva] = useState(categorias[0]);
   const [tab, setTab] = useState('novo');
-
-  const estoque = calcEstoque();
   const produtosAtivos = produtos.filter(p => p.ativo);
 
   const setCont = (id, val) => {
@@ -35,15 +33,25 @@ export default function Inventario() {
     });
     if (!ok) return;
     if (responsavel) setPref('responsavel', responsavel);
+    const inventarioId = `inv_${Date.now().toString(36)}`;
     itensContados.forEach(([produtoId, quantidade]) => {
-      addAjuste({ data, hora: fmtHora(), responsavel, produtoId, quantidade: parseFloat(quantidade) });
+      addAjuste({ data, hora: fmtHora(), responsavel, produtoId, quantidade: parseFloat(quantidade), inventarioId });
     });
     setContagem({});
     toast('Contagem registrada! Estoque atualizado.', 'sucesso');
     setTab('historico');
   };
 
-  const ajustesOrdenados = [...ajustes].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  // Agrupa ajustes por inventarioId (sessão de contagem) ou exibe individualmente se legado
+  const sessoesInventario = useMemo(() => {
+    const grupos = {};
+    [...ajustes].sort((a, b) => (b.ts || 0) - (a.ts || 0)).forEach(aj => {
+      const chave = aj.inventarioId || aj.id;
+      if (!grupos[chave]) grupos[chave] = { inventarioId: chave, itens: [], ts: aj.ts, data: aj.data, hora: aj.hora, responsavel: aj.responsavel };
+      grupos[chave].itens.push(aj);
+    });
+    return Object.values(grupos).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  }, [ajustes]);
 
   return (
     <Layout title="Inventário / Contagem">
@@ -120,33 +128,39 @@ export default function Inventario() {
         </div>
       ) : (
         <div className="space-y-3">
-          {ajustesOrdenados.length === 0 && (
+          {sessoesInventario.length === 0 && (
             <div className="text-center text-gray-500 py-12">Nenhuma contagem registrada ainda.</div>
           )}
-          {ajustesOrdenados.map(aj => {
-            const p = produtos.find(x => x.id === aj.produtoId);
-            return (
-              <div key={aj.id} className="bg-white rounded-xl p-4 flex justify-between items-center">
+          {sessoesInventario.map(sessao => (
+            <div key={sessao.inventarioId} className="bg-white rounded-xl p-4">
+              <div className="flex justify-between items-start mb-2">
                 <div>
-                  <div className="font-semibold text-sm">{p?.nome || aj.produtoId}</div>
+                  <div className="font-semibold text-sm text-polo-navy">
+                    📐 Contagem — {sessao.itens.length} produto{sessao.itens.length > 1 ? 's' : ''}
+                  </div>
                   <div className="text-xs text-gray-500">
-                    {fmtData(aj.data)} {aj.hora && `• ${aj.hora}`} {aj.responsavel && `• ${aj.responsavel}`}
+                    {fmtData(sessao.data)} {sessao.hora && `• ${sessao.hora}`} {sessao.responsavel && `• ${sessao.responsavel}`}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-blue-700 text-sm">{fmtNum(aj.quantidade)} {p?.unidade}</span>
-                  <button onClick={async () => {
-                    const ok = await confirm({ titulo: 'Remover contagem', mensagem: 'Remover este ajuste de inventário?', perigo: true, confirmar: 'Remover' });
-                    if (ok) {
-                      removeAjuste(aj.id);
-                      toast('Contagem removida.', 'sucesso', { acao: { label: 'Desfazer', onClick: () => restaurarRegistro('ajuste', aj) } });
-                    }
-                  }}
-                    className="text-red-400 text-lg font-semibold">×</button>
-                </div>
+                <button onClick={async () => {
+                  const ok = await confirm({ titulo: 'Remover contagem', mensagem: `Remover todos os ${sessao.itens.length} ajustes desta contagem?`, perigo: true, confirmar: 'Remover' });
+                  if (ok) {
+                    sessao.itens.forEach(aj => removeAjuste(aj.id));
+                    toast('Contagem removida.', 'sucesso');
+                  }
+                }} className="text-red-400 text-lg font-semibold ml-2">×</button>
               </div>
-            );
-          })}
+              {sessao.itens.map(aj => {
+                const p = produtos.find(x => x.id === aj.produtoId);
+                return (
+                  <div key={aj.id} className="flex justify-between text-sm border-t border-gray-50 pt-1 mt-1">
+                    <span className="text-gray-700">{p?.nome || aj.produtoId}</span>
+                    <span className="font-bold text-blue-700">{fmtNum(aj.quantidade)} {p?.unidade}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
     </Layout>

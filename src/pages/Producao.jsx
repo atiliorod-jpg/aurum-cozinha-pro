@@ -6,26 +6,37 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
-import { validarDataRegistro } from '../utils/datas';
+import { validarDataRegistro, addDias } from '../utils/datas';
 import { planejarProducao } from '../utils/producao';
 
 export default function Producao() {
-  const { producoes, produtos, addEntrada, addSaida, calcEstoque, listaManual, setListaManual, prefs, setPref } = useApp();
+  const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref } = useApp();
   const { temPermissao } = useAuth();
   const { toast, confirm } = useUI();
+
+  const [searchParams] = useSearchParams();
+  const rParam = searchParams.get('r');
 
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [produtoId, setProdutoId] = useState(() => {
+    if (rParam) {
+      const receitaAlvo = producoes.find(r => r.id === rParam);
+      if (receitaAlvo) return receitaAlvo.produtoFinalId;
+    }
     const prodComReceita = produtos.find(p => p.ativo && producoes.some(r => r.produtoFinalId === p.id));
     return prodComReceita?.id || '';
   });
   const [quantidade, setQuantidade] = useState('');
-  const [armazenamento, setArmazenamento] = useState('congelado');
+  const [armazenamento, setArmazenamento] = useState(() => {
+    if (rParam) {
+      const receitaAlvo = producoes.find(r => r.id === rParam);
+      if (receitaAlvo?.armazenamento && receitaAlvo.armazenamento !== 'ambos') return receitaAlvo.armazenamento;
+    }
+    return 'congelado';
+  });
   const [obs, setObs] = useState('');
   const [mostraIngredientes, setMostraIngredientes] = useState(false);
-
-  const estoque = calcEstoque();
   const prodNome = (id) => produtos.find(p => p.id === id)?.nome || id;
   const prodUnid = (id) => produtos.find(p => p.id === id)?.unidade || '';
 
@@ -34,12 +45,17 @@ export default function Producao() {
   const produto = produtos.find(p => p.id === produtoId);
   const quantidadeNum = parseFloat(quantidade) || 0;
   const plano = receita ? planejarProducao(receita, quantidadeNum || receita.rendimentoBase, estoque) : { itens: [], faltaAlgum: false };
+  const diasValPrevisao = armazenamento === 'congelado' ? (produto?.valCongelado || 0) : (produto?.valResfriado || 0);
+  const validadePrevisao = produtoId && diasValPrevisao > 0 ? addDias(data, diasValPrevisao) : null;
 
   const registrar = () => {
     const pid = `prc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const qtdFinal = quantidadeNum || (receita ? parseFloat(receita.rendimentoBase) : 0);
     const receitaNome = receita?.nome || prodNome(produtoId);
     const obsTxt = `Produção: ${receitaNome}${obs ? ` — ${obs}` : ''}`;
+    // calcula validade do produto final com base no armazenamento escolhido
+    const diasVal = armazenamento === 'congelado' ? (produto?.valCongelado || 0) : (produto?.valResfriado || 0);
+    const validade = diasVal > 0 ? addDias(data, diasVal) : undefined;
     // ingredientes que ABATEM do estoque (frios/proteínas controlados)
     const abateItens = plano.itens.filter(i => i.abate && i.produtoId && i.quantidade > 0)
       .map(i => ({ produtoId: i.produtoId, quantidade: i.quantidade }));
@@ -54,7 +70,7 @@ export default function Producao() {
     addEntrada({
       data, hora: fmtHora(), responsavel, armazenamento, producaoId: pid, obs: obsTxt,
       monitorados,
-      itens: [{ produtoId, quantidade: qtdFinal }],
+      itens: [{ produtoId, quantidade: qtdFinal, ...(validade ? { validade } : {}) }],
     });
     if (responsavel) setPref('responsavel', responsavel);
     setQuantidade(''); setObs('');
@@ -65,6 +81,9 @@ export default function Producao() {
     if (!produtoId) { toast('Escolha o produto produzido.', 'aviso'); return; }
     const qtdFinal = quantidadeNum || (receita ? parseFloat(receita.rendimentoBase) : 0);
     if (qtdFinal <= 0) { toast('Informe a quantidade produzida.', 'aviso'); return; }
+    if (produto?.unidade === 'unid' && !Number.isInteger(qtdFinal)) {
+      toast('Quantidade deve ser número inteiro para produtos em unidades.', 'erro'); return;
+    }
     const v = validarDataRegistro(data);
     if (!v.ok) { toast('Não é possível registrar em data futura.', 'erro'); return; }
     if (v.confirmar) {
@@ -105,7 +124,7 @@ export default function Producao() {
             <div className="bg-white rounded-xl p-4 space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">O que você produziu?</label>
-                <select value={produtoId} onChange={e => { setProdutoId(e.target.value); const r = producoes.find(x => x.produtoFinalId === e.target.value); if (r?.armazenamento) setArmazenamento(r.armazenamento); }}
+                <select value={produtoId} onChange={e => { setProdutoId(e.target.value); const r = producoes.find(x => x.produtoFinalId === e.target.value); if (r?.armazenamento && r.armazenamento !== 'ambos') setArmazenamento(r.armazenamento); }}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="">Escolha um produto…</option>
                   {produtosComReceita.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -121,7 +140,7 @@ export default function Producao() {
                   <label className="block text-xs font-semibold text-gray-600 mb-1">
                     Quantidade ({prodUnid(produtoId)})
                   </label>
-                  <input type="number" min="0" step="0.5" value={quantidade} onChange={e => setQuantidade(e.target.value)}
+                  <input type="number" min="0" step={produto?.unidade === 'unid' ? '1' : '0.5'} value={quantidade} onChange={e => setQuantidade(e.target.value)}
                     placeholder={receita ? fmtNum(receita.rendimentoBase) : '0'}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
@@ -165,6 +184,9 @@ export default function Producao() {
                         {fmtNum(atualFinal + qtdAposProduzir)} {produto?.unidade}
                       </p>
                       <p className="text-[11px] text-gray-500">{prodNome(produtoId)}</p>
+                      {validadePrevisao && (
+                        <p className="text-[11px] font-semibold text-polo-navy">val: {fmtData(validadePrevisao)}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -215,26 +237,41 @@ export default function Producao() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
             </div>
 
-            {plano.faltaAlgum && (
+            {receita && plano.itens.length > 0 && (
               <button onClick={() => {
-                const faltantes = plano.itens.filter(i => i.abate && !i.suficiente && i.falta > 0);
-                if (!faltantes.length) return;
-                const novos = faltantes.map(i => {
+                const novos = [];
+                plano.itens.filter(i => i.abate && !i.suficiente && i.falta > 0).forEach(i => {
                   const p = produtos.find(x => x.id === i.produtoId);
-                  return {
-                    id: `lm_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,
+                  novos.push({
+                    id: `lm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
                     produtoId: i.produtoId,
                     nome: p?.nome || i.produtoId,
                     unidade: p?.unidade || '',
                     quantidade: i.falta,
                     origem: `Produção: ${receita.nome}`,
-                  };
+                  });
                 });
+                plano.itens.filter(i => !i.abate && i.quantidade > 0).forEach(i => {
+                  novos.push({
+                    id: `lm_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+                    nome: i.nome,
+                    unidade: i.unidade || '',
+                    quantidade: i.quantidade,
+                    origem: `Produção: ${receita.nome}`,
+                  });
+                });
+                if (!novos.length) { toast('Nenhum ingrediente para adicionar.', 'aviso'); return; }
+                // Deduplica: soma quantidade se mesma origem+nome já está na lista
+                const origemLabel = `Produção: ${receita.nome}`;
+                const jaExiste = listaManual.some(i => i.origem === origemLabel);
+                if (jaExiste) {
+                  toast('Ingredientes desta receita já estão na lista de compras.', 'aviso'); return;
+                }
                 setListaManual([...listaManual, ...novos]);
-                toast(`${novos.length} item(ns) adicionado(s) à lista de compras.`, 'sucesso');
+                toast(`${novos.length} ingrediente(s) adicionado(s) à lista de compras.`, 'sucesso');
               }}
                 className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-95 transition-transform">
-                🧾 Adicionar faltantes à lista de compras
+                🧾 Adicionar ingredientes à lista de compras
               </button>
             )}
             <button onClick={handleProduzir}

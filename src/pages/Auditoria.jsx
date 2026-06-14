@@ -17,16 +17,19 @@ export default function Auditoria() {
   const { auditoria } = useApp();
   const [filtroUsuario, setFiltroUsuario] = useState('TODOS');
   const [busca, setBusca] = useState('');
+  const [periodo, setPeriodo] = useState('7'); // dias ou 'todos'
 
   const usuarios = useMemo(() => [...new Set(auditoria.map(a => a.usuario))].sort(), [auditoria]);
 
-  const registros = useMemo(() =>
-    [...auditoria]
+  const registros = useMemo(() => {
+    const corte = periodo !== 'todos' ? new Date(Date.now() - parseInt(periodo) * 86400000).getTime() : 0;
+    return [...auditoria]
       .reverse()
+      .filter(a => corte === 0 || (a.ts || 0) >= corte)
       .filter(a => filtroUsuario === 'TODOS' || a.usuario === filtroUsuario)
       .filter(a => !busca || `${a.acao} ${a.detalhe}`.toLowerCase().includes(busca.toLowerCase()))
-      .slice(0, 300),
-    [auditoria, filtroUsuario, busca]);
+      .slice(0, 300);
+  }, [auditoria, filtroUsuario, busca, periodo]);
 
   return (
     <Layout title="Histórico de Mudanças">
@@ -39,11 +42,20 @@ export default function Auditoria() {
           placeholder="🔍 Buscar ação ou item..."
           className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {[['7', 'Últimos 7d'], ['30', 'Últimos 30d'], ['90', 'Últimos 90d'], ['todos', 'Tudo']].map(([v, l]) => (
+            <button key={v} onClick={() => setPeriodo(v)}
+              className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                ${periodo === v ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {['TODOS', ...usuarios].map(u => (
             <button key={u} onClick={() => setFiltroUsuario(u)}
               className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
-                ${filtroUsuario === u ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-              {u === 'TODOS' ? 'Todos' : u}
+                ${filtroUsuario === u ? 'bg-polo-gold text-polo-navy' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              {u === 'TODOS' ? 'Todos usuários' : u}
             </button>
           ))}
         </div>

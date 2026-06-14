@@ -12,18 +12,19 @@ export default function Historico() {
     restaurarRegistro,
   } = useApp();
   const { toast, confirm } = useUI();
-  const destNome = (v) => v === 'producao' ? '🍲 Produção' : (locais.find(l => l.id === v)?.nome || v);
+  const destNome = (v) => v === 'producao' ? '🍲 Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [filtro, setFiltro] = useState('todas');
   const [busca, setBusca] = useState('');
 
   const nome = (id) => nomeProduto(produtos, id);
   const itensTxt = (r) => (r.itens || []).map(i => `${fmtNum(i.quantidade)} ${nome(i.produtoId)}`).join(', ');
 
-  // Remover uma produção: tira a entrada do produto final E a saída dos ingredientes
+  // Remover uma produção: devolve ingredientes primeiro (saída), depois remove o produto final (entrada)
+  // Ordem importa: se houver falha parcial, é melhor ter ingredientes em estoque do que produto fantasma
   const removerProducao = (entrada) => {
-    removeEntrada(entrada.id);
     const saidaPar = saidas.find(s => s.producaoId === entrada.producaoId);
     if (saidaPar) removeSaida(saidaPar.id);
+    removeEntrada(entrada.id);
   };
 
   // Monta a lista unificada

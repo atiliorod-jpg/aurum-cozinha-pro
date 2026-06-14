@@ -56,35 +56,35 @@ function Rotas() {
   }
 
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/registrar" element={<Registrar />} />
-        <Route path="/historico" element={<Historico />} />
-        <Route path="/compras" element={<Compras />} />
-        <Route path="/entradas" element={<Entradas />} />
-        <Route path="/saidas" element={<Saidas />} />
-        <Route path="/producao" element={<Producao />} />
-        <Route path="/aparas" element={<AparasPerdas />} />
-        <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
-        <Route path="/fichas" element={<Navigate to="/compras" replace />} />
-        <Route path="/inventario" element={<Restrito><Inventario /></Restrito>} />
-        <Route path="/relatorio" element={<Restrito><Relatorio /></Restrito>} />
-        <Route path="/auditoria" element={<Restrito><Auditoria /></Restrito>} />
-        <Route path="/configuracoes" element={<Restrito><Configuracoes /></Restrito>} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/registrar" element={<Registrar />} />
+      <Route path="/historico" element={<Historico />} />
+      <Route path="/compras" element={<Compras />} />
+      <Route path="/entradas" element={<Entradas />} />
+      <Route path="/saidas" element={<Saidas />} />
+      <Route path="/producao" element={<Producao />} />
+      <Route path="/aparas" element={<AparasPerdas />} />
+      <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
+      <Route path="/fichas" element={<Navigate to="/compras" replace />} />
+      <Route path="/inventario" element={<Restrito><Inventario /></Restrito>} />
+      <Route path="/relatorio" element={<Restrito><Relatorio /></Restrito>} />
+      <Route path="/auditoria" element={<Restrito><Auditoria /></Restrito>} />
+      <Route path="/configuracoes" element={<Restrito><Configuracoes /></Restrito>} />
+    </Routes>
   );
 }
 
 export default function App() {
   return (
-    <UIProvider>
-      <AuthProvider>
-        <AppProvider>
-          <Rotas />
-        </AppProvider>
-      </AuthProvider>
-    </UIProvider>
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <UIProvider>
+        <AuthProvider>
+          <AppProvider>
+            <Rotas />
+          </AppProvider>
+        </AuthProvider>
+      </UIProvider>
+    </BrowserRouter>
   );
 }

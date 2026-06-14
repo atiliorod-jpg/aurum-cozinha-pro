@@ -9,7 +9,7 @@ import { validarDataRegistro } from '../utils/datas';
 import { listaDeCompras } from '../utils/analise';
 
 export default function Compras() {
-  const { compras, addCompra, fichas, calcEstoque, produtos, aparas, desperdicio, listaManual, setListaManual, prefs, setPref } = useApp();
+  const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   const location = useLocation();
   const [form, setForm] = useState({
@@ -18,7 +18,6 @@ export default function Compras() {
   const [tab, setTab] = useState(location.state?.tab === 'lista' ? 'lista' : 'novo'); // novo | lista
   const [fornecedorAuto, setFornecedorAuto] = useState(false);
 
-  const estoque = calcEstoque();
   const lista = useMemo(
     () => listaDeCompras(produtos, estoque, compras, aparas, desperdicio),
     [produtos, estoque, compras, aparas, desperdicio]
@@ -317,8 +316,8 @@ export default function Compras() {
             <ResponsavelSelect value={form.responsavel} onChange={v => set('responsavel', v)} />
           </div>
 
-          <button onClick={handleSalvar}
-            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base active:scale-95 transition-transform">
+          <button onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade}
+            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
             ✓ Registrar Compra
           </button>
         </div>
