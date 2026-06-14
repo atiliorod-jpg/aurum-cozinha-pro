@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import NavBar from './NavBar';
 import Icon from './Icons';
+import GuideTour from './GuideTour';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 
@@ -56,6 +57,7 @@ export default function Layout({ title, children, actions }) {
         <img src={LOGO} alt="" className="w-72 h-72 opacity-[0.05] rounded-full" />
       </div>
       <main className="flex-1 p-4 max-w-2xl mx-auto w-full relative">
+        <GuideTour />
         {children}
       </main>
       <NavBar />

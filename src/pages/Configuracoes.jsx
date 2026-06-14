@@ -13,7 +13,7 @@ import { POLO_PRESET } from '../data/presetPolo';
 // a conversão para número acontece só no salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
 
-function ModalProduto({ produto, sugestao, categorias, diasMin = 3, diasMax = 6, onSalvar, onFechar }) {
+function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin = 3, diasMax = 6, onSalvar, onFechar }) {
   const [form, setForm] = useState(() => produto
     ? {
         ...produto,
@@ -33,6 +33,13 @@ function ModalProduto({ produto, sugestao, categorias, diasMin = 3, diasMax = 6,
         gramatura: '', coccao: '', entradaCozida: false, ativo: true,
       });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  // Coccão só faz sentido quando a cozinha processa o produto (há receita que o usa)
+  const temReceita = produto?.id
+    ? producoes.some(p =>
+        p.produtoFinalId === produto.id ||
+        p.ingredientes?.some(i => i.abate && i.produtoId === produto.id))
+    : false;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto overscroll-contain p-4 flex"
@@ -152,19 +159,25 @@ function ModalProduto({ produto, sugestao, categorias, diasMin = 3, diasMax = 6,
         {/* Gramatura / Porcionamento */}
         <div className="border border-gray-100 rounded-xl p-3 space-y-3">
           <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🍽️ Gramatura / Porcionamento</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid gap-3 ${temReceita ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Gramatura (g / porção)</label>
               <input type="number" min="0" step="5" value={form.gramatura} onChange={e => set('gramatura', e.target.value)}
                 placeholder="Ex: 200"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Perda cocção (%)</label>
-              <input type="number" min="0" max="90" step="1" value={form.coccao} onChange={e => set('coccao', e.target.value)}
-                placeholder="Ex: 30"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
+            {temReceita ? (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Perda cocção (%)</label>
+                <input type="number" min="0" max="90" step="1" value={form.coccao} onChange={e => set('coccao', e.target.value)}
+                  placeholder="Ex: 30"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400 col-span-full">
+                🍳 Perda de cocção disponível quando há uma receita que usa este produto (cadastre em 🍽️ Receitas).
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3 bg-orange-50 rounded-lg p-2.5">
             <div className="flex-1">
@@ -824,6 +837,24 @@ export default function Configuracoes() {
         </div>
       </div>
 
+      {/* Guia de fluxo */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-bold text-polo-navy">📋 Guia de fluxo do turno</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Exibe um painel no topo de cada tela com os passos do turno (Entradas → Aparas → Produção → Saídas) e lembra o próximo passo a registrar.
+            </p>
+          </div>
+          <button
+            role="switch" aria-checked={!!prefs.guia}
+            onClick={() => setPref('guia', !prefs.guia)}
+            className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${prefs.guia ? 'bg-green-500' : 'bg-gray-300'}`}>
+            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.guia ? 'left-6' : 'left-0.5'}`} />
+          </button>
+        </div>
+      </div>
+
       {/* Contagem física */}
       <Link to="/inventario"
         className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
@@ -1057,6 +1088,7 @@ export default function Configuracoes() {
           produto={editando}
           sugestao={editando ? sugestoes[editando.id] : null}
           categorias={categorias}
+          producoes={producoes}
           diasMin={prefs.diasMin || 3}
           diasMax={prefs.diasMax || 6}
           onSalvar={handleSalvar}

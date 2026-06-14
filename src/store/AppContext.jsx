@@ -19,7 +19,7 @@ const CAT = {
   // Itens adicionados manualmente à lista de compras (ex.: faltantes de uma
   // produção planejada). Cada item: { id, nome, unidade, quantidade, origem }
   listaManual: [],
-  prefs:      { responsavel: '', turno: 'Manhã', destino: '' },
+  prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
 
 // tipo no banco → rótulo legível para a trilha de auditoria

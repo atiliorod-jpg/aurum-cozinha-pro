@@ -9,7 +9,7 @@ import { validarDataRegistro } from '../utils/datas';
 import { listaDeCompras } from '../utils/analise';
 
 export default function Compras() {
-  const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, prefs, setPref } = useApp();
+  const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   const location = useLocation();
   const [form, setForm] = useState({
@@ -22,6 +22,19 @@ export default function Compras() {
     () => listaDeCompras(produtos, estoque, compras, aparas, desperdicio),
     [produtos, estoque, compras, aparas, desperdicio]
   );
+
+  // Ingredientes não controlados em estoque (abate: false) por receita — referência para o comprador
+  const ingredientesReceita = useMemo(() => {
+    const mapa = new Map();
+    producoes.forEach(r => {
+      (r.ingredientes || []).filter(i => !i.abate && (i.nome || '').trim()).forEach(i => {
+        const chave = i.nome.trim().toLowerCase();
+        if (!mapa.has(chave)) mapa.set(chave, { nome: i.nome.trim(), usos: [] });
+        mapa.get(chave).usos.push({ receita: r.nome, quantidade: i.quantidade, unidade: i.unidade || 'un' });
+      });
+    });
+    return [...mapa.values()].sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [producoes]);
 
   const copiarLista = async () => {
     const linhas = [`🧾 LISTA DE COMPRAS — ${fmtData(hoje())}`];
@@ -206,7 +219,7 @@ export default function Compras() {
                             <span>🏪</span>
                             {fornecedor
                               ? <span>Último fornecedor: <span className="font-semibold text-gray-700">{fornecedor}</span></span>
-                              : <span className="italic">Nenhuma compra registrada ainda</span>}
+                              : <span className="italic">Fornecedor não informado nas compras anteriores</span>}
                           </div>
                         </div>
                       </div>
@@ -233,6 +246,27 @@ export default function Compras() {
                         </span>
                         <button onClick={() => removerManual(m.id)} aria-label={`Remover ${m.nome}`}
                           className="text-red-400 font-bold text-lg w-6">×</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {ingredientesReceita.length > 0 && (
+                <div className="bg-white rounded-xl overflow-hidden border border-gray-100">
+                  <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
+                    <p className="text-xs font-bold text-polo-navy">📖 Ingredientes de receita (referência)</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Não controlados em estoque — lembrete para o comprador.</p>
+                  </div>
+                  {ingredientesReceita.map((item, i, arr) => (
+                    <div key={item.nome} className={`px-4 py-2.5 ${i < arr.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                      <div className="font-medium text-sm text-gray-800">{item.nome}</div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                        {item.usos.map((u, j) => (
+                          <span key={j} className="text-[11px] text-gray-500">
+                            {u.receita}: <span className="font-semibold text-gray-700">{u.quantidade} {u.unidade}</span>
+                          </span>
+                        ))}
                       </div>
                     </div>
                   ))}
