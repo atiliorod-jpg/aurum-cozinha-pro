@@ -123,6 +123,7 @@ function resolverProduto(ficha, produtos) {
 function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, aparas, desperdicio, toast }) {
   const [fcEdit,   setFcEdit]   = useState(null); // { id, pct }
   const [nomeEdit, setNomeEdit] = useState(null); // { id, nome }
+  const [aberto,   setAberto]   = useState(false); // colapsável
 
   const { grupos, naoVinc } = useMemo(() => {
     const m = new Map();
@@ -165,14 +166,31 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
   };
 
   const opcoesProduto = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
+  const totalGrupos = grupos.length + (naoVinc.length > 0 ? 1 : 0);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-      <p className="text-sm font-bold text-polo-navy">🎯 Rendimento por ingrediente</p>
-      <p className="text-xs text-gray-500 mt-0.5 mb-3">
+    <div className="bg-white border border-gray-200 rounded-xl mb-4">
+      <button
+        onClick={() => setAberto(a => !a)}
+        aria-expanded={aberto}
+        className="w-full flex items-center justify-between gap-2 p-4 text-left"
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-polo-navy">🎯 Rendimento por ingrediente</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {grupos.length} {grupos.length === 1 ? 'ingrediente' : 'ingredientes'}
+            {naoVinc.length > 0 && ` • ${naoVinc.length} sem vínculo`} — toque para {aberto ? 'recolher' : 'abrir'}
+          </p>
+        </div>
+        <span className={`text-gray-400 text-lg transition-transform flex-shrink-0 ${aberto ? 'rotate-180' : ''}`}>⌄</span>
+      </button>
+
+      {aberto && (
+      <div className="px-4 pb-4">
+      <p className="text-xs text-gray-500 mb-3">
         Cada ingrediente reúne as preparações que o usam. O <strong>fator de correção</strong> (apara/perda na limpeza) é
         calculado sozinho pelas aparas e perdas ligadas às compras — um único FC vale para todas as preparações.
-        Se o vínculo automático errar, use <strong>"mover"</strong> para corrigir, ou ajuste o FC à mão.
+        Use <strong>✏️</strong> para renomear o ingrediente, <strong>"mover"</strong> para corrigir um vínculo errado, ou ajuste o FC à mão.
       </p>
 
       {grupos.length === 0 && naoVinc.length === 0 && (
@@ -287,6 +305,8 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
           </div>
         )}
       </div>
+      </div>
+      )}
     </div>
   );
 }
@@ -1182,6 +1202,19 @@ export default function Configuracoes() {
       </>}
 
       {secao === 'sistema' && <>
+      {/* Atalho admin (só super-admin) */}
+      {sessao?.eSuperAdmin && (
+        <Link to="/admin" className="block bg-polo-navy rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-polo-gold">🔑 Painel super-admin</p>
+              <p className="text-[11px] text-white/60 mt-0.5">Ver restaurantes, usuários e suporte ativo.</p>
+            </div>
+            <span className="text-polo-gold text-lg">→</span>
+          </div>
+        </Link>
+      )}
+
       {/* Instalar app no tablet */}
       <CartaoInstalarApp />
 

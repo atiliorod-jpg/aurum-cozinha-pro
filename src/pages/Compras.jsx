@@ -18,11 +18,22 @@ export default function Compras() {
   });
   const [tab, setTab] = useState(location.state?.tab === 'lista' ? 'lista' : 'novo'); // novo | lista
   const [fornecedorAuto, setFornecedorAuto] = useState(false);
+  const [busca, setBusca] = useState('');
 
-  const lista = useMemo(
+  const listaCompleta = useMemo(
     () => listaDeCompras(produtos, estoque, compras, aparas, desperdicio),
     [produtos, estoque, compras, aparas, desperdicio]
   );
+
+  // Filtro de busca (por nome do produto / categoria)
+  const b = busca.trim().toLowerCase();
+  const lista = b
+    ? listaCompleta.filter(({ p }) =>
+        (p.nome || '').toLowerCase().includes(b) || (p.categoria || '').toLowerCase().includes(b))
+    : listaCompleta;
+  const manualFiltrada = b
+    ? listaManual.filter(m => (m.nome || '').toLowerCase().includes(b))
+    : listaManual;
 
   // Ingredientes não controlados em estoque (abate: false) por receita — referência para o comprador
   const ingredientesReceita = useMemo(() => {
@@ -39,7 +50,7 @@ export default function Compras() {
 
   const copiarLista = async () => {
     const linhas = [`🧾 LISTA DE COMPRAS — ${fmtData(hoje())}`];
-    lista.forEach(({ p, atual, brutoKg, liquidoKg, fc, fornecedor }) => {
+    listaCompleta.forEach(({ p, atual, brutoKg, liquidoKg, fc, fornecedor }) => {
       const kgTexto = brutoKg
         ? `${fmtNum(brutoKg)} kg bruto${fc ? ` (FC ${Math.round(fc * 100)}%)` : ''}`
         : liquidoKg
@@ -138,7 +149,7 @@ export default function Compras() {
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {[
           ['novo', '+ Nova compra'],
-          ['lista', `🧾 Lista de compras${lista.length + listaManual.length ? ` (${lista.length + listaManual.length})` : ''}`],
+          ['lista', `🧾 Lista de compras${listaCompleta.length + listaManual.length ? ` (${listaCompleta.length + listaManual.length})` : ''}`],
         ].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors
@@ -153,11 +164,36 @@ export default function Compras() {
           <div className="bg-polo-beige border border-polo-gold/40 rounded-xl p-3 text-xs text-polo-navy">
             <strong>Automática:</strong> produtos abaixo do mínimo. <strong>Manual:</strong> itens adicionados ao planejar uma produção.
           </div>
-          {lista.length === 0 && listaManual.length === 0 ? (
+
+          {/* Busca na lista */}
+          {(listaCompleta.length > 0 || listaManual.length > 0) && (
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+              <input
+                type="text"
+                value={busca}
+                onChange={e => setBusca(e.target.value)}
+                placeholder="Pesquisar item ou categoria…"
+                className="w-full border border-gray-200 rounded-xl pl-9 pr-9 py-2.5 text-sm"
+              />
+              {busca && (
+                <button onClick={() => setBusca('')} aria-label="Limpar busca"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">×</button>
+              )}
+            </div>
+          )}
+
+          {listaCompleta.length === 0 && listaManual.length === 0 ? (
             <div className="bg-white rounded-xl p-8 text-center">
               <div className="text-3xl mb-2">✅</div>
               <p className="text-sm font-semibold text-gray-700">Nada para comprar!</p>
               <p className="text-xs text-gray-500 mt-1">Nenhum produto está abaixo do mínimo.</p>
+            </div>
+          ) : b && lista.length === 0 && manualFiltrada.length === 0 ? (
+            <div className="bg-white rounded-xl p-8 text-center">
+              <div className="text-3xl mb-2">🔍</div>
+              <p className="text-sm font-semibold text-gray-700">Nenhum item encontrado</p>
+              <p className="text-xs text-gray-500 mt-1">Nada na lista corresponde a "{busca}".</p>
             </div>
           ) : (
             <>
@@ -249,13 +285,13 @@ export default function Compras() {
                 </div>
               )}
 
-              {listaManual.length > 0 && (
+              {manualFiltrada.length > 0 && (
                 <div className="bg-white rounded-xl overflow-hidden">
                   <div className="bg-polo-gold px-4 py-2.5 flex justify-between items-center">
                     <h2 className="text-polo-navy text-sm font-bold">Adicionados manualmente</h2>
                     <button onClick={limparManuais} className="text-polo-navy/70 text-xs font-semibold">Limpar</button>
                   </div>
-                  {listaManual.map((m, i, arr) => (
+                  {manualFiltrada.map((m, i, arr) => (
                     <div key={m.id} className={`flex items-center justify-between px-4 py-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                       <div className="min-w-0">
                         <div className="font-medium text-sm text-gray-800 truncate">{m.nome}</div>
