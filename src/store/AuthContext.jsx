@@ -25,6 +25,9 @@ export function AuthProvider({ children }) {
       .eq('id', userId)
       .maybeSingle();
 
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const email = authUser?.email || '';
+
     if (perfil) {
       const { data: rest } = await supabase
         .from('restaurantes')
@@ -33,10 +36,12 @@ export function AuthProvider({ children }) {
         .maybeSingle();
       setSessao({
         usuarioId:        userId,
+        email,
         nome:             perfil.nome,
         cargo:            perfil.cargo,
         restauranteId:    perfil.restaurante_id,
         restauranteNome:  rest?.nome || '',
+        eSuperAdmin:      email === 'atiliopinpolho@gmail.com',
         ts:               Date.now(),
       });
       const { data: todos } = await supabase
@@ -46,7 +51,7 @@ export function AuthProvider({ children }) {
       setUsuarios(todos || []);
     } else {
       // Auth criado mas perfil ainda não existe (setup incompleto)
-      setSessao({ usuarioId: userId, nome: null, cargo: null, restauranteId: null, ts: Date.now() });
+      setSessao({ usuarioId: userId, email, nome: null, cargo: null, restauranteId: null, eSuperAdmin: email === 'atiliopinpolho@gmail.com', ts: Date.now() });
       setUsuarios([]);
     }
     setCarregando(false);

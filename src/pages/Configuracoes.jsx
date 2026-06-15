@@ -24,6 +24,51 @@ function useEscClose(onFechar) {
   }, [onFechar]);
 }
 
+// Suporte remoto — autoriza Atílio a visualizar os dados desta conta por 24h
+function CartaoSuporteRemoto({ prefs, setPref, toast }) {
+  const suporteAtivo = prefs.suporteAtivo && prefs.suporteAtivo > Date.now();
+  const restante = suporteAtivo
+    ? Math.ceil((prefs.suporteAtivo - Date.now()) / 3600000)
+    : 0;
+
+  const autorizar = () => {
+    const ate = Date.now() + 24 * 3600 * 1000;
+    setPref('suporteAtivo', ate);
+    toast('Acesso de suporte autorizado por 24h.', 'sucesso');
+  };
+
+  const revogar = () => {
+    setPref('suporteAtivo', null);
+    toast('Acesso de suporte revogado.', 'sucesso');
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <p className="text-sm font-bold text-polo-navy">🛠️ Suporte remoto</p>
+          {suporteAtivo ? (
+            <p className="text-xs text-green-700 mt-0.5">
+              ✅ Acesso autorizado — expira em ~{restante}h. O suporte pode visualizar seus dados para resolver o problema.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500 mt-0.5">
+              Permite que o suporte (Atílio) visualize temporariamente os dados desta conta para ajudar a resolver bugs. O acesso expira em 24h.
+            </p>
+          )}
+        </div>
+        {suporteAtivo ? (
+          <button onClick={revogar}
+            className="bg-red-100 text-red-700 font-bold px-3 py-2 rounded-lg text-xs whitespace-nowrap flex-shrink-0">Revogar</button>
+        ) : (
+          <button onClick={autorizar}
+            className="bg-polo-navy text-polo-gold font-bold px-3 py-2 rounded-lg text-xs whitespace-nowrap flex-shrink-0">Autorizar 24h</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Cartão para instalar o app na tela inicial (Configurações → Sistema)
 function CartaoInstalarApp() {
   const { podeInstalar, instalado, ios, instalar } = usePwaInstall();
@@ -31,7 +76,7 @@ function CartaoInstalarApp() {
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
       <div className="flex items-start gap-3">
         <div className="flex-1">
-          <p className="text-sm font-bold text-polo-navy">📲 Instalar app no tablet</p>
+          <p className="text-sm font-bold text-polo-navy">📲 Instalar app</p>
           {instalado ? (
             <p className="text-xs text-green-700 mt-0.5">✅ App já instalado neste aparelho.</p>
           ) : ios ? (
@@ -76,7 +121,8 @@ function resolverProduto(ficha, produtos) {
 // mostra o FC (automático por aparas+perdas ou manual) e permite mover uma
 // preparação para o ingrediente certo quando o vínculo automático erra.
 function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, aparas, desperdicio, toast }) {
-  const [fcEdit, setFcEdit] = useState(null); // { id, pct }
+  const [fcEdit,   setFcEdit]   = useState(null); // { id, pct }
+  const [nomeEdit, setNomeEdit] = useState(null); // { id, nome }
 
   const { grupos, naoVinc } = useMemo(() => {
     const m = new Map();
@@ -95,6 +141,14 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
     setFichas(fichas.map(x => x.id === ficha.id ? { ...x, produtoId: novoId || undefined } : x));
     const destino = produtos.find(p => p.id === novoId);
     toast(destino ? `Preparação movida para ${destino.nome}.` : 'Vínculo removido.', 'sucesso');
+  };
+
+  const renomearProduto = (produto, novoNome) => {
+    novoNome = novoNome.trim();
+    if (!novoNome) return;
+    setProdutos(produtos.map(p => p.id === produto.id ? { ...p, nome: novoNome } : p));
+    setNomeEdit(null);
+    toast(`Ingrediente renomeado para "${novoNome}".`, 'sucesso');
   };
 
   const salvarFcManual = (produto, pct) => {
@@ -132,21 +186,50 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
           return (
             <div key={produto.id} className="border border-gray-100 rounded-xl p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm text-polo-navy">{produto.nome}</p>
-                  <p className="text-[11px] mt-0.5">
-                    {produto.fcManual ? (
-                      <span className="text-polo-navy">FC manual: <strong>{Math.round((produto.fcMedio || 0) * 100)}%</strong></span>
-                    ) : fcAuto != null ? (
-                      <span className="text-gray-600">FC automático: <strong className="text-polo-navy">{Math.round(fcAuto * 100)}%</strong> (aparas + perdas)</span>
-                    ) : (
-                      <span className="text-gray-400">Sem FC ainda — registre aparas/perdas ligadas às compras deste item</span>
-                    )}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  {nomeEdit?.id === produto.id ? (
+                    <div className="flex items-center gap-2 mb-1">
+                      <input
+                        autoFocus
+                        value={nomeEdit.nome}
+                        onChange={e => setNomeEdit({ ...nomeEdit, nome: e.target.value })}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') renomearProduto(produto, nomeEdit.nome);
+                          if (e.key === 'Escape') setNomeEdit(null);
+                        }}
+                        className="border border-polo-gold/60 rounded-lg px-2 py-1 text-sm font-semibold text-polo-navy flex-1 min-w-0"
+                      />
+                      <button onClick={() => renomearProduto(produto, nomeEdit.nome)}
+                        className="text-[11px] font-bold text-polo-gold bg-polo-navy px-2 py-1.5 rounded-lg flex-shrink-0">✓</button>
+                      <button onClick={() => setNomeEdit(null)}
+                        className="text-[11px] text-gray-400 flex-shrink-0">✕</button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <p className="font-semibold text-sm text-polo-navy">{produto.nome}</p>
+                      <button
+                        onClick={() => { setFcEdit(null); setNomeEdit({ id: produto.id, nome: produto.nome }); }}
+                        className="text-[11px] text-gray-400 hover:text-polo-navy transition-colors flex-shrink-0"
+                        aria-label={`Renomear ${produto.nome}`}
+                        title="Renomear ingrediente"
+                      >✏️</button>
+                    </div>
+                  )}
+                  {nomeEdit?.id !== produto.id && (
+                    <p className="text-[11px]">
+                      {produto.fcManual ? (
+                        <span className="text-polo-navy">FC manual: <strong>{Math.round((produto.fcMedio || 0) * 100)}%</strong></span>
+                      ) : fcAuto != null ? (
+                        <span className="text-gray-600">FC automático: <strong className="text-polo-navy">{Math.round(fcAuto * 100)}%</strong> (aparas + perdas)</span>
+                      ) : (
+                        <span className="text-gray-400">Sem FC ainda — registre aparas/perdas ligadas às compras deste item</span>
+                      )}
+                    </p>
+                  )}
                 </div>
-                {!editando && (
-                  <button onClick={() => setFcEdit({ id: produto.id, pct: produto.fcManual ? String(Math.round((produto.fcMedio || 0) * 100)) : '' })}
-                    className="text-[11px] font-semibold text-polo-navy bg-gray-100 px-2 py-1 rounded flex-shrink-0">✏️ FC</button>
+                {!editando && nomeEdit?.id !== produto.id && (
+                  <button onClick={() => { setNomeEdit(null); setFcEdit({ id: produto.id, pct: produto.fcManual ? String(Math.round((produto.fcMedio || 0) * 100)) : '' }); }}
+                    className="text-[11px] font-semibold text-polo-navy bg-gray-100 px-2 py-1 rounded flex-shrink-0">FC</button>
                 )}
               </div>
 
@@ -1101,6 +1184,9 @@ export default function Configuracoes() {
       {secao === 'sistema' && <>
       {/* Instalar app no tablet */}
       <CartaoInstalarApp />
+
+      {/* Suporte remoto */}
+      <CartaoSuporteRemoto prefs={prefs} setPref={setPref} toast={toast} />
 
       {/* Rendimento / Fator de correção por ingrediente */}
       <TabelaRendimento produtos={produtos} fichas={fichas} setFichas={setFichas} setProdutos={setProdutos}

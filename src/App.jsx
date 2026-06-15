@@ -19,6 +19,7 @@ import Relatorio from './pages/Relatorio';
 import Auditoria from './pages/Auditoria';
 import Pagamento from './pages/Pagamento';
 import Configuracoes from './pages/Configuracoes';
+import Admin from './pages/Admin';
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -75,6 +76,7 @@ function Rotas() {
       <Route path="/auditoria" element={<Restrito><Auditoria /></Restrito>} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={<Restrito><Configuracoes /></Restrito>} />
+      <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
     </Routes>
   );
 }

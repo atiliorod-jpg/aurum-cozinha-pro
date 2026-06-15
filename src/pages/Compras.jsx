@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
+import AutocompleteInput from '../components/AutocompleteInput';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
 import { listaDeCompras, fcEfetivo, preparacoesDoItem } from '../utils/analise';
@@ -336,24 +337,25 @@ export default function Compras() {
                     <span className="ml-1 text-[10px] font-bold text-polo-gold bg-polo-navy px-1.5 py-0.5 rounded">auto</span>
                   )}
                 </label>
-                <input type="text" list="lista-fornecedores" value={form.fornecedor}
-                  onChange={e => { setFornecedorAuto(false); set('fornecedor', e.target.value); }}
+                <AutocompleteInput
+                  value={form.fornecedor}
+                  onChange={v => { setFornecedorAuto(false); set('fornecedor', v); }}
+                  sugestoes={fornecedoresSugeridos}
                   placeholder="Nome do fornecedor"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                <datalist id="lista-fornecedores">
-                  {fornecedoresSugeridos.map(f => <option key={f} value={f} />)}
-                </datalist>
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Item comprado</label>
-              <input type="text" list="lista-itens-compra" value={form.item} onChange={e => onItemChange(e.target.value)}
+              <AutocompleteInput
+                value={form.item}
+                onChange={onItemChange}
+                sugestoes={itensSugeridos}
                 placeholder="Ex: Filé Mignon, Frango Filé, Picanha..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-              <datalist id="lista-itens-compra">
-                {itensSugeridos.map(i => <option key={i} value={i} />)}
-              </datalist>
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+              />
               <p className="text-xs text-gray-500 mt-1">Digite e escolha da lista — o fornecedor do último recebimento deste item entra sozinho.</p>
 
               {itemInfo && (
