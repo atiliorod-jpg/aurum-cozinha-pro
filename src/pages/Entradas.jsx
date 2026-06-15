@@ -94,6 +94,12 @@ export default function Entradas() {
       </div>
       {tab === 'novo' ? (
         <div className="space-y-4">
+          <button onClick={handleSalvar} disabled={!itensPreenchidos.length}
+            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
+                       disabled:opacity-40 active:scale-95 transition-transform">
+            ✓ Registrar Entrada
+          </button>
+
           {/* Cabeçalho */}
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div>
@@ -208,11 +214,6 @@ export default function Entradas() {
             </div>
           )}
 
-          <button onClick={handleSalvar} disabled={!itensPreenchidos.length}
-            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
-                       disabled:opacity-40 active:scale-95 transition-transform">
-            ✓ Registrar Entrada
-          </button>
         </div>
       ) : (
         <div className="space-y-3">

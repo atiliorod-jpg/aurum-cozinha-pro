@@ -166,46 +166,6 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
           </div>
         )}
 
-        {/* Gramatura / Porcionamento */}
-        <div className="border border-gray-100 rounded-xl p-3 space-y-3">
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🍽️ Gramatura / Porcionamento</p>
-          <div className={`grid gap-3 ${temReceita ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <div>
-              <label htmlFor="mp-gramatura" className="block text-xs font-semibold text-gray-600 mb-1">Gramatura (g / porção)</label>
-              <input id="mp-gramatura" type="number" min="0" step="5" value={form.gramatura} onChange={e => set('gramatura', e.target.value)}
-                placeholder="Ex: 200"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
-            {temReceita ? (
-              <div>
-                <label htmlFor="mp-coccao" className="block text-xs font-semibold text-gray-600 mb-1">Perda cocção (%)</label>
-                <input id="mp-coccao" type="number" min="0" max="90" step="1" value={form.coccao} onChange={e => set('coccao', e.target.value)}
-                  placeholder="Ex: 30"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-              </div>
-            ) : (
-              <p className="text-[10px] text-gray-400 col-span-full">
-                🍳 Perda de cocção disponível quando há uma receita que usa este produto (cadastre em 🍽️ Receitas).
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-3 bg-orange-50 rounded-lg p-2.5">
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-gray-700">Entra no estoque já cozido?</p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Ex: cupim cozido, carne de sol desfiada — já entram prontos. Filé de frango entra cru.</p>
-            </div>
-            <button onClick={() => set('entradaCozida', !form.entradaCozida)}
-              className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${form.entradaCozida ? 'bg-orange-500' : 'bg-gray-300'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.entradaCozida ? 'left-6' : 'left-0.5'}`} />
-            </button>
-          </div>
-          {form.entradaCozida && form.coccao && (
-            <p className="text-[10px] text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5">
-              ✔ Na lista de compras, a perda de cocção ({form.coccao}%) será considerada: você compra mais cru para chegar ao kg cozido necessário.
-            </p>
-          )}
-        </div>
-
         <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
           <span className="text-sm text-gray-700 flex-1">Produto ativo</span>
           <button onClick={() => set('ativo', !form.ativo)}

@@ -20,13 +20,13 @@ const COR_MOTIVO = {
 };
 
 export default function AparasPerdas() {
-  const { compras, aparas, addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, restaurarRegistro, destinos, prefs, setPref } = useApp();
+  const { compras, aparas, addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, restaurarRegistro, destinos, produtos, setProdutos, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   const [tipo, setTipo] = useState('apara'); // 'apara' | 'perda'
   const [tab, setTab] = useState('novo');
 
   const [formApara, setFormApara] = useState({
-    data: hoje(), turno: prefs.turno || 'Manhã', compraId: '', item: '', quantidade: '', unidade: 'kg', destino: 'STG', destinoOutro: '', responsavel: prefs.responsavel || '',
+    data: hoje(), turno: prefs.turno || 'Manhã', compraId: '', produtoId: '', item: '', quantidade: '', unidade: 'kg', destino: 'STG', destinoOutro: '', responsavel: prefs.responsavel || '',
   });
   const [formPerda, setFormPerda] = useState({
     data: hoje(), turno: prefs.turno || 'Manhã', origem: 'estoque', produtoId: '', compraId: '', item: '', quantidade: '', unidade: 'kg', motivo: 'S', motivoOutro: '', responsavel: prefs.responsavel || '',
@@ -58,9 +58,28 @@ export default function AparasPerdas() {
     let unidApara = formApara.unidade;
     if (unidApara === 'g') { qtdApara = qtdApara / 1000; unidApara = 'kg'; }
     addApara({ ...formApara, origem: 'recebimento', hora: fmtHora(), quantidade: qtdApara, unidade: unidApara });
+
+    // FC automático: recalcula fcMedio do produto com base em todas as aparas
+    if (formApara.produtoId) {
+      const produto = produtos.find(p => p.id === formApara.produtoId);
+      if (produto) {
+        const novaApara = { produtoId: formApara.produtoId, quantidade: qtdApara };
+        const todasAparas = [...aparas, novaApara].filter(a => a.produtoId === formApara.produtoId);
+        const nomeMin = produto.nome.toLowerCase();
+        const totalComprado = compras
+          .filter(c => { const it = (c.item || '').toLowerCase(); return it && (it === nomeMin || it.includes(nomeMin) || nomeMin.includes(it)); })
+          .reduce((s, c) => s + (parseFloat(c.quantidade) || 0), 0);
+        const totalAparas = todasAparas.reduce((s, a) => s + (parseFloat(a.quantidade) || 0), 0);
+        if (totalComprado > 0 && totalAparas > 0) {
+          const fcMedio = Math.min(totalAparas / totalComprado, 0.9);
+          setProdutos(produtos.map(p => p.id === formApara.produtoId ? { ...p, fcMedio } : p));
+        }
+      }
+    }
+
     if (formApara.responsavel) setPref('responsavel', formApara.responsavel);
     setPref('turno', formApara.turno);
-    setFormApara(prev => ({ ...prev, compraId: '', item: '', quantidade: '', destinoOutro: '' }));
+    setFormApara(prev => ({ ...prev, compraId: '', produtoId: '', item: '', quantidade: '', destinoOutro: '' }));
     toast('Apara registrada! Vai para o freezer de reaproveitamento.', 'sucesso');
   };
 
@@ -148,6 +167,12 @@ export default function AparasPerdas() {
 
           {tipo === 'apara' ? (
             <>
+              <button onClick={salvarApara}
+                disabled={!formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}
+                className="w-full bg-amber-500 text-white font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
+                ✓ Registrar Apara
+              </button>
+
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
                 <strong>Apara</strong> é a sobra aproveitável da limpeza/porcionamento (ex: apara de filé → strogonoff, hambúrguer). Vai para o freezer e <strong>não mexe no estoque</strong> — serve para medir o rendimento da matéria-prima.
               </div>
@@ -178,6 +203,18 @@ export default function AparasPerdas() {
                     ))}
                   </select>
                   <p className="text-xs text-gray-500 mt-1">Liga a apara ao recebimento para calcular o rendimento da compra.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Produto (para FC automático)</label>
+                  <select value={formApara.produtoId} onChange={e => setA('produtoId', e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="">— Não vincular —</option>
+                    {[...produtos].sort((a, b) => a.nome.localeCompare(b.nome)).map(p => (
+                      <option key={p.id} value={p.id}>{p.nome}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Ao vincular, o rendimento médio deste produto é atualizado automaticamente na lista de compras.</p>
                 </div>
 
                 <div>
@@ -227,15 +264,15 @@ export default function AparasPerdas() {
 
                 <ResponsavelSelect value={formApara.responsavel} onChange={v => setA('responsavel', v)} />
               </div>
-
-              <button onClick={salvarApara}
-                disabled={!formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}
-                className="w-full bg-amber-500 text-white font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
-                ✓ Registrar Apara
-              </button>
             </>
           ) : (
             <>
+              <button onClick={salvarPerda}
+                disabled={!formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}
+                className="w-full bg-red-600 text-white font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
+                ✓ Registrar Perda
+              </button>
+
               <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800">
                 <strong>Perda</strong> vai direto para o <strong>lixo</strong> (POP-07). No <strong>recebimento</strong> (matéria-prima chegou ruim) não mexe no estoque; de item já <strong>no estoque</strong> (estragou no freezer) abate automaticamente.
               </div>
@@ -305,12 +342,6 @@ export default function AparasPerdas() {
 
                 <ResponsavelSelect value={formPerda.responsavel} onChange={v => setP('responsavel', v)} />
               </div>
-
-              <button onClick={salvarPerda}
-                disabled={!formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}
-                className="w-full bg-red-600 text-white font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
-                ✓ Registrar Perda
-              </button>
             </>
           )}
         </div>

@@ -123,6 +123,12 @@ export default function Saidas() {
       </div>
       {tab === 'novo' ? (
         <div className="space-y-4">
+          <button onClick={handleSalvar} disabled={!itensPreenchidos.length}
+            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
+                       disabled:opacity-40 active:scale-95 transition-transform">
+            ✓ Registrar Saída
+          </button>
+
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
@@ -246,11 +252,6 @@ export default function Saidas() {
             </div>
           )}
 
-          <button onClick={handleSalvar} disabled={!itensPreenchidos.length}
-            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
-                       disabled:opacity-40 active:scale-95 transition-transform">
-            ✓ Registrar Saída
-          </button>
         </div>
       ) : (
         <div className="space-y-3">

@@ -64,13 +64,13 @@ export default function Compras() {
 
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
-  // Sugestões de itens: matérias-primas das fichas técnicas + itens já comprados
+  // Sugestões de itens: produtos cadastrados + itens já comprados
   const itensSugeridos = useMemo(() => {
     const m = new Map();
-    fichas.forEach(f => m.set(f.materiaPrima.toLowerCase(), f.materiaPrima));
+    produtos.forEach(p => p.nome && m.set(p.nome.toLowerCase(), p.nome));
     compras.forEach(c => c.item && m.set(c.item.toLowerCase(), c.item));
     return [...m.values()].sort((a, b) => a.localeCompare(b));
-  }, [fichas, compras]);
+  }, [produtos, compras]);
 
   const fornecedoresSugeridos = useMemo(() => {
     const m = new Map();
