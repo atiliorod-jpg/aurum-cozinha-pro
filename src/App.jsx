@@ -30,7 +30,7 @@ function Restrito({ cargo = 'gerencia', children }) {
 function Splash({ texto = 'Carregando…' }) {
   return (
     <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-5 p-6">
-      <img src={`${import.meta.env.BASE_URL}logo-aurum.svg`} alt="Aurum"
+      <img src={`${import.meta.env.BASE_URL}logo-aurum.png`} alt="Aurum"
         className="w-24 h-24 rounded-2xl ring-1 ring-polo-gold/30 object-cover animate-pulse" />
       <p className="text-white/90 text-sm">{texto}</p>
     </div>

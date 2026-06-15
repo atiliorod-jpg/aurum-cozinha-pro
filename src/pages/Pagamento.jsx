@@ -54,7 +54,7 @@ export default function Pagamento() {
   const solicitarUpgrade = () => {
     // Enquanto Stripe não está integrado, abre WhatsApp do suporte
     const msg = encodeURIComponent('Olá! Quero fazer upgrade para o plano Pro do Aurum Cozinha.');
-    window.open(`https://wa.me/5500000000000?text=${msg}`, '_blank');
+    window.open(`https://wa.me/5581998184489?text=${msg}`, '_blank');
   };
 
   return (

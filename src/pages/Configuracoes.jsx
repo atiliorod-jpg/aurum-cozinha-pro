@@ -61,15 +61,15 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Nome do produto</label>
-          <input type="text" value={form.nome} onChange={e => set('nome', e.target.value)} autoFocus
+          <label htmlFor="mp-nome" className="block text-xs font-semibold text-gray-600 mb-1">Nome do produto</label>
+          <input id="mp-nome" type="text" value={form.nome} onChange={e => set('nome', e.target.value)} autoFocus
             placeholder="Ex: Filé de tilápia"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Categoria</label>
-          <select value={form.categoria} onChange={e => set('categoria', e.target.value)}
+          <label htmlFor="mp-categoria" className="block text-xs font-semibold text-gray-600 mb-1">Categoria</label>
+          <select id="mp-categoria" value={form.categoria} onChange={e => set('categoria', e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
             {categorias.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
@@ -89,10 +89,10 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">
+          <label htmlFor="mp-estoque-inicial" className="block text-xs font-semibold text-gray-600 mb-1">
             Estoque Inicial (ponto de partida)
           </label>
-          <input type="number" min="0" step="0.5" value={form.estoqueInicial} onChange={e => set('estoqueInicial', e.target.value)}
+          <input id="mp-estoque-inicial" type="number" min="0" step="0.5" value={form.estoqueInicial} onChange={e => set('estoqueInicial', e.target.value)}
             placeholder="0"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           <p className="text-xs text-gray-500 mt-1">Quanto há hoje. A partir daqui, entradas/saídas/perdas calculam sozinhas.</p>
@@ -100,18 +100,18 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label htmlFor="mp-min" className="block text-xs font-semibold text-gray-600 mb-1">
               Estoque Mínimo — alertar quando abaixo
             </label>
-            <input type="number" min="0" step="0.5" value={form.min} onChange={e => set('min', e.target.value)}
+            <input id="mp-min" type="number" min="0" step="0.5" value={form.min} onChange={e => set('min', e.target.value)}
               placeholder="0"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label htmlFor="mp-max" className="block text-xs font-semibold text-gray-600 mb-1">
               Estoque Máximo — meta de reposição
             </label>
-            <input type="number" min="0" step="0.5" value={form.max} onChange={e => set('max', e.target.value)}
+            <input id="mp-max" type="number" min="0" step="0.5" value={form.max} onChange={e => set('max', e.target.value)}
               placeholder="0"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
@@ -133,19 +133,19 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label htmlFor="mp-val-congelado" className="block text-xs font-semibold text-gray-600 mb-1">
               ❄️ Validade congelado (dias)
             </label>
-            <input type="number" min="0" value={form.valCongelado}
+            <input id="mp-val-congelado" type="number" min="0" value={form.valCongelado}
               onChange={e => set('valCongelado', e.target.value)}
               placeholder="0 = sem controle"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label htmlFor="mp-val-resfriado" className="block text-xs font-semibold text-gray-600 mb-1">
               🧊 Validade resfriado (dias)
             </label>
-            <input type="number" min="0" value={form.valResfriado}
+            <input id="mp-val-resfriado" type="number" min="0" value={form.valResfriado}
               onChange={e => set('valResfriado', e.target.value)}
               placeholder="0 = sem controle"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -155,10 +155,10 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
 
         {form.unidade === 'unid' && (
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">
+            <label htmlFor="mp-peso-unidade" className="block text-xs font-semibold text-gray-600 mb-1">
               ⚖️ Peso por unidade (g)
             </label>
-            <input type="number" min="0" value={form.pesoUnidade}
+            <input id="mp-peso-unidade" type="number" min="0" value={form.pesoUnidade}
               onChange={e => set('pesoUnidade', e.target.value)}
               placeholder="Ex: 130 (1 parmegiana = 130 g)"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -171,15 +171,15 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
           <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🍽️ Gramatura / Porcionamento</p>
           <div className={`grid gap-3 ${temReceita ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Gramatura (g / porção)</label>
-              <input type="number" min="0" step="5" value={form.gramatura} onChange={e => set('gramatura', e.target.value)}
+              <label htmlFor="mp-gramatura" className="block text-xs font-semibold text-gray-600 mb-1">Gramatura (g / porção)</label>
+              <input id="mp-gramatura" type="number" min="0" step="5" value={form.gramatura} onChange={e => set('gramatura', e.target.value)}
                 placeholder="Ex: 200"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             {temReceita ? (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Perda cocção (%)</label>
-                <input type="number" min="0" max="90" step="1" value={form.coccao} onChange={e => set('coccao', e.target.value)}
+                <label htmlFor="mp-coccao" className="block text-xs font-semibold text-gray-600 mb-1">Perda cocção (%)</label>
+                <input id="mp-coccao" type="number" min="0" max="90" step="1" value={form.coccao} onChange={e => set('coccao', e.target.value)}
                   placeholder="Ex: 30"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
@@ -267,8 +267,8 @@ function ModalFicha({ ficha, fichas, categorias, onSalvar, onFechar }) {
           <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-400 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Matéria-prima</label>
-          <input type="text" list="lista-materias-primas" value={form.materiaPrima} onChange={e => onMateriaPrima(e.target.value)}
+          <label htmlFor="mf-materia-prima" className="block text-xs font-semibold text-gray-600 mb-1">Matéria-prima</label>
+          <input id="mf-materia-prima" type="text" list="lista-materias-primas" value={form.materiaPrima} onChange={e => onMateriaPrima(e.target.value)}
             placeholder="Escolha da lista ou digite uma nova"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           <datalist id="lista-materias-primas">
@@ -277,27 +277,27 @@ function ModalFicha({ ficha, fichas, categorias, onSalvar, onFechar }) {
           <p className="text-xs text-gray-500 mt-1">Escolher uma existente agrupa a preparação nela (evita "Filé" e "Filé Mignon" separados).</p>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Categoria</label>
-          <select value={form.categoria || ''} onChange={e => set('categoria', e.target.value)}
+          <label htmlFor="mf-categoria" className="block text-xs font-semibold text-gray-600 mb-1">Categoria</label>
+          <select id="mf-categoria" value={form.categoria || ''} onChange={e => set('categoria', e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
             {categorias.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Preparação</label>
-          <input type="text" value={form.preparacao} onChange={e => set('preparacao', e.target.value)}
+          <label htmlFor="mf-preparacao" className="block text-xs font-semibold text-gray-600 mb-1">Preparação</label>
+          <input id="mf-preparacao" type="text" value={form.preparacao} onChange={e => set('preparacao', e.target.value)}
             placeholder="Ex: Parmegiana"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Gramatura (g por porção/lote)</label>
-          <input type="number" min="0" value={form.gramatura} onChange={e => set('gramatura', e.target.value)}
+          <label htmlFor="mf-gramatura" className="block text-xs font-semibold text-gray-600 mb-1">Gramatura (g por porção/lote)</label>
+          <input id="mf-gramatura" type="number" min="0" value={form.gramatura} onChange={e => set('gramatura', e.target.value)}
             placeholder="Ex: 130"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Fator de cocção — perda no cozimento (%)</label>
-          <input type="number" min="0" max="90" step="0.5" value={form.coccao ?? ''} onChange={e => set('coccao', e.target.value)}
+          <label htmlFor="mf-coccao" className="block text-xs font-semibold text-gray-600 mb-1">Fator de cocção — perda no cozimento (%)</label>
+          <input id="mf-coccao" type="number" min="0" max="90" step="0.5" value={form.coccao ?? ''} onChange={e => set('coccao', e.target.value)}
             placeholder="Vazio se não cozinha antes de porcionar"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           <p className="text-xs text-gray-500 mt-1">Quanto o item perde de peso ao cozinhar (pese antes e depois na cozinha).</p>

@@ -55,7 +55,7 @@ export default function PwaInstallPrompt() {
     return (
       <div className="fixed bottom-20 left-3 right-3 z-40 bg-polo-navy border border-polo-gold/40 rounded-2xl p-4 shadow-2xl">
         <div className="flex items-start gap-3">
-          <img src={`${import.meta.env.BASE_URL}logo-aurum.svg`} alt="Aurum" className="w-10 h-10 rounded-xl flex-shrink-0" />
+          <img src={`${import.meta.env.BASE_URL}logo-aurum.png`} alt="Aurum" className="w-10 h-10 rounded-xl flex-shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-polo-gold font-bold text-sm">Instalar Aurum Cozinha</p>
             <p className="text-white/70 text-xs mt-1">
@@ -73,7 +73,7 @@ export default function PwaInstallPrompt() {
   return (
     <div className="fixed bottom-20 left-3 right-3 z-40 bg-polo-navy border border-polo-gold/40 rounded-2xl p-4 shadow-2xl">
       <div className="flex items-center gap-3">
-        <img src={`${import.meta.env.BASE_URL}logo-aurum.svg`} alt="Aurum" className="w-10 h-10 rounded-xl flex-shrink-0" />
+        <img src={`${import.meta.env.BASE_URL}logo-aurum.png`} alt="Aurum" className="w-10 h-10 rounded-xl flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-polo-gold font-bold text-sm">Instalar Aurum Cozinha Pro</p>
           <p className="text-white/60 text-xs mt-0.5">Acesso rápido na tela inicial do tablet</p>

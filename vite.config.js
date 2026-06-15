@@ -22,7 +22,7 @@ export default defineConfig({
     ghPagesFallback,
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo-aurum.svg'],
+      includeAssets: ['logo-aurum.png'],
       manifest: {
         name: 'Aurum Cozinha Pro',
         short_name: 'Aurum Cozinha',
@@ -35,8 +35,8 @@ export default defineConfig({
         theme_color: '#1B2A41',
         categories: ['food', 'productivity', 'business'],
         icons: [
-          { src: 'logo-aurum.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-          { src: 'logo-aurum.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
+          { src: 'logo-aurum.png', sizes: 'any', type: 'image/png', purpose: 'any' },
+          { src: 'logo-aurum.png', sizes: 'any', type: 'image/png', purpose: 'maskable' },
         ],
         screenshots: [],
       },
