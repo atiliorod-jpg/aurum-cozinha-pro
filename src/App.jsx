@@ -39,14 +39,16 @@ function Splash({ texto = 'Carregando…' }) {
 }
 
 // Faixa fixa de aviso quando o super-admin está vendo os dados de um cliente
-function BannerSuporte({ nome, onSair }) {
+function BannerSuporte({ nome, podeMexer, onSair }) {
   return (
-    <div className="sticky top-0 z-50 bg-amber-500 text-amber-950 px-4 py-2 flex items-center justify-between gap-3 shadow-md">
+    <div className={`sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md
+      ${podeMexer ? 'bg-red-500 text-white' : 'bg-amber-500 text-amber-950'}`}>
       <p className="text-xs font-semibold min-w-0 truncate">
-        🛠️ Modo suporte — vendo <strong>{nome || 'cliente'}</strong> (somente leitura)
+        🛠️ Modo suporte — <strong>{nome || 'cliente'}</strong> ({podeMexer ? 'pode editar' : 'somente leitura'})
       </p>
       <button onClick={onSair}
-        className="bg-amber-950 text-amber-50 font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0">
+        className={`font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0
+          ${podeMexer ? 'bg-white text-red-700' : 'bg-amber-950 text-amber-50'}`}>
         Sair do modo suporte
       </button>
     </div>
@@ -54,15 +56,31 @@ function BannerSuporte({ nome, onSair }) {
 }
 
 function Rotas() {
-  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao } = useAuth();
+  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado } = useAuth();
 
   if (carregando) return <Splash />;
   // Veio do link de recuperação de senha → tela de nova senha (tem prioridade)
   if (recuperando) return <NovaSenha />;
+  // A conta foi aberta em outro aparelho (sessão única) → avisa e volta ao login
+  if (derrubado) {
+    return (
+      <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="text-4xl">📱</p>
+        <p className="text-polo-gold font-bold text-lg">Conta aberta em outro aparelho</p>
+        <p className="text-white/60 text-sm max-w-xs">
+          Sua conta foi acessada em outro dispositivo. Por segurança, cada conta fica conectada em apenas um aparelho por vez.
+        </p>
+        <button onClick={limparDerrubado} className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
+          Entrar novamente
+        </button>
+      </div>
+    );
+  }
   if (!sessao) return <Login />;
 
-  // Conta autenticada mas sem perfil/cargo (cadastro interrompido)
-  if (!sessao.cargo) {
+  // Conta autenticada mas sem perfil/cargo (cadastro interrompido).
+  // Super-admin é exceção: acessa o painel mesmo sem restaurante próprio.
+  if (!sessao.cargo && !sessao.eSuperAdmin) {
     return (
       <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
         <p className="text-polo-gold font-bold text-lg">Cadastro incompleto</p>
@@ -76,9 +94,13 @@ function Rotas() {
 
   return (
     <>
-      {impersonando && <BannerSuporte nome={impersonando.restauranteNome} onSair={sairImpersonacao} />}
+      {impersonando && <BannerSuporte nome={impersonando.restauranteNome} podeMexer={impersonando.podeMexer} onSair={sairImpersonacao} />}
       <Routes>
-      <Route path="/" element={<Dashboard />} />
+      <Route path="/" element={
+        sessao?.eSuperAdmin && !sessao.restauranteId && !impersonando
+          ? <Navigate to="/admin" replace />
+          : <Dashboard />
+      } />
       <Route path="/registrar" element={<Registrar />} />
       <Route path="/historico" element={<Historico />} />
       <Route path="/compras" element={<Compras />} />

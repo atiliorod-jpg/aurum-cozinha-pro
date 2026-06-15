@@ -27,44 +27,54 @@ function useEscClose(onFechar) {
 // Suporte remoto — autoriza a Aurum a visualizar os dados desta conta por 24h
 function CartaoSuporteRemoto({ prefs, setPref, toast }) {
   const suporteAtivo = prefs.suporteAtivo && prefs.suporteAtivo > Date.now();
+  const podeMexer = prefs.suportePermissao === 'mexer';
   const restante = suporteAtivo
     ? Math.ceil((prefs.suporteAtivo - Date.now()) / 3600000)
     : 0;
 
-  const autorizar = () => {
-    const ate = Date.now() + 24 * 3600 * 1000;
-    setPref('suporteAtivo', ate);
-    toast('Acesso de suporte autorizado por 24h.', 'sucesso');
+  const autorizar = (modo) => {
+    setPref('suporteAtivo', Date.now() + 24 * 3600 * 1000);
+    setPref('suportePermissao', modo); // 'ver' | 'mexer'
+    toast(modo === 'mexer'
+      ? 'Suporte autorizado a ver E editar por 24h.'
+      : 'Suporte autorizado a ver seus dados por 24h.', 'sucesso');
   };
 
   const revogar = () => {
     setPref('suporteAtivo', null);
+    setPref('suportePermissao', null);
     toast('Acesso de suporte revogado.', 'sucesso');
   };
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-      <div className="flex items-start gap-3">
-        <div className="flex-1">
-          <p className="text-sm font-bold text-polo-navy">🛠️ Suporte remoto</p>
-          {suporteAtivo ? (
-            <p className="text-xs text-green-700 mt-0.5">
-              ✅ Acesso autorizado — expira em ~{restante}h. O suporte pode visualizar seus dados para resolver o problema.
-            </p>
-          ) : (
-            <p className="text-xs text-gray-500 mt-0.5">
-              Permite que o suporte (Aurum) visualize temporariamente os dados desta conta para ajudar a resolver bugs. O acesso expira em 24h.
-            </p>
-          )}
-        </div>
-        {suporteAtivo ? (
+      <p className="text-sm font-bold text-polo-navy">🛠️ Suporte remoto</p>
+      {suporteAtivo ? (
+        <>
+          <p className="text-xs text-green-700 mt-0.5">
+            ✅ Suporte autorizado — expira em ~{restante}h.{' '}
+            <strong>{podeMexer ? 'Pode ver e editar' : 'Pode apenas visualizar'}</strong> seus dados.
+          </p>
           <button onClick={revogar}
-            className="bg-red-100 text-red-700 font-bold px-3 py-2 rounded-lg text-xs whitespace-nowrap flex-shrink-0">Revogar</button>
-        ) : (
-          <button onClick={autorizar}
-            className="bg-polo-navy text-polo-gold font-bold px-3 py-2 rounded-lg text-xs whitespace-nowrap flex-shrink-0">Autorizar 24h</button>
-        )}
-      </div>
+            className="mt-3 w-full bg-red-100 text-red-700 font-bold px-3 py-2.5 rounded-lg text-xs">Revogar acesso</button>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Libera o suporte (Aurum) a entrar na sua conta por 24h para ajudar com problemas. Você escolhe se ele pode só ver ou também editar.
+          </p>
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <button onClick={() => autorizar('ver')}
+              className="border border-polo-navy text-polo-navy font-bold px-3 py-2.5 rounded-lg text-xs">
+              👁️ Só visualizar
+            </button>
+            <button onClick={() => autorizar('mexer')}
+              className="bg-polo-navy text-polo-gold font-bold px-3 py-2.5 rounded-lg text-xs">
+              ✏️ Ver e editar
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -826,8 +836,12 @@ export default function Configuracoes() {
   };
 
   const handleGerarConvite = async () => {
+    if (usuarios.length >= 3) {
+      toast('Limite de 3 contas por restaurante. Remova um usuário antes de convidar outro.', 'aviso');
+      return;
+    }
     const token = await criarConvite(conviteCargo);
-    if (!token) { toast('Não foi possível gerar o convite.', 'erro'); return; }
+    if (!token) { toast('Não foi possível gerar o convite (limite de 3 contas?).', 'erro'); return; }
     setConviteGerado({ token, cargo: conviteCargo });
     logAudit('gerou convite de acesso', CARGOS.find(c => c.id === conviteCargo)?.label || conviteCargo);
     toast('Convite gerado! Copie o código abaixo.', 'sucesso');

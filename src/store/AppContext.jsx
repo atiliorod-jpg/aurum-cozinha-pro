@@ -43,10 +43,11 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const { sessao, impersonando } = useAuth() || {};
-  // Em modo suporte, o super-admin carrega o restaurante impersonado (e tudo
-  // vira SOMENTE LEITURA — nenhuma escrita sobe para a conta do cliente).
+  // Em modo suporte, o super-admin carrega o restaurante impersonado. A escrita
+  // só é liberada se o CLIENTE autorizou edição (impersonando.podeMexer);
+  // caso contrário é SOMENTE LEITURA — nada sobe para a conta do cliente.
   const rid = impersonando?.restauranteId || sessao?.restauranteId || null;
-  const soLeitura = !!impersonando;
+  const soLeitura = !!impersonando && !impersonando.podeMexer;
 
   // ── Estado (hidratado do cache → rede) ─────────────────────
   const [produtos,    setProdutosRaw]    = useState(CAT.produtos);

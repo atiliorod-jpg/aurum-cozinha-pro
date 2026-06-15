@@ -16,8 +16,20 @@ export function AuthProvider({ children }) {
   const [carregando, setCarregando] = useState(true);
   const [usuarios,   setUsuarios]   = useState([]);
   const [recuperando, setRecuperando] = useState(false); // veio do link "esqueci a senha"
-  // Modo suporte: super-admin vendo os dados de OUTRO restaurante (somente leitura)
-  const [impersonando, setImpersonando] = useState(null); // { restauranteId, restauranteNome } | null
+  // Modo suporte: super-admin vendo os dados de OUTRO restaurante
+  const [impersonando, setImpersonando] = useState(null); // { restauranteId, restauranteNome, podeMexer } | null
+  const [derrubado, setDerrubado] = useState(false); // a conta foi aberta em outro aparelho
+  const tokenRef = useRef(null); // token desta sessão (sessão única por conta)
+
+  // Registra esta sessão como a ativa (sessão única): grava um token novo em
+  // `sessoes`. Outros aparelhos da mesma conta veem o token mudar (realtime) e
+  // se deslogam. Falha em silêncio se a tabela ainda não existe no banco.
+  const registrarSessaoAtiva = useCallback(async (userId) => {
+    const token = (crypto?.randomUUID?.() || `t_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+    tokenRef.current = token;
+    try { await supabase.from('sessoes').upsert({ user_id: userId, token, updated_at: new Date().toISOString() }); }
+    catch { /* tabela sessoes ainda não criada — recurso fica inerte */ }
+  }, []);
 
   // Carrega o perfil do banco e monta a sessão
   const carregarPerfil = useCallback(async (userId) => {
@@ -56,8 +68,27 @@ export function AuthProvider({ children }) {
       setSessao({ usuarioId: userId, email, nome: null, cargo: null, restauranteId: null, eSuperAdmin: email === 'atiliopinpolho@gmail.com', ts: Date.now() });
       setUsuarios([]);
     }
+    registrarSessaoAtiva(userId); // marca este aparelho como o ativo
     setCarregando(false);
-  }, []);
+  }, [registrarSessaoAtiva]);
+
+  // Sessão única: escuta o token desta conta. Se mudar (outro aparelho logou),
+  // este aparelho cai e mostra a mensagem.
+  useEffect(() => {
+    const uid = sessao?.usuarioId;
+    if (!uid) return;
+    const canal = supabase.channel(`sessao-${uid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessoes', filter: `user_id=eq.${uid}` },
+        (p) => {
+          const novoToken = p.new?.token;
+          if (novoToken && tokenRef.current && novoToken !== tokenRef.current) {
+            setDerrubado(true);
+            supabase.auth.signOut();
+          }
+        })
+      .subscribe();
+    return () => supabase.removeChannel(canal);
+  }, [sessao?.usuarioId]);
 
   // Escuta mudanças de sessão do Supabase Auth.
   // IMPORTANTE: não chamar o banco DENTRO do callback do onAuthStateChange
@@ -100,14 +131,17 @@ export function AuthProvider({ children }) {
     setSessao(null);
     setUsuarios([]);
     setImpersonando(null);
+    setDerrubado(false);
   }, []);
 
-  // ── Modo suporte (super-admin vê outro restaurante, só leitura) ──
-  const verComoRestaurante = useCallback((restauranteId, restauranteNome) => {
+  // ── Modo suporte (super-admin vê outro restaurante) ──
+  // podeMexer reflete o que o CLIENTE autorizou ("ver" ou "mexer").
+  const verComoRestaurante = useCallback((restauranteId, restauranteNome, podeMexer = false) => {
     if (!sessao?.eSuperAdmin || !restauranteId) return;
-    setImpersonando({ restauranteId, restauranteNome: restauranteNome || '' });
+    setImpersonando({ restauranteId, restauranteNome: restauranteNome || '', podeMexer: !!podeMexer });
   }, [sessao]);
   const sairImpersonacao = useCallback(() => setImpersonando(null), []);
+  const limparDerrubado = useCallback(() => setDerrubado(false), []);
 
   // ── Esqueci minha senha (envia email de recuperação) ─────────
   const esqueceuSenha = useCallback(async (email) => {
@@ -142,13 +176,16 @@ export function AuthProvider({ children }) {
   // ── Gera token de convite para novo funcionário ───────────────
   const criarConvite = useCallback(async (cargo) => {
     if (!sessao?.restauranteId) return null;
+    // Limite de 3 contas por restaurante (a checagem definitiva é no banco —
+    // RPC aceitar_convite — mas barramos cedo aqui para não gerar convite à toa).
+    if (usuarios.length >= 3) return null;
     const { data, error } = await supabase
       .from('convites')
       .insert({ restaurante_id: sessao.restauranteId, cargo })
       .select()
       .single();
     return error ? null : data.token;
-  }, [sessao]);
+  }, [sessao, usuarios]);
 
   // ── Funcionário usa token de convite para se cadastrar ────────
   // A validação roda numa função segura no banco (aceitar_convite), que NÃO
@@ -169,12 +206,11 @@ export function AuthProvider({ children }) {
   // ── Alterar cargo de um usuário do mesmo restaurante ─────────
   const alterarCargo = useCallback(async (usuarioId, novoCargo) => {
     if (!sessao?.restauranteId) return;
-    await supabase
-      .from('perfis')
-      .update({ cargo: novoCargo })
-      .eq('id', usuarioId)
-      .eq('restaurante_id', sessao.restauranteId);
+    // Usa a função segura no banco (valida quem chama e impede autopromoção).
+    const { error } = await supabase.rpc('alterar_cargo', { p_usuario: usuarioId, p_cargo: novoCargo });
+    if (error) return error.message;
     setUsuarios(prev => prev.map(u => u.id === usuarioId ? { ...u, cargo: novoCargo } : u));
+    return null;
   }, [sessao]);
 
   // ── Definir/trocar a própria senha ───────────────────────────
@@ -186,6 +222,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const temPermissao = useCallback((cargoMinimo) => {
+    if (sessao?.eSuperAdmin) return true; // super-admin acessa tudo (inclusive em modo suporte)
     if (!sessao?.cargo) return false;
     return nivelDoCargo(sessao.cargo) >= nivelDoCargo(cargoMinimo);
   }, [sessao]);
@@ -197,6 +234,7 @@ export function AuthProvider({ children }) {
       criarPrimeiroAdmin, criarConvite, usarConvite, alterarCargo,
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
+      derrubado, limparDerrubado,
     }}>
       {children}
     </AuthContext.Provider>
