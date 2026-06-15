@@ -44,13 +44,6 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
   useEscClose(onFechar);
 
-  // Coccão só faz sentido quando a cozinha processa o produto (há receita que o usa)
-  const temReceita = produto?.id
-    ? producoes.some(p =>
-        p.produtoFinalId === produto.id ||
-        p.ingredientes?.some(i => i.abate && i.produtoId === produto.id))
-    : false;
-
   return (
     <div className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto overscroll-contain p-4 flex"
       role="dialog" aria-modal="true" aria-labelledby="modal-produto-titulo">
@@ -165,6 +158,34 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
             <p className="text-xs text-gray-500 mt-1">Usado para converter a lista de compras em kg (ex.: 120 unid ≈ 15,6 kg).</p>
           </div>
         )}
+
+        {/* Cocção — afeta só a lista de compras de itens que entram JÁ cozidos */}
+        <div className="border border-gray-100 rounded-xl p-3 space-y-3">
+          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🔥 Cocção (lista de compras)</p>
+          <div className="flex items-center gap-3 bg-orange-50 rounded-lg p-2.5">
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-gray-700">Entra no estoque já cozido?</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">Ex: cupim cozido, carne de sol desfiada — já entram prontos. Filé de frango entra cru (deixe desligado).</p>
+            </div>
+            <button type="button" onClick={() => set('entradaCozida', !form.entradaCozida)}
+              className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${form.entradaCozida ? 'bg-orange-500' : 'bg-gray-300'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.entradaCozida ? 'left-6' : 'left-0.5'}`} />
+            </button>
+          </div>
+          {form.entradaCozida && (
+            <div>
+              <label htmlFor="mp-coccao" className="block text-xs font-semibold text-gray-600 mb-1">Perda na cocção (%)</label>
+              <input id="mp-coccao" type="number" min="0" max="90" step="1" value={form.coccao} onChange={e => set('coccao', e.target.value)}
+                placeholder="Ex: 30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+              {form.coccao && (
+                <p className="text-[10px] text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5 mt-1">
+                  ✔ Na lista de compras você compra mais cru ({form.coccao}% a mais) para chegar ao kg cozido necessário.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
           <span className="text-sm text-gray-700 flex-1">Produto ativo</span>

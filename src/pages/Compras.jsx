@@ -6,7 +6,7 @@ import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
-import { listaDeCompras } from '../utils/analise';
+import { listaDeCompras, fatorCorrecaoItem, preparacoesDoItem } from '../utils/analise';
 
 export default function Compras() {
   const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref } = useApp();
@@ -94,6 +94,26 @@ export default function Compras() {
       return { ...prev, item: valor };
     });
   };
+
+  // Fator de correção do ingrediente que está sendo comprado + preparações que o usam.
+  // O FC é do INGREDIENTE (matéria-prima), não de cada preparação: um único FC do filé
+  // já cobre parmegiana, strogonoff, filé com fritas etc. — todas saem do mesmo estoque limpo.
+  const itemInfo = useMemo(() => {
+    const item = form.item.trim();
+    if (!item) return null;
+    const itemMin = item.toLowerCase();
+    const prod = produtos.find(p => {
+      const n = (p.nome || '').toLowerCase();
+      if (!n) return false;
+      const menor = n.length <= itemMin.length ? n : itemMin;
+      if (menor.length < 4) return n === itemMin;
+      return n === itemMin || n.includes(itemMin) || itemMin.includes(n);
+    });
+    const fc = (prod?.fcMedio > 0) ? prod.fcMedio : fatorCorrecaoItem(item, compras, aparas, desperdicio);
+    const preparacoes = preparacoesDoItem(item, fichas);
+    if (!fc && preparacoes.length === 0) return null;
+    return { fc, preparacoes, prodNome: prod?.nome || item };
+  }, [form.item, produtos, fichas, compras, aparas, desperdicio]);
 
   const handleSalvar = async () => {
     if (!form.item.trim() || !form.quantidade) {
@@ -254,17 +274,25 @@ export default function Compras() {
 
               {ingredientesReceita.length > 0 && (
                 <div className="bg-white rounded-xl overflow-hidden border border-gray-100">
-                  <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100">
-                    <p className="text-xs font-bold text-polo-navy">📖 Ingredientes de receita (referência)</p>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Não controlados em estoque — lembrete para o comprador.</p>
+                  <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold text-polo-navy">📖 Ingredientes de receita (referência)</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Não controlados em estoque — lembrete para o comprador.</p>
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-500 bg-white border border-gray-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                      {ingredientesReceita.length} {ingredientesReceita.length === 1 ? 'item' : 'itens'}
+                    </span>
                   </div>
                   {ingredientesReceita.map((item, i, arr) => (
-                    <div key={item.nome} className={`px-4 py-2.5 ${i < arr.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                      <div className="font-medium text-sm text-gray-800">{item.nome}</div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                    <div key={item.nome} className={`px-4 py-3 ${i < arr.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="font-semibold text-sm text-gray-800">{item.nome}</span>
+                        <span className="text-[10px] text-gray-400">· {item.usos.length} {item.usos.length === 1 ? 'receita' : 'receitas'}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
                         {item.usos.map((u, j) => (
-                          <span key={j} className="text-[11px] text-gray-500">
-                            {u.receita}: <span className="font-semibold text-gray-700">{u.quantidade} {u.unidade}</span>
+                          <span key={j} className="text-[10px] bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5 text-gray-600">
+                            {u.receita} <span className="font-bold text-gray-800">{u.quantidade}{u.unidade}</span>
                           </span>
                         ))}
                       </div>
@@ -327,6 +355,35 @@ export default function Compras() {
                 {itensSugeridos.map(i => <option key={i} value={i} />)}
               </datalist>
               <p className="text-xs text-gray-500 mt-1">Digite e escolha da lista — o fornecedor do último recebimento deste item entra sozinho.</p>
+
+              {itemInfo && (
+                <div className="mt-2 bg-polo-beige border border-polo-gold/50 rounded-xl p-3 space-y-2">
+                  {itemInfo.fc > 0 ? (
+                    <p className="text-xs text-polo-navy">
+                      🎯 Rendimento de <strong>{itemInfo.prodNome}</strong>: o sistema desconta{' '}
+                      <strong>{Math.round(itemInfo.fc * 100)}%</strong> de apara/perda — você compra mais bruto na lista para sobrar o líquido certo.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-polo-navy/80">
+                      🎯 Ainda sem fator de correção para <strong>{itemInfo.prodNome}</strong>. Registre uma apara vinculada a este produto (em ✂️ Aparas) para o FC ser calculado sozinho.
+                    </p>
+                  )}
+                  {itemInfo.preparacoes.length > 0 && (
+                    <div>
+                      <p className="text-[11px] font-semibold text-polo-navy/70 mb-1">
+                        Esse FC vale para as {itemInfo.preparacoes.length} preparações que usam este ingrediente:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {itemInfo.preparacoes.map((pr, i) => (
+                          <span key={i} className="text-[10px] bg-white text-polo-navy border border-polo-gold/40 rounded-full px-2 py-0.5">
+                            {pr.preparacao}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">

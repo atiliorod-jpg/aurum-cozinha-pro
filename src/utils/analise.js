@@ -137,6 +137,37 @@ export function fatorCorrecaoItem(materiaPrima, compras, aparas, desperdicio) {
   return Math.min(correcao / comprado, 0.9);
 }
 
+// Agrupa as preparações (fichas técnicas) por matéria-prima.
+// Ex.: "Filé Mignon" → [Parmegiana, Strogonoff, Filé com Fritas…].
+// Serve para mostrar que UM fator de correção do ingrediente cobre TODAS
+// as preparações que o usam — não é preciso um FC por preparação.
+export function preparacoesPorMateriaPrima(fichas = []) {
+  const m = new Map();
+  fichas.forEach(f => {
+    const key = (f.materiaPrima || '').trim();
+    if (!key || !f.preparacao) return;
+    if (!m.has(key)) m.set(key, []);
+    m.get(key).push({ preparacao: f.preparacao, gramatura: f.gramatura });
+  });
+  return m;
+}
+
+// Encontra as preparações que usam um ingrediente, casando o nome digitado
+// (item comprado) com a matéria-prima das fichas — tolerante a substrings.
+export function preparacoesDoItem(item, fichas = []) {
+  const alvo = (item || '').toLowerCase().trim();
+  if (!alvo) return [];
+  return fichas
+    .filter(f => {
+      const mp = (f.materiaPrima || '').toLowerCase().trim();
+      if (!mp) return false;
+      const menor = mp.length <= alvo.length ? mp : alvo;
+      if (menor.length < 4) return mp === alvo;
+      return mp === alvo || mp.includes(alvo) || alvo.includes(mp);
+    })
+    .map(f => ({ preparacao: f.preparacao, gramatura: f.gramatura, materiaPrima: f.materiaPrima }));
+}
+
 // Série diária de saídas no período. Cada ponto tem `total` + um entry por destino id.
 // Saídas internas (destino='producao') não entram no total.
 export function saidasPorDia(saidas, inicio, fim) {

@@ -3,7 +3,7 @@ import { calcEstoquePuro } from '../estoque';
 import { calcLotes } from '../lotes';
 import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
-import { rendimentoPorFornecedor, fatorCorrecaoItem, mediaDiariaSaidas, previsaoRuptura, listaDeCompras } from '../analise';
+import { rendimentoPorFornecedor, fatorCorrecaoItem, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, preparacoesPorMateriaPrima, preparacoesDoItem } from '../analise';
 import { ingredientesParaProduzir, planejarProducao } from '../producao';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
@@ -156,6 +156,37 @@ describe('análise de fornecedores e correção', () => {
 
   it('fator de correção do item agrega todas as compras', () => {
     expect(fatorCorrecaoItem('Filé Mignon', compras, aparas, [])).toBeCloseTo(0.1); // 4,5/45
+  });
+});
+
+describe('FC por ingrediente cobre todas as preparações', () => {
+  const fichas = [
+    { materiaPrima: 'Filé Mignon', preparacao: 'Parmegiana', gramatura: 130 },
+    { materiaPrima: 'Filé Mignon', preparacao: 'Strogonoff', gramatura: 1500 },
+    { materiaPrima: 'Frango Filé', preparacao: 'Grelhado', gramatura: 150 },
+  ];
+
+  it('agrupa as preparações por matéria-prima', () => {
+    const m = preparacoesPorMateriaPrima(fichas);
+    expect(m.get('Filé Mignon')).toHaveLength(2);
+    expect(m.get('Frango Filé')).toHaveLength(1);
+  });
+
+  it('casa o item comprado com as preparações do ingrediente (tolerante a substring)', () => {
+    const preps = preparacoesDoItem('Filé Mignon', fichas);
+    expect(preps.map(p => p.preparacao)).toEqual(['Parmegiana', 'Strogonoff']);
+  });
+
+  it('item sem ficha não retorna preparações', () => {
+    expect(preparacoesDoItem('Picanha', fichas)).toEqual([]);
+  });
+
+  it('fcMedio do produto é usado na lista de compras (compra mais bruto)', () => {
+    // produto com 10kg de meta, 0 em estoque, FC médio 20% → bruto = 10/(1-0,2) = 12,5
+    const produtos = [P('file', { nome: 'Filé Mignon', min: 10, max: 10, unidade: 'kg', fcMedio: 0.2 })];
+    const lista = listaDeCompras(produtos, { file: 0 }, [], [], []);
+    expect(lista[0].fc).toBe(0.2);
+    expect(lista[0].brutoKg).toBeCloseTo(12.5);
   });
 });
 
