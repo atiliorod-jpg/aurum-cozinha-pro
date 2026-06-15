@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@stripe/stripe-js": "^9.8.0",
     "@supabase/supabase-js": "^2.108.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
