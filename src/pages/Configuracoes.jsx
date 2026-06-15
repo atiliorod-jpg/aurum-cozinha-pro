@@ -32,8 +32,6 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
         valCongelado: numVazio(produto.valCongelado),
         valResfriado: numVazio(produto.valResfriado),
         pesoUnidade: numVazio(produto.pesoUnidade),
-        unidEmbalagem: numVazio(produto.unidEmbalagem),
-        nomeEmbalagem: produto.nomeEmbalagem || '',
         gramatura: numVazio(produto.gramatura),
         coccao: numVazio(produto.coccao),
         entradaCozida: produto.entradaCozida || false,
@@ -41,7 +39,6 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
     : {
         nome: '', categoria: categorias[0], unidade: 'kg',
         estoqueInicial: '', min: '', max: '', valCongelado: '', valResfriado: '', pesoUnidade: '',
-        unidEmbalagem: '', nomeEmbalagem: '',
         gramatura: '', coccao: '', entradaCozida: false, ativo: true,
       });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
@@ -169,24 +166,6 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
           </div>
         )}
 
-        {/* Embalagem de compra (caixa/fardo → unidade de estoque) */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">📦 Embalagem de compra (opcional)</label>
-          <div className="grid grid-cols-2 gap-3">
-            <input type="number" min="0" step="1" value={form.unidEmbalagem}
-              onChange={e => set('unidEmbalagem', e.target.value)}
-              placeholder={`Qtd por embalagem`}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-            <input type="text" value={form.nomeEmbalagem}
-              onChange={e => set('nomeEmbalagem', e.target.value)}
-              placeholder="Nome (ex: caixa, fardo)"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Ex.: 1 caixa = 24 {form.unidade}. A lista de compras mostra também quantas embalagens comprar.
-          </p>
-        </div>
-
         {/* Gramatura / Porcionamento */}
         <div className="border border-gray-100 rounded-xl p-3 space-y-3">
           <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🍽️ Gramatura / Porcionamento</p>
@@ -248,8 +227,6 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
               valCongelado: parseInt(form.valCongelado) || 0,
               valResfriado: parseInt(form.valResfriado) || 0,
               pesoUnidade: parseFloat(form.pesoUnidade) || 0,
-              unidEmbalagem: parseFloat(form.unidEmbalagem) || 0,
-              nomeEmbalagem: (form.nomeEmbalagem || '').trim(),
               gramatura: parseFloat(form.gramatura) || 0,
               coccao: Math.min(parseFloat(form.coccao) || 0, 90),
               entradaCozida: form.entradaCozida || false,
@@ -613,15 +590,14 @@ export default function Configuracoes() {
       'Nome *', 'Categoria *', 'Unidade * (kg/unid/g/L)',
       'Estoque inicial', 'Mínimo', 'Máximo',
       'Validade congelado (dias)', 'Validade resfriado (dias)',
-      'Peso por unidade (g)', 'Qtd na embalagem', 'Nome da embalagem',
+      'Peso por unidade (g)',
       'Gramatura (g/porção)', 'Cocção (%)', 'Entrada cozida (sim/não)',
     ];
     const GRUPOS = [
       ['BÁSICO  * OBRIGATÓRIO', 0, 2],
       ['ESTOQUE', 3, 5],
       ['VALIDADES', 6, 7],
-      ['EMBALAGEM', 8, 10],
-      ['FICHA TÉCNICA', 11, 13],
+      ['PESO / FICHA TÉCNICA', 8, 11],
     ];
 
     const gruposRow = Array(COLS.length).fill('');
@@ -633,7 +609,6 @@ export default function Configuracoes() {
       p.nome, p.categoria, p.unidade,
       p.estoqueInicial || 0, p.min || 0, p.max || 0,
       p.valCongelado || 0, p.valResfriado || 0, p.pesoUnidade || 0,
-      p.unidEmbalagem || 0, p.nomeEmbalagem || '',
       p.gramatura || 0, p.coccao || 0, p.entradaCozida ? 'sim' : 'não',
     ]);
 
@@ -656,8 +631,6 @@ export default function Configuracoes() {
       ['Validade congelado (dias)', 'Não', 'Número', 'Vida útil congelado em dias. Deixe 0 se não congela.'],
       ['Validade resfriado (dias)', 'Não', 'Número', 'Vida útil resfriado em dias. Deixe 0 se não resfria.'],
       ['Peso por unidade (g)', 'Não', 'Número', 'Peso de cada unidade em gramas. Usado para calcular kg.'],
-      ['Qtd na embalagem', 'Não', 'Número', 'Quantas unidades tem cada caixa/fardo/embalagem.'],
-      ['Nome da embalagem', 'Não', 'Texto', 'Ex: caixa, fardo, bandeja. Aparece na lista de compras.'],
       ['Gramatura (g/porção)', 'Não', 'Número', 'Grama por porção usada nas fichas técnicas.'],
       ['Cocção (%)', 'Não', 'Número 0 a 90', 'Perda percentual no cozimento. 0 = sem perda.'],
       ['Entrada cozida (sim/não)', 'Não', 'sim / não', 'Marque "sim" se o produto entra já pronto/cozido.'],
@@ -702,8 +675,6 @@ export default function Configuracoes() {
         const iCong = col(h => h.includes('congelado'));
         const iResf = col(h => h.includes('resfriado'));
         const iPeso = col(h => h.includes('peso'));
-        const iEmbQ = col(h => h.includes('embalagem') && (h.includes('qtd') || h.includes('por') || h.includes('na ')));
-        const iEmbN = col(h => h.includes('embalagem') && (h.includes('nome') || h === 'nome da embalagem'));
         const iGram = col(h => h.includes('gramatura'));
         const iCoc = col(h => h.includes('cocç') || h.includes('coccao') || h.includes('cocc'));
         const iCozido = col(h => h.includes('cozido') || h.includes('cozida'));
@@ -727,8 +698,6 @@ export default function Configuracoes() {
             valCongelado: iCong >= 0 ? numBR(r[iCong]) : 0,
             valResfriado: iResf >= 0 ? numBR(r[iResf]) : 0,
             pesoUnidade: iPeso >= 0 ? numBR(r[iPeso]) : 0,
-            unidEmbalagem: iEmbQ >= 0 ? numBR(r[iEmbQ]) : 0,
-            nomeEmbalagem: iEmbN >= 0 ? String(r[iEmbN] ?? '').trim() : '',
             gramatura: iGram >= 0 ? numBR(r[iGram]) : 0,
             coccao: iCoc >= 0 ? Math.min(numBR(r[iCoc]), 90) : 0,
             entradaCozida: cozido, ativo: true,

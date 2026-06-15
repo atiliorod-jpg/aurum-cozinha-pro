@@ -144,14 +144,7 @@ export default function Compras() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
                     <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Abaixo do mínimo</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">{lista.length} {lista.length === 1 ? 'item' : 'itens'}</span>
-                      <button onClick={() => setPref('mostrarEmbalagem', !prefs.mostrarEmbalagem)}
-                        title="Mostrar/ocultar conversão em caixas/fardos"
-                        className={`text-[11px] px-2 py-0.5 rounded-lg border transition-colors ${prefs.mostrarEmbalagem ? 'bg-polo-beige border-polo-gold/50 text-polo-navy font-semibold' : 'border-gray-200 text-gray-400'}`}>
-                        📦 caixas
-                      </button>
-                    </div>
+                    <span className="text-xs text-gray-400">{lista.length} {lista.length === 1 ? 'item' : 'itens'} • mais crítico primeiro</span>
                   </div>
                   {lista.map(({ p, atual, sugerido, brutoKg, liquidoKg, fc, fornecedor }) => {
                     const zerado = atual <= 0;
@@ -221,13 +214,6 @@ export default function Compras() {
                               )}
                             </div>
                           </div>
-                          {/* Conversão para embalagem de compra (caixa/fardo) */}
-                          {prefs.mostrarEmbalagem && p.unidEmbalagem > 0 && sugerido > 0 && (
-                            <div className="text-xs text-polo-navy bg-polo-beige rounded-lg px-3 py-1.5 font-semibold">
-                              📦 ≈ {Math.ceil(sugerido / p.unidEmbalagem)} {p.nomeEmbalagem || 'embalagem'}(s)
-                              <span className="font-normal text-gray-500"> ({p.unidEmbalagem} {p.unidade} cada)</span>
-                            </div>
-                          )}
                           {/* Fornecedor */}
                           <div className="text-xs text-gray-500 flex items-center gap-1">
                             <span>🏪</span>
