@@ -29,6 +29,10 @@ jobs:
       - run: npm run build
         env:
           VITE_BASE: /polo-estoque/
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PAYMENT_LINK: ${{ secrets.VITE_STRIPE_PAYMENT_LINK }}
       # SPA no GitHub Pages: o 404 devolve o app e o React Router resolve a rota
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3

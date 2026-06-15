@@ -104,7 +104,7 @@ async function criarRestaurante() {
 🔗 CONVITE PARA O DONO:
    Compartilhe este link:
 
-   https://atiliorod-jpg.github.io/aurum-cozinha-teste/convite?token=${token}
+   https://atiliorod-jpg.github.io/polo-estoque/convite?token=${token}
 
    Válido por 7 dias até ${expira_em.toLocaleDateString('pt-BR')}
 
@@ -114,7 +114,7 @@ async function criarRestaurante() {
    Olá ${nome.split(' ')[0]},
 
    Sua conta foi criada! Acesse o link abaixo para começar:
-   https://atiliorod-jpg.github.io/aurum-cozinha-teste/convite?token=${token}
+   https://atiliorod-jpg.github.io/polo-estoque/convite?token=${token}
 
    Você será o gestor (diretoria) e poderá criar convites para sua equipe.
 
