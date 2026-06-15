@@ -22,21 +22,23 @@ export default defineConfig({
     ghPagesFallback,
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon-192.png', 'icon-512.png'],
+      includeAssets: ['logo-aurum.svg'],
       manifest: {
         name: 'Aurum Cozinha Pro',
         short_name: 'Aurum Cozinha',
-        description: 'Controle de produção de cozinha — Aurum',
+        description: 'Controle de estoque e produção de cozinha profissional',
         start_url: base,
         scope: base,
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#1B2A41',
         theme_color: '#1B2A41',
+        categories: ['food', 'productivity', 'business'],
         icons: [
-          { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: 'logo-aurum.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'logo-aurum.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'maskable' },
         ],
+        screenshots: [],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,json}'],

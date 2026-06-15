@@ -1051,6 +1051,30 @@ export default function Configuracoes() {
         <span className="text-polo-navy text-lg">›</span>
       </Link>
 
+      {/* Assinatura — diretoria */}
+      {sessao?.cargo === 'diretoria' && (
+        <Link to="/pagamento"
+          className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
+          <div>
+            <p className="text-sm font-bold text-polo-navy">💳 Assinatura / Plano</p>
+            <p className="text-xs text-gray-500 mt-0.5">Gerencie seu plano e forma de pagamento.</p>
+          </div>
+          <span className="text-polo-navy text-lg">›</span>
+        </Link>
+      )}
+
+      {/* Histórico de mudanças — diretoria */}
+      {sessao?.cargo === 'diretoria' && (
+        <Link to="/auditoria"
+          className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
+          <div>
+            <p className="text-sm font-bold text-polo-navy">🔍 Histórico de mudanças</p>
+            <p className="text-xs text-gray-500 mt-0.5">Registro de tudo que cada usuário fez no sistema.</p>
+          </div>
+          <span className="text-polo-navy text-lg">›</span>
+        </Link>
+      )}
+
       </>}
 
       {secao === 'acessos' && <>
