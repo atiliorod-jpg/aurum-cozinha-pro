@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -6,7 +7,8 @@ import { supabase } from '../lib/supabase';
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
 export default function Admin() {
-  const { sessao } = useAuth();
+  const { sessao, verComoRestaurante } = useAuth();
+  const navigate = useNavigate();
   const [restaurantes, setRestaurantes] = useState([]);
   const [carregando,   setCarregando]   = useState(true);
   const [erro,         setErro]         = useState(null);
@@ -97,8 +99,12 @@ CREATE POLICY "super_admin_restaurantes" ON restaurantes
 CREATE POLICY "super_admin_perfis" ON perfis
   FOR SELECT USING (auth.jwt() ->> 'email' = '${SUPER_ADMIN_EMAIL}');
 
--- Libera SELECT em registros (tipo=config) para o super-admin
+-- Libera SELECT em registros para o super-admin
 CREATE POLICY "super_admin_registros" ON registros
+  FOR SELECT USING (auth.jwt() ->> 'email' = '${SUPER_ADMIN_EMAIL}');
+
+-- Libera SELECT em documentos (catálogos) para o modo suporte
+CREATE POLICY "super_admin_documentos" ON documentos
   FOR SELECT USING (auth.jwt() ->> 'email' = '${SUPER_ADMIN_EMAIL}');`}
             </pre>
           </div>
@@ -170,14 +176,20 @@ CREATE POLICY "super_admin_registros" ON registros
                     )}
                   </div>
 
-                  {/* Nota sobre acesso remoto */}
-                  {r.suporteAtivo && (
-                    <div className="px-4 pb-3">
-                      <p className="text-[10px] text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                        Este restaurante autorizou acesso de suporte. Use o painel Supabase (Table Editor → filtrar por restaurante_id: <strong className="font-mono">{r.id}</strong>) para consultar os dados.
+                  {/* Acesso de suporte */}
+                  <div className="px-4 pb-3">
+                    {r.suporteAtivo ? (
+                      <button
+                        onClick={() => { verComoRestaurante(r.id, r.nome); navigate('/'); }}
+                        className="w-full bg-polo-navy text-polo-gold font-bold text-xs py-2.5 rounded-lg">
+                        👁️ Ver como este restaurante (somente leitura)
+                      </button>
+                    ) : (
+                      <p className="text-[10px] text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                        Para ver os dados deste restaurante, peça que ele autorize o suporte em Configurações → Sistema → Suporte remoto.
                       </p>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}

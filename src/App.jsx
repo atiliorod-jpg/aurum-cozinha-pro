@@ -38,8 +38,23 @@ function Splash({ texto = 'Carregando…' }) {
   );
 }
 
+// Faixa fixa de aviso quando o super-admin está vendo os dados de um cliente
+function BannerSuporte({ nome, onSair }) {
+  return (
+    <div className="sticky top-0 z-50 bg-amber-500 text-amber-950 px-4 py-2 flex items-center justify-between gap-3 shadow-md">
+      <p className="text-xs font-semibold min-w-0 truncate">
+        🛠️ Modo suporte — vendo <strong>{nome || 'cliente'}</strong> (somente leitura)
+      </p>
+      <button onClick={onSair}
+        className="bg-amber-950 text-amber-50 font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0">
+        Sair do modo suporte
+      </button>
+    </div>
+  );
+}
+
 function Rotas() {
-  const { sessao, carregando, logout, recuperando } = useAuth();
+  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao } = useAuth();
 
   if (carregando) return <Splash />;
   // Veio do link de recuperação de senha → tela de nova senha (tem prioridade)
@@ -60,7 +75,9 @@ function Rotas() {
   }
 
   return (
-    <Routes>
+    <>
+      {impersonando && <BannerSuporte nome={impersonando.restauranteNome} onSair={sairImpersonacao} />}
+      <Routes>
       <Route path="/" element={<Dashboard />} />
       <Route path="/registrar" element={<Registrar />} />
       <Route path="/historico" element={<Historico />} />
@@ -77,7 +94,8 @@ function Rotas() {
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={<Restrito><Configuracoes /></Restrito>} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </>
   );
 }
 

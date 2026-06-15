@@ -24,7 +24,7 @@ function useEscClose(onFechar) {
   }, [onFechar]);
 }
 
-// Suporte remoto — autoriza Atílio a visualizar os dados desta conta por 24h
+// Suporte remoto — autoriza a Aurum a visualizar os dados desta conta por 24h
 function CartaoSuporteRemoto({ prefs, setPref, toast }) {
   const suporteAtivo = prefs.suporteAtivo && prefs.suporteAtivo > Date.now();
   const restante = suporteAtivo
@@ -53,7 +53,7 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
             </p>
           ) : (
             <p className="text-xs text-gray-500 mt-0.5">
-              Permite que o suporte (Atílio) visualize temporariamente os dados desta conta para ajudar a resolver bugs. O acesso expira em 24h.
+              Permite que o suporte (Aurum) visualize temporariamente os dados desta conta para ajudar a resolver bugs. O acesso expira em 24h.
             </p>
           )}
         </div>

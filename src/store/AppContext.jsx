@@ -42,8 +42,11 @@ const soAparelho = (p) => { const o = {}; PREFS_APARELHO.forEach(k => { if (p[k]
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const { sessao } = useAuth() || {};
-  const rid = sessao?.restauranteId || null;
+  const { sessao, impersonando } = useAuth() || {};
+  // Em modo suporte, o super-admin carrega o restaurante impersonado (e tudo
+  // vira SOMENTE LEITURA — nenhuma escrita sobe para a conta do cliente).
+  const rid = impersonando?.restauranteId || sessao?.restauranteId || null;
+  const soLeitura = !!impersonando;
 
   // ── Estado (hidratado do cache → rede) ─────────────────────
   const [produtos,    setProdutosRaw]    = useState(CAT.produtos);
@@ -66,6 +69,7 @@ export function AppProvider({ children }) {
   // refs estáveis para callbacks não dependerem de closures velhas
   const ridRef = useRef(rid); ridRef.current = rid;
   const sessaoRef = useRef(sessao); sessaoRef.current = sessao;
+  const soLeituraRef = useRef(soLeitura); soLeituraRef.current = soLeitura;
   const dadosRef = useRef({});
   dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
 
@@ -84,6 +88,7 @@ export function AppProvider({ children }) {
 
   // ── Trilha de auditoria (registro tipo 'auditoria') ────────
   const logAudit = useCallback((acao, detalhe = '') => {
+    if (soLeituraRef.current) return; // modo suporte = só leitura
     const r = ridRef.current;
     const reg = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -106,6 +111,7 @@ export function AppProvider({ children }) {
 
   // ── Catálogos (documentos JSONB, 1 linha por lista) ────────
   const persistCatalogo = useCallback((chave, setRaw, valor) => {
+    if (soLeituraRef.current) return; // modo suporte = só leitura
     setRaw(valor);
     const r = ridRef.current;
     cacheSet(r, chave, valor);
@@ -125,6 +131,7 @@ export function AppProvider({ children }) {
   const setListaManual = useCallback((v) => persistCatalogo('listaManual', setListaManualRaw, v), [persistCatalogo]);
 
   const setPref = useCallback((chave, valor) => {
+    if (soLeituraRef.current) return; // modo suporte = só leitura
     const r = ridRef.current;
     const next = { ...dadosRef.current.prefs, [chave]: valor };
     setPrefsRaw(next);
@@ -156,6 +163,7 @@ export function AppProvider({ children }) {
 
   // ── Registros operacionais (tabela 'registros') ────────────
   const addRegistro = useCallback((tipo, setRaw, key, registro) => {
+    if (soLeituraRef.current) return; // modo suporte = só leitura
     const r = ridRef.current;
     const novo = { ...registro, id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`, ts: Date.now() };
     setRaw(prev => {
@@ -173,6 +181,7 @@ export function AppProvider({ children }) {
   }, [logAudit]);
 
   const removeRegistro = useCallback((tipo, setRaw, key, id) => {
+    if (soLeituraRef.current) return; // modo suporte = só leitura
     const r = ridRef.current;
     const alvo = dadosRef.current[key].find(x => x.id === id);
     setRaw(prev => {
@@ -211,6 +220,7 @@ export function AppProvider({ children }) {
     ajuste:  [setAjustesRaw,     'ajustes',     'ajuste',  'contagem física'],
   };
   const restaurarRegistro = useCallback((tipoApi, registro) => {
+    if (soLeituraRef.current) return; // modo suporte = só leitura
     const alvo = MAPA_RESTAURO[tipoApi];
     if (!alvo || !registro) return;
     const [setRaw, key, tipo, rotulo] = alvo;
@@ -312,6 +322,7 @@ export function AppProvider({ children }) {
 
     // sobe pendências acumuladas offline
     const flush = async () => {
+      if (soLeituraRef.current) return; // modo suporte: não sobe nada para a conta do cliente
       const fila = outboxGet(rid);
       if (!fila.length) return;
       const restantes = [];
@@ -342,6 +353,7 @@ export function AppProvider({ children }) {
         if (mapa[chave] !== undefined) { setRaw(mapa[chave]); cacheSet(rid, chave, mapa[chave]); }
         else { // catálogo ainda não existe na nuvem → semeia
           setRaw(def); cacheSet(rid, chave, def);
+          if (soLeituraRef.current) return; // modo suporte: não escreve na conta do cliente
           // .then() é obrigatório: a query do Supabase só é ENVIADA quando consumida
           const payload = { restaurante_id: rid, chave, dados: def, updated_at: new Date().toISOString() };
           supabase.from('documentos').upsert(payload)
@@ -358,7 +370,7 @@ export function AppProvider({ children }) {
       aplicaCat('listaManual', setListaManualRaw, CAT.listaManual);
       // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
       const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
-      if (mapa['prefs'] === undefined) {
+      if (mapa['prefs'] === undefined && !soLeituraRef.current) {
         const prefPayload = { restaurante_id: rid, chave: 'prefs', dados: prefsNuvem, updated_at: new Date().toISOString() };
         supabase.from('documentos').upsert(prefPayload)
           .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload: prefPayload }); });
@@ -449,6 +461,7 @@ export function AppProvider({ children }) {
 
   // ── Administração de dados ─────────────────────────────────
   const limparTudo = useCallback(() => {
+    if (soLeituraRef.current) return; // modo suporte = só leitura
     const r = ridRef.current;
     [['compras', setComprasRaw], ['entradas', setEntradasRaw], ['saidas', setSaidasRaw],
      ['aparas', setAparasRaw], ['desperdicio', setDesperdicioRaw], ['ajustes', setAjustesRaw]]
@@ -478,6 +491,7 @@ export function AppProvider({ children }) {
   }, []);
 
   const importarBackup = useCallback((dados) => {
+    if (soLeituraRef.current) throw new Error('Modo suporte é somente leitura — não é possível importar dados.');
     if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
       throw new Error('Arquivo inválido: não é um backup do Aurum Cozinha.');
     }
@@ -551,6 +565,7 @@ export function AppProvider({ children }) {
       estoque,
       limparTudo, resetarProdutos,
       exportarBackup, importarBackup,
+      soLeitura,
     }}>
       {children}
     </AppContext.Provider>

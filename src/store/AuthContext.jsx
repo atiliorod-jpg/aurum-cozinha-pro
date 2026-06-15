@@ -16,6 +16,8 @@ export function AuthProvider({ children }) {
   const [carregando, setCarregando] = useState(true);
   const [usuarios,   setUsuarios]   = useState([]);
   const [recuperando, setRecuperando] = useState(false); // veio do link "esqueci a senha"
+  // Modo suporte: super-admin vendo os dados de OUTRO restaurante (somente leitura)
+  const [impersonando, setImpersonando] = useState(null); // { restauranteId, restauranteNome } | null
 
   // Carrega o perfil do banco e monta a sessão
   const carregarPerfil = useCallback(async (userId) => {
@@ -97,7 +99,15 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
     setSessao(null);
     setUsuarios([]);
+    setImpersonando(null);
   }, []);
+
+  // ── Modo suporte (super-admin vê outro restaurante, só leitura) ──
+  const verComoRestaurante = useCallback((restauranteId, restauranteNome) => {
+    if (!sessao?.eSuperAdmin || !restauranteId) return;
+    setImpersonando({ restauranteId, restauranteNome: restauranteNome || '' });
+  }, [sessao]);
+  const sairImpersonacao = useCallback(() => setImpersonando(null), []);
 
   // ── Esqueci minha senha (envia email de recuperação) ─────────
   const esqueceuSenha = useCallback(async (email) => {
@@ -186,6 +196,7 @@ export function AuthProvider({ children }) {
       login, logout, esqueceuSenha, atualizarSenha,
       criarPrimeiroAdmin, criarConvite, usarConvite, alterarCargo,
       temPermissao,
+      impersonando, verComoRestaurante, sairImpersonacao,
     }}>
       {children}
     </AuthContext.Provider>
