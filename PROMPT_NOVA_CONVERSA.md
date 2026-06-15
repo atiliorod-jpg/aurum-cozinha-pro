@@ -3,13 +3,12 @@
 ## O que é este projeto
 
 App PWA para controle de estoque de cozinha industrial (Polo Beer / Aurum Serviços Gastronômicos).
-- **Tech**: React + Vite + Tailwind CSS v3, offline-first (vite-plugin-pwa), Supabase (multi-tenant, RLS, realtime)
-- **Repositório local**: `C:\Users\atili\Downloads\Code\polo-estoque`
-- **Branch de trabalho**: `feat/supabase`
-- **Deploy**: GitHub Pages — `npx gh-pages -d dist` após `$env:VITE_BASE='/aurum-cozinha-teste/'` + `npm run build`
-- **Credenciais de teste**: `teste-prod@aurum.app` / `teste123`
-- **Git**: sempre usar `-c user.email="atiliopinpolho@gmail.com" -c user.name="atiliorod-jpg"`
-- **Preview local**: servidor Vite na porta 5173
+- **Tech**: React 19 + Vite + Tailwind CSS v3, offline-first (vite-plugin-pwa), Supabase (multi-tenant, RLS, realtime)
+- **Pasta local**: `C:\Users\atili\Downloads\Code\polo-estoque` (só o nome da pasta ainda é "polo-estoque"; o app/repo é `aurum-cozinha-pro`)
+- **Branch/Deploy**: push direto na branch **`main`** → GitHub Actions builda e publica em GitHub Pages (`https://atiliorod-jpg.github.io/aurum-cozinha-pro/`). O workflow injeta os secrets Supabase/Stripe e define `VITE_BASE=/aurum-cozinha-pro/`. **Não há fluxo de PR** (projeto solo). O push para `main` é bloqueado pelo classificador auto-mode — basta repetir o push.
+- **Repo único**: `origin` → `https://github.com/atiliorod-jpg/aurum-cozinha-pro.git`. Repo antigo `polo-estoque` foi DELETADO.
+- **Super-admin**: email `atiliopinpolho@gmail.com` (campo `sessao.eSuperAdmin`); rota `/admin`, sem senha extra (usa o login normal).
+- **Preview local**: `npm run dev` na porta 5173 (exige login Supabase — não dá para passar da tela de login no preview sem credenciais)
 
 ---
 
@@ -147,29 +146,35 @@ Painel no topo de todas as telas (via `Layout.jsx`):
 ## Como testar
 
 ```bash
-# Instalar dependências (se necessário)
-npm install
+npm install            # se necessário
+npm run dev            # dev server → http://localhost:5173
+npx vitest run         # testes (32/32 hoje)
+npx vite build         # build local de sanidade
 
-# Servidor de desenvolvimento
-npm run dev
-# → http://localhost:5173
-
-# Build de produção para gh-pages
-$env:VITE_BASE='/aurum-cozinha-teste/'
-npm run build
-
-# Deploy — OBRIGATÓRIO usar -r para o repo correto
-npx gh-pages -d dist -u "atiliorod-jpg <atiliopinpolho@gmail.com>" -r "https://github.com/atiliorod-jpg/aurum-cozinha-teste.git"
-# ATENÇÃO: o remote 'origin' local é 'polo-estoque' (repo de desenvolvimento).
-# O site é servido pelo repo SEPARADO 'aurum-cozinha-teste'. Sem o -r, o deploy vai para o lugar errado.
+# Deploy = só commitar e dar push na main; o GitHub Actions faz o resto.
+# Não usar git add -A (o classificador bloqueia por causa do .env.local) — adicionar arquivos por nome.
+git add <arquivos> ; git commit -F <arquivo-msg> ; git push origin main
 ```
 
 Login de teste: `teste-prod@aurum.app` / `teste123`
 
 ---
 
-## Estado atual do sistema (junho/2026)
+## Estado atual do sistema (atualizado 15/06/2026)
 
-- Todas as correções da auditoria completa foram aplicadas (críticos C1–C5, altos A1–A7, médios M1–M10, baixos B1–B5)
-- Sistema em uso pelo restaurante Polo Beer / Polo Central
-- Branch `feat/supabase` tem tudo; `main` pode estar desatualizado
+- Auditoria completa aplicada + várias rodadas de melhorias. `main` é a verdade (deploy contínuo).
+- Sistema em uso pelo restaurante Polo Beer / Polo Central.
+
+### Features recentes (15/06/2026)
+- **PWA instalável**: ícones PNG com `sizes` explícitos (192/512/maskable). Botão "📲 Instalar app" em Config→Sistema (`src/lib/pwaInstall.js` + hook `usePwaInstall`).
+- **FC (fator de correção) v2**: calculado AO VIVO (`fatorCorrecaoProduto`/`fcEfetivo` em analise.js), soma **aparas E perdas** ligadas ao produto (`produtoId`) ou a uma compra dele (`compraId`). Só o FC manual fica gravado (`fcManual`+`fcMedio`).
+- **Tabela "🎯 Rendimento por ingrediente"** (Config→Sistema, `TabelaRendimento`, colapsável): lista todos os produtos ativos; agrupa preparações (fichas) por produto; FC auto/manual editável; ✏️ renomeia o produto; "mover" reatribui ficha; campo "🛒 Compra como (matéria-prima)".
+- **Unificação de matéria-prima na lista de compras** (`agruparListaPorMateriaPrima`): produtos com a mesma `produto.materiaPrima` viram 1 linha somando o bruto, com detalhe expansível por produto. Busca na lista de compras.
+- **Painel /admin (super-admin)**: lista restaurantes/usuários/suporte. Atalho em Config→Sistema. **Precisa das policies RLS** (a própria página /admin mostra o SQL: SELECT em restaurantes/perfis/registros/**documentos** para `auth.jwt()->>'email' = atiliopinpolho@gmail.com`). Sem elas, carrega vazio.
+- **Modo suporte (impersonação)**: super-admin clica "👁️ Ver como este restaurante" (só quando o cliente autorizou em Config→Sistema→Suporte remoto, `prefs.suporteAtivo`). `AuthContext.impersonando` troca o `rid` lido pelo AppContext; `soLeitura` bloqueia TODA escrita. Faixa âmbar fixa + "Sair do modo suporte" (App.jsx `BannerSuporte`).
+
+### Pendências abertas
+- **Tablet Positivo Vision TAB 7 (Android 14 Go) não instala o PWA** (Chrome e Firefox) — provável limitação do Android Go (sem WebAPK). S22 instalou OK. Caminho sugerido: gerar APK via TWA (PWABuilder/Bubblewrap).
+- **Policies RLS do super-admin** — ação do usuário no Supabase (SQL na página /admin).
+- **Sessão única por conta (máx ~3 usuários)** — pedido do usuário, AINDA NÃO IMPLEMENTADO; exige registro de sessão no Supabase (token ativo por usuário) + realtime para derrubar a sessão antiga. Discutir abordagem antes.
+- Stripe ainda em test mode.
