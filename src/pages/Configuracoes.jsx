@@ -606,25 +606,70 @@ export default function Configuracoes() {
 
   // Colunas da planilha modelo de produtos (ordem fixa no download; na importação
   // as colunas são localizadas por palavra-chave, então podem estar em qualquer ordem)
-  const COLS_PLANILHA = [
-    'Nome', 'Categoria', 'Unidade (kg/unid/g/L)', 'Estoque inicial', 'Mínimo', 'Máximo',
-    'Validade congelado (dias)', 'Validade resfriado (dias)', 'Peso por unidade (g)',
-    'Qtd por embalagem', 'Nome da embalagem', 'Gramatura (g/porção)', 'Cocção (%)', 'Entra cozido (sim/não)',
-  ];
-
   const baixarPlanilhaModelo = async () => {
     const XLSX = await import('xlsx');
+
+    const COLS = [
+      'Nome *', 'Categoria *', 'Unidade * (kg/unid/g/L)',
+      'Estoque inicial', 'Mínimo', 'Máximo',
+      'Validade congelado (dias)', 'Validade resfriado (dias)',
+      'Peso por unidade (g)', 'Qtd na embalagem', 'Nome da embalagem',
+      'Gramatura (g/porção)', 'Cocção (%)', 'Entrada cozida (sim/não)',
+    ];
+    const GRUPOS = [
+      ['BÁSICO  * OBRIGATÓRIO', 0, 2],
+      ['ESTOQUE', 3, 5],
+      ['VALIDADES', 6, 7],
+      ['EMBALAGEM', 8, 10],
+      ['FICHA TÉCNICA', 11, 13],
+    ];
+
+    const gruposRow = Array(COLS.length).fill('');
+    GRUPOS.forEach(([nome, from]) => { gruposRow[from] = nome; });
+
+    const titulo = [`MODELO DE PRODUTOS — Aurum Cozinha Pro | Colunas com * são obrigatórias. Preencha a aba "Produtos" a partir da linha 4 e importe em Configurações → Planilha de produtos.`];
+
     const linhas = (POLO_PRESET.produtos || []).map(p => [
-      p.nome, p.categoria, p.unidade, p.estoqueInicial || 0, p.min || 0, p.max || 0,
+      p.nome, p.categoria, p.unidade,
+      p.estoqueInicial || 0, p.min || 0, p.max || 0,
       p.valCongelado || 0, p.valResfriado || 0, p.pesoUnidade || 0,
-      p.unidEmbalagem || 0, p.nomeEmbalagem || '', p.gramatura || 0, p.coccao || 0, p.entradaCozida ? 'sim' : 'não',
+      p.unidEmbalagem || 0, p.nomeEmbalagem || '',
+      p.gramatura || 0, p.coccao || 0, p.entradaCozida ? 'sim' : 'não',
     ]);
-    const ws = XLSX.utils.aoa_to_sheet([COLS_PLANILHA, ...linhas]);
-    ws['!cols'] = COLS_PLANILHA.map(() => ({ wch: 20 }));
+
+    const ws = XLSX.utils.aoa_to_sheet([titulo, gruposRow, COLS, ...linhas]);
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: COLS.length - 1 } },
+      ...GRUPOS.map(([, from, to]) => ({ s: { r: 1, c: from }, e: { r: 1, c: to } })),
+    ];
+    ws['!cols'] = [{ wch: 30 }, { wch: 18 }, { wch: 24 }, ...Array(11).fill({ wch: 22 })];
+
+    // Aba Instruções
+    const instrucoes = [
+      ['Campo', 'Obrigatório?', 'Valores aceitos', 'Descrição'],
+      ['Nome', 'Sim', 'Texto', 'Nome do produto. Se já existe, é atualizado (não duplicado).'],
+      ['Categoria', 'Sim', 'Texto', 'Ex: CARNES, LATICÍNIOS. Novas categorias são criadas automaticamente.'],
+      ['Unidade', 'Sim', 'kg / unid / g / L', 'Unidade de medida do estoque.'],
+      ['Estoque inicial', 'Não', 'Número', 'Quantidade em estoque ao cadastrar. Use 0 se não souber.'],
+      ['Mínimo', 'Não', 'Número', 'Quantidade mínima (abaixo disso entra na lista de compras).'],
+      ['Máximo', 'Não', 'Número', 'Meta de compra (compra até este nível).'],
+      ['Validade congelado (dias)', 'Não', 'Número', 'Vida útil congelado em dias. Deixe 0 se não congela.'],
+      ['Validade resfriado (dias)', 'Não', 'Número', 'Vida útil resfriado em dias. Deixe 0 se não resfria.'],
+      ['Peso por unidade (g)', 'Não', 'Número', 'Peso de cada unidade em gramas. Usado para calcular kg.'],
+      ['Qtd na embalagem', 'Não', 'Número', 'Quantas unidades tem cada caixa/fardo/embalagem.'],
+      ['Nome da embalagem', 'Não', 'Texto', 'Ex: caixa, fardo, bandeja. Aparece na lista de compras.'],
+      ['Gramatura (g/porção)', 'Não', 'Número', 'Grama por porção usada nas fichas técnicas.'],
+      ['Cocção (%)', 'Não', 'Número 0 a 90', 'Perda percentual no cozimento. 0 = sem perda.'],
+      ['Entrada cozida (sim/não)', 'Não', 'sim / não', 'Marque "sim" se o produto entra já pronto/cozido.'],
+    ];
+    const wsInst = XLSX.utils.aoa_to_sheet(instrucoes);
+    wsInst['!cols'] = [{ wch: 26 }, { wch: 14 }, { wch: 22 }, { wch: 65 }];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Produtos');
+    XLSX.utils.book_append_sheet(wb, wsInst, 'Instruções');
     XLSX.writeFile(wb, 'modelo_produtos.xlsx');
-    toast('Planilha modelo baixada — preencha e importe.', 'sucesso');
+    toast('Planilha baixada — preencha a aba "Produtos" e importe.', 'sucesso');
   };
 
   const numBR = (v) => parseFloat(String(v ?? '').replace(',', '.')) || 0;
@@ -641,9 +686,14 @@ export default function Configuracoes() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
         if (rows.length < 2) { toast('A planilha não tem linhas de produto.', 'erro'); return; }
-        const head = rows[0].map(h => String(h || '').toLowerCase().trim());
+        // Localiza a linha de cabeçalho (pode ter linhas de título/grupo antes)
+        const headRowIdx = rows.findIndex(r =>
+          r.some(c => /^nome\b/i.test(String(c || '').trim()))
+        );
+        if (headRowIdx < 0) { toast('Não encontrei a coluna "Nome" na planilha. Use o modelo.', 'erro'); return; }
+        const head = rows[headRowIdx].map(h => String(h || '').toLowerCase().trim());
         const col = (fn) => head.findIndex(fn);
-        const iNome = col(h => h === 'nome' || (h.includes('nome') && !h.includes('embalagem')));
+        const iNome = col(h => /^nome/.test(h) && !h.includes('embalagem'));
         const iCat = col(h => h.includes('categoria'));
         const iUnid = col(h => h.includes('unidade') && !h.includes('peso'));
         const iEst = col(h => h.includes('estoque'));
@@ -652,16 +702,16 @@ export default function Configuracoes() {
         const iCong = col(h => h.includes('congelado'));
         const iResf = col(h => h.includes('resfriado'));
         const iPeso = col(h => h.includes('peso'));
-        const iEmbQ = col(h => h.includes('embalagem') && (h.includes('qtd') || h.includes('por')));
-        const iEmbN = col(h => h.includes('embalagem') && h.includes('nome'));
+        const iEmbQ = col(h => h.includes('embalagem') && (h.includes('qtd') || h.includes('por') || h.includes('na ')));
+        const iEmbN = col(h => h.includes('embalagem') && (h.includes('nome') || h === 'nome da embalagem'));
         const iGram = col(h => h.includes('gramatura'));
         const iCoc = col(h => h.includes('cocç') || h.includes('coccao') || h.includes('cocc'));
-        const iCozido = col(h => h.includes('cozido'));
+        const iCozido = col(h => h.includes('cozido') || h.includes('cozida'));
         if (iNome < 0) { toast('A planilha precisa de uma coluna "Nome".', 'erro'); return; }
 
         const unidsValidas = ['kg', 'unid', 'g', 'L'];
         const novos = []; const novasCats = new Set(categorias);
-        rows.slice(1).forEach(r => {
+        rows.slice(headRowIdx + 1).forEach(r => {
           const nome = String(r[iNome] ?? '').trim();
           if (!nome) return;
           let unidade = iUnid >= 0 ? String(r[iUnid] ?? '').trim() : 'kg';
@@ -979,27 +1029,29 @@ export default function Configuracoes() {
             Ex: mín 3 dias → com esse estoque a cozinha trabalha por 3 dias sem repor. Máx 6 dias → meta de compra para 6 dias de produção.
           </p>
         </div>
-        <div className="border-t border-gray-100 pt-3">
-          <div className="flex items-start gap-3">
-            <div className="flex-1">
-              <p className="text-sm font-bold text-polo-navy">📅 Considerar o dia da semana</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                Em vez da média lisa, dimensiona o mín/máx pelo consumo previsto dos próximos dias —
-                sobe na véspera do fim de semana e cai no início da semana. Útil para casas com pico no sábado/domingo.
-              </p>
+        {!!prefs.autoMinMax && (
+          <div className="border-t border-gray-100 pt-3">
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="text-sm font-bold text-polo-navy">📅 Considerar o dia da semana</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Em vez da média lisa, dimensiona o mín/máx pelo consumo previsto dos próximos dias —
+                  sobe na véspera do fim de semana e cai no início da semana. Útil para casas com pico no sábado/domingo.
+                </p>
+              </div>
+              <button
+                role="switch" aria-checked={!!prefs.minMaxPorDiaSemana}
+                onClick={() => {
+                  const novo = !prefs.minMaxPorDiaSemana;
+                  setPref('minMaxPorDiaSemana', novo);
+                  toast(novo ? 'Mín/máx agora consideram o dia da semana.' : 'Mín/máx voltaram à média simples.', 'sucesso');
+                }}
+                className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${prefs.minMaxPorDiaSemana ? 'bg-green-500' : 'bg-gray-300'}`}>
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.minMaxPorDiaSemana ? 'left-6' : 'left-0.5'}`} />
+              </button>
             </div>
-            <button
-              role="switch" aria-checked={!!prefs.minMaxPorDiaSemana}
-              onClick={() => {
-                const novo = !prefs.minMaxPorDiaSemana;
-                setPref('minMaxPorDiaSemana', novo);
-                toast(novo ? 'Mín/máx agora consideram o dia da semana.' : 'Mín/máx voltaram à média simples.', 'sucesso');
-              }}
-              className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${prefs.minMaxPorDiaSemana ? 'bg-green-500' : 'bg-gray-300'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.minMaxPorDiaSemana ? 'left-6' : 'left-0.5'}`} />
-            </button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Guia de fluxo */}
