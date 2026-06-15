@@ -12,8 +12,8 @@
  *   ✅ Registro em `onboarding` para seu controle
  */
 
-const { createClient } = require('@supabase/supabase-js');
-const crypto = require('crypto');
+import { createClient } from '@supabase/supabase-js';
+import { randomBytes } from 'crypto';
 
 // Config
 const SUPABASE_URL = 'https://lifiyldinefisedmkayz.supabase.co';
@@ -29,9 +29,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
 // Parse args
 const args = process.argv.slice(2);
-const nome = args[args.indexOf('--nome') + 1];
-const email = args[args.indexOf('--email') + 1];
-const plano = args[args.indexOf('--plano') + 1] || 'basico';
+const getArg = (flag) => { const i = args.indexOf(flag); return i !== -1 ? args[i + 1] : null; };
+const nome = getArg('--nome');
+const email = getArg('--email');
+const plano = getArg('--plano') || 'basico';
 
 if (!nome || !email) {
   console.error('❌ Uso: node onboarding.js --nome "Nome Restaurante" --email "email@example.com" [--plano basico|pro]');
@@ -53,7 +54,7 @@ async function criarRestaurante() {
     console.log(`✅ Restaurante criado: ${restaurante.id}`);
 
     // 2. Gerar token de convite (8 caracteres hex)
-    const token = crypto.randomBytes(4).toString('hex');
+    const token = randomBytes(4).toString('hex');
 
     // 3. Criar convite para diretoria
     const expira_em = new Date();
@@ -73,8 +74,8 @@ async function criarRestaurante() {
     if (errConv) throw new Error(`Convite: ${errConv.message}`);
     console.log(`✅ Convite criado: ${token}`);
 
-    // 4. Registrar em onboarding (seu controle)
-    const { data: onboarding, error: errOnb } = await supabase
+    // 4. Registrar em onboarding (seu controle — não crítico)
+    const { error: errOnb } = await supabase
       .from('onboarding')
       .insert([{
         restaurante_id: restaurante.id,
@@ -82,11 +83,9 @@ async function criarRestaurante() {
         contato_email: email,
         plano,
         ativo: true
-      }])
-      .select()
-      .single();
+      }]);
 
-    if (errOnb) throw new Error(`Onboarding: ${errOnb.message}`);
+    if (errOnb) console.warn(`⚠️  Onboarding (controle interno): ${errOnb.message}`);
     console.log(`✅ Registro de controle criado`);
 
     // 5. Mostrar instruções
