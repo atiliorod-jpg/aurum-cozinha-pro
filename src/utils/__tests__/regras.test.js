@@ -3,7 +3,7 @@ import { calcEstoquePuro } from '../estoque';
 import { calcLotes } from '../lotes';
 import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
-import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, preparacoesPorMateriaPrima, preparacoesDoItem } from '../analise';
+import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem } from '../analise';
 import { ingredientesParaProduzir, planejarProducao } from '../producao';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
@@ -213,6 +213,38 @@ describe('FC por ingrediente cobre todas as preparações', () => {
     const produtos = [P('file', { nome: 'Filé Mignon', min: 10, max: 10, unidade: 'kg', fcManual: true, fcMedio: 0.05 })];
     const lista = listaDeCompras(produtos, { file: 0 }, compras, aparas, []);
     expect(lista[0].fc).toBe(0.05);
+  });
+});
+
+describe('agruparListaPorMateriaPrima — unifica matéria-prima na compra', () => {
+  // duas linhas de compra que compartilham a matéria-prima "Camarão"
+  const lista = [
+    { p: { id: 's', nome: 'Camarão Salada', min: 10, materiaPrima: 'Camarão' }, atual: 2, sugerido: 8, brutoKg: 10, liquidoKg: 8, fc: 0.2, fornecedor: 'A' },
+    { p: { id: 'y', nome: 'Camarão Yakisoba', min: 10, materiaPrima: 'camarão' }, atual: 5, sugerido: 5, brutoKg: 6, liquidoKg: 5, fc: 0.16, fornecedor: 'A' },
+    { p: { id: 'f', nome: 'Filé', min: 10, materiaPrima: '' }, atual: 1, sugerido: 9, brutoKg: 11, liquidoKg: 9, fc: 0.18, fornecedor: 'B' },
+  ];
+
+  it('soma o bruto dos produtos da mesma matéria-prima numa linha só', () => {
+    const r = agruparListaPorMateriaPrima(lista);
+    const grupo = r.find(e => e.tipo === 'grupo');
+    expect(grupo.materiaPrima).toBe('Camarão');
+    expect(grupo.brutoKg).toBeCloseTo(16); // 10 + 6
+    expect(grupo.itens).toHaveLength(2);    // detalhe preservado
+    expect(grupo.fornecedor).toBe('A');     // fornecedor único
+  });
+
+  it('produto sem matéria-prima continua linha própria (item)', () => {
+    const r = agruparListaPorMateriaPrima(lista);
+    const file = r.find(e => e.tipo === 'item' && e.p.id === 'f');
+    expect(file).toBeTruthy();
+    expect(file.brutoKg).toBe(11);
+  });
+
+  it('matéria-prima com um só produto não vira grupo', () => {
+    const r = agruparListaPorMateriaPrima([
+      { p: { id: 'x', nome: 'Picanha', min: 10, materiaPrima: 'Picanha' }, atual: 1, sugerido: 9, brutoKg: 9, liquidoKg: 9, fc: 0, fornecedor: null },
+    ]);
+    expect(r[0].tipo).toBe('item');
   });
 });
 

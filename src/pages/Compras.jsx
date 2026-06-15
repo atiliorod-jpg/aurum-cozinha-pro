@@ -7,7 +7,7 @@ import ResponsavelSelect from '../components/ResponsavelSelect';
 import AutocompleteInput from '../components/AutocompleteInput';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
-import { listaDeCompras, fcEfetivo, preparacoesDoItem } from '../utils/analise';
+import { listaDeCompras, agruparListaPorMateriaPrima, fcEfetivo, preparacoesDoItem } from '../utils/analise';
 
 export default function Compras() {
   const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref } = useApp();
@@ -25,15 +25,21 @@ export default function Compras() {
     [produtos, estoque, compras, aparas, desperdicio]
   );
 
-  // Filtro de busca (por nome do produto / categoria)
+  // Filtro de busca (por nome do produto / categoria / matéria-prima)
   const b = busca.trim().toLowerCase();
   const lista = b
     ? listaCompleta.filter(({ p }) =>
-        (p.nome || '').toLowerCase().includes(b) || (p.categoria || '').toLowerCase().includes(b))
+        (p.nome || '').toLowerCase().includes(b) ||
+        (p.categoria || '').toLowerCase().includes(b) ||
+        (p.materiaPrima || '').toLowerCase().includes(b))
     : listaCompleta;
   const manualFiltrada = b
     ? listaManual.filter(m => (m.nome || '').toLowerCase().includes(b))
     : listaManual;
+
+  // Linhas para exibir: produtos da mesma matéria-prima viram uma linha só (somada)
+  const listaAgrupada = useMemo(() => agruparListaPorMateriaPrima(lista), [lista]);
+  const [expandido, setExpandido] = useState({}); // materiaPrima -> bool
 
   // Ingredientes não controlados em estoque (abate: false) por receita — referência para o comprador
   const ingredientesReceita = useMemo(() => {
@@ -50,14 +56,23 @@ export default function Compras() {
 
   const copiarLista = async () => {
     const linhas = [`🧾 LISTA DE COMPRAS — ${fmtData(hoje())}`];
-    listaCompleta.forEach(({ p, atual, brutoKg, liquidoKg, fc, fornecedor }) => {
+    const textoItem = ({ p, atual, brutoKg, liquidoKg, fc, fornecedor }) => {
       const kgTexto = brutoKg
         ? `${fmtNum(brutoKg)} kg bruto${fc ? ` (FC ${Math.round(fc * 100)}%)` : ''}`
         : liquidoKg
           ? `${fmtNum(liquidoKg)} kg`
           : `${fmtNum(Math.max((p.max || p.min) - atual, 0))} ${p.unidade}`;
       const fornTexto = fornecedor ? ` — fornecedor: ${fornecedor}` : '';
-      linhas.push(`• ${p.nome}: comprar ${kgTexto}${fornTexto} (tem ${fmtNum(atual)} ${p.unidade})`);
+      return `${kgTexto}${fornTexto} (tem ${fmtNum(atual)} ${p.unidade})`;
+    };
+    agruparListaPorMateriaPrima(listaCompleta).forEach(e => {
+      if (e.tipo === 'grupo') {
+        const fornTexto = e.fornecedor ? ` — fornecedor: ${e.fornecedor}` : '';
+        linhas.push(`• ${e.materiaPrima}: comprar ${fmtNum(e.brutoKg)} kg bruto${fornTexto}`);
+        e.itens.forEach(it => linhas.push(`   └ ${it.p.nome}: ${it.brutoKg ? `${fmtNum(it.brutoKg)} kg` : `${fmtNum(it.sugerido)} ${it.p.unidade}`}`));
+      } else {
+        linhas.push(`• ${e.p.nome}: comprar ${textoItem(e)}`);
+      }
     });
     if (listaManual.length) {
       linhas.push('', '— Adicionados manualmente —');
@@ -197,13 +212,74 @@ export default function Compras() {
             </div>
           ) : (
             <>
-              {lista.length > 0 && (
+              {listaAgrupada.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
                     <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Abaixo do mínimo</p>
-                    <span className="text-xs text-gray-400">{lista.length} {lista.length === 1 ? 'item' : 'itens'} • mais crítico primeiro</span>
+                    <span className="text-xs text-gray-400">{listaAgrupada.length} {listaAgrupada.length === 1 ? 'linha' : 'linhas'} • mais crítico primeiro</span>
                   </div>
-                  {lista.map(({ p, atual, sugerido, brutoKg, liquidoKg, fc, fornecedor }) => {
+                  {listaAgrupada.map((entrada) => {
+                    // ── Linha de GRUPO (matéria-prima unificada) ──
+                    if (entrada.tipo === 'grupo') {
+                      const aberto = !!expandido[entrada.materiaPrima];
+                      return (
+                        <div key={`g-${entrada.materiaPrima}`} className="bg-white rounded-xl overflow-hidden border border-polo-gold/50">
+                          <div className="px-4 py-2 bg-polo-beige border-b border-polo-gold/30 flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-polo-navy bg-polo-gold px-1.5 py-0.5 rounded uppercase">
+                              🛒 Matéria-prima
+                            </span>
+                            <span className="text-[10px] text-polo-navy/60">{entrada.itens.length} produtos</span>
+                          </div>
+                          <div className="px-4 py-3 space-y-2">
+                            <div className="font-semibold text-sm text-gray-900">{entrada.materiaPrima}</div>
+                            <div className="bg-polo-navy rounded-lg px-3 py-2.5 flex items-center justify-between">
+                              <div className="text-xs text-white/70">Comprar (bruto total)</div>
+                              <div className="text-right">
+                                {entrada.brutoKg != null ? (
+                                  <div className="text-base font-bold text-polo-gold">{fmtNum(entrada.brutoKg)} kg</div>
+                                ) : (
+                                  <div className="text-base font-bold text-polo-gold">{fmtNum(entrada.sugerido)}</div>
+                                )}
+                                {entrada.liquidoKg != null && (
+                                  <div className="text-[10px] text-white/50">líquido {fmtNum(entrada.liquidoKg)} kg somado</div>
+                                )}
+                              </div>
+                            </div>
+                            <button onClick={() => setExpandido(s => ({ ...s, [entrada.materiaPrima]: !aberto }))}
+                              className="w-full flex items-center justify-between text-xs text-polo-navy font-semibold pt-1">
+                              <span>{aberto ? 'Ocultar' : 'Ver'} detalhe por produto</span>
+                              <span className={`transition-transform ${aberto ? 'rotate-180' : ''}`}>⌄</span>
+                            </button>
+                            {aberto && (
+                              <div className="space-y-1.5 border-t border-gray-100 pt-2">
+                                {entrada.itens.map(it => (
+                                  <div key={it.p.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
+                                    <div className="min-w-0">
+                                      <div className="font-medium text-gray-800 truncate">{it.p.nome}</div>
+                                      <div className="text-[10px] text-gray-500">
+                                        tem {fmtNum(it.atual)} {it.p.unidade} • mín {fmtNum(it.p.min)}
+                                        {it.fc != null && it.fc > 0 && ` • FC ${Math.round(it.fc * 100)}%`}
+                                      </div>
+                                    </div>
+                                    <span className="font-bold text-polo-navy bg-white border border-gray-200 px-2 py-1 rounded-lg flex-shrink-0 ml-2">
+                                      {it.brutoKg != null ? `${fmtNum(it.brutoKg)} kg` : `${fmtNum(it.sugerido)} ${it.p.unidade}`}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {entrada.fornecedor && (
+                              <div className="text-xs text-gray-500 flex items-center gap-1">
+                                <span>🏪</span>
+                                <span>Último fornecedor: <span className="font-semibold text-gray-700">{entrada.fornecedor}</span></span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }
+                    // ── Linha simples (item) ──
+                    const { p, atual, sugerido, brutoKg, liquidoKg, fc, fornecedor } = entrada;
                     const zerado = atual <= 0;
                     const pctMin = p.min > 0 ? Math.min(100, Math.round((atual / p.min) * 100)) : 0;
                     const urgencia = zerado ? 'zerado' : pctMin < 30 ? 'critico' : 'alerta';

@@ -90,6 +90,55 @@ export function listaDeCompras(produtos, estoque, compras = [], aparas = [], des
     .sort((a, b) => (a.atual / a.p.min) - (b.atual / b.p.min)); // mais crítico primeiro
 }
 
+/**
+ * Agrupa a lista de compras pela "matéria-prima de compra" (produto.materiaPrima).
+ * Vários produtos finais distintos (ex.: "camarão salada" e "camarão yakisoba")
+ * que compartilham a mesma matéria-prima ("camarão") viram UMA linha só, somando
+ * o bruto a comprar — mas guardam o detalhe de cada produto (itens) para expandir.
+ * Produtos sem materiaPrima (ou sozinhos no grupo) saem como item normal.
+ *
+ * Retorna entradas com `tipo`:
+ *  - 'item':  { tipo, ...entradaOriginal }                       (linha simples)
+ *  - 'grupo': { tipo, materiaPrima, itens, brutoKg, liquidoKg,   (linha somada)
+ *               sugerido, fornecedor, criticidade }
+ */
+export function agruparListaPorMateriaPrima(lista = []) {
+  const grupos = new Map(); // chave normalizada -> { materiaPrima, itens: [] }
+  const itens = [];
+
+  lista.forEach(entrada => {
+    const mp = (entrada.p.materiaPrima || '').trim();
+    if (!mp) { itens.push({ tipo: 'item', ...entrada }); return; }
+    const chave = mp.toLowerCase();
+    if (!grupos.has(chave)) grupos.set(chave, { materiaPrima: mp, itens: [] });
+    grupos.get(chave).itens.push(entrada);
+  });
+
+  const criticidadeItem = (e) => (e.p.min > 0 ? e.atual / e.p.min : 0);
+
+  grupos.forEach(g => {
+    if (g.itens.length === 1) { itens.push({ tipo: 'item', ...g.itens[0] }); return; }
+    const somaKg = (campo) => {
+      const vals = g.itens.map(i => i[campo]).filter(v => v != null);
+      return vals.length ? vals.reduce((s, v) => s + v, 0) : null;
+    };
+    const fornecs = [...new Set(g.itens.map(i => i.fornecedor).filter(Boolean))];
+    itens.push({
+      tipo: 'grupo',
+      materiaPrima: g.materiaPrima,
+      itens: g.itens,
+      brutoKg: somaKg('brutoKg'),
+      liquidoKg: somaKg('liquidoKg'),
+      sugerido: g.itens.reduce((s, i) => s + (i.sugerido || 0), 0),
+      fornecedor: fornecs.length === 1 ? fornecs[0] : null,
+      criticidade: Math.min(...g.itens.map(criticidadeItem)),
+    });
+  });
+
+  const crit = (e) => (e.tipo === 'grupo' ? e.criticidade : criticidadeItem(e));
+  return itens.sort((a, b) => crit(a) - crit(b)); // mais crítico primeiro
+}
+
 // Soma de aparas + perdas associadas a cada compra (via compraId)
 export function correcoesPorCompra(aparas, desperdicio) {
   const m = {};

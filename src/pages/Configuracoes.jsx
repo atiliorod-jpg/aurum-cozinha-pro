@@ -127,6 +127,9 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
 
   const { grupos, naoVinc } = useMemo(() => {
     const m = new Map();
+    // Semeia com todos os produtos ativos — assim dá para configurar FC e
+    // matéria-prima de compra mesmo nos produtos que ainda não têm preparação.
+    produtos.filter(p => p.ativo !== false).forEach(p => m.set(p.id, { produto: p, fichas: [] }));
     const semVinculo = [];
     fichas.forEach(f => {
       const prod = resolverProduto(f, produtos);
@@ -165,8 +168,14 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
     toast(`FC de ${produto.nome} voltou ao automático.`, 'sucesso');
   };
 
+  const salvarMateriaPrima = (produto, valor) => {
+    const mp = (valor || '').trim();
+    setProdutos(produtos.map(p => p.id === produto.id ? { ...p, materiaPrima: mp || undefined } : p));
+  };
+
   const opcoesProduto = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
-  const totalGrupos = grupos.length + (naoVinc.length > 0 ? 1 : 0);
+  // Matérias-primas já usadas (para sugerir ao agrupar — ex.: "Camarão")
+  const materiasPrimas = [...new Set(produtos.map(p => (p.materiaPrima || '').trim()).filter(Boolean))].sort();
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl mb-4">
@@ -267,6 +276,26 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                     )}
                     <button onClick={() => setFcEdit(null)} className="text-xs text-gray-400 ml-auto">cancelar</button>
                   </div>
+                </div>
+              )}
+
+              {/* Matéria-prima de compra — unifica produtos na lista de compras */}
+              {nomeEdit?.id !== produto.id && (
+                <div className="mt-2 bg-polo-beige/40 rounded-lg px-2.5 py-2">
+                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+                    🛒 Compra como (matéria-prima) — produtos com o mesmo nome viram 1 linha na lista de compras
+                  </label>
+                  <input
+                    type="text"
+                    list={`mp-${produto.id}`}
+                    defaultValue={produto.materiaPrima || ''}
+                    onBlur={e => salvarMateriaPrima(produto, e.target.value)}
+                    placeholder={`Ex: ${produto.nome.split(' ')[0]} (deixe vazio = não agrupa)`}
+                    className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 bg-white"
+                  />
+                  <datalist id={`mp-${produto.id}`}>
+                    {materiasPrimas.map(mp => <option key={mp} value={mp} />)}
+                  </datalist>
                 </div>
               )}
 
