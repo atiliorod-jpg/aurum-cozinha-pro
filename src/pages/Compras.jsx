@@ -6,7 +6,7 @@ import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
-import { listaDeCompras, fatorCorrecaoItem, preparacoesDoItem } from '../utils/analise';
+import { listaDeCompras, fcEfetivo, preparacoesDoItem } from '../utils/analise';
 
 export default function Compras() {
   const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref } = useApp();
@@ -109,9 +109,7 @@ export default function Compras() {
       if (menor.length < 4) return n === itemMin;
       return n === itemMin || n.includes(itemMin) || itemMin.includes(n);
     });
-    const fc = prod?.fcManual
-      ? (prod.fcMedio || 0)
-      : ((prod?.fcMedio > 0) ? prod.fcMedio : fatorCorrecaoItem(item, compras, aparas, desperdicio));
+    const fc = prod ? fcEfetivo(prod, compras, aparas, desperdicio) : 0;
     const preparacoes = preparacoesDoItem(item, fichas);
     if (!fc && preparacoes.length === 0) return null;
     return { fc, preparacoes, prodNome: prod?.nome || item };

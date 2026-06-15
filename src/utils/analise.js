@@ -59,11 +59,9 @@ export function listaDeCompras(produtos, estoque, compras = [], aparas = [], des
         : p.unidade === 'unid' && p.pesoUnidade > 0 ? Math.round(sugerido * p.pesoUnidade / 100) / 10
         : null;
 
-      // FC: manual travado nas Configurações sempre vence; senão fcMedio automático
-      // (calculado via aparas) e, por fim, o histórico por nome.
-      const fc = p.fcManual
-        ? (p.fcMedio || 0)
-        : (p.fcMedio > 0 ? p.fcMedio : fatorCorrecaoItem(p.nome, compras, aparas, desperdicio));
+      // FC: manual travado nas Configurações sempre vence; senão o automático
+      // (aparas + perdas ligadas ao produto ou a uma compra dele).
+      const fc = fcEfetivo(p, compras, aparas, desperdicio);
       // Cocção só entra na compra quando o produto JÁ ENTRA NO ESTOQUE COZIDO
       // (cupim porcionado, carne de sol desfiada etc.) — o cozimento acontece ANTES de entrar no estoque.
       const coccaoFator = p.entradaCozida && p.coccao > 0 ? p.coccao / 100 : 0;
@@ -138,6 +136,47 @@ export function fatorCorrecaoItem(materiaPrima, compras, aparas, desperdicio) {
   });
   if (comprado <= 0 || correcao <= 0) return null;
   return Math.min(correcao / comprado, 0.9);
+}
+
+// Compras que correspondem a um produto (item da compra é texto livre → casa por nome).
+function comprasDoProduto(produto, compras) {
+  const nome = (produto?.nome || '').toLowerCase().trim();
+  if (!nome) return [];
+  return compras.filter(c => {
+    const item = (c.item || '').toLowerCase().trim();
+    if (!item) return false;
+    if (item === nome) return true;
+    const menor = item.length <= nome.length ? item : nome;
+    if (menor.length < 4) return false;
+    return item.includes(nome) || nome.includes(item);
+  });
+}
+
+/**
+ * Fator de correção de um PRODUTO (matéria-prima). Diferente de fatorCorrecaoItem,
+ * conta as correções ligadas explicitamente ao produto (produtoId) OU a qualquer
+ * compra dele (compraId) — incluindo APARAS *e* PERDAS associadas a uma compra.
+ * Retorna proporção 0..1, ou null quando não há base de cálculo.
+ */
+export function fatorCorrecaoProduto(produto, compras = [], aparas = [], desperdicio = []) {
+  if (!produto) return null;
+  const comprasP = comprasDoProduto(produto, compras);
+  const comprado = comprasP.reduce((s, c) => s + num(c.quantidade), 0);
+  if (comprado <= 0) return null;
+  const idsCompras = new Set(comprasP.map(c => c.id));
+  // ligado = aponta para este produto (produtoId) ou para uma compra dele (compraId)
+  const ligado = (r) => r.produtoId === produto.id || (r.compraId && idsCompras.has(r.compraId));
+  let correcao = 0;
+  aparas.forEach(a => { if (ligado(a)) correcao += num(a.quantidade); });
+  desperdicio.forEach(d => { if (ligado(d)) correcao += num(d.quantidade); });
+  if (correcao <= 0) return null;
+  return Math.min(correcao / comprado, 0.9);
+}
+
+// FC efetivo de um produto: manual (travado) vence; senão o automático (aparas+perdas).
+export function fcEfetivo(produto, compras = [], aparas = [], desperdicio = []) {
+  if (produto?.fcManual) return produto.fcMedio || 0;
+  return fatorCorrecaoProduto(produto, compras, aparas, desperdicio) || 0;
 }
 
 // Agrupa as preparações (fichas técnicas) por matéria-prima.

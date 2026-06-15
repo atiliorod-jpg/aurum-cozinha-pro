@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
@@ -8,6 +8,8 @@ import NovaSenha from './NovaSenha';
 import { calcSugestoesMinMax } from '../utils/sugestoes';
 import { fmtNum } from '../utils/formatters';
 import { POLO_PRESET } from '../data/presetPolo';
+import { fatorCorrecaoProduto } from '../utils/analise';
+import { usePwaInstall } from '../lib/pwaInstall';
 
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
 // a conversão para número acontece só no salvar.
@@ -20,6 +22,190 @@ function useEscClose(onFechar) {
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onFechar]);
+}
+
+// Cartão para instalar o app na tela inicial (Configurações → Sistema)
+function CartaoInstalarApp() {
+  const { podeInstalar, instalado, ios, instalar } = usePwaInstall();
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          <p className="text-sm font-bold text-polo-navy">📲 Instalar app no tablet</p>
+          {instalado ? (
+            <p className="text-xs text-green-700 mt-0.5">✅ App já instalado neste aparelho.</p>
+          ) : ios ? (
+            <p className="text-xs text-gray-500 mt-0.5">
+              No iPad: toque em <strong>⎙ Compartilhar</strong> no Safari e em <strong>"Adicionar à Tela de Início"</strong>.
+            </p>
+          ) : podeInstalar ? (
+            <p className="text-xs text-gray-500 mt-0.5">Coloca o ícone da Aurum na tela inicial, abrindo em tela cheia.</p>
+          ) : (
+            <p className="text-xs text-gray-500 mt-0.5">
+              Se o botão não aparecer: abra o menu <strong>⋮</strong> do navegador e toque em <strong>"Instalar aplicativo"</strong>.
+              Caso não apareça, feche o navegador por completo e abra o app de novo.
+            </p>
+          )}
+        </div>
+        {!instalado && !ios && podeInstalar && (
+          <button onClick={instalar}
+            className="bg-polo-navy text-polo-gold font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">Instalar</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Resolve o produto (matéria-prima) de uma ficha: vínculo explícito (produtoId)
+// e, na falta dele, casamento por nome — tolerante a substrings.
+function resolverProduto(ficha, produtos) {
+  if (ficha.produtoId) return produtos.find(p => p.id === ficha.produtoId) || null;
+  const mp = (ficha.materiaPrima || '').toLowerCase().trim();
+  if (!mp) return null;
+  return produtos.find(p => {
+    const n = (p.nome || '').toLowerCase().trim();
+    if (!n) return false;
+    if (n === mp) return true;
+    const menor = n.length <= mp.length ? n : mp;
+    if (menor.length < 4) return false;
+    return n.includes(mp) || mp.includes(n);
+  }) || null;
+}
+
+// Tabela de Rendimento por ingrediente: agrupa as preparações por produto,
+// mostra o FC (automático por aparas+perdas ou manual) e permite mover uma
+// preparação para o ingrediente certo quando o vínculo automático erra.
+function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, aparas, desperdicio, toast }) {
+  const [fcEdit, setFcEdit] = useState(null); // { id, pct }
+
+  const { grupos, naoVinc } = useMemo(() => {
+    const m = new Map();
+    const semVinculo = [];
+    fichas.forEach(f => {
+      const prod = resolverProduto(f, produtos);
+      if (!prod) { semVinculo.push(f); return; }
+      if (!m.has(prod.id)) m.set(prod.id, { produto: prod, fichas: [] });
+      m.get(prod.id).fichas.push(f);
+    });
+    const arr = [...m.values()].sort((a, b) => a.produto.nome.localeCompare(b.produto.nome));
+    return { grupos: arr, naoVinc: semVinculo };
+  }, [fichas, produtos]);
+
+  const moverFicha = (ficha, novoId) => {
+    setFichas(fichas.map(x => x.id === ficha.id ? { ...x, produtoId: novoId || undefined } : x));
+    const destino = produtos.find(p => p.id === novoId);
+    toast(destino ? `Preparação movida para ${destino.nome}.` : 'Vínculo removido.', 'sucesso');
+  };
+
+  const salvarFcManual = (produto, pct) => {
+    const fcMedio = Math.min(parseFloat(pct) || 0, 90) / 100;
+    setProdutos(produtos.map(p => p.id === produto.id ? { ...p, fcManual: true, fcMedio } : p));
+    setFcEdit(null);
+    toast(`FC de ${produto.nome} fixado em ${Math.round(fcMedio * 100)}%.`, 'sucesso');
+  };
+
+  const voltarAutomatico = (produto) => {
+    setProdutos(produtos.map(p => p.id === produto.id ? { ...p, fcManual: false } : p));
+    setFcEdit(null);
+    toast(`FC de ${produto.nome} voltou ao automático.`, 'sucesso');
+  };
+
+  const opcoesProduto = [...produtos].sort((a, b) => a.nome.localeCompare(b.nome));
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+      <p className="text-sm font-bold text-polo-navy">🎯 Rendimento por ingrediente</p>
+      <p className="text-xs text-gray-500 mt-0.5 mb-3">
+        Cada ingrediente reúne as preparações que o usam. O <strong>fator de correção</strong> (apara/perda na limpeza) é
+        calculado sozinho pelas aparas e perdas ligadas às compras — um único FC vale para todas as preparações.
+        Se o vínculo automático errar, use <strong>"mover"</strong> para corrigir, ou ajuste o FC à mão.
+      </p>
+
+      {grupos.length === 0 && naoVinc.length === 0 && (
+        <p className="text-xs text-gray-500 py-4 text-center">Nenhuma preparação cadastrada ainda.</p>
+      )}
+
+      <div className="space-y-3">
+        {grupos.map(({ produto, fichas: fs }) => {
+          const fcAuto = fatorCorrecaoProduto(produto, compras, aparas, desperdicio);
+          const editando = fcEdit?.id === produto.id;
+          return (
+            <div key={produto.id} className="border border-gray-100 rounded-xl p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm text-polo-navy">{produto.nome}</p>
+                  <p className="text-[11px] mt-0.5">
+                    {produto.fcManual ? (
+                      <span className="text-polo-navy">FC manual: <strong>{Math.round((produto.fcMedio || 0) * 100)}%</strong></span>
+                    ) : fcAuto != null ? (
+                      <span className="text-gray-600">FC automático: <strong className="text-polo-navy">{Math.round(fcAuto * 100)}%</strong> (aparas + perdas)</span>
+                    ) : (
+                      <span className="text-gray-400">Sem FC ainda — registre aparas/perdas ligadas às compras deste item</span>
+                    )}
+                  </p>
+                </div>
+                {!editando && (
+                  <button onClick={() => setFcEdit({ id: produto.id, pct: produto.fcManual ? String(Math.round((produto.fcMedio || 0) * 100)) : '' })}
+                    className="text-[11px] font-semibold text-polo-navy bg-gray-100 px-2 py-1 rounded flex-shrink-0">✏️ FC</button>
+                )}
+              </div>
+
+              {editando && (
+                <div className="mt-2 bg-polo-beige/60 rounded-lg p-2.5 space-y-2">
+                  <label className="block text-[11px] font-semibold text-gray-600">Apara/perda na limpeza (%) — valor fixo</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min="0" max="90" step="1" value={fcEdit.pct} autoFocus
+                      onChange={e => setFcEdit({ id: produto.id, pct: e.target.value })}
+                      placeholder="Ex: 12"
+                      className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
+                    <button onClick={() => salvarFcManual(produto, fcEdit.pct)}
+                      className="text-xs font-bold text-polo-gold bg-polo-navy px-3 py-1.5 rounded-lg">Fixar</button>
+                    {produto.fcManual && (
+                      <button onClick={() => voltarAutomatico(produto)}
+                        className="text-xs font-semibold text-gray-600 underline">voltar ao automático</button>
+                    )}
+                    <button onClick={() => setFcEdit(null)} className="text-xs text-gray-400 ml-auto">cancelar</button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-2 space-y-1">
+                {fs.map(f => (
+                  <div key={f.id} className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
+                    <span className="text-xs text-gray-700 min-w-0 truncate">{f.preparacao}</span>
+                    <select value={produto.id} onChange={e => moverFicha(f, e.target.value)}
+                      aria-label={`Mover preparação ${f.preparacao} para outro ingrediente`}
+                      className="text-[11px] border border-gray-200 rounded px-1.5 py-1 bg-white max-w-[45%]">
+                      {opcoesProduto.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+        {naoVinc.length > 0 && (
+          <div className="border border-amber-200 bg-amber-50 rounded-xl p-3">
+            <p className="text-xs font-bold text-amber-800 mb-2">❓ Preparações sem ingrediente vinculado</p>
+            <div className="space-y-1">
+              {naoVinc.map(f => (
+                <div key={f.id} className="flex items-center justify-between gap-2 bg-white rounded-lg px-2.5 py-1.5">
+                  <span className="text-xs text-gray-700 min-w-0 truncate">{f.preparacao} <span className="text-gray-400">({f.materiaPrima})</span></span>
+                  <select value="" onChange={e => moverFicha(f, e.target.value)}
+                    aria-label={`Vincular preparação ${f.preparacao} a um ingrediente`}
+                    className="text-[11px] border border-gray-200 rounded px-1.5 py-1 bg-white max-w-[45%]">
+                    <option value="">— escolher —</option>
+                    {opcoesProduto.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin = 3, diasMax = 6, onSalvar, onFechar }) {
@@ -35,14 +221,11 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
         gramatura: numVazio(produto.gramatura),
         coccao: numVazio(produto.coccao),
         entradaCozida: produto.entradaCozida || false,
-        fcManual: produto.fcManual || false,
-        fcPct: produto.fcMedio > 0 ? String(Math.round(produto.fcMedio * 100)) : '',
       }
     : {
         nome: '', categoria: categorias[0], unidade: 'kg',
         estoqueInicial: '', min: '', max: '', valCongelado: '', valResfriado: '', pesoUnidade: '',
         gramatura: '', coccao: '', entradaCozida: false, ativo: true,
-        fcManual: false, fcPct: '',
       });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
   useEscClose(onFechar);
@@ -190,37 +373,9 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
           )}
         </div>
 
-        {/* Fator de correção (rendimento) — automático pelas aparas ou manual */}
-        <div className="border border-gray-100 rounded-xl p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🎯 Fator de correção</p>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-gray-500">Ajustar manualmente</span>
-              <button type="button" onClick={() => set('fcManual', !form.fcManual)}
-                aria-label="Alternar ajuste manual do fator de correção"
-                className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${form.fcManual ? 'bg-polo-navy' : 'bg-gray-300'}`}>
-                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.fcManual ? 'left-6' : 'left-0.5'}`} />
-              </button>
-            </div>
-          </div>
-          {form.fcManual ? (
-            <div>
-              <label htmlFor="mp-fc" className="block text-xs font-semibold text-gray-600 mb-1">Apara/perda na limpeza (%)</label>
-              <input id="mp-fc" type="number" min="0" max="90" step="1" value={form.fcPct} onChange={e => set('fcPct', e.target.value)}
-                placeholder="Ex: 12"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-              <p className="text-[10px] text-polo-navy bg-polo-beige rounded-lg px-2 py-1.5 mt-1">
-                ✔ Valor fixo: a lista de compras usa este % e ele <strong>não será mais recalculado</strong> pelas aparas registradas.
-              </p>
-            </div>
-          ) : (
-            <p className="text-xs text-gray-600">
-              {produto?.fcMedio > 0
-                ? <>Calculado automaticamente: <strong className="text-polo-navy">{Math.round(produto.fcMedio * 100)}%</strong> pelas aparas vinculadas a este produto. Ative o ajuste manual se a automação considerou itens errados.</>
-                : 'Ainda sem fator. Registre aparas vinculadas a este produto (em ✂️ Aparas) para calcular sozinho, ou ative o ajuste manual.'}
-            </p>
-          )}
-        </div>
+        <p className="text-[10px] text-gray-400 -mt-1">
+          🎯 O fator de correção (rendimento) deste item é configurado em <strong>Sistema → Rendimento por ingrediente</strong>.
+        </p>
 
         <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
           <span className="text-sm text-gray-700 flex-1">Produto ativo</span>
@@ -246,10 +401,6 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
               gramatura: parseFloat(form.gramatura) || 0,
               coccao: Math.min(parseFloat(form.coccao) || 0, 90),
               entradaCozida: form.entradaCozida || false,
-              fcManual: form.fcManual || false,
-              fcMedio: form.fcManual
-                ? Math.min(parseFloat(form.fcPct) || 0, 90) / 100
-                : (produto?.fcMedio || 0),
             })} disabled={!form.nome.trim()}
             className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
             Salvar
@@ -462,7 +613,8 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
 export default function Configuracoes() {
   const { produtos, setProdutos, saidas, limparTudo, resetarProdutos, exportarBackup, importarBackup,
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
-          fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref } = useApp();
+          fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref,
+          compras, aparas, desperdicio } = useApp();
   const { usuarios, sessao, criarConvite, alterarCargo } = useAuth();
   const { toast, confirm } = useUI();
   const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
@@ -947,6 +1099,13 @@ export default function Configuracoes() {
       </>}
 
       {secao === 'sistema' && <>
+      {/* Instalar app no tablet */}
+      <CartaoInstalarApp />
+
+      {/* Rendimento / Fator de correção por ingrediente */}
+      <TabelaRendimento produtos={produtos} fichas={fichas} setFichas={setFichas} setProdutos={setProdutos}
+        compras={compras} aparas={aparas} desperdicio={desperdicio} toast={toast} />
+
       {/* Minha conta */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="flex items-center gap-3">

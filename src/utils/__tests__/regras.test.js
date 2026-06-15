@@ -3,7 +3,7 @@ import { calcEstoquePuro } from '../estoque';
 import { calcLotes } from '../lotes';
 import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
-import { rendimentoPorFornecedor, fatorCorrecaoItem, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, preparacoesPorMateriaPrima, preparacoesDoItem } from '../analise';
+import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, preparacoesPorMateriaPrima, preparacoesDoItem } from '../analise';
 import { ingredientesParaProduzir, planejarProducao } from '../producao';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
@@ -181,12 +181,29 @@ describe('FC por ingrediente cobre todas as preparações', () => {
     expect(preparacoesDoItem('Picanha', fichas)).toEqual([]);
   });
 
-  it('fcMedio do produto é usado na lista de compras (compra mais bruto)', () => {
-    // produto com 10kg de meta, 0 em estoque, FC médio 20% → bruto = 10/(1-0,2) = 12,5
-    const produtos = [P('file', { nome: 'Filé Mignon', min: 10, max: 10, unidade: 'kg', fcMedio: 0.2 })];
-    const lista = listaDeCompras(produtos, { file: 0 }, [], [], []);
-    expect(lista[0].fc).toBe(0.2);
+  it('FC automático (aparas) entra na lista de compras e aumenta o bruto', () => {
+    // compra 100kg, 20kg de apara → FC 20% → bruto = 10/(1-0,2) = 12,5
+    const compras = [{ id: 'c1', item: 'Filé Mignon', quantidade: 100 }];
+    const aparas = [{ compraId: 'c1', quantidade: 20 }];
+    const produtos = [P('file', { nome: 'Filé Mignon', min: 10, max: 10, unidade: 'kg' })];
+    const lista = listaDeCompras(produtos, { file: 0 }, compras, aparas, []);
+    expect(lista[0].fc).toBeCloseTo(0.2);
     expect(lista[0].brutoKg).toBeCloseTo(12.5);
+  });
+
+  it('PERDA ligada a uma compra também conta no FC (não só apara)', () => {
+    const compras = [{ id: 'c1', item: 'Filé Mignon', quantidade: 100 }];
+    const aparas = [{ compraId: 'c1', quantidade: 10 }];           // 10%
+    const desperdicio = [{ compraId: 'c1', quantidade: 10 }];      // + 10% de perda
+    const produto = P('file', { nome: 'Filé Mignon' });
+    expect(fatorCorrecaoProduto(produto, compras, aparas, desperdicio)).toBeCloseTo(0.2);
+  });
+
+  it('correção ligada por produtoId conta mesmo sem compraId', () => {
+    const compras = [{ id: 'c1', item: 'Filé Mignon', quantidade: 100 }];
+    const desperdicio = [{ produtoId: 'file', quantidade: 15 }];
+    const produto = P('file', { nome: 'Filé Mignon' });
+    expect(fatorCorrecaoProduto(produto, compras, [], desperdicio)).toBeCloseTo(0.15);
   });
 
   it('FC manual sempre vence — ignora o cálculo automático por nome', () => {

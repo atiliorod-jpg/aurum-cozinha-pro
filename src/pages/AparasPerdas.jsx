@@ -20,7 +20,7 @@ const COR_MOTIVO = {
 };
 
 export default function AparasPerdas() {
-  const { compras, aparas, addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, restaurarRegistro, destinos, produtos, setProdutos, prefs, setPref } = useApp();
+  const { compras, aparas, addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, restaurarRegistro, destinos, produtos, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   const [tipo, setTipo] = useState('apara'); // 'apara' | 'perda'
   const [tab, setTab] = useState('novo');
@@ -57,26 +57,9 @@ export default function AparasPerdas() {
     let qtdApara = parseFloat(formApara.quantidade);
     let unidApara = formApara.unidade;
     if (unidApara === 'g') { qtdApara = qtdApara / 1000; unidApara = 'kg'; }
+    // O fator de correção é calculado ao vivo (aparas + perdas ligadas ao produto/compra),
+    // não precisa recalcular/gravar nada aqui — basta vincular a apara ao produto.
     addApara({ ...formApara, origem: 'recebimento', hora: fmtHora(), quantidade: qtdApara, unidade: unidApara });
-
-    // FC automático: recalcula fcMedio do produto com base em todas as aparas
-    // (pulado quando o produto tem FC manual travado nas Configurações)
-    if (formApara.produtoId) {
-      const produto = produtos.find(p => p.id === formApara.produtoId);
-      if (produto && !produto.fcManual) {
-        const novaApara = { produtoId: formApara.produtoId, quantidade: qtdApara };
-        const todasAparas = [...aparas, novaApara].filter(a => a.produtoId === formApara.produtoId);
-        const nomeMin = produto.nome.toLowerCase();
-        const totalComprado = compras
-          .filter(c => { const it = (c.item || '').toLowerCase(); return it && (it === nomeMin || it.includes(nomeMin) || nomeMin.includes(it)); })
-          .reduce((s, c) => s + (parseFloat(c.quantidade) || 0), 0);
-        const totalAparas = todasAparas.reduce((s, a) => s + (parseFloat(a.quantidade) || 0), 0);
-        if (totalComprado > 0 && totalAparas > 0) {
-          const fcMedio = Math.min(totalAparas / totalComprado, 0.9);
-          setProdutos(produtos.map(p => p.id === formApara.produtoId ? { ...p, fcMedio } : p));
-        }
-      }
-    }
 
     if (formApara.responsavel) setPref('responsavel', formApara.responsavel);
     setPref('turno', formApara.turno);
