@@ -109,7 +109,9 @@ export default function Compras() {
       if (menor.length < 4) return n === itemMin;
       return n === itemMin || n.includes(itemMin) || itemMin.includes(n);
     });
-    const fc = (prod?.fcMedio > 0) ? prod.fcMedio : fatorCorrecaoItem(item, compras, aparas, desperdicio);
+    const fc = prod?.fcManual
+      ? (prod.fcMedio || 0)
+      : ((prod?.fcMedio > 0) ? prod.fcMedio : fatorCorrecaoItem(item, compras, aparas, desperdicio));
     const preparacoes = preparacoesDoItem(item, fichas);
     if (!fc && preparacoes.length === 0) return null;
     return { fc, preparacoes, prodNome: prod?.nome || item };

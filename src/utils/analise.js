@@ -59,8 +59,11 @@ export function listaDeCompras(produtos, estoque, compras = [], aparas = [], des
         : p.unidade === 'unid' && p.pesoUnidade > 0 ? Math.round(sugerido * p.pesoUnidade / 100) / 10
         : null;
 
-      // FC: usa fcMedio salvo no produto (calculado automaticamente via aparas) ou histórico por nome
-      const fc = (p.fcMedio > 0) ? p.fcMedio : fatorCorrecaoItem(p.nome, compras, aparas, desperdicio);
+      // FC: manual travado nas Configurações sempre vence; senão fcMedio automático
+      // (calculado via aparas) e, por fim, o histórico por nome.
+      const fc = p.fcManual
+        ? (p.fcMedio || 0)
+        : (p.fcMedio > 0 ? p.fcMedio : fatorCorrecaoItem(p.nome, compras, aparas, desperdicio));
       // Cocção só entra na compra quando o produto JÁ ENTRA NO ESTOQUE COZIDO
       // (cupim porcionado, carne de sol desfiada etc.) — o cozimento acontece ANTES de entrar no estoque.
       const coccaoFator = p.entradaCozida && p.coccao > 0 ? p.coccao / 100 : 0;

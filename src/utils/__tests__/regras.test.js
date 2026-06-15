@@ -188,6 +188,15 @@ describe('FC por ingrediente cobre todas as preparações', () => {
     expect(lista[0].fc).toBe(0.2);
     expect(lista[0].brutoKg).toBeCloseTo(12.5);
   });
+
+  it('FC manual sempre vence — ignora o cálculo automático por nome', () => {
+    const compras = [{ id: 'c1', item: 'Filé Mignon', quantidade: 100 }];
+    const aparas = [{ compraId: 'c1', quantidade: 30 }]; // automático daria 30%
+    // produto trava FC manual em 5% mesmo com aparas que dariam 30%
+    const produtos = [P('file', { nome: 'Filé Mignon', min: 10, max: 10, unidade: 'kg', fcManual: true, fcMedio: 0.05 })];
+    const lista = listaDeCompras(produtos, { file: 0 }, compras, aparas, []);
+    expect(lista[0].fc).toBe(0.05);
+  });
 });
 
 describe('previsão de ruptura e lista de compras', () => {

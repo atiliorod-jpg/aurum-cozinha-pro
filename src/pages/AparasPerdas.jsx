@@ -60,9 +60,10 @@ export default function AparasPerdas() {
     addApara({ ...formApara, origem: 'recebimento', hora: fmtHora(), quantidade: qtdApara, unidade: unidApara });
 
     // FC automático: recalcula fcMedio do produto com base em todas as aparas
+    // (pulado quando o produto tem FC manual travado nas Configurações)
     if (formApara.produtoId) {
       const produto = produtos.find(p => p.id === formApara.produtoId);
-      if (produto) {
+      if (produto && !produto.fcManual) {
         const novaApara = { produtoId: formApara.produtoId, quantidade: qtdApara };
         const todasAparas = [...aparas, novaApara].filter(a => a.produtoId === formApara.produtoId);
         const nomeMin = produto.nome.toLowerCase();
