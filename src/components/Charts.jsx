@@ -101,9 +101,9 @@ export function LinhaDias({ dados }) {
         ))}
       </svg>
       <div className="flex justify-between text-[10px] text-gray-500 px-1">
-        <span>{dados[0].data.slice(5).split('-').reverse().join('/')}</span>
+        <span>{dados[0]?.data?.slice(5).split('-').reverse().join('/') || '—'}</span>
         <span>pico: {fmt(max)}</span>
-        <span>{dados[dados.length - 1].data.slice(5).split('-').reverse().join('/')}</span>
+        <span>{dados[dados.length - 1]?.data?.slice(5).split('-').reverse().join('/') || '—'}</span>
       </div>
     </div>
   );
