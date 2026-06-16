@@ -99,7 +99,7 @@ export function AppProvider({ children }) {
       acao, detalhe,
     };
     setAuditoriaRaw(prev => {
-      const next = [...prev.slice(-1999), reg];
+      const next = [...(prev || []).slice(-1999), reg];
       if (r) cacheSet(r, 'auditoria', next);
       return next;
     });
