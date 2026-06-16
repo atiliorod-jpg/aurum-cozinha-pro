@@ -40,13 +40,13 @@ export default function Layout({ title, children, actions }) {
                   <Icon name="historico" size={17} />
                 </Link>
               )}
-              <button onClick={sair} aria-label={`Sessão de ${sessao.nome} — sair`} title={`${sessao.nome} — sair`}
+              <button onClick={sair} aria-label={`Sessão de ${sessao.nome || 'usuário'} — sair`} title={`${sessao.nome || 'usuário'} — sair`}
                 className="flex items-center gap-1.5 bg-white/10 rounded-full pl-2.5 pr-3 py-1.5 active:scale-95 transition-transform
                            focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
                 <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-[10px] font-bold flex items-center justify-center">
-                  {sessao.nome.slice(0, 1).toUpperCase()}
+                  {(sessao.nome || '?').slice(0, 1).toUpperCase()}
                 </span>
-                <span className="text-[10px] font-semibold text-white/90 max-w-16 truncate">{sessao.nome.split(' ')[0]}</span>
+                <span className="text-[10px] font-semibold text-white/90 max-w-16 truncate">{(sessao.nome || 'usuário').split(' ')[0]}</span>
               </button>
             </div>
           )}
