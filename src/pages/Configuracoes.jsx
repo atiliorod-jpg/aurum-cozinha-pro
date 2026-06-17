@@ -721,13 +721,23 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                   </div>
                   <input type="number" min="0" step="0.1" value={ing.quantidade} onChange={e => setIng(i, 'quantidade', e.target.value)}
                     placeholder="Qtd" className="w-14 border border-gray-200 rounded-lg px-2 py-2 text-sm" />
-                  <select value={ing.unidade || 'kg'} onChange={e => setIng(i, 'unidade', e.target.value)}
-                    className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white">
-                    <option value="kg">kg</option>
-                    <option value="g">g</option>
-                    <option value="un">un</option>
-                    <option value="L">L</option>
-                  </select>
+                  {ing.abate ? (
+                    // Item controlado dá baixa na unidade do PRÓPRIO produto — fixa
+                    // a unidade (um seletor livre aqui era ignorado no save e podia
+                    // baixar 500 g como 500 kg).
+                    <span title="Usa a unidade do produto controlado"
+                      className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-gray-100 text-gray-600 flex items-center min-w-9 justify-center">
+                      {unid(ing.produtoId) || '—'}
+                    </span>
+                  ) : (
+                    <select value={ing.unidade || 'kg'} onChange={e => setIng(i, 'unidade', e.target.value)}
+                      className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white">
+                      <option value="kg">kg</option>
+                      <option value="g">g</option>
+                      <option value="un">un</option>
+                      <option value="L">L</option>
+                    </select>
+                  )}
                   <button onClick={() => removeIng(i)} aria-label="Remover ingrediente"
                     className="text-red-400 font-bold text-lg w-6 flex-shrink-0 flex items-center justify-center">×</button>
                 </div>
