@@ -49,7 +49,9 @@ export default function GuideTour() {
     entrada:  entradas.some(e => e.data === dt && !e.producaoId),
     apara:    aparas.some(a => a.data === dt),
     producao: entradas.some(e => e.data === dt && !!e.producaoId),
-    saida:    saidas.some(s => s.data === dt),
+    // só conta saída para polo/restaurante — a saída interna de produção
+    // (destino 'producao') não fecha a etapa "Saídas" do turno
+    saida:    saidas.some(s => s.data === dt && s.destino !== 'producao'),
   };
 
   const proximoPasso = PASSOS.find(p => !feitos[p.key]);

@@ -43,6 +43,7 @@ create or replace function sou_super_admin()
 returns boolean
 language sql
 stable
+set search_path = public
 as $$
   select auth.jwt() ->> 'email' = 'atiliopinpolho@gmail.com'
 $$;
@@ -144,6 +145,18 @@ begin
   if p_cargo not in ('cozinha','gerencia','diretoria') then
     raise exception 'Cargo inválido.';
   end if;
+  -- Anti-autopromoção: ninguém altera o PRÓPRIO cargo (nem via chamada direta à RPC).
+  if p_usuario = auth.uid() then
+    raise exception 'Você não pode alterar o seu próprio cargo.';
+  end if;
+  -- Gerência não concede cargo acima do próprio nível (só diretoria cria diretoria).
+  if meu_cargo = 'gerencia' and p_cargo = 'diretoria' then
+    raise exception 'Gerência não pode promover ninguém a Diretoria.';
+  end if;
+  -- Alvo inexistente: erro controlado em vez de "sucesso" silencioso.
+  if alvo_rest is null then
+    raise exception 'Usuário alvo não encontrado.';
+  end if;
 
   update perfis set cargo = p_cargo where id = p_usuario;
 end;
@@ -175,6 +188,20 @@ create policy "sessoes_update_propria" on sessoes
 -- funcionar. Rode também:
 alter publication supabase_realtime add table sessoes;
 -- (Se der erro "already member", pode ignorar — já estava ligado.)
+
+
+-- ---------------------------------------------------------------------
+-- 7b) Integridade de convites: o cargo precisa ser um dos válidos.
+--     (Sem isto, dá para criar convite com cargo inexistente que só falha
+--      mais tarde, ao virar perfil — deixando token "lixo" no banco.)
+-- ---------------------------------------------------------------------
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'convites_cargo_check') then
+    alter table convites
+      add constraint convites_cargo_check check (cargo in ('cozinha','gerencia','diretoria'));
+  end if;
+end $$;
 
 
 -- ---------------------------------------------------------------------

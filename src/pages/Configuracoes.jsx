@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
-import { useAuth, CARGOS } from '../store/AuthContext';
+import { useAuth, CARGOS, nivelDoCargo } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import NovaSenha from './NovaSenha';
 import { calcSugestoesMinMax } from '../utils/sugestoes';
@@ -761,6 +761,13 @@ export default function Configuracoes() {
   const { toast, confirm } = useUI();
   const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
 
+  // Cargos que o usuário logado pode CONCEDER: ninguém atribui acima do próprio
+  // nível (gerência não cria diretoria). Super-admin/diretoria concedem tudo.
+  // Espelha a regra do banco em alterar_cargo (SUPABASE_SETUP.sql).
+  const cargosAtribuiveis = sessao?.eSuperAdmin
+    ? CARGOS
+    : CARGOS.filter(c => c.nivel <= nivelDoCargo(sessao?.cargo));
+
   // O que falta preencher em cada produto (marcação pedida pelo cliente)
   const pendenciasDoProduto = (p) => {
     const falta = [];
@@ -1462,7 +1469,7 @@ export default function Configuracoes() {
         <div className="flex gap-2">
           <select value={conviteCargo} onChange={e => setConviteCargo(e.target.value)}
             className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-            {CARGOS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {cargosAtribuiveis.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
           <button onClick={handleGerarConvite}
             className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm whitespace-nowrap">+ Gerar convite</button>
@@ -1497,9 +1504,16 @@ export default function Configuracoes() {
                     {CARGOS.find(c => c.id === u.cargo)?.label}
                   </span>
                 ) : (
-                  <select value={u.cargo} onChange={e => { alterarCargo(u.id, e.target.value); logAudit('alterou cargo', `${u.nome} → ${CARGOS.find(c => c.id === e.target.value)?.label}`); }}
+                  <select value={u.cargo} onChange={async e => {
+                      const novoCargo = e.target.value;
+                      const label = CARGOS.find(c => c.id === novoCargo)?.label;
+                      const erro = await alterarCargo(u.id, novoCargo);
+                      if (erro) { toast(erro, 'erro'); return; } // RPC recusou — não loga
+                      logAudit('alterou cargo', `${u.nome} → ${label}`);
+                      toast(`Cargo de ${u.nome} alterado para ${label}.`, 'sucesso');
+                    }}
                     className="text-xs font-semibold text-polo-navy bg-polo-beige border border-polo-gold/40 rounded-lg px-2 py-1">
-                    {CARGOS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    {cargosAtribuiveis.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                   </select>
                 )}
               </div>

@@ -43,6 +43,10 @@ export default function AparasPerdas() {
       toast('Preencha a descrição e a quantidade.', 'aviso');
       return;
     }
+    if (!(parseFloat(formApara.quantidade) > 0)) {
+      toast('A quantidade deve ser maior que zero.', 'aviso');
+      return;
+    }
     const v = validarDataRegistro(formApara.data);
     if (!v.ok) { toast('Não é possível registrar em data futura.', 'erro'); return; }
     if (v.confirmar) {
@@ -70,6 +74,10 @@ export default function AparasPerdas() {
   const salvarPerda = async () => {
     if (!formPerda.item.trim() || !formPerda.quantidade) {
       toast('Preencha a descrição e a quantidade.', 'aviso');
+      return;
+    }
+    if (!(parseFloat(formPerda.quantidade) > 0)) {
+      toast('A quantidade deve ser maior que zero.', 'aviso');
       return;
     }
     const v = validarDataRegistro(formPerda.data);

@@ -27,7 +27,7 @@ export default function PwaInstallPrompt() {
               <span className="text-polo-gold font-bold">"Adicionar à Tela de Início"</span>
             </p>
           </div>
-          <button onClick={dispensarIos} className="text-white/40 text-xl leading-none px-1">×</button>
+          <button onClick={dispensarIos} aria-label="Fechar dica de instalação" className="text-white/40 text-xl leading-none px-1">×</button>
         </div>
       </div>
     );

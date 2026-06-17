@@ -53,7 +53,8 @@ export function Donut({ dados, unidade = '' }) {
   let acumulado = 0;
   return (
     <div className="flex items-center gap-4">
-      <svg viewBox="0 0 100 100" className="w-28 h-28 flex-shrink-0">
+      <svg viewBox="0 0 100 100" className="w-28 h-28 flex-shrink-0" role="img"
+        aria-label={`Gráfico de rosca. Total ${fmt(total)}${unidade}. ${dados.map(d => `${d.label}: ${fmt(d.valor)}${unidade}`).join(', ')}.`}>
         <circle cx="50" cy="50" r={R} fill="none" stroke="#eee" strokeWidth="16" />
         {dados.map((d, i) => {
           const frac = d.valor / total;
@@ -93,7 +94,8 @@ export function LinhaDias({ dados }) {
   const area = `${PAD},${H - PAD} ${pontos} ${W - PAD},${H - PAD}`;
   return (
     <div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img"
+        aria-label={`Gráfico de linha do consumo diário ao longo de ${dados.length} dias. Pico de ${fmt(max)}.`}>
         <polygon points={area} fill="#C9A24B" opacity="0.18" />
         <polyline points={pontos} fill="none" stroke="#1B2A41" strokeWidth="2" strokeLinejoin="round" />
         {dados.map((d, i) => (

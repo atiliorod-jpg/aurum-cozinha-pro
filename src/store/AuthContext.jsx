@@ -27,7 +27,12 @@ export function AuthProvider({ children }) {
   const registrarSessaoAtiva = useCallback(async (userId) => {
     const token = (crypto?.randomUUID?.() || `t_${Date.now()}_${Math.random().toString(36).slice(2)}`);
     tokenRef.current = token;
-    try { await supabase.from('sessoes').upsert({ user_id: userId, token, updated_at: new Date().toISOString() }); }
+    // O Supabase NÃO lança em erro PostgREST normal — retorna { error }. Por isso
+    // checamos o retorno (o catch só pega falha de rede/exceção).
+    try {
+      const { error } = await supabase.from('sessoes').upsert({ user_id: userId, token, updated_at: new Date().toISOString() });
+      if (error) console.warn('[sessão única] não foi possível registrar a sessão ativa:', error.message);
+    }
     catch { /* tabela sessoes ainda não criada — recurso fica inerte */ }
   }, []);
 

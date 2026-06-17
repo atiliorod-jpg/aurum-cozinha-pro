@@ -26,6 +26,10 @@ export default function Inventario() {
       toast('Conte ao menos um produto.', 'aviso');
       return;
     }
+    if (itensContados.some(([, v]) => parseFloat(v) < 0)) {
+      toast('A contagem não pode ser negativa.', 'aviso');
+      return;
+    }
     const ok = await confirm({
       titulo: 'Confirmar contagem física',
       mensagem: `Você está ajustando o estoque de ${itensContados.length} produto(s) para o valor contado fisicamente. Isso passa a ser a nova base de cálculo.`,
@@ -68,7 +72,7 @@ export default function Inventario() {
       {tab === 'novo' ? (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-            O estoque é <strong>calculado automaticamente</strong> (estoque inicial + entradas − saídas − desperdício − aparas). Use esta tela só quando <strong>conferir fisicamente</strong> e o valor real divergir: a contagem digitada vira a nova base a partir de agora.
+            O estoque é <strong>calculado automaticamente</strong> (estoque inicial + entradas − saídas − perdas do estoque). As aparas <strong>não</strong> abatem o estoque. Use esta tela só quando <strong>conferir fisicamente</strong> e o valor real divergir: a contagem digitada vira a nova base a partir de agora.
           </div>
 
           <div className="bg-white rounded-xl p-4 space-y-3">
