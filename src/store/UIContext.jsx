@@ -48,6 +48,20 @@ export function UIProvider({ children }) {
     return () => window.removeEventListener('keydown', handler);
   }, [confirmState, fecharConfirm]);
 
+  // Aviso central quando uma escrita é barrada pelo modo suporte (somente leitura),
+  // para não deixar o "sucesso" das telas enganar o super-admin (AUR-SUP-002).
+  useEffect(() => {
+    let ultimo = 0;
+    const handler = () => {
+      const agora = Date.now();
+      if (agora - ultimo < 2500) return; // não repete em rajada de escritas
+      ultimo = agora;
+      toast('Modo somente leitura — nada foi salvo.', 'aviso');
+    };
+    window.addEventListener('escrita-bloqueada', handler);
+    return () => window.removeEventListener('escrita-bloqueada', handler);
+  }, [toast]);
+
   return (
     <UIContext.Provider value={{ toast, confirm }}>
       {children}

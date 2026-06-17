@@ -22,7 +22,7 @@ const PASSOS = [
     key: 'producao',
     label: 'Produção',
     icon: '🍲',
-    rota: '/registrar',
+    rota: '/producao',
     hint: 'Execute as receitas planejadas para o turno.',
   },
   {

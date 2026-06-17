@@ -39,6 +39,10 @@ const PREFS_APARELHO = ['responsavel', 'turno', 'destino'];
 const soRestaurante = (p) => { const o = { ...p }; PREFS_APARELHO.forEach(k => delete o[k]); return o; };
 const soAparelho = (p) => { const o = {}; PREFS_APARELHO.forEach(k => { if (p[k] !== undefined) o[k] = p[k]; }); return o; };
 
+// Avisa a UI quando uma escrita do usuário é barrada pelo modo suporte (somente
+// leitura), para não exibir um "sucesso" enganoso ao super-admin (AUR-SUP-002).
+const avisaBloqueioLeitura = () => { try { window.dispatchEvent(new Event('escrita-bloqueada')); } catch { /* sem window (SSR/teste) */ } };
+
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -115,7 +119,7 @@ export function AppProvider({ children }) {
 
   // ── Catálogos (documentos JSONB, 1 linha por lista) ────────
   const persistCatalogo = useCallback((chave, setRaw, valor) => {
-    if (soLeituraRef.current) return; // modo suporte = só leitura
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     setRaw(valor);
     const r = ridRef.current;
     cacheSet(r, chave, valor);
@@ -135,7 +139,7 @@ export function AppProvider({ children }) {
   const setListaManual = useCallback((v) => persistCatalogo('listaManual', setListaManualRaw, v), [persistCatalogo]);
 
   const setPref = useCallback((chave, valor) => {
-    if (soLeituraRef.current) return; // modo suporte = só leitura
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const r = ridRef.current;
     const next = { ...dadosRef.current.prefs, [chave]: valor };
     setPrefsRaw(next);
@@ -167,7 +171,7 @@ export function AppProvider({ children }) {
 
   // ── Registros operacionais (tabela 'registros') ────────────
   const addRegistro = useCallback((tipo, setRaw, key, registro) => {
-    if (soLeituraRef.current) return; // modo suporte = só leitura
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const r = ridRef.current;
     const novo = { ...registro, id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`, ts: Date.now() };
     setRaw(prev => {
@@ -185,7 +189,7 @@ export function AppProvider({ children }) {
   }, [logAudit]);
 
   const removeRegistro = useCallback((tipo, setRaw, key, id) => {
-    if (soLeituraRef.current) return; // modo suporte = só leitura
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const r = ridRef.current;
     const alvo = dadosRef.current[key].find(x => x.id === id);
     setRaw(prev => {
@@ -224,7 +228,7 @@ export function AppProvider({ children }) {
     ajuste:  [setAjustesRaw,     'ajustes',     'ajuste',  'contagem física'],
   };
   const restaurarRegistro = useCallback((tipoApi, registro) => {
-    if (soLeituraRef.current) return; // modo suporte = só leitura
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const alvo = MAPA_RESTAURO[tipoApi];
     if (!alvo || !registro) return;
     const [setRaw, key, tipo, rotulo] = alvo;
@@ -497,7 +501,7 @@ export function AppProvider({ children }) {
 
   // ── Administração de dados ─────────────────────────────────
   const limparTudo = useCallback(() => {
-    if (soLeituraRef.current) return; // modo suporte = só leitura
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const r = ridRef.current;
     [['compras', setComprasRaw], ['entradas', setEntradasRaw], ['saidas', setSaidasRaw],
      ['aparas', setAparasRaw], ['desperdicio', setDesperdicioRaw], ['ajustes', setAjustesRaw]]
