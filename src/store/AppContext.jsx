@@ -5,7 +5,7 @@ import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
-import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd } from '../lib/cache';
+import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount } from '../lib/cache';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
 const CAT = {
@@ -66,6 +66,9 @@ export function AppProvider({ children }) {
   const [desperdicio, setDesperdicioRaw] = useState([]);
   const [ajustes,     setAjustesRaw]     = useState([]);
   const [auditoria,   setAuditoriaRaw]   = useState([]);
+  // Observabilidade da sincronização: nº de operações na fila offline + status de rede.
+  const [pendencias,  setPendencias]     = useState(0);
+  const [online,      setOnline]         = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
 
   // refs estáveis para callbacks não dependerem de closures velhas
   const ridRef = useRef(rid); ridRef.current = rid;
@@ -240,6 +243,22 @@ export function AppProvider({ children }) {
     }
     logAudit(`restaurou ${rotulo} (desfazer)`, RESUMOS[rotulo]?.(registro) || '');
   }, [logAudit]);
+
+  // ── Pendências de sincronização (badge offline) ───────────
+  useEffect(() => {
+    const atualiza = () => setPendencias(rid ? outboxCount(rid) : 0);
+    atualiza();
+    const onOnline = () => { setOnline(true); atualiza(); };
+    const onOffline = () => setOnline(false);
+    window.addEventListener('outbox-mudou', atualiza);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('outbox-mudou', atualiza);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [rid]);
 
   // ── Estoque (calculado uma vez, partilhado por todos os componentes) ─
   const estoque = useMemo(
@@ -547,7 +566,9 @@ export function AppProvider({ children }) {
       if (r && arr.length) {
         const rows = arr.map(x => ({ id: x.id, restaurante_id: r, tipo, ts: x.ts || Date.now(), dados: semIdTs(x), deleted: false }));
         supabase.from('registros').upsert(rows).then(({ error }) => {
-          if (error) console.error('[importarBackup] falha ao subir', key, error);
+          // Falha ao subir (offline/erro): enfileira para reenviar ao reconectar,
+          // em vez de só logar — senão a restauração parece concluída sem persistir.
+          if (error) rows.forEach(row => outboxAdd(r, { kind: 'registro', op: 'insert', payload: row }));
         });
       }
     };
@@ -583,6 +604,7 @@ export function AppProvider({ children }) {
       limparTudo, resetarProdutos,
       exportarBackup, importarBackup,
       soLeitura,
+      pendencias, online,
     }}>
       {children}
     </AppContext.Provider>

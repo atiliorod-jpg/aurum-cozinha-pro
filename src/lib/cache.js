@@ -13,13 +13,16 @@ export const cacheGet = (rid, chave, fallback) => {
 
 export const cacheSet = (rid, chave, valor) => {
   if (!rid) return;
-  try { localStorage.setItem(ns(rid, chave), JSON.stringify(valor)); } catch {}
+  try { localStorage.setItem(ns(rid, chave), JSON.stringify(valor)); } catch { /* cota cheia/modo privado — ignora */ }
 };
 
 // ── Outbox: operações pendentes quando offline ───────────────
 // Cada item: { id, kind:'registro'|'doc', op:'insert'|'delete'|'upsert', payload }
+// Avisa a UI (badge de pendências) sempre que a fila muda.
+const avisaOutbox = () => { try { window.dispatchEvent(new Event('outbox-mudou')); } catch { /* sem window (SSR/teste) — ignora */ } };
+
 export const outboxGet = (rid) => cacheGet(rid, '_outbox', []);
-export const outboxSet = (rid, fila) => cacheSet(rid, '_outbox', fila);
+export const outboxSet = (rid, fila) => { cacheSet(rid, '_outbox', fila); avisaOutbox(); };
 
 export const outboxAdd = (rid, item) => {
   const fila = outboxGet(rid);
@@ -28,3 +31,6 @@ export const outboxAdd = (rid, item) => {
 };
 
 export const outboxClear = (rid) => outboxSet(rid, []);
+
+// Conta quantas operações estão pendentes de sincronização para um restaurante.
+export const outboxCount = (rid) => outboxGet(rid).length;

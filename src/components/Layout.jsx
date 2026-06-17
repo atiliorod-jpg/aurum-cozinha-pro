@@ -3,12 +3,14 @@ import NavBar from './NavBar';
 import Icon from './Icons';
 import GuideTour from './GuideTour';
 import { useAuth } from '../store/AuthContext';
+import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 
 const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
 export default function Layout({ title, children, actions }) {
   const { sessao, logout, temPermissao } = useAuth();
+  const { pendencias, online } = useApp();
   const { confirm } = useUI();
 
   const sair = async () => {
@@ -30,6 +32,16 @@ export default function Layout({ title, children, actions }) {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Status de sincronização: avisa quando há dados ainda não enviados ou sem internet */}
+          {(pendencias > 0 || !online) && (
+            <span
+              role="status"
+              aria-label={!online ? `Sem internet, ${pendencias} alteração(ões) pendente(s)` : `${pendencias} alteração(ões) aguardando sincronização`}
+              title={!online ? 'Sem internet — as alterações sobem quando reconectar' : 'Alterações aguardando sincronização'}
+              className="flex items-center gap-1 bg-amber-400/90 text-polo-navy text-[10px] font-bold rounded-full px-2 py-1">
+              {!online ? '⚡ offline' : '⏳'}{pendencias > 0 && ` ${pendencias}`}
+            </span>
+          )}
           {actions}
           {sessao && (
             <div className="flex items-center gap-1.5">
