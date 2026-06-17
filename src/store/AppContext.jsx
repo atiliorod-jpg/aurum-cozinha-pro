@@ -344,64 +344,80 @@ export function AppProvider({ children }) {
       outboxSet(rid, restantes);
     };
 
-    // 2) rede (fonte da verdade)
+    // 2) rede (fonte da verdade). IMPORTANTE: se a busca FALHAR (rede/RLS), NÃO
+    // sobrescrevemos os catálogos locais — senão um erro transitório jogaria os
+    // produtos/fichas do cliente de volta aos valores padrão (e ainda os semearia
+    // no banco). Também não rebaixamos um catálogo com alteração local ainda não
+    // sincronizada (pendência no outbox).
     (async () => {
-      const { data: docs } = await supabase.from('documentos').select('*').eq('restaurante_id', rid);
+      const docsPendentes = new Set(
+        outboxGet(rid).filter(i => i.kind === 'doc' && i.payload?.chave).map(i => i.payload.chave)
+      );
+      const { data: docs, error: errDocs } = await supabase.from('documentos').select('*').eq('restaurante_id', rid);
       if (!ativo) return;
-      const mapa = {};
-      (docs || []).forEach(d => { mapa[d.chave] = d.dados; });
-      const aplicaCat = (chave, setRaw, def) => {
-        if (mapa[chave] !== undefined) { setRaw(mapa[chave]); cacheSet(rid, chave, mapa[chave]); }
-        else { // catálogo ainda não existe na nuvem → semeia
-          setRaw(def); cacheSet(rid, chave, def);
-          if (soLeituraRef.current) return; // modo suporte: não escreve na conta do cliente
-          // .then() é obrigatório: a query do Supabase só é ENVIADA quando consumida
-          const payload = { restaurante_id: rid, chave, dados: def, updated_at: new Date().toISOString() };
-          supabase.from('documentos').upsert(payload)
-            .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload }); });
+      if (errDocs) {
+        console.warn('[hidratação] falha ao buscar catálogos — mantendo o cache local (não sobrescreve com padrões):', errDocs.message);
+      } else {
+        const mapa = {};
+        (docs || []).forEach(d => { mapa[d.chave] = d.dados; });
+        const aplicaCat = (chave, setRaw, def) => {
+          if (docsPendentes.has(chave)) return; // alteração local não sincronizada → não rebaixa
+          if (mapa[chave] !== undefined) { setRaw(mapa[chave]); cacheSet(rid, chave, mapa[chave]); }
+          else { // catálogo ainda não existe na nuvem → semeia
+            setRaw(def); cacheSet(rid, chave, def);
+            if (soLeituraRef.current) return; // modo suporte: não escreve na conta do cliente
+            // .then() é obrigatório: a query do Supabase só é ENVIADA quando consumida
+            const payload = { restaurante_id: rid, chave, dados: def, updated_at: new Date().toISOString() };
+            supabase.from('documentos').upsert(payload)
+              .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload }); });
+          }
+        };
+        aplicaCat('produtos', setProdutosRaw, CAT.produtos);
+        aplicaCat('categorias', setCategoriasRaw, CAT.categorias);
+        aplicaCat('pessoas', setPessoasRaw, CAT.pessoas);
+        aplicaCat('destinos', setDestinosRaw, CAT.destinos);
+        aplicaCat('fichas', setFichasRaw, CAT.fichas);
+        aplicaCat('producoes', setProducoesRaw, CAT.producoes);
+        aplicaCat('locais', setLocaisRaw, CAT.locais);
+        aplicaCat('listaManual', setListaManualRaw, CAT.listaManual);
+        // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
+        if (!docsPendentes.has('prefs')) {
+          const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
+          if (mapa['prefs'] === undefined && !soLeituraRef.current) {
+            const prefPayload = { restaurante_id: rid, chave: 'prefs', dados: prefsNuvem, updated_at: new Date().toISOString() };
+            supabase.from('documentos').upsert(prefPayload)
+              .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload: prefPayload }); });
+          }
+          cacheSet(rid, 'prefs', prefsNuvem);
+          setPrefsRaw({ ...prefsNuvem, ...cacheGet(rid, '_prefs_device', {}) });
         }
-      };
-      aplicaCat('produtos', setProdutosRaw, CAT.produtos);
-      aplicaCat('categorias', setCategoriasRaw, CAT.categorias);
-      aplicaCat('pessoas', setPessoasRaw, CAT.pessoas);
-      aplicaCat('destinos', setDestinosRaw, CAT.destinos);
-      aplicaCat('fichas', setFichasRaw, CAT.fichas);
-      aplicaCat('producoes', setProducoesRaw, CAT.producoes);
-      aplicaCat('locais', setLocaisRaw, CAT.locais);
-      aplicaCat('listaManual', setListaManualRaw, CAT.listaManual);
-      // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
-      const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
-      if (mapa['prefs'] === undefined && !soLeituraRef.current) {
-        const prefPayload = { restaurante_id: rid, chave: 'prefs', dados: prefsNuvem, updated_at: new Date().toISOString() };
-        supabase.from('documentos').upsert(prefPayload)
-          .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload: prefPayload }); });
       }
-      cacheSet(rid, 'prefs', prefsNuvem);
-      setPrefsRaw({ ...prefsNuvem, ...cacheGet(rid, '_prefs_device', {}) });
 
-      const { data: regs } = await supabase.from('registros').select('*').eq('restaurante_id', rid).eq('deleted', false);
+      const { data: regs, error: errRegs } = await supabase.from('registros').select('*').eq('restaurante_id', rid).eq('deleted', false);
       if (!ativo) return;
-      const porTipo = {};
-      (regs || []).forEach(r => { (porTipo[r.tipo] = porTipo[r.tipo] || []).push(linhaParaRegistro(r)); });
-      const aplicaReg = (tipo, setRaw, key) => {
-        const arr = (porTipo[tipo] || []).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        setRaw(prev => {
-          const fetchedIds = new Set(arr.map(x => x.id));
-          const localOnly = prev.filter(x => !fetchedIds.has(x.id));
-          const merged = localOnly.length
-            ? [...arr, ...localOnly].sort((a, b) => (a.ts || 0) - (b.ts || 0))
-            : arr;
-          cacheSet(rid, key, merged);
-          return merged;
-        });
-      };
-      aplicaReg('compra', setComprasRaw, 'compras');
-      aplicaReg('entrada', setEntradasRaw, 'entradas');
-      aplicaReg('saida', setSaidasRaw, 'saidas');
-      aplicaReg('apara', setAparasRaw, 'aparas');
-      aplicaReg('perda', setDesperdicioRaw, 'desperdicio');
-      aplicaReg('ajuste', setAjustesRaw, 'ajustes');
-      aplicaReg('auditoria', setAuditoriaRaw, 'auditoria');
+      if (!errRegs) {
+        const porTipo = {};
+        (regs || []).forEach(r => { (porTipo[r.tipo] = porTipo[r.tipo] || []).push(linhaParaRegistro(r)); });
+        const aplicaReg = (tipo, setRaw, key) => {
+          const arr = (porTipo[tipo] || []).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+          setRaw(prev => {
+            const fetchedIds = new Set(arr.map(x => x.id));
+            const localOnly = prev.filter(x => !fetchedIds.has(x.id));
+            const merged = localOnly.length
+              ? [...arr, ...localOnly].sort((a, b) => (a.ts || 0) - (b.ts || 0))
+              : arr;
+            cacheSet(rid, key, merged);
+            return merged;
+          });
+        };
+        aplicaReg('compra', setComprasRaw, 'compras');
+        aplicaReg('entrada', setEntradasRaw, 'entradas');
+        aplicaReg('saida', setSaidasRaw, 'saidas');
+        aplicaReg('apara', setAparasRaw, 'aparas');
+        aplicaReg('perda', setDesperdicioRaw, 'desperdicio');
+        aplicaReg('ajuste', setAjustesRaw, 'ajustes');
+        aplicaReg('auditoria', setAuditoriaRaw, 'auditoria');
+      }
 
       await flush();
     })();
