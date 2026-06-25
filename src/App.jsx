@@ -38,17 +38,16 @@ function Splash({ texto = 'Carregando…' }) {
   );
 }
 
-// Faixa fixa de aviso quando o super-admin está vendo os dados de um cliente
-function BannerSuporte({ nome, podeMexer, onSair }) {
+// Faixa fixa de aviso quando o super-admin está vendo os dados de um cliente.
+// O suporte é sempre SOMENTE LEITURA (nada é escrito na conta do cliente).
+function BannerSuporte({ nome, onSair }) {
   return (
-    <div className={`sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md
-      ${podeMexer ? 'bg-red-500 text-white' : 'bg-amber-500 text-amber-950'}`}>
+    <div className="sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md bg-amber-500 text-amber-950">
       <p className="text-xs font-semibold min-w-0 truncate">
-        🛠️ Modo suporte — <strong>{nome || 'cliente'}</strong> ({podeMexer ? 'pode editar' : 'somente leitura'})
+        🛠️ Modo suporte — <strong>{nome || 'cliente'}</strong> (somente leitura)
       </p>
       <button onClick={onSair}
-        className={`font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0
-          ${podeMexer ? 'bg-white text-red-700' : 'bg-amber-950 text-amber-50'}`}>
+        className="font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0 bg-amber-950 text-amber-50">
         Sair do modo suporte
       </button>
     </div>
@@ -94,7 +93,7 @@ function Rotas() {
 
   return (
     <>
-      {impersonando && <BannerSuporte nome={impersonando.restauranteNome} podeMexer={impersonando.podeMexer} onSair={sairImpersonacao} />}
+      {impersonando && <BannerSuporte nome={impersonando.restauranteNome} onSair={sairImpersonacao} />}
       <Routes>
       <Route path="/" element={
         sessao?.eSuperAdmin && !sessao.restauranteId && !impersonando

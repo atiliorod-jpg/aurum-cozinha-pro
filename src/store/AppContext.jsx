@@ -47,11 +47,12 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const { sessao, impersonando } = useAuth() || {};
-  // Em modo suporte, o super-admin carrega o restaurante impersonado. A escrita
-  // só é liberada se o CLIENTE autorizou edição (impersonando.podeMexer);
-  // caso contrário é SOMENTE LEITURA — nada sobe para a conta do cliente.
+  // Em modo suporte, o super-admin carrega o restaurante impersonado em SOMENTE
+  // LEITURA — nada é escrito na conta do cliente (o RLS também bloqueia).
   const rid = impersonando?.restauranteId || sessao?.restauranteId || null;
-  const soLeitura = !!impersonando && !impersonando.podeMexer;
+  // O modo suporte é sempre somente leitura: o super-admin nunca escreve na
+  // conta do cliente (o RLS também bloqueia escrita cruzada).
+  const soLeitura = !!impersonando;
 
   // ── Estado (hidratado do cache → rede) ─────────────────────
   const [produtos,    setProdutosRaw]    = useState(CAT.produtos);

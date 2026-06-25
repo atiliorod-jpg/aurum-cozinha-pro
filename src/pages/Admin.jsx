@@ -53,7 +53,6 @@ export default function Admin() {
           usuarios: (perfis || []).filter(p => p.restaurante_id === r.id),
           suporteAtivo,
           suporteAte: suporteAtivo ? conf.suporteAtivo : null,
-          podeMexer: conf.suportePermissao === 'mexer',
         };
       }));
       setCarregando(false);
@@ -178,12 +177,9 @@ CREATE POLICY "super_admin_documentos" ON documentos
                   <div className="px-4 pb-3">
                     {r.suporteAtivo ? (
                       <button
-                        onClick={() => { verComoRestaurante(r.id, r.nome, r.podeMexer); navigate('/'); }}
-                        className={`w-full font-bold text-xs py-2.5 rounded-lg
-                          ${r.podeMexer ? 'bg-red-600 text-white' : 'bg-polo-navy text-polo-gold'}`}>
-                        {r.podeMexer
-                          ? '✏️ Entrar como este restaurante (ver e editar)'
-                          : '👁️ Ver como este restaurante (somente leitura)'}
+                        onClick={() => { verComoRestaurante(r.id, r.nome); navigate('/'); }}
+                        className="w-full font-bold text-xs py-2.5 rounded-lg bg-polo-navy text-polo-gold">
+                        👁️ Ver como este restaurante (somente leitura)
                       </button>
                     ) : (
                       <p className="text-[10px] text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">

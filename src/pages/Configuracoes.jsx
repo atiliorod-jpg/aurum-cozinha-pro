@@ -27,17 +27,14 @@ function useEscClose(onFechar) {
 // Suporte remoto — autoriza a Aurum a visualizar os dados desta conta por 24h
 function CartaoSuporteRemoto({ prefs, setPref, toast }) {
   const suporteAtivo = prefs.suporteAtivo && prefs.suporteAtivo > Date.now();
-  const podeMexer = prefs.suportePermissao === 'mexer';
   const restante = suporteAtivo
     ? Math.ceil((prefs.suporteAtivo - Date.now()) / 3600000)
     : 0;
 
-  const autorizar = (modo) => {
+  const autorizar = () => {
     setPref('suporteAtivo', Date.now() + 24 * 3600 * 1000);
-    setPref('suportePermissao', modo); // 'ver' | 'mexer'
-    toast(modo === 'mexer'
-      ? 'Suporte autorizado a ver E editar por 24h.'
-      : 'Suporte autorizado a ver seus dados por 24h.', 'sucesso');
+    setPref('suportePermissao', 'ver'); // o suporte é sempre somente leitura
+    toast('Suporte autorizado a visualizar seus dados por 24h.', 'sucesso');
   };
 
   const revogar = () => {
@@ -52,8 +49,7 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
       {suporteAtivo ? (
         <>
           <p className="text-xs text-green-700 mt-0.5">
-            ✅ Suporte autorizado — expira em ~{restante}h.{' '}
-            <strong>{podeMexer ? 'Pode ver e editar' : 'Pode apenas visualizar'}</strong> seus dados.
+            ✅ Suporte autorizado — expira em ~{restante}h. <strong>Somente visualização</strong> dos seus dados.
           </p>
           <button onClick={revogar}
             className="mt-3 w-full bg-red-100 text-red-700 font-bold px-3 py-2.5 rounded-lg text-xs">Revogar acesso</button>
@@ -61,18 +57,12 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
       ) : (
         <>
           <p className="text-xs text-gray-500 mt-0.5">
-            Libera o suporte (Aurum) a entrar na sua conta por 24h para ajudar com problemas. Você escolhe se ele pode só ver ou também editar.
+            Libera o suporte (Aurum) a <strong>visualizar</strong> sua conta por 24h para ajudar com problemas. O suporte nunca altera seus dados.
           </p>
-          <div className="grid grid-cols-2 gap-2 mt-3">
-            <button onClick={() => autorizar('ver')}
-              className="border border-polo-navy text-polo-navy font-bold px-3 py-2.5 rounded-lg text-xs">
-              👁️ Só visualizar
-            </button>
-            <button onClick={() => autorizar('mexer')}
-              className="bg-polo-navy text-polo-gold font-bold px-3 py-2.5 rounded-lg text-xs">
-              ✏️ Ver e editar
-            </button>
-          </div>
+          <button onClick={autorizar}
+            className="mt-3 w-full bg-polo-navy text-polo-gold font-bold px-3 py-2.5 rounded-lg text-xs">
+            👁️ Autorizar visualização (24h)
+          </button>
         </>
       )}
     </div>
@@ -767,7 +757,7 @@ export default function Configuracoes() {
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref,
           compras, aparas, desperdicio } = useApp();
-  const { usuarios, sessao, criarConvite, alterarCargo } = useAuth();
+  const { usuarios, sessao, criarConvite, alterarCargo, convites, carregarConvites, revogarConvite } = useAuth();
   const { toast, confirm } = useUI();
   const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
 
@@ -869,12 +859,24 @@ export default function Configuracoes() {
     try { await navigator.clipboard.writeText(conviteGerado.token); toast('Código copiado!', 'sucesso'); }
     catch { toast('Copie o código manualmente.', 'aviso'); }
   };
+
+  const handleRevogarConvite = async (token) => {
+    const ok = await confirm({ titulo: 'Revogar convite', mensagem: 'Este código deixará de funcionar. Continuar?', perigo: true, confirmar: 'Revogar' });
+    if (!ok) return;
+    const erro = await revogarConvite(token);
+    if (erro) { toast(erro, 'erro'); return; }
+    if (conviteGerado?.token === token) setConviteGerado(null);
+    logAudit('revogou convite de acesso', '');
+    toast('Convite revogado.', 'sucesso');
+  };
   const [catAtiva, setCatAtiva] = useState('TODOS');
   const [editando, setEditando] = useState(null);
   const [criando, setCriando] = useState(false);
   const [busca, setBusca] = useState('');
   const [novaPessoa, setNovaPessoa] = useState('');
   const [secao, setSecao] = useState('produtos'); // produtos | acessos | sistema
+  // Carrega os convites pendentes ao abrir a aba "Acessos"
+  useEffect(() => { if (secao === 'acessos') carregarConvites(); }, [secao, carregarConvites]);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
   const planilhaRef = useRef(null);
@@ -1496,6 +1498,24 @@ export default function Configuracoes() {
               <button onClick={copiarConvite}
                 className="bg-polo-navy text-polo-gold font-bold px-3 py-2 rounded-lg text-sm">Copiar</button>
             </div>
+          </div>
+        )}
+
+        {/* Convites pendentes (não usados) — podem ser revogados */}
+        {convites.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[11px] font-semibold text-gray-500 mt-1">Convites pendentes ({convites.length})</p>
+            {convites.map(c => (
+              <div key={c.token} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <div className="min-w-0">
+                  <code className="text-xs font-bold tracking-wider text-polo-navy">{c.token}</code>
+                  <span className="text-[10px] text-gray-500 ml-2">{CARGOS.find(x => x.id === c.cargo)?.label || c.cargo}</span>
+                </div>
+                <button onClick={() => handleRevogarConvite(c.token)}
+                  aria-label={`Revogar convite ${c.token}`}
+                  className="text-red-600 text-[11px] font-semibold px-2 py-1 rounded hover:bg-red-100 flex-shrink-0">Revogar</button>
+              </div>
+            ))}
           </div>
         )}
 

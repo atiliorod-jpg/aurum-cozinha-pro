@@ -15,9 +15,10 @@ export function AuthProvider({ children }) {
   const [sessao,     setSessao]     = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [usuarios,   setUsuarios]   = useState([]);
+  const [convites,   setConvites]   = useState([]); // convites pendentes (não usados/não expirados)
   const [recuperando, setRecuperando] = useState(false); // veio do link "esqueci a senha"
   // Modo suporte: super-admin vendo os dados de OUTRO restaurante
-  const [impersonando, setImpersonando] = useState(null); // { restauranteId, restauranteNome, podeMexer } | null
+  const [impersonando, setImpersonando] = useState(null); // { restauranteId, restauranteNome } | null (suporte = só leitura)
   const [derrubado, setDerrubado] = useState(false); // a conta foi aberta em outro aparelho
   const tokenRef = useRef(null); // token desta sessão (sessão única por conta)
 
@@ -140,10 +141,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Modo suporte (super-admin vê outro restaurante) ──
-  // podeMexer reflete o que o CLIENTE autorizou ("ver" ou "mexer").
-  const verComoRestaurante = useCallback((restauranteId, restauranteNome, podeMexer = false) => {
+  // Sempre SOMENTE LEITURA — o super-admin nunca escreve na conta do cliente.
+  const verComoRestaurante = useCallback((restauranteId, restauranteNome) => {
     if (!sessao?.eSuperAdmin || !restauranteId) return;
-    setImpersonando({ restauranteId, restauranteNome: restauranteNome || '', podeMexer: !!podeMexer });
+    setImpersonando({ restauranteId, restauranteNome: restauranteNome || '' });
   }, [sessao]);
   const sairImpersonacao = useCallback(() => setImpersonando(null), []);
   const limparDerrubado = useCallback(() => setDerrubado(false), []);
@@ -201,8 +202,31 @@ export function AuthProvider({ children }) {
       .insert({ restaurante_id: sessao.restauranteId, cargo })
       .select()
       .single();
-    return error ? null : data.token;
+    if (error) return null;
+    setConvites(prev => [{ ...data }, ...prev]); // mostra na lista de pendentes
+    return data.token;
   }, [sessao, usuarios]);
+
+  // ── Lista os convites pendentes (não usados e não expirados) ──
+  const carregarConvites = useCallback(async () => {
+    if (!sessao?.restauranteId) { setConvites([]); return; }
+    const { data } = await supabase
+      .from('convites')
+      .select('token, cargo, expira_em, usado, created_at')
+      .eq('restaurante_id', sessao.restauranteId)
+      .eq('usado', false)
+      .order('created_at', { ascending: false });
+    const agora = Date.now();
+    setConvites((data || []).filter(c => new Date(c.expira_em).getTime() > agora));
+  }, [sessao]);
+
+  // ── Revoga (apaga) um convite ainda não usado ──
+  const revogarConvite = useCallback(async (token) => {
+    const { error } = await supabase.from('convites').delete().eq('token', token);
+    if (error) return error.message;
+    setConvites(prev => prev.filter(c => c.token !== token));
+    return null;
+  }, []);
 
   // ── Funcionário usa token de convite para se cadastrar ────────
   // A validação roda numa função segura no banco (aceitar_convite), que NÃO
@@ -247,6 +271,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       sessao, carregando, usuarios, recuperando,
+      convites, carregarConvites, revogarConvite,
       login, logout, esqueceuSenha, atualizarSenha,
       criarPrimeiroAdmin, criarConvite, usarConvite, alterarCargo,
       temPermissao,
