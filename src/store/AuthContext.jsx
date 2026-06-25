@@ -161,18 +161,30 @@ export function AuthProvider({ children }) {
     if (error) return error.message;
     if (!data.user) return 'Erro inesperado ao criar conta.';
 
-    // Geramos o id aqui para não depender de ler a linha de volta
-    // (o RLS só libera a leitura depois que o perfil de vínculo existe).
-    const restauranteId = (crypto?.randomUUID?.() || `r_${Date.now()}`);
-    const { error: errR } = await supabase
-      .from('restaurantes')
-      .insert({ id: restauranteId, nome: nomeRestaurante || nome + ' — Restaurante' });
-    if (errR) return errR.message;
-
-    const { error: errP } = await supabase
-      .from('perfis')
-      .insert({ id: data.user.id, nome, cargo: 'diretoria', restaurante_id: restauranteId });
-    if (errP) return errP.message;
+    // Onboarding ATÔMICO no servidor (RPC SECURITY DEFINER): cria restaurante +
+    // perfil diretoria de uma vez. Evita uma policy de INSERT aberta em
+    // restaurantes (que deixaria qualquer um criar restaurantes à toa).
+    const { error: errRpc } = await supabase.rpc('criar_restaurante', {
+      p_nome_restaurante: nomeRestaurante || `${nome} — Restaurante`,
+      p_nome_admin: nome,
+    });
+    if (errRpc) {
+      // Fallback para ambientes que ainda não rodaram a migração 4 (RPC ausente):
+      // mantém o cadastro funcionando com o método antigo (insert direto).
+      if (/criar_restaurante|function|does not exist|schema cache|not find/i.test(errRpc.message || '')) {
+        const restauranteId = (crypto?.randomUUID?.() || `r_${Date.now()}`);
+        const { error: errR } = await supabase
+          .from('restaurantes')
+          .insert({ id: restauranteId, nome: nomeRestaurante || `${nome} — Restaurante` });
+        if (errR) return errR.message;
+        const { error: errP } = await supabase
+          .from('perfis')
+          .insert({ id: data.user.id, nome, cargo: 'diretoria', restaurante_id: restauranteId });
+        if (errP) return errP.message;
+      } else {
+        return errRpc.message;
+      }
+    }
 
     await carregarPerfil(data.user.id);
     return null;
