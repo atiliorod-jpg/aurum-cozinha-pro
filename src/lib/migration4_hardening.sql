@@ -42,6 +42,9 @@ drop policy if exists "perfis_update"            on perfis;
 drop policy if exists "perfis_select_meu_rest"   on perfis;
 drop policy if exists "perfis_update_proprio"    on perfis;
 drop policy if exists "perfis_super_admin"       on perfis;
+drop policy if exists "perfis_sel_v4"            on perfis;
+drop policy if exists "perfis_ins_v4"            on perfis;
+drop policy if exists "perfis_upd_v4"            on perfis;
 
 create policy "perfis_sel_v4" on perfis for select
   using (restaurante_id = meu_restaurante_id() or sou_super_admin());
@@ -81,6 +84,7 @@ drop policy if exists "rest_insert"              on restaurantes;
 drop policy if exists "rest_update"              on restaurantes;  -- FECHA o vetor de max_usuarios/ativo
 drop policy if exists "restaurantes_select_meu"  on restaurantes;
 drop policy if exists "restaurantes_super_admin" on restaurantes;
+drop policy if exists "rest_sel_v4"              on restaurantes;
 
 create policy "rest_sel_v4" on restaurantes for select
   using (id = meu_restaurante_id() or sou_super_admin());
@@ -114,6 +118,9 @@ end $$;
 drop policy if exists "conv_select" on convites;
 drop policy if exists "conv_insert" on convites;
 drop policy if exists "conv_update" on convites;
+drop policy if exists "conv_sel_v4" on convites;
+drop policy if exists "conv_ins_v4" on convites;
+drop policy if exists "conv_del_v4" on convites;
 
 create policy "conv_sel_v4" on convites for select
   using (restaurante_id = meu_restaurante_id());
@@ -173,6 +180,8 @@ end $$;
 drop policy if exists "doc_all"                 on documentos;
 drop policy if exists "documentos_rw_meu_rest"  on documentos;
 drop policy if exists "documentos_super_admin"  on documentos;
+drop policy if exists "doc_rw_v4"               on documentos;
+drop policy if exists "doc_super_v4"            on documentos;
 
 create policy "doc_rw_v4" on documentos for all
   using (restaurante_id = meu_restaurante_id())
@@ -186,6 +195,10 @@ create policy "doc_super_v4" on documentos for select using (sou_super_admin());
 drop policy if exists "reg_all"                 on registros;
 drop policy if exists "registros_rw_meu_rest"   on registros;
 drop policy if exists "registros_super_admin"   on registros;
+drop policy if exists "reg_sel_v4"              on registros;
+drop policy if exists "reg_ins_v4"              on registros;
+drop policy if exists "reg_upd_v4"              on registros;
+drop policy if exists "reg_del_v4"              on registros;
 
 create policy "reg_sel_v4" on registros for select
   using (restaurante_id = meu_restaurante_id() or sou_super_admin());

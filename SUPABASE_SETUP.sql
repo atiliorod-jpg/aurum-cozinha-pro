@@ -184,10 +184,18 @@ create policy "sessoes_insert_propria" on sessoes
 create policy "sessoes_update_propria" on sessoes
   for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 
--- IMPORTANTE: ligar o Realtime nesta tabela para o "derrubar o outro aparelho"
--- funcionar. Rode também:
-alter publication supabase_realtime add table sessoes;
--- (Se der erro "already member", pode ignorar — já estava ligado.)
+-- IMPORTANTE: ligar o Realtime nesta tabela para o "derrubar o outro aparelho".
+-- Idempotente: só adiciona se a tabela ainda não estiver na publicação
+-- (evita o erro "already member" que abortaria todo o script).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'sessoes'
+  ) then
+    alter publication supabase_realtime add table sessoes;
+  end if;
+end $$;
 
 
 -- ---------------------------------------------------------------------
