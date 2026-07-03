@@ -50,24 +50,27 @@ export function Donut({ dados, unidade = '' }) {
   const total = dados.reduce((s, d) => s + d.valor, 0);
   if (!total) return <Vazio />;
   const R = 40, C = 2 * Math.PI * R;
-  let acumulado = 0;
+  // Pré-calcula os arcos (fração acumulada) fora do JSX — sem reatribuição
+  // dentro do render (regra react-hooks/immutability).
+  const { arcos } = dados.reduce((acc, d, i) => ({
+    acumulado: acc.acumulado + d.valor / total,
+    arcos: [...acc.arcos, {
+      label: d.label, i,
+      dash: `${(d.valor / total) * C} ${C}`,
+      offset: -acc.acumulado * C,
+    }],
+  }), { acumulado: 0, arcos: [] });
   return (
     <div className="flex items-center gap-4">
       <svg viewBox="0 0 100 100" className="w-28 h-28 flex-shrink-0" role="img"
         aria-label={`Gráfico de rosca. Total ${fmt(total)}${unidade}. ${dados.map(d => `${d.label}: ${fmt(d.valor)}${unidade}`).join(', ')}.`}>
         <circle cx="50" cy="50" r={R} fill="none" stroke="#eee" strokeWidth="16" />
-        {dados.map((d, i) => {
-          const frac = d.valor / total;
-          const dash = `${frac * C} ${C}`;
-          const offset = -acumulado * C;
-          acumulado += frac;
-          return (
-            <circle key={d.label} cx="50" cy="50" r={R} fill="none"
-              stroke={CORES_DONUT[i % CORES_DONUT.length]} strokeWidth="16"
-              strokeDasharray={dash} strokeDashoffset={offset}
-              transform="rotate(-90 50 50)" />
-          );
-        })}
+        {arcos.map(a => (
+          <circle key={a.label} cx="50" cy="50" r={R} fill="none"
+            stroke={CORES_DONUT[a.i % CORES_DONUT.length]} strokeWidth="16"
+            strokeDasharray={a.dash} strokeDashoffset={a.offset}
+            transform="rotate(-90 50 50)" />
+        ))}
         <text x="50" y="54" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#1B2A41">{fmt(total)}</text>
       </svg>
       <div className="space-y-1 text-xs flex-1 min-w-0">

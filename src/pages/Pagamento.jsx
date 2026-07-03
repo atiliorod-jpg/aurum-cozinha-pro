@@ -48,9 +48,9 @@ export default function Pagamento() {
           🏪
         </div>
         <div>
-          <p className="text-xs text-white/60 uppercase tracking-wide">Plano atual</p>
+          <p className="text-xs text-white/80 uppercase tracking-wide">Plano atual</p>
           <p className="text-polo-gold font-bold text-xl">Básico</p>
-          <p className="text-white/60 text-xs mt-0.5">Ativo · sincronização em nuvem incluída</p>
+          <p className="text-white/80 text-xs mt-0.5">Ativo · sincronização em nuvem incluída</p>
         </div>
       </div>
 
@@ -96,11 +96,17 @@ export default function Pagamento() {
         </div>
       </div>
 
-      {/* Aviso */}
-      {!STRIPE_LINK && (
+      {/* Aviso — expectativa honesta: a ativação do plano ainda é manual
+          (não há webhook; pagar não libera recursos sozinho) */}
+      {STRIPE_LINK ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
+          <p className="font-bold mb-1">ℹ️ Como funciona a ativação</p>
+          <p>Após a confirmação do pagamento, a equipe Aurum ativa o plano Pro na sua conta em até 24h úteis. Você recebe a confirmação pelo WhatsApp cadastrado.</p>
+        </div>
+      ) : (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
           <p className="font-bold mb-1">💳 Pagamento online em breve</p>
-          <p>A cobrança automática via cartão está sendo configurada. Por enquanto, entre em contato pelo WhatsApp para contratar o plano Pro.</p>
+          <p>A cobrança automática via cartão está sendo configurada. Por enquanto, entre em contato pelo WhatsApp para contratar o plano Pro — a ativação é feita manualmente pela equipe.</p>
         </div>
       )}
     </Layout>

@@ -66,7 +66,7 @@ function Rotas() {
       <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
         <p className="text-4xl">📱</p>
         <p className="text-polo-gold font-bold text-lg">Conta aberta em outro aparelho</p>
-        <p className="text-white/60 text-sm max-w-xs">
+        <p className="text-white/80 text-sm max-w-xs">
           Sua conta foi acessada em outro dispositivo. Por segurança, cada conta fica conectada em apenas um aparelho por vez.
         </p>
         <button onClick={limparDerrubado} className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
@@ -83,7 +83,7 @@ function Rotas() {
     return (
       <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
         <p className="text-polo-gold font-bold text-lg">Cadastro incompleto</p>
-        <p className="text-white/60 text-sm max-w-xs">
+        <p className="text-white/80 text-sm max-w-xs">
           Sua conta foi criada mas ainda não está vinculada a um restaurante. Saia e entre novamente, ou peça um novo convite à diretoria.
         </p>
         <button onClick={logout} className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">Sair</button>

@@ -75,25 +75,31 @@ export function AppProvider({ children }) {
   const [pendencias,  setPendencias]     = useState(0);
   const [online,      setOnline]         = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
 
-  // refs estáveis para callbacks não dependerem de closures velhas
+  // refs estáveis para callbacks não dependerem de closures velhas.
+  // A atribuição DURANTE o render é deliberada: os callbacks (useCallback [])
+  // precisam ler o valor do render corrente mesmo antes dos efeitos rodarem —
+  // mover para useEffect deixaria uma janela de valor velho no primeiro uso.
+  /* eslint-disable react-hooks/refs -- espelho síncrono de estado em ref (padrão fundacional deste contexto) */
   const ridRef = useRef(rid); ridRef.current = rid;
   const sessaoRef = useRef(sessao); sessaoRef.current = sessao;
   const soLeituraRef = useRef(soLeitura); soLeituraRef.current = soLeitura;
   const dadosRef = useRef({});
   dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
+  /* eslint-enable react-hooks/refs */
 
-  const nomeProduto = (id) => dadosRef.current.produtos.find(p => p.id === id)?.nome || id;
+  // Só lê refs (estáveis) — identidade fixa para entrar nos deps dos callbacks.
+  const nomeProduto = useCallback((id) => dadosRef.current.produtos.find(p => p.id === id)?.nome || id, []);
 
   // ── Resumos para a auditoria ───────────────────────────────
-  const resumoItens = (r) => (r.itens || []).map(i => `${i.quantidade} ${nomeProduto(i.produtoId)}`).join(', ');
-  const RESUMOS = {
+  const resumoItens = useCallback((r) => (r.itens || []).map(i => `${i.quantidade} ${nomeProduto(i.produtoId)}`).join(', '), [nomeProduto]);
+  const RESUMOS = useMemo(() => ({
     compra: (r) => `${r.quantidade} ${r.unidade} de ${r.item}${r.fornecedor ? ` (${r.fornecedor})` : ''}`,
     entrada: (r) => resumoItens(r),
     'saída': (r) => `${resumoItens(r)} → ${r.destino === 'producao' ? 'Produção' : (dadosRef.current.locais.find(l => l.id === r.destino)?.nome || r.destino)}`,
     apara: (r) => `${r.quantidade} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,
     perda: (r) => `${r.quantidade} ${r.unidade} de ${r.item} (motivo ${r.motivoOutro || r.motivo}${r.origem === 'estoque' ? ', abateu estoque' : ''})`,
     'contagem física': (r) => `${nomeProduto(r.produtoId)} → ${r.quantidade}`,
-  };
+  }), [resumoItens, nomeProduto]);
 
   // ── Trilha de auditoria (registro tipo 'auditoria') ────────
   const logAudit = useCallback((acao, detalhe = '') => {
@@ -187,7 +193,7 @@ export function AppProvider({ children }) {
       });
     }
     logAudit(`registrou ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(novo) || '');
-  }, [logAudit]);
+  }, [logAudit, RESUMOS]);
 
   const removeRegistro = useCallback((tipo, setRaw, key, id) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -204,7 +210,7 @@ export function AppProvider({ children }) {
       });
     }
     if (alvo) logAudit(`removeu ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(alvo) || '');
-  }, [logAudit]);
+  }, [logAudit, RESUMOS]);
 
   const addCompra      = useCallback((x) => addRegistro('compra',  setComprasRaw,     'compras',     x), [addRegistro]);
   const removeCompra   = useCallback((x) => removeRegistro('compra', setComprasRaw,   'compras',     x), [removeRegistro]);
@@ -220,14 +226,14 @@ export function AppProvider({ children }) {
   const removeAjuste   = useCallback((x) => removeRegistro('ajuste', setAjustesRaw,   'ajustes',     x), [removeRegistro]);
 
   // Desfazer: devolve um registro removido exatamente como era (mesmo id/ts)
-  const MAPA_RESTAURO = {
+  const MAPA_RESTAURO = useMemo(() => ({
     compra:  [setComprasRaw,     'compras',     'compra',  'compra'],
     entrada: [setEntradasRaw,    'entradas',    'entrada', 'entrada'],
     saida:   [setSaidasRaw,      'saidas',      'saida',   'saída'],
     apara:   [setAparasRaw,      'aparas',      'apara',   'apara'],
     perda:   [setDesperdicioRaw, 'desperdicio', 'perda',   'perda'],
     ajuste:  [setAjustesRaw,     'ajustes',     'ajuste',  'contagem física'],
-  };
+  }), []);
   const restaurarRegistro = useCallback((tipoApi, registro) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const alvo = MAPA_RESTAURO[tipoApi];
@@ -247,7 +253,7 @@ export function AppProvider({ children }) {
       });
     }
     logAudit(`restaurou ${rotulo} (desfazer)`, RESUMOS[rotulo]?.(registro) || '');
-  }, [logAudit]);
+  }, [logAudit, MAPA_RESTAURO, RESUMOS]);
 
   // ── Pendências de sincronização (badge offline) ───────────
   useEffect(() => {
@@ -288,7 +294,7 @@ export function AppProvider({ children }) {
     });
     if (mudou) setProdutos(next);
     setPref('gramaturasMigradas', true);
-  }, [fichas, produtos, prefs.gramaturasMigradas, setProdutos]);
+  }, [fichas, produtos, prefs.gramaturasMigradas, setProdutos, setPref]);
 
   // Modo automático mín/máx
   // Usa saidas como trigger principal; produtos via ref para não criar loop de re-render.
@@ -314,6 +320,9 @@ export function AppProvider({ children }) {
   }, [saidas, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana, setProdutos]);
 
   // ── Hidratação (cache → rede) + tempo real + offline ───────
+  // O setState síncrono neste efeito é o coração do offline-first: o cache
+  // local precisa aparecer no primeiro paint pós-login (antes da rede).
+  /* eslint-disable react-hooks/set-state-in-effect -- hidratação síncrona do cache é intencional */
   useEffect(() => {
     if (!rid) {
       // sem sessão: volta aos valores padrão
@@ -499,6 +508,7 @@ export function AppProvider({ children }) {
       window.removeEventListener('online', onOnline);
     };
   }, [rid]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Administração de dados ─────────────────────────────────
   const limparTudo = useCallback(() => {

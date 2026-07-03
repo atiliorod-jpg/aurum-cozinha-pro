@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -10,11 +10,20 @@ import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../componen
 
 const rotuloMotivo = (cod) => MOTIVOS_DESPERDICIO.find(m => m.cod === cod)?.label || cod;
 
+// Cartão de seção do relatório (escopo de módulo: componente definido dentro
+// do render é recriado a cada render e perde estado — react-hooks/static-components)
+const Card = ({ titulo, children }) => (
+  <div className="bg-white rounded-xl p-4 mb-4">
+    <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-3">{titulo}</h2>
+    {children}
+  </div>
+);
+
 export default function Relatorio() {
   const { produtos, compras, entradas, saidas, aparas, desperdicio, estoque, categorias, destinos, locais } = useApp();
   // destinos criados pelo usuário em Config também precisam aparecer com o nome certo
-  const rotuloDestino = (cod) =>
-    destinos.find(d => d.cod === cod)?.label || DESTINOS_APARA.find(d => d.cod === cod)?.label || cod;
+  const rotuloDestino = useCallback((cod) =>
+    destinos.find(d => d.cod === cod)?.label || DESTINOS_APARA.find(d => d.cod === cod)?.label || cod, [destinos]);
   // textos livres de "Outro" prevalecem sobre o rótulo genérico
   const destinoDaApara = (a) => a.destinoOutro || rotuloDestino(a.destino);
   const motivoDaPerda = (d) => d.motivoOutro || rotuloMotivo(d.motivo);
@@ -47,13 +56,13 @@ export default function Relatorio() {
 
   // Análises
   const serieDias = useMemo(() => saidasPorDia(saidas, rIni, rFim), [saidas, rIni, rFim]);
-  const topProdutos = useMemo(() => topProdutosSaida(produtos, saidasF, locais), [produtos, saidasF, locais]);
+  const topProdutos = useMemo(() => topProdutosSaida(produtos, saidasF), [produtos, saidasF]);
   const perdasPorMotivo = useMemo(
     () => somaPorCampo(perdasF, 'motivo').map(x => ({ label: `${x.cod} — ${rotuloMotivo(x.cod)}`, valor: x.valor })),
     [perdasF]);
   const aparasPorDestino = useMemo(
     () => somaPorCampo(aparasF, 'destino').map(x => ({ label: rotuloDestino(x.cod), valor: x.valor })),
-    [aparasF, destinos]);
+    [aparasF, rotuloDestino]);
   // Rendimento considera as compras do período, mas correções associadas de qualquer data
   const fornecedores = useMemo(() => rendimentoPorFornecedor(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
 
@@ -152,13 +161,6 @@ export default function Relatorio() {
       setExportando(false);
     }
   };
-
-  const Card = ({ titulo, children }) => (
-    <div className="bg-white rounded-xl p-4 mb-4">
-      <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-3">{titulo}</h2>
-      {children}
-    </div>
-  );
 
   return (
     <Layout

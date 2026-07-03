@@ -10,7 +10,7 @@ const base = process.env.VITE_BASE || '/'
 const ghPagesFallback = {
   name: 'gh-pages-404-fallback',
   closeBundle() {
-    try { copyFileSync('dist/index.html', 'dist/404.html') } catch {}
+    try { copyFileSync('dist/index.html', 'dist/404.html') } catch { /* dist ainda não existe (dev) */ }
   },
 }
 

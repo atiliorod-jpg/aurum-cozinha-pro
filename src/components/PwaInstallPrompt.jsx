@@ -27,7 +27,7 @@ export default function PwaInstallPrompt() {
               <span className="text-polo-gold font-bold">"Adicionar à Tela de Início"</span>
             </p>
           </div>
-          <button onClick={dispensarIos} aria-label="Fechar dica de instalação" className="text-white/40 text-xl leading-none px-1">×</button>
+          <button onClick={dispensarIos} aria-label="Fechar dica de instalação" className="text-white/70 text-xl leading-none px-1">×</button>
         </div>
       </div>
     );
@@ -42,10 +42,10 @@ export default function PwaInstallPrompt() {
         <img src={`${import.meta.env.BASE_URL}pwa-192.png`} alt="Aurum" className="w-10 h-10 rounded-xl flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-polo-gold font-bold text-sm">Instalar Aurum Cozinha Pro</p>
-          <p className="text-white/60 text-xs mt-0.5">Acesso rápido na tela inicial do tablet</p>
+          <p className="text-white/80 text-xs mt-0.5">Acesso rápido na tela inicial do tablet</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setDispensado(true)} className="text-white/40 text-xs px-2 py-1">Agora não</button>
+          <button onClick={() => setDispensado(true)} className="text-white/70 text-xs px-2 py-1">Agora não</button>
           <button onClick={instalar}
             className="bg-polo-gold text-polo-navy font-bold text-xs px-4 py-2 rounded-xl whitespace-nowrap">
             Instalar

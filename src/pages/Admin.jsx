@@ -78,7 +78,7 @@ export default function Admin() {
         {/* Cabeçalho */}
         <div className="bg-polo-navy rounded-xl p-4 text-polo-gold">
           <p className="font-bold text-sm">🔑 Painel super-admin</p>
-          <p className="text-[11px] text-white/60 mt-0.5">Logado como {sessao.email}</p>
+          <p className="text-[11px] text-white/80 mt-0.5">Logado como {sessao.email}</p>
         </div>
 
         {/* Erro de RLS */}
@@ -132,6 +132,7 @@ CREATE POLICY "super_admin_documentos" ON documentos
 
             {restaurantes.map(r => {
               const restanteH = r.suporteAte
+                // eslint-disable-next-line react-hooks/purity -- prazo restante do suporte: recalcular a cada render é o desejado
                 ? Math.ceil((r.suporteAte - Date.now()) / 3600000)
                 : 0;
               return (

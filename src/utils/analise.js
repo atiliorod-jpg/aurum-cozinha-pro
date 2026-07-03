@@ -276,9 +276,9 @@ export function saidasPorDia(saidas, inicio, fim) {
     .map(([data, v]) => ({ data, ...v }));
 }
 
-// Top produtos por saída no período, com qtd por destino.
-// locais: [{ id, nome }] — usa para ordenar as colunas.
-export function topProdutosSaida(produtos, saidasFiltradas, locais = [], limite = 8) {
+// Top produtos por saída no período, com qtd por destino
+// (as colunas por destino saem das chaves do próprio resultado).
+export function topProdutosSaida(produtos, saidasFiltradas, limite = 8) {
   const tot = {};
   saidasFiltradas.forEach(s => {
     if (s.destino === 'producao') return;

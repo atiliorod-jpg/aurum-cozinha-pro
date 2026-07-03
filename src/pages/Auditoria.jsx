@@ -22,6 +22,7 @@ export default function Auditoria() {
   const usuarios = useMemo(() => [...new Set(auditoria.map(a => a.usuario))].sort(), [auditoria]);
 
   const registros = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity -- "agora" é a referência do filtro de período; um corte levemente defasado até o próximo recálculo do memo é aceitável
     const corte = periodo !== 'todos' ? new Date(Date.now() - parseInt(periodo) * 86400000).getTime() : 0;
     return [...auditoria]
       .reverse()

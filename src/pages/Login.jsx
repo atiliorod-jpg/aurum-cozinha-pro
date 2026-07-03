@@ -7,6 +7,7 @@ const botao = "w-full bg-polo-navy text-polo-gold font-bold py-3.5 rounded-xl ac
 export default function Login() {
   const { login, esqueceuSenha, criarPrimeiroAdmin, usarConvite } = useAuth();
   const [modo, setModo] = useState('entrar'); // entrar | convite | novo | esqueci
+  const [mostraPrivacidade, setMostraPrivacidade] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
   const [info, setInfo] = useState('');
@@ -45,7 +46,7 @@ export default function Login() {
     if (nome.trim().length < 2) { setErro('Digite seu nome.'); return; }
     if (!nomeRest.trim()) { setErro('Digite o nome do restaurante.'); return; }
     if (!/.+@.+\..+/.test(email)) { setErro('Digite um e-mail válido.'); return; }
-    if (senha.length < 6) { setErro('A senha deve ter pelo menos 6 caracteres.'); return; }
+    if (senha.length < 8) { setErro('A senha deve ter pelo menos 8 caracteres.'); return; }
     setCarregando(true);
     const err = await criarPrimeiroAdmin({ nome: nome.trim(), email: email.trim(), senha, nomeRestaurante: nomeRest.trim() });
     setCarregando(false);
@@ -57,7 +58,7 @@ export default function Login() {
     if (!token.trim()) { setErro('Digite o código de convite.'); return; }
     if (nome.trim().length < 2) { setErro('Digite seu nome.'); return; }
     if (!/.+@.+\..+/.test(email)) { setErro('Digite um e-mail válido.'); return; }
-    if (senha.length < 6) { setErro('A senha deve ter pelo menos 6 caracteres.'); return; }
+    if (senha.length < 8) { setErro('A senha deve ter pelo menos 8 caracteres.'); return; }
     setCarregando(true);
     const err = await usarConvite({ token: token.trim().toLowerCase(), nome: nome.trim(), email: email.trim(), senha });
     setCarregando(false);
@@ -108,7 +109,7 @@ export default function Login() {
               className={`${campo} tracking-widest text-center font-bold`} />
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
             <input type="email" aria-label="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
-            <input type="password" aria-label="Senha (mínimo 6 caracteres)" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Crie uma senha (mín. 6)" className={campo} />
+            <input type="password" aria-label="Senha (mínimo 8 caracteres)" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Crie uma senha (mín. 8)" className={campo} />
             <Msg erro={erro} info={info} />
             <button onClick={cadastrarConvite} disabled={carregando} className={botao}>{carregando ? 'Criando…' : 'Criar conta'}</button>
             <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>
@@ -121,12 +122,36 @@ export default function Login() {
             <input type="text" aria-label="Nome do restaurante" value={nomeRest} onChange={e => setNomeRest(e.target.value)} placeholder="Nome do restaurante" className={campo} />
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
             <input type="email" aria-label="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
-            <input type="password" aria-label="Senha (mínimo 6 caracteres)" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Crie uma senha (mín. 6)" className={campo} />
+            <input type="password" aria-label="Senha (mínimo 8 caracteres)" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Crie uma senha (mín. 8)" className={campo} />
             <Msg erro={erro} info={info} />
             <button onClick={criarRestaurante} disabled={carregando} className={botao}>{carregando ? 'Criando…' : 'Criar e entrar'}</button>
             <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>
           </>}
         </div>
+
+        <button onClick={() => setMostraPrivacidade(true)} className="w-full text-center text-[11px] text-white/70 mt-4 underline underline-offset-2">
+          Privacidade e proteção de dados
+        </button>
+      </div>
+
+      {mostraPrivacidade && <ModalPrivacidade onFechar={() => setMostraPrivacidade(false)} />}
+    </div>
+  );
+}
+
+// Resumo de privacidade (LGPD) — linguagem simples, sem juridiquês.
+function ModalPrivacidade({ onFechar }) {
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/50 overflow-y-auto p-4" onClick={onFechar}>
+      <div role="dialog" aria-modal="true" aria-labelledby="priv-titulo"
+        className="bg-white rounded-2xl p-5 max-w-sm m-auto mt-10 space-y-3 text-sm text-gray-700"
+        onClick={e => e.stopPropagation()}>
+        <h2 id="priv-titulo" className="font-bold text-polo-navy">🔒 Privacidade e proteção de dados</h2>
+        <p><strong>O que guardamos:</strong> nome e e-mail dos usuários da sua equipe, e os registros operacionais do seu restaurante (estoque, produção, compras, trilha de quem registrou o quê).</p>
+        <p><strong>Para quê:</strong> exclusivamente para o funcionamento do app. Não vendemos nem compartilhamos seus dados com terceiros.</p>
+        <p><strong>Onde ficam:</strong> no banco de dados do app (Supabase), isolados por restaurante — uma conta nunca vê os dados de outra. A equipe Aurum só visualiza seus dados se você autorizar o suporte (Config → Sistema), por no máximo 24h e somente leitura.</p>
+        <p><strong>Seus direitos (LGPD):</strong> você pode exportar tudo a qualquer momento (Config → Sistema → Cópia de segurança) e pode pedir a exclusão definitiva da conta e dos dados pelo WhatsApp da Aurum — atendemos em até 15 dias.</p>
+        <button onClick={onFechar} className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl">Entendi</button>
       </div>
     </div>
   );
@@ -145,7 +170,7 @@ function traduz(msg) {
   if (m.includes('already registered') || m.includes('already been registered')) return 'Esse e-mail já tem conta. Use "Entrar".';
   if (m.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).';
   if (m.includes('rate limit') || m.includes('too many')) return 'Muitas tentativas. Aguarde um momento e tente de novo.';
-  if (m.includes('password')) return 'Senha inválida (mínimo 6 caracteres).';
+  if (m.includes('password')) return 'Senha inválida (mínimo 8 caracteres).';
   if (m.includes('network') || m.includes('fetch')) return 'Sem conexão com a internet.';
   return msg || 'Erro inesperado.';
 }

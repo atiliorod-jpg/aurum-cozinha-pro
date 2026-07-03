@@ -26,6 +26,10 @@ jobs:
       - run: npm ci
       # regras de cálculo quebradas derrubam o deploy aqui
       - run: npm test
+      # lint zerado em 03/07/2026 — qualquer erro novo derruba o deploy
+      - run: npm run lint
+      # dependência com vulnerabilidade high/critical derruba o deploy
+      - run: npm audit --audit-level=high
       - run: npm run build
         env:
           VITE_BASE: /aurum-cozinha-pro/

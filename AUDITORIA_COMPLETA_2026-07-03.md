@@ -271,7 +271,15 @@ Para o perfil-alvo (cozinha profissional pequena/média, tablet compartilhado, p
 - ✅ noopener nos `window.open` (Pagamento.jsx)
 - ⬜ (1) **PENDENTE — ação do usuário:** verificar/rodar `migration4_hardening.sql` e agora também `migration5_convite_valido.sql` no Supabase SQL Editor
 
-**30 dias — confiabilidade para vender:** Sentry (10), lint zero + CI completo (11), README de implantação (16), LGPD básico (15), texto honesto no Pagamento (13a), contraste (17), janela de fetch (7).
+**30 dias — confiabilidade para vender — ✅ APLICADO em 03/07/2026 (exceto 2 itens):**
+- ✅ (11) Lint **zerado** (46 → 0: código morto removido — inclusive ModalFicha inteiro; deps de hooks corrigidas com memoização real; padrões deliberados com disable documentado) + **CI completo**: test → lint → `npm audit --audit-level=high` → build, todos bloqueantes
+- ✅ (16) README reescrito: ordem dos 5 SQLs com status, query de verificação, secrets, arquitetura
+- ✅ (15) LGPD básico: modal "Privacidade e proteção de dados" no Login (o que guardamos, direitos, exclusão em 15 dias)
+- ✅ (13a) Pagamento: texto honesto de ativação manual em até 24h úteis
+- ✅ (17) Contraste: `text-white/40–60` → `/70–80` em todas as telas (AA)
+- ✅ senha mínima 6 → 8 caracteres (Login, convite, NovaSenha) + Dependabot semanal + `migration6_indices.sql` (índice composto de registros — **RODAR no Supabase**)
+- ⬜ (10) Sentry — **precisa de conta do usuário** (free tier); ~20 linhas depois do DSN
+- ⬜ (7) Janela de fetch — **adiado com razão técnica**: `calcEstoquePuro` precisa do histórico COMPLETO (estoque = Σ movimentos desde o início); janela exige antes um design de snapshot (ex.: contagem física como base de corte). Não aplicar ingenuamente.
 
 **60 dias — produto vendável fora do Polo:** M9 recebimento unificado ("compra → virou entrada"), conversão de unidades de compra, versão nos catálogos (8), quebra do Configuracoes.jsx (14), Playwright smoke.
 

@@ -26,9 +26,11 @@ function useEscClose(onFechar) {
 
 // Suporte remoto — autoriza a Aurum a visualizar os dados desta conta por 24h
 function CartaoSuporteRemoto({ prefs, setPref, toast }) {
-  const suporteAtivo = prefs.suporteAtivo && prefs.suporteAtivo > Date.now();
+  // eslint-disable-next-line react-hooks/purity -- a hora atual é insumo legítimo do prazo de 24h; recalcular a cada render é o comportamento desejado
+  const agora = Date.now();
+  const suporteAtivo = prefs.suporteAtivo && prefs.suporteAtivo > agora;
   const restante = suporteAtivo
-    ? Math.ceil((prefs.suporteAtivo - Date.now()) / 3600000)
+    ? Math.ceil((prefs.suporteAtivo - agora) / 3600000)
     : 0;
 
   const autorizar = () => {
@@ -340,7 +342,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
   );
 }
 
-function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin = 3, diasMax = 6, onSalvar, onFechar }) {
+function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
   const [form, setForm] = useState(() => produto
     ? {
         ...produto,
@@ -543,81 +545,6 @@ function ModalProduto({ produto, sugestao, categorias, producoes = [], diasMin =
   );
 }
 
-function ModalFicha({ ficha, fichas, categorias, onSalvar, onFechar }) {
-  const [form, setForm] = useState(ficha || { materiaPrima: '', categoria: categorias[0] || '', preparacao: '', gramatura: '', coccao: '' });
-  const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
-  useEscClose(onFechar);
-
-  // matérias-primas já existentes (sem repetição) para sugerir e evitar grupos duplicados
-  const materiasPrimas = [...new Map(fichas.map(f => [f.materiaPrima.toLowerCase(), f.materiaPrima])).values()].sort();
-
-  // ao escolher uma matéria-prima conhecida, herda a grafia exata e a categoria dela
-  const onMateriaPrima = (valor) => {
-    const existente = fichas.find(f => f.materiaPrima.toLowerCase() === valor.trim().toLowerCase());
-    setForm(prev => ({
-      ...prev,
-      materiaPrima: existente ? existente.materiaPrima : valor,
-      categoria: existente?.categoria || prev.categoria,
-    }));
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto overscroll-contain p-4 flex"
-      role="dialog" aria-modal="true" aria-labelledby="modal-ficha-titulo">
-      <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 id="modal-ficha-titulo" className="font-bold text-lg text-polo-navy">{ficha ? 'Editar Gramatura' : 'Nova Gramatura'}</h2>
-          <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-400 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
-        </div>
-        <div>
-          <label htmlFor="mf-materia-prima" className="block text-xs font-semibold text-gray-600 mb-1">Matéria-prima</label>
-          <input id="mf-materia-prima" type="text" list="lista-materias-primas" value={form.materiaPrima} onChange={e => onMateriaPrima(e.target.value)}
-            placeholder="Escolha da lista ou digite uma nova"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          <datalist id="lista-materias-primas">
-            {materiasPrimas.map(mp => <option key={mp} value={mp} />)}
-          </datalist>
-          <p className="text-xs text-gray-500 mt-1">Escolher uma existente agrupa a preparação nela (evita "Filé" e "Filé Mignon" separados).</p>
-        </div>
-        <div>
-          <label htmlFor="mf-categoria" className="block text-xs font-semibold text-gray-600 mb-1">Categoria</label>
-          <select id="mf-categoria" value={form.categoria || ''} onChange={e => set('categoria', e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-            {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="mf-preparacao" className="block text-xs font-semibold text-gray-600 mb-1">Preparação</label>
-          <input id="mf-preparacao" type="text" value={form.preparacao} onChange={e => set('preparacao', e.target.value)}
-            placeholder="Ex: Parmegiana"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label htmlFor="mf-gramatura" className="block text-xs font-semibold text-gray-600 mb-1">Gramatura (g por porção/lote)</label>
-          <input id="mf-gramatura" type="number" min="0" value={form.gramatura} onChange={e => set('gramatura', e.target.value)}
-            placeholder="Ex: 130"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label htmlFor="mf-coccao" className="block text-xs font-semibold text-gray-600 mb-1">Fator de cocção — perda no cozimento (%)</label>
-          <input id="mf-coccao" type="number" min="0" max="90" step="0.5" value={form.coccao ?? ''} onChange={e => set('coccao', e.target.value)}
-            placeholder="Vazio se não cozinha antes de porcionar"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          <p className="text-xs text-gray-500 mt-1">Quanto o item perde de peso ao cozinhar (pese antes e depois na cozinha).</p>
-        </div>
-        <div className="flex gap-3 pt-2">
-          <button onClick={onFechar} className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Cancelar</button>
-          <button onClick={() => onSalvar({ ...form, gramatura: parseFloat(form.gramatura) || 0, coccao: Math.min(parseFloat(form.coccao) || 0, 90) })}
-            disabled={!form.materiaPrima.trim() || !form.preparacao.trim() || !parseFloat(form.gramatura)}
-            className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
-            Salvar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
   const ativos = produtos.filter(p => p.ativo);
   const [form, setForm] = useState(receita || {
@@ -792,8 +719,11 @@ export default function Configuracoes() {
   // Inputs de dias de cobertura: string enquanto edita, converte só no onBlur
   const [diasMinStr, setDiasMinStr] = useState(String(prefs.diasMin || 3));
   const [diasMaxStr, setDiasMaxStr] = useState(String(prefs.diasMax || 6));
-  // Sincroniza quando prefs muda por realtime (outro dispositivo alterou)
+  // Sincroniza quando prefs muda por realtime (outro dispositivo alterou).
+  // O setState síncrono aqui é intencional: é espelho 1:1 de uma prop externa.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- espelho de valor vindo do realtime
   useEffect(() => { setDiasMinStr(String(prefs.diasMin || 3)); }, [prefs.diasMin]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- espelho de valor vindo do realtime
   useEffect(() => { setDiasMaxStr(String(prefs.diasMax || 6)); }, [prefs.diasMax]);
   const [novaCategoria, setNovaCategoria] = useState('');
   const [conviteCargo, setConviteCargo] = useState('cozinha');
@@ -1270,7 +1200,7 @@ export default function Configuracoes() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-polo-gold">🔑 Painel super-admin</p>
-              <p className="text-[11px] text-white/60 mt-0.5">Ver restaurantes, usuários e suporte ativo.</p>
+              <p className="text-[11px] text-white/80 mt-0.5">Ver restaurantes, usuários e suporte ativo.</p>
             </div>
             <span className="text-polo-gold text-lg">→</span>
           </div>

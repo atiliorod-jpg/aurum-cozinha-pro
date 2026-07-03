@@ -241,7 +241,7 @@ export default function Compras() {
                                   <div className="text-base font-bold text-polo-gold">{fmtNum(entrada.sugerido)}</div>
                                 )}
                                 {entrada.liquidoKg != null && (
-                                  <div className="text-[10px] text-white/50">líquido {fmtNum(entrada.liquidoKg)} kg somado</div>
+                                  <div className="text-[10px] text-white/75">líquido {fmtNum(entrada.liquidoKg)} kg somado</div>
                                 )}
                               </div>
                             </div>
@@ -279,7 +279,7 @@ export default function Compras() {
                       );
                     }
                     // ── Linha simples (item) ──
-                    const { p, atual, sugerido, brutoKg, liquidoKg, fc, fornecedor } = entrada;
+                    const { p, atual, brutoKg, liquidoKg, fc, fornecedor } = entrada;
                     const zerado = atual <= 0;
                     const pctMin = p.min > 0 ? Math.min(100, Math.round((atual / p.min) * 100)) : 0;
                     const urgencia = zerado ? 'zerado' : pctMin < 30 ? 'critico' : 'alerta';
@@ -325,12 +325,12 @@ export default function Compras() {
                                 <>
                                   <div className="text-base font-bold text-polo-gold">{fmtNum(brutoKg)} kg</div>
                                   {fc != null && (
-                                    <div className="text-[10px] text-white/50">
+                                    <div className="text-[10px] text-white/75">
                                       líquido {fmtNum(liquidoKg)} kg • FC {Math.round(fc * 100)}% histórico
                                     </div>
                                   )}
                                   {fc == null && liquidoKg && (
-                                    <div className="text-[10px] text-white/50">sem FC histórico ainda</div>
+                                    <div className="text-[10px] text-white/75">sem FC histórico ainda</div>
                                   )}
                                 </>
                               ) : liquidoKg ? (

@@ -13,7 +13,7 @@ export default function NovaSenha({ aoConcluir, titulo = 'Criar nova senha' }) {
 
   const salvar = async () => {
     setErro(''); setInfo('');
-    if (senha.length < 6) { setErro('A senha deve ter pelo menos 6 caracteres.'); return; }
+    if (senha.length < 8) { setErro('A senha deve ter pelo menos 8 caracteres.'); return; }
     if (senha !== confirma) { setErro('As senhas não conferem.'); return; }
     setCarregando(true);
     const err = await atualizarSenha(senha);
@@ -34,7 +34,7 @@ export default function NovaSenha({ aoConcluir, titulo = 'Criar nova senha' }) {
         </div>
         <div className="bg-white rounded-2xl p-6 space-y-3 shadow-2xl">
           <input type="password" autoComplete="new-password" value={senha} onChange={e => setSenha(e.target.value)}
-            placeholder="Nova senha (mín. 6)" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm" />
+            placeholder="Nova senha (mín. 8)" aria-label="Nova senha (mínimo 8 caracteres)" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm" />
           <input type="password" autoComplete="new-password" value={confirma} onChange={e => setConfirma(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') salvar(); }}
             placeholder="Confirme a nova senha" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm" />

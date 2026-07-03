@@ -6,7 +6,7 @@ import ResponsavelSelect from '../components/ResponsavelSelect';
 import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
 
 export default function Inventario() {
-  const { produtos, estoque, addAjuste, ajustes, removeAjuste, restaurarRegistro, categorias, prefs, setPref } = useApp();
+  const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');

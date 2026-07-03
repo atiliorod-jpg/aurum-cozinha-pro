@@ -60,7 +60,7 @@ async function criarRestaurante() {
     const expira_em = new Date();
     expira_em.setDate(expira_em.getDate() + 7); // Válido por 7 dias
 
-    const { data: convite, error: errConv } = await supabase
+    const { error: errConv } = await supabase
       .from('convites')
       .insert([{
         restaurante_id: restaurante.id,
