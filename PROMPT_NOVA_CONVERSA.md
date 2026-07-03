@@ -150,11 +150,12 @@ Cargos: `cozinha` < `gerencia` < `diretoria`
 
 ## Pendências abertas
 
-- **SQL no Supabase (ação manual, SQL Editor):** (1) verificar se `migration4_hardening.sql` foi rodado — `select polname from pg_policies where tablename='convites';` deve mostrar `conv_*_v4`; se mostrar `conv_insert` antiga, rodar o migration4; (2) rodar `src/lib/migration5_convite_valido.sql` (novo, 03/07 — valida convite antes do signUp; sem ele o app usa fallback e funciona como antes).
+- **SQL no Supabase: ✅ RESOLVIDO 03/07/2026** — migrations 4 (hardening RLS), 5 (convite_valido) e 6 (índice) **executadas em produção** via SQL Editor e verificadas (`pg_policies` mostra só as `*_v4`). No processo foi removido 1 convite-lixo da auditoria Codex (token `15abd64e`, cargo `codex_cargo_invalido`, usado/expirado) que bloqueava a constraint.
 - **APK no tablet**: arquivo baixado em Downloads/. Passar para o tablet via USB/Google Drive e instalar. Aceitar "instalar de fontes desconhecidas" se pedido. Package ID salvo: `io.github.atiliorod.aurum` — **guardar o .zip e a chave de assinatura** para futuros updates de APK. **Obs:** manifest mudou (`orientation: any`) — vale regenerar o APK no PWABuilder quando for atualizar.
 - **Stripe ainda em test mode**: falta ativar live mode + conta bancária BRL para saque.
-- **M9 (Compra + Entrada unificada)**: adiado pelo próprio dono; reescrita grande do fluxo de recebimento.
-- **Auditoria completa 03/07/2026** em `AUDITORIA_COMPLETA_2026-07-03.md` (nota 70/100, roadmap 30/60/90d). Bloco P0/P1 de código JÁ aplicado (duplo clique produção, conta órfã de convite, xlsx 0.20.3 → 0 vulnerabilidades, zoom liberado, logo 1,8MB→366KB, orientation any, noopener). **Custos/CMV = fora de escopo por decisão do dono** (app é de produção/estoque; custos ficam na planilha Ficha Técnica).
+- **Sentry (observabilidade)**: pendente — precisa de conta em sentry.io (free tier); com o DSN são ~20 linhas de integração.
+- **M9 (Compra + Entrada unificada)**: adiado pelo próprio dono; a auditoria gastronômica apontou como dor nº 1 de campo — caminho leve sugerido: botão "compra → virou entrada".
+- **Auditoria completa 03/07/2026** em `AUDITORIA_COMPLETA_2026-07-03.md` (nota 70/100, roadmap 30/60/90d). Blocos P0/P1 e 30 dias APLICADOS e DEPLOYADOS (commits `930f049` + `ea63500`): duplo clique produção, conta órfã de convite, xlsx 0.20.3 (0 vulnerabilidades), zoom WCAG, logo 1,8MB→366KB, orientation any, noopener, lint 46→0, CI test→lint→audit→build, LGPD no Login, senha mín. 8, contraste AA, README de implantação, Dependabot. **Custos/CMV = fora de escopo por decisão do dono** (app é de produção/estoque; custos ficam na planilha Ficha Técnica).
 
 ---
 
