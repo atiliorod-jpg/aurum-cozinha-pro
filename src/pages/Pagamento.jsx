@@ -30,13 +30,13 @@ export default function Pagamento() {
   const assinarPro = () => {
     if (STRIPE_LINK) {
       // Link de pagamento Stripe configurado — abre checkout hospedado
-      window.open(STRIPE_LINK, '_blank');
+      window.open(STRIPE_LINK, '_blank', 'noopener,noreferrer');
       return;
     }
     // Fallback: contato via WhatsApp enquanto o link Stripe não está configurado
     setCarregando(true);
     const msg = encodeURIComponent('Olá! Quero assinar o plano Pro do Aurum Cozinha (R$149/mês).');
-    window.open(`https://wa.me/${WPP_NUMERO}?text=${msg}`, '_blank');
+    window.open(`https://wa.me/${WPP_NUMERO}?text=${msg}`, '_blank', 'noopener,noreferrer');
     setTimeout(() => setCarregando(false), 1500);
   };
 

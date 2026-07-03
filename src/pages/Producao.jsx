@@ -37,6 +37,9 @@ export default function Producao() {
   });
   const [obs, setObs] = useState('');
   const [mostraIngredientes, setMostraIngredientes] = useState(false);
+  // Trava anti-duplo-toque: sem ela, o 2º toque cai no fallback do rendimento
+  // base (o 1º toque limpa o campo quantidade) e registra a produção DUAS vezes.
+  const [salvando, setSalvando] = useState(false);
   const prodNome = (id) => produtos.find(p => p.id === id)?.nome || id;
   const prodUnid = (id) => produtos.find(p => p.id === id)?.unidade || '';
 
@@ -78,6 +81,7 @@ export default function Producao() {
   };
 
   const handleProduzir = async () => {
+    if (salvando) return; // já registrando — ignora toques repetidos
     if (!produtoId) { toast('Escolha o produto produzido.', 'aviso'); return; }
     const qtdFinal = quantidadeNum || (receita ? parseFloat(receita.rendimentoBase) : 0);
     if (qtdFinal <= 0) { toast('Informe a quantidade produzida.', 'aviso'); return; }
@@ -100,7 +104,8 @@ export default function Producao() {
       });
       if (!ok) return;
     }
-    registrar();
+    setSalvando(true);
+    try { registrar(); } finally { setTimeout(() => setSalvando(false), 800); }
   };
 
   const produtosComReceita = produtos.filter(p => p.ativo && producoes.some(r => r.produtoFinalId === p.id));
@@ -274,9 +279,9 @@ export default function Producao() {
                 🧾 Adicionar ingredientes à lista de compras
               </button>
             )}
-            <button onClick={handleProduzir}
-              className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base active:scale-95 transition-transform">
-              ✓ Registrar Produção
+            <button onClick={handleProduzir} disabled={salvando}
+              className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-60">
+              {salvando ? 'Registrando…' : '✓ Registrar Produção'}
             </button>
             <p className="text-[11px] text-gray-400 text-center -mt-1">
               {receita && plano.itens.some(i => i.abate)

@@ -232,6 +232,13 @@ export function AuthProvider({ children }) {
   // A validação roda numa função segura no banco (aceitar_convite), que NÃO
   // expõe a tabela de convites — evita que alguém liste/adivinhe os códigos.
   const usarConvite = useCallback(async ({ token, nome, email, senha }) => {
+    // Valida o convite ANTES do signUp: sem isto, um token errado deixava uma
+    // conta Auth órfã (e-mail "já registrado" preso em "Cadastro incompleto").
+    // Se a RPC ainda não existe no banco (migração 5 não rodada), segue o fluxo
+    // antigo — a validação definitiva continua sendo o aceitar_convite abaixo.
+    const { data: valido, error: errVal } = await supabase.rpc('convite_valido', { p_token: token });
+    if (!errVal && valido === false) return 'Código de convite inválido ou expirado.';
+
     const { data, error } = await supabase.auth.signUp({ email, password: senha });
     if (error) return error.message;
     if (!data.user) return 'Erro ao criar conta.';

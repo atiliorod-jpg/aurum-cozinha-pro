@@ -30,7 +30,9 @@ export default defineConfig({
         start_url: base,
         scope: base,
         display: 'standalone',
-        orientation: 'portrait',
+        // 'any': tablets de bancada ficam em paisagem — travar em retrato
+        // obrigava a virar o aparelho (o layout já é fluido nas duas).
+        orientation: 'any',
         background_color: '#1B2A41',
         theme_color: '#1B2A41',
         categories: ['food', 'productivity', 'business'],
