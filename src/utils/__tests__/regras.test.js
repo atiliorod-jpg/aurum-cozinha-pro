@@ -5,6 +5,7 @@ import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem } from '../analise';
 import { ingredientesParaProduzir, planejarProducao } from '../producao';
+import { montarCamposEtiqueta, montarPayloadQR } from '../etiquetas';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
 
@@ -298,5 +299,48 @@ describe('produção — receita escala pelo rendimento', () => {
     expect(ch.falta).toBe(2);          // precisa 5, tem 3
     expect(ch.suficiente).toBe(false);
     expect(plano.faltaAlgum).toBe(true);
+  });
+});
+
+describe('etiquetas — montagem dos campos', () => {
+  it('calcula a validade pelos prazos do produto conforme o armazenamento', () => {
+    const campos = montarCamposEtiqueta({
+      produto: P('charque', { valCongelado: 10, valResfriado: 3 }),
+      dataFabricacao: '2026-06-10', armazenamento: 'congelado',
+      restauranteNome: 'Polo', responsavel: 'Ceará',
+    });
+    expect(campos.validade).toBe('2026-06-20');
+    expect(campos.validadeFmt).toBe('20/06/2026');
+    expect(campos.dataFabricacaoFmt).toBe('10/06/2026');
+    expect(campos.rotuloData).toBe('Fab.');
+  });
+
+  it('validade pronta (de registro real) tem prioridade sobre o cálculo', () => {
+    const campos = montarCamposEtiqueta({
+      produto: P('charque', { valCongelado: 10 }),
+      dataFabricacao: '2026-06-10', armazenamento: 'congelado',
+      validade: '2026-06-15', // veio da entrada registrada
+    });
+    expect(campos.validade).toBe('2026-06-15');
+  });
+
+  it('avulsa usa diasValidade e o rótulo de abertura; sem prazo não gera validade', () => {
+    const aberta = montarCamposEtiqueta({
+      nome: 'Leite aberto', tipoData: 'abertura',
+      dataFabricacao: '2026-06-10', diasValidade: 5,
+    });
+    expect(aberta.rotuloData).toBe('Abertura');
+    expect(aberta.validade).toBe('2026-06-15');
+
+    const semPrazo = montarCamposEtiqueta({ nome: 'Tempero da casa', dataFabricacao: '2026-06-10', diasValidade: 0 });
+    expect(semPrazo.validade).toBeNull();
+    expect(semPrazo.validadeFmt).toBe('');
+  });
+
+  it('payload do QR é pipe-delimitado com restaurante, nome e datas', () => {
+    const campos = montarCamposEtiqueta({
+      nome: 'Molho misto', dataFabricacao: '2026-06-10', diasValidade: 4, restauranteNome: 'Polo',
+    });
+    expect(montarPayloadQR(campos)).toBe('Polo|Molho misto|2026-06-10|2026-06-14');
   });
 });

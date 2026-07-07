@@ -10,6 +10,7 @@ import { fmtNum } from '../utils/formatters';
 import { POLO_PRESET } from '../data/presetPolo';
 import { fatorCorrecaoProduto } from '../utils/analise';
 import { usePwaInstall } from '../lib/pwaInstall';
+import { configEtiqueta } from '../utils/etiquetas';
 
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
 // a conversão para número acontece só no salvar.
@@ -67,6 +68,83 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+// Configuração das etiquetas impressas (Configurações → Sistema)
+function CartaoEtiquetas({ prefs, setPref, toast }) {
+  const cfg = configEtiqueta(prefs);
+  // Inputs de mm ficam como texto enquanto edita; convertem no onBlur (mesmo padrão dos dias de cobertura)
+  const [largStr, setLargStr] = useState(String(cfg.larguraMm));
+  const [altStr, setAltStr] = useState(String(cfg.alturaMm));
+
+  const salvar = (patch) => setPref('etiquetaConfig', { ...cfg, ...patch });
+  const salvarMm = () => {
+    const larguraMm = Math.min(Math.max(parseFloat(largStr) || 60, 20), 120);
+    const alturaMm = Math.min(Math.max(parseFloat(altStr) || 40, 15), 120);
+    setLargStr(String(larguraMm)); setAltStr(String(alturaMm));
+    if (larguraMm !== cfg.larguraMm || alturaMm !== cfg.alturaMm) {
+      salvar({ larguraMm, alturaMm });
+      toast('Tamanho da etiqueta salvo.', 'sucesso');
+    }
+  };
+  const toggleCampo = (k) => salvar({ campos: { ...cfg.campos, [k]: cfg.campos[k] === false } });
+
+  const CAMPOS = [
+    ['restaurante', 'Nome do estabelecimento'],
+    ['fabricacao', 'Data de fabricação/abertura'],
+    ['validade', 'Vencimento'],
+    ['armazenamento', 'Armazenamento (❄️/🧊)'],
+    ['responsavel', 'Responsável'],
+  ];
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+      <div>
+        <p className="text-sm font-bold text-polo-navy">🏷️ Etiquetas</p>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Tamanho e conteúdo das etiquetas impressas (Registrar → Etiquetas). Use o tamanho do rolo da sua impressora.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label htmlFor="etqc-larg" className="block text-xs text-gray-500 mb-1">Largura (mm)</label>
+          <input id="etqc-larg" type="number" min="20" max="120" inputMode="numeric" value={largStr}
+            onChange={e => setLargStr(e.target.value)} onBlur={salvarMm}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label htmlFor="etqc-alt" className="block text-xs text-gray-500 mb-1">Altura (mm)</label>
+          <input id="etqc-alt" type="number" min="15" max="120" inputMode="numeric" value={altStr}
+            onChange={e => setAltStr(e.target.value)} onBlur={salvarMm}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+        <div>
+          <p className="text-xs font-semibold text-gray-600">QR code na etiqueta</p>
+          <p className="text-[11px] text-gray-400">Código com produto e validade (para leitura futura).</p>
+        </div>
+        <button role="switch" aria-checked={!!cfg.incluirQR}
+          onClick={() => { salvar({ incluirQR: !cfg.incluirQR }); toast(!cfg.incluirQR ? 'QR code LIGADO nas etiquetas.' : 'QR code desligado.', 'sucesso'); }}
+          className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cfg.incluirQR ? 'bg-green-500' : 'bg-gray-300'}`}>
+          <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.incluirQR ? 'left-6' : 'left-0.5'}`} />
+        </button>
+      </div>
+      <div className="border-t border-gray-100 pt-3">
+        <p className="text-xs font-semibold text-gray-600 mb-2">Campos que aparecem na etiqueta</p>
+        <div className="space-y-1.5">
+          {CAMPOS.map(([k, label]) => (
+            <label key={k} className="flex items-center gap-2 text-xs text-gray-700">
+              <input type="checkbox" checked={cfg.campos[k] !== false} onChange={() => toggleCampo(k)}
+                className="w-4 h-4 accent-[#1B2A41]" />
+              {label}
+            </label>
+          ))}
+        </div>
+        <p className="text-[11px] text-gray-400 mt-2">O nome do produto sempre aparece.</p>
+      </div>
     </div>
   );
 }
@@ -1212,6 +1290,9 @@ export default function Configuracoes() {
 
       {/* Suporte remoto */}
       <CartaoSuporteRemoto prefs={prefs} setPref={setPref} toast={toast} />
+
+      {/* Etiquetas impressas */}
+      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} />
 
       {/* Rendimento / Fator de correção por ingrediente */}
       <TabelaRendimento produtos={produtos} fichas={fichas} setFichas={setFichas} setProdutos={setProdutos}

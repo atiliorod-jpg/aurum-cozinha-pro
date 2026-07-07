@@ -12,7 +12,7 @@ import { planejarProducao } from '../utils/producao';
 export default function Producao() {
   const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref } = useApp();
   const { temPermissao } = useAuth();
-  const { toast, confirm } = useUI();
+  const { toast, confirm, abrirEtiquetas } = useUI();
 
   const [searchParams] = useSearchParams();
   const rParam = searchParams.get('r');
@@ -78,6 +78,20 @@ export default function Producao() {
     if (responsavel) setPref('responsavel', responsavel);
     setQuantidade(''); setObs('');
     toast(`Produção registrada: ${fmtNum(qtdFinal)} ${prodUnid(produtoId)} de ${prodNome(produtoId)}!`, 'sucesso');
+    // Oferece imprimir as etiquetas dos potes/embalagens desta produção
+    // (quantidade de etiquetas é escolhida no modal — não há relação fixa com a qtd produzida)
+    abrirEtiquetas([{
+      produtoId,
+      nome: prodNome(produtoId),
+      tipoData: 'fabricacao',
+      dataFabricacao: data,
+      armazenamento,
+      diasCongelado: produto?.valCongelado || 0,
+      diasResfriado: produto?.valResfriado || 0,
+      validade: validade || null,
+      responsavel,
+      quantidade: 1,
+    }]);
   };
 
   const handleProduzir = async () => {

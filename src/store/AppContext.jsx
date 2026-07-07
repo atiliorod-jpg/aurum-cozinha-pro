@@ -19,6 +19,9 @@ const CAT = {
   // Itens adicionados manualmente à lista de compras (ex.: faltantes de uma
   // produção planejada). Cada item: { id, nome, unidade, quantidade, origem }
   listaManual: [],
+  // Etiquetas avulsas: itens FORA do estoque que a cozinha etiqueta mesmo assim
+  // (ex.: "Leite aberto"). Cada item: { id, nome, tipoData: 'fabricacao'|'abertura', diasValidade }
+  etiquetasAvulsas: [],
   prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
 
@@ -63,6 +66,7 @@ export function AppProvider({ children }) {
   const [producoes,   setProducoesRaw]   = useState(CAT.producoes);
   const [locais,      setLocaisRaw]      = useState(CAT.locais);
   const [listaManual, setListaManualRaw] = useState(CAT.listaManual);
+  const [etiquetasAvulsas, setEtiquetasAvulsasRaw] = useState(CAT.etiquetasAvulsas);
   const [prefs,       setPrefsRaw]       = useState(CAT.prefs);
   const [compras,     setComprasRaw]     = useState([]);
   const [entradas,    setEntradasRaw]    = useState([]);
@@ -84,7 +88,7 @@ export function AppProvider({ children }) {
   const sessaoRef = useRef(sessao); sessaoRef.current = sessao;
   const soLeituraRef = useRef(soLeitura); soLeituraRef.current = soLeitura;
   const dadosRef = useRef({});
-  dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
+  dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
   /* eslint-enable react-hooks/refs */
 
   // Só lê refs (estáveis) — identidade fixa para entrar nos deps dos callbacks.
@@ -144,6 +148,7 @@ export function AppProvider({ children }) {
   const setProducoes  = useCallback((v) => persistCatalogo('producoes',  setProducoesRaw,  v), [persistCatalogo]);
   const setLocais     = useCallback((v) => persistCatalogo('locais',     setLocaisRaw,     v), [persistCatalogo]);
   const setListaManual = useCallback((v) => persistCatalogo('listaManual', setListaManualRaw, v), [persistCatalogo]);
+  const setEtiquetasAvulsas = useCallback((v) => persistCatalogo('etiquetasAvulsas', setEtiquetasAvulsasRaw, v), [persistCatalogo]);
 
   const setPref = useCallback((chave, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -328,7 +333,7 @@ export function AppProvider({ children }) {
       // sem sessão: volta aos valores padrão
       setProdutosRaw(CAT.produtos); setCategoriasRaw(CAT.categorias);
       setPessoasRaw(CAT.pessoas); setDestinosRaw(CAT.destinos);
-      setFichasRaw(CAT.fichas); setProducoesRaw(CAT.producoes); setLocaisRaw(CAT.locais); setListaManualRaw(CAT.listaManual); setPrefsRaw(CAT.prefs);
+      setFichasRaw(CAT.fichas); setProducoesRaw(CAT.producoes); setLocaisRaw(CAT.locais); setListaManualRaw(CAT.listaManual); setEtiquetasAvulsasRaw(CAT.etiquetasAvulsas); setPrefsRaw(CAT.prefs);
       setComprasRaw([]); setEntradasRaw([]); setSaidasRaw([]);
       setAparasRaw([]); setDesperdicioRaw([]); setAjustesRaw([]); setAuditoriaRaw([]);
       return;
@@ -344,6 +349,7 @@ export function AppProvider({ children }) {
     setProducoesRaw(cacheGet(rid, 'producoes', CAT.producoes));
     setLocaisRaw(cacheGet(rid, 'locais', CAT.locais));
     setListaManualRaw(cacheGet(rid, 'listaManual', CAT.listaManual));
+    setEtiquetasAvulsasRaw(cacheGet(rid, 'etiquetasAvulsas', CAT.etiquetasAvulsas));
     // prefs = restaurante (nuvem) + aparelho (local), mescladas
     setPrefsRaw({ ...cacheGet(rid, 'prefs', CAT.prefs), ...cacheGet(rid, '_prefs_device', {}) });
     setComprasRaw(cacheGet(rid, 'compras', []));
@@ -413,6 +419,7 @@ export function AppProvider({ children }) {
         aplicaCat('producoes', setProducoesRaw, CAT.producoes);
         aplicaCat('locais', setLocaisRaw, CAT.locais);
         aplicaCat('listaManual', setListaManualRaw, CAT.listaManual);
+        aplicaCat('etiquetasAvulsas', setEtiquetasAvulsasRaw, CAT.etiquetasAvulsas);
         // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
         if (!docsPendentes.has('prefs')) {
           const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
@@ -465,6 +472,7 @@ export function AppProvider({ children }) {
     const setterDoc = {
       produtos: setProdutosRaw, categorias: setCategoriasRaw, pessoas: setPessoasRaw,
       destinos: setDestinosRaw, fichas: setFichasRaw, producoes: setProducoesRaw, locais: setLocaisRaw, listaManual: setListaManualRaw,
+      etiquetasAvulsas: setEtiquetasAvulsasRaw,
     };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
@@ -530,7 +538,7 @@ export function AppProvider({ children }) {
       versao: 3, exportadoEm: new Date().toISOString(),
       produtos: d.produtos, compras: d.compras, entradas: d.entradas, saidas: d.saidas,
       aparas: d.aparas, desperdicio: d.desperdicio, ajustes: d.ajustes, pessoas: d.pessoas,
-      fichas: d.fichas, producoes: d.producoes, locais: d.locais, listaManual: d.listaManual, destinos: d.destinos, categorias: d.categorias, auditoria: d.auditoria, prefs: d.prefs,
+      fichas: d.fichas, producoes: d.producoes, locais: d.locais, listaManual: d.listaManual, etiquetasAvulsas: d.etiquetasAvulsas, destinos: d.destinos, categorias: d.categorias, auditoria: d.auditoria, prefs: d.prefs,
     };
     const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -547,7 +555,7 @@ export function AppProvider({ children }) {
       throw new Error('Arquivo inválido: não é um backup do Aurum Cozinha.');
     }
     // 1) Valida TODAS as chaves ANTES de aplicar qualquer coisa (evita restauração pela metade).
-    const listas = ['produtos', 'categorias', 'pessoas', 'destinos', 'fichas', 'producoes', 'locais', 'listaManual',
+    const listas = ['produtos', 'categorias', 'pessoas', 'destinos', 'fichas', 'producoes', 'locais', 'listaManual', 'etiquetasAvulsas',
                     'compras', 'entradas', 'saidas', 'aparas', 'desperdicio', 'ajustes', 'auditoria'];
     for (const k of listas) {
       if (dados[k] != null && !Array.isArray(dados[k])) {
@@ -572,6 +580,7 @@ export function AppProvider({ children }) {
     cat('producoes', setProducoesRaw, dados.producoes);
     cat('locais', setLocaisRaw, dados.locais);
     cat('listaManual', setListaManualRaw, dados.listaManual);
+    cat('etiquetasAvulsas', setEtiquetasAvulsasRaw, dados.etiquetasAvulsas);
     cat('prefs', setPrefsRaw, dados.prefs);
 
     const r = ridRef.current;
@@ -610,6 +619,7 @@ export function AppProvider({ children }) {
       producoes, setProducoes,
       locais, setLocais,
       listaManual, setListaManual,
+      etiquetasAvulsas, setEtiquetasAvulsas,
       destinos, setDestinos,
       categorias, setCategorias,
       auditoria, logAudit,

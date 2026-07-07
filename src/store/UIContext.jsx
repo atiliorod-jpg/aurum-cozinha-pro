@@ -7,6 +7,10 @@ let toastSeq = 0;
 export function UIProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const [confirmState, setConfirmState] = useState(null);
+  // Modal de impressão de etiquetas (renderizado por components/EtiquetaPrint.jsx).
+  // Centralizado aqui — igual ao confirm() — para poder ser aberto de qualquer
+  // página (Entradas, Produção, Histórico, Etiquetas) sem prop-drilling.
+  const [etiquetaState, setEtiquetaState] = useState(null); // [{ produtoId, nome, tipoData, dataFabricacao, armazenamento, diasValidade, validade, quantidade }] | null
   const resolverRef = useRef(null);
 
   // opts.acao = { label, onClick } — toast com botão (ex.: Desfazer) dura mais
@@ -41,6 +45,12 @@ export function UIProvider({ children }) {
     }
   }, []);
 
+  const abrirEtiquetas = useCallback((itens) => {
+    if (!Array.isArray(itens) || !itens.length) return;
+    setEtiquetaState(itens);
+  }, []);
+  const fecharEtiquetas = useCallback(() => setEtiquetaState(null), []);
+
   useEffect(() => {
     if (!confirmState) return;
     const handler = (e) => { if (e.key === 'Escape') fecharConfirm(false); };
@@ -63,7 +73,7 @@ export function UIProvider({ children }) {
   }, [toast]);
 
   return (
-    <UIContext.Provider value={{ toast, confirm }}>
+    <UIContext.Provider value={{ toast, confirm, etiquetaState, abrirEtiquetas, fecharEtiquetas }}>
       {children}
 
       {/* Toasts */}

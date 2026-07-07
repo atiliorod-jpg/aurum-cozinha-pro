@@ -9,7 +9,7 @@ import { validarDataRegistro, addDias } from '../utils/datas';
 
 export default function Entradas() {
   const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref } = useApp();
-  const { toast, confirm } = useUI();
+  const { toast, confirm, abrirEtiquetas } = useUI();
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [obs, setObs] = useState('');
@@ -72,6 +72,23 @@ export default function Entradas() {
     setQtds({});
     setObs('');
     toast(`Entrada de ${itensPreenchidos.length} item(ns) registrada!`, 'sucesso');
+    // Oferece imprimir as etiquetas dos itens recém-registrados (opcional — dá pra pular)
+    abrirEtiquetas(itensPreenchidos.map(([produtoId]) => {
+      const p = produtos.find(x => x.id === produtoId);
+      const dias = armazenamento === 'congelado' ? (p?.valCongelado || 0) : (p?.valResfriado || 0);
+      return {
+        produtoId,
+        nome: p?.nome || produtoId,
+        tipoData: 'fabricacao',
+        dataFabricacao: data,
+        armazenamento,
+        diasCongelado: p?.valCongelado || 0,
+        diasResfriado: p?.valResfriado || 0,
+        validade: dias > 0 ? addDias(data, dias) : null,
+        responsavel,
+        quantidade: 1,
+      };
+    }));
   };
 
   const [buscaHist, setBuscaHist] = useState('');

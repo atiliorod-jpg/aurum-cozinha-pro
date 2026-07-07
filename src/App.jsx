@@ -4,6 +4,7 @@ import { AppProvider } from './store/AppContext';
 import { UIProvider } from './store/UIContext';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
+import EtiquetaPrint from './components/EtiquetaPrint';
 import Login from './pages/Login';
 import NovaSenha from './pages/NovaSenha';
 import Dashboard from './pages/Dashboard';
@@ -20,6 +21,7 @@ import Auditoria from './pages/Auditoria';
 import Pagamento from './pages/Pagamento';
 import Configuracoes from './pages/Configuracoes';
 import Admin from './pages/Admin';
+import Etiquetas from './pages/Etiquetas';
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -107,6 +109,7 @@ function Rotas() {
       <Route path="/saidas" element={<Saidas />} />
       <Route path="/producao" element={<Producao />} />
       <Route path="/aparas" element={<AparasPerdas />} />
+      <Route path="/etiquetas" element={<Etiquetas />} />
       <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
       <Route path="/fichas" element={<Navigate to="/compras" replace />} />
       <Route path="/inventario" element={<Restrito><Inventario /></Restrito>} />
@@ -127,6 +130,7 @@ export default function App() {
         <AuthProvider>
           <AppProvider>
             <Rotas />
+            <EtiquetaPrint />
             <PwaUpdatePrompt />
             <PwaInstallPrompt />
           </AppProvider>

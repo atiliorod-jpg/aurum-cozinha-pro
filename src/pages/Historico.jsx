@@ -11,7 +11,7 @@ export default function Historico() {
     removeCompra, removeEntrada, removeSaida, removeApara, removeDesperdicio,
     restaurarRegistro,
   } = useApp();
-  const { toast, confirm } = useUI();
+  const { toast, confirm, abrirEtiquetas } = useUI();
   const destNome = (v) => v === 'producao' ? '🍲 Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [filtro, setFiltro] = useState('todas');
   const [busca, setBusca] = useState('');
@@ -57,6 +57,26 @@ export default function Historico() {
     ['todas', 'Tudo'], ['entradas', '📥 Entradas'], ['saidas', '📤 Saídas'],
     ['producao', '🍲 Produção'], ['compras', '🛒 Compras'], ['correcoes', '✂️ Correções'],
   ];
+
+  // Reimprimir etiquetas de uma entrada/produção antiga (dados reais do registro)
+  const reimprimirEtiquetas = (ev) => {
+    const r = ev.r;
+    abrirEtiquetas((r.itens || []).map(item => {
+      const p = produtos.find(x => x.id === item.produtoId);
+      return {
+        produtoId: item.produtoId,
+        nome: p?.nome || item.produtoId,
+        tipoData: 'fabricacao',
+        dataFabricacao: r.data,
+        armazenamento: r.armazenamento || null,
+        diasCongelado: p?.valCongelado || 0,
+        diasResfriado: p?.valResfriado || 0,
+        validade: item.validade || null,
+        responsavel: r.responsavel || '',
+        quantidade: 1,
+      };
+    }));
+  };
 
   const handleRemover = async (ev) => {
     const ok = await confirm({ titulo: 'Remover registro', mensagem: 'Remover este lançamento? O estoque será recalculado.', perigo: true, confirmar: 'Remover' });
@@ -105,6 +125,10 @@ export default function Historico() {
               </div>
               {ev.r.obs && <div className="text-[11px] text-gray-400 italic mt-0.5">{ev.r.obs}</div>}
             </div>
+            {(ev.grupo === 'entradas' || ev.grupo === 'producao') && (ev.r.itens || []).length > 0 && (
+              <button onClick={() => reimprimirEtiquetas(ev)} aria-label="Reimprimir etiquetas deste registro"
+                className="text-polo-navy text-xs font-semibold px-2 py-1 rounded hover:bg-polo-beige flex-shrink-0">🏷️</button>
+            )}
             <button onClick={() => handleRemover(ev)}
               className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50 flex-shrink-0">Remover</button>
           </div>

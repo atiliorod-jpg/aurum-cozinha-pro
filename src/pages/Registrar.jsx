@@ -25,6 +25,13 @@ const SECOES = [
       { to: '/aparas',  emoji: '✂️', titulo: 'Apara / Perda', desc: 'Aproveitamento e descarte' },
     ],
   },
+  {
+    label: 'Identificação',
+    desc: 'Etiquetas de validade para os potes e embalagens',
+    acoes: [
+      { to: '/etiquetas', emoji: '🏷️', titulo: 'Etiquetas', desc: 'Imprimir etiquetas do estoque ou avulsas' },
+    ],
+  },
 ];
 
 export default function Registrar() {
