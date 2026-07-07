@@ -1,4 +1,4 @@
-// Montagem dos campos de uma etiqueta de identificação/validade.
+// Montagem dos campos de uma etiqueta de identificação/validade (estilo Suflex).
 // Serve todas as origens: entrada real, produção, reimpressão do histórico,
 // impressão sob demanda do catálogo e etiquetas avulsas (itens fora do estoque).
 
@@ -10,7 +10,10 @@ export const ETIQUETA_CONFIG_PADRAO = {
   larguraMm: 60,
   alturaMm: 40,
   incluirQR: false,
-  campos: { restaurante: true, validade: true, fabricacao: true, armazenamento: true, responsavel: true },
+  campos: {
+    restaurante: true, validade: true, fabricacao: true, armazenamento: true,
+    responsavel: true, valOriginal: true, marca: true, sif: true, estabelecimento: true, id: true,
+  },
 };
 
 // Junta a config salva nas prefs com os padrões (tolerante a chaves faltando)
@@ -26,8 +29,10 @@ export const configEtiqueta = (prefs) => ({
  * - `validade` pronta (vinda de um registro real) tem prioridade;
  *   senão é calculada por `diasValidade` (avulsas) ou pelos prazos do
  *   produto conforme o armazenamento (congelado/resfriado).
- * - `tipoData` muda o rótulo da data: 'fabricacao' → "Fab.", 'abertura' → "Abertura"
- *   (etiquetas avulsas tipo "Leite aberto" usam a data de abertura da embalagem).
+ * - `tipoData` muda o rótulo da data: 'fabricacao' → "MANIPULAÇÃO",
+ *   'abertura' → "ABERTURA" (itens tipo "Leite aberto").
+ * - `hora` (HH:MM) é a hora da impressão — aparece junto das datas de
+ *   manipulação/validade, como nas etiquetas profissionais.
  */
 export function montarCamposEtiqueta({
   nome,
@@ -39,41 +44,74 @@ export function montarCamposEtiqueta({
   validade = null,
   diasValidade = null,
   produto = null,
+  medida = '',
+  valOriginal = null,
+  marca = '',
+  sif = '',
+  hora = '',
 }) {
   let dias = parseFloat(diasValidade) || 0;
   if (!dias && produto && armazenamento) {
     dias = armazenamento === 'congelado' ? (produto.valCongelado || 0) : (produto.valResfriado || 0);
   }
   const validadeCalc = validade || (dias > 0 && dataFabricacao ? addDias(dataFabricacao, dias) : null);
+  const comHora = (dataFmt) => dataFmt && hora ? `${dataFmt} - ${hora}` : dataFmt;
 
   return {
     nome: nome || produto?.nome || '',
     tipoData,
-    rotuloData: tipoData === 'abertura' ? 'Abertura' : 'Fab.',
+    rotuloData: tipoData === 'abertura' ? 'ABERTURA' : 'MANIPULAÇÃO',
     dataFabricacao: dataFabricacao || null,
-    dataFabricacaoFmt: dataFabricacao ? fmtData(dataFabricacao) : '',
+    dataFabricacaoFmt: dataFabricacao ? comHora(fmtData(dataFabricacao)) : '',
     validade: validadeCalc,
-    validadeFmt: validadeCalc ? fmtData(validadeCalc) : '',
+    validadeFmt: validadeCalc ? comHora(fmtData(validadeCalc)) : '',
+    valOriginal: valOriginal || null,
+    valOriginalFmt: valOriginal ? fmtData(valOriginal) : '',
     armazenamento,
     armazenamentoLabel:
-      armazenamento === 'congelado' ? '❄️ Congelado'
-      : armazenamento === 'resfriado' ? '🧊 Resfriado'
+      armazenamento === 'congelado' ? 'CONGELADO'
+      : armazenamento === 'resfriado' ? 'RESFRIADO'
       : '',
+    medida: medida || '',
+    marca: marca || '',
+    sif: sif || '',
     restauranteNome: restauranteNome || '',
     responsavel: responsavel || '',
+    hora: hora || '',
   };
 }
 
 /**
- * Payload do QR code — string pipe-delimitada, fácil de fazer parse depois
- * (ex.: um futuro leitor de conferência). Formato:
- *   restaurante|nome|dataFabricacao|validade
+ * Conteúdo do QR code — texto legível linha a linha ("Chave: valor").
+ * Quem escanear com a câmera do celular vê a ficha da etiqueta na hora;
+ * um sistema futuro consegue fazer parse pelas chaves.
  */
-export function montarPayloadQR(campos) {
-  return [
-    campos.restauranteNome,
-    campos.nome,
-    campos.dataFabricacao || '',
-    campos.validade || '',
-  ].join('|');
+export function montarPayloadQR(campos, { idEtiqueta = '', estabelecimento = null } = {}) {
+  const linhas = [
+    campos.restauranteNome ? `Restaurante: ${campos.restauranteNome}` : null,
+    `Produto: ${campos.nome}`,
+    campos.medida ? `Medida: ${campos.medida}` : null,
+    campos.armazenamentoLabel ? `Armazenamento: ${campos.armazenamentoLabel}` : null,
+    campos.valOriginalFmt ? `Val. original: ${campos.valOriginalFmt}` : null,
+    campos.dataFabricacaoFmt ? `${campos.rotuloData === 'ABERTURA' ? 'Abertura' : 'Manipulacao'}: ${campos.dataFabricacaoFmt}` : null,
+    campos.validadeFmt ? `Validade: ${campos.validadeFmt}` : null,
+    campos.marca ? `Marca/Forn: ${campos.marca}` : null,
+    campos.sif ? `SIF: ${campos.sif}` : null,
+    campos.responsavel ? `Resp: ${campos.responsavel}` : null,
+    estabelecimento?.cnpj ? `CNPJ: ${estabelecimento.cnpj}` : null,
+    idEtiqueta ? `Etiqueta: ${idEtiqueta}` : null,
+  ];
+  return linhas.filter(Boolean).join('\n');
+}
+
+/**
+ * ID curto de rastreio da etiqueta (estilo "#T154B3"): prefixo do lote
+ * (timestamp base36) + posição. Único o suficiente para conferência visual.
+ */
+export function gerarIdEtiqueta(loteBase, indice) {
+  return `#${loteBase}${indice.toString(36).toUpperCase()}`;
+}
+
+export function gerarLoteBase() {
+  return `T${Date.now().toString(36).toUpperCase().slice(-4)}`;
 }

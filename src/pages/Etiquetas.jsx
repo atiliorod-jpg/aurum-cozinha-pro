@@ -4,6 +4,102 @@ import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
 
+// Guia de configuração de impressora — escolhe a situação e mostra o passo a
+// passo com links de download. Imprimível (o print CSS global já esconde
+// header/nav/botões), então "salvar em PDF" = imprimir esta aba.
+const TIPOS_IMPRESSORA = [
+  {
+    id: 'termica-usb',
+    titulo: '✅ Térmica de etiquetas com USB (recomendada)',
+    resumo: 'Zebra ZD220 TT, Argox OS-214 Plus, Elgin L42 Pro e similares — ligadas ao computador ou notebook.',
+    comoFica: 'Cada etiqueta sai no tamanho exato do rolo (ex.: 60×40mm), uma por vez, já cortadinha no picote. É a experiência completa.',
+    passos: [
+      'Compre o modelo com TRANSFERÊNCIA TÉRMICA (usa fita/ribbon de resina) e etiquetas BOPP — são as que não desbotam no congelador nem com água. Térmica direta (sem ribbon) desbota com o tempo.',
+      'Instale o driver do fabricante no computador: Zebra → zebra.com/suporte (busque ZD220) · Argox → argox.com · Elgin → elgin.com.br/automacao (área de drivers).',
+      'No driver/preferências da impressora do Windows, configure o tamanho do papel igual ao rolo (ex.: 60 × 40 mm).',
+      'Em Config → Sistema → 🏷️ Etiquetas, coloque o MESMO tamanho.',
+      'Pronto: clique Imprimir em qualquer etiqueta aqui → na janela que abre, escolha a impressora de etiquetas → Imprimir.',
+    ],
+  },
+  {
+    id: 'tablet',
+    titulo: '📱 Pelo tablet ou celular Android',
+    resumo: 'Impressora térmica com Wi-Fi/rede, ou compartilhada pelo computador.',
+    comoFica: 'Igual ao computador: o Android abre a janela de impressão e a etiqueta sai no tamanho do rolo.',
+    passos: [
+      'Instale o serviço de impressão do fabricante na Play Store (ex.: "Zebra Print Station" / serviço de impressão da marca) OU deixe a impressora ligada num computador da rede com o driver instalado e compartilhada.',
+      'No tablet: Configurações → Dispositivos conectados → Impressão → ative o serviço.',
+      'No app, clique Imprimir → escolha a impressora na janela do Android.',
+    ],
+  },
+  {
+    id: 'automatica',
+    titulo: '⚡ Impressão automática sem janela (1 clique) — em breve',
+    resumo: 'Como os sistemas profissionais fazem (é assim que a Suflex funciona com a Zebra).',
+    comoFica: 'Clicou em Imprimir → as etiquetas saem DIRETO na impressora, sem janela nenhuma, na quantidade pedida.',
+    passos: [
+      'Isso exige um programinha instalado uma única vez no computador/tablet: Zebra Browser Print (zebra.com → busque "Browser Print") para impressoras Zebra, ou QZ Tray (qz.io) para qualquer marca.',
+      'A integração do app com esses programas é a próxima fase do módulo de etiquetas — será ativada quando a impressora física estiver definida.',
+      'Enquanto isso, o caminho normal (janela de impressão) funciona com qualquer impressora — é só 1 clique a mais.',
+    ],
+  },
+  {
+    id: 'comum',
+    titulo: '🖨️ Impressora comum (A4) — só para testar',
+    resumo: 'Jato de tinta ou laser, papel sulfite ou etiqueta adesiva A4.',
+    comoFica: 'Sai UMA etiqueta pequena por folha (o app manda o tamanho real do rolo). Serve para testar o layout, não para o dia a dia.',
+    passos: [
+      'Clique Imprimir → escolha a impressora comum.',
+      'Na janela de impressão, deixe escala em 100% (não usar "ajustar à página").',
+      'Recorte a etiqueta impressa. Para produção de verdade, use uma térmica de etiquetas (primeira opção acima).',
+    ],
+  },
+];
+
+function GuiaImpressora() {
+  const [aberto, setAberto] = useState('termica-usb');
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2 print:hidden">
+        <p className="text-xs text-gray-500">Escolha a sua situação para ver o passo a passo.</p>
+        <button onClick={() => window.print()}
+          className="bg-gray-100 text-gray-600 font-semibold text-xs px-3 py-2 rounded-lg whitespace-nowrap">
+          📄 Salvar guia em PDF
+        </button>
+      </div>
+      {TIPOS_IMPRESSORA.map(t => (
+        <div key={t.id} className="bg-white rounded-xl overflow-hidden">
+          <button onClick={() => setAberto(aberto === t.id ? '' : t.id)}
+            className="w-full text-left px-4 py-3 print:hidden">
+            <p className="font-bold text-sm text-polo-navy">{t.titulo} {aberto === t.id ? '▾' : '▸'}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{t.resumo}</p>
+          </button>
+          {/* na impressão, TODOS os blocos saem abertos */}
+          <div className={`px-4 pb-4 ${aberto === t.id ? '' : 'hidden'} print:block`}>
+            <p className="hidden print:block font-bold text-sm text-polo-navy mb-1">{t.titulo}</p>
+            <div className="bg-polo-beige rounded-lg p-3 mb-3">
+              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide mb-0.5">Como fica a impressão</p>
+              <p className="text-xs text-gray-700">{t.comoFica}</p>
+            </div>
+            <ol className="space-y-2">
+              {t.passos.map((p, i) => (
+                <li key={i} className="flex gap-2 text-xs text-gray-700">
+                  <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-[10px]">{i + 1}</span>
+                  <span className="pt-0.5">{p}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      ))}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+        <p className="font-bold mb-0.5">💬 Precisa de ajuda para configurar?</p>
+        <p>Chame o suporte Aurum pelo WhatsApp — configuramos junto com você na instalação.</p>
+      </div>
+    </div>
+  );
+}
+
 // Página de etiquetas: imprime etiqueta de QUALQUER produto do catálogo a
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
@@ -79,8 +175,8 @@ export default function Etiquetas() {
 
   return (
     <Layout title="Etiquetas">
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['catalogo', '📦 Do estoque'], ['avulsas', '📝 Avulsas']].map(([v, l]) => (
+      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1 print:hidden">
+        {[['catalogo', '📦 Do estoque'], ['avulsas', '📝 Avulsas'], ['impressora', '🖨️ Impressora']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
@@ -89,7 +185,9 @@ export default function Etiquetas() {
         ))}
       </div>
 
-      {tab === 'catalogo' ? (
+      {tab === 'impressora' ? (
+        <GuiaImpressora />
+      ) : tab === 'catalogo' ? (
         <div className="space-y-4">
           <p className="text-xs text-gray-500 px-1">
             Imprima a etiqueta de qualquer produto, a qualquer momento — a validade é calculada pelos prazos do produto (Config).

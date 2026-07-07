@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
+import { statusAssinatura } from './utils/assinatura';
 import { AppProvider } from './store/AppContext';
 import { UIProvider } from './store/UIContext';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
@@ -41,23 +42,46 @@ function Splash({ texto = 'Carregando…' }) {
 }
 
 // Faixa fixa de aviso quando o super-admin está vendo os dados de um cliente.
-// O suporte é sempre SOMENTE LEITURA (nada é escrito na conta do cliente).
-function BannerSuporte({ nome, onSair }) {
+// Âmbar = somente leitura; vermelha = cliente autorizou EDITAR (24h).
+function BannerSuporte({ nome, podeMexer, onSair }) {
   return (
-    <div className="sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md bg-amber-500 text-amber-950">
+    <div className={`sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md
+      ${podeMexer ? 'bg-red-600 text-red-50' : 'bg-amber-500 text-amber-950'}`}>
       <p className="text-xs font-semibold min-w-0 truncate">
-        🛠️ Modo suporte — <strong>{nome || 'cliente'}</strong> (somente leitura)
+        🛠️ Modo suporte — <strong>{nome || 'cliente'}</strong> {podeMexer ? '(EDITANDO a conta do cliente)' : '(somente leitura)'}
       </p>
       <button onClick={onSair}
-        className="font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0 bg-amber-950 text-amber-50">
+        className={`font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0
+          ${podeMexer ? 'bg-red-950 text-red-50' : 'bg-amber-950 text-amber-50'}`}>
         Sair do modo suporte
       </button>
     </div>
   );
 }
 
+// Tela cheia quando teste e assinatura venceram — só a página Assinatura fica acessível
+function BloqueioAssinatura({ podeAssinar, onSair }) {
+  return (
+    <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <p className="text-4xl">⏳</p>
+      <p className="text-polo-gold font-bold text-lg">Seu período de teste terminou</p>
+      <p className="text-white/80 text-sm max-w-xs">
+        Os seus dados estão guardados e seguros. Assine o plano para continuar usando o sistema exatamente de onde parou.
+      </p>
+      {podeAssinar ? (
+        <Link to="/pagamento" className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
+          💳 Ver plano e assinar
+        </Link>
+      ) : (
+        <p className="text-white/80 text-xs max-w-xs">Peça à diretoria/gerência do restaurante para assinar em Configurações → Assinatura.</p>
+      )}
+      <button onClick={onSair} className="text-white/70 text-xs underline underline-offset-2">Sair da conta</button>
+    </div>
+  );
+}
+
 function Rotas() {
-  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado } = useAuth();
+  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao } = useAuth();
 
   if (carregando) return <Splash />;
   // Veio do link de recuperação de senha → tela de nova senha (tem prioridade)
@@ -93,9 +117,37 @@ function Rotas() {
     );
   }
 
+  // Plano único + teste de 7 dias: vencido → bloqueio visual (dados preservados).
+  // Superadmin/impersonação/demo são isentos (statusAssinatura resolve).
+  const plano = impersonando ? { ok: true, tipo: 'isento' } : statusAssinatura(sessao);
+  if (!plano.ok) {
+    return (
+      <Routes>
+        <Route path="/pagamento" element={temPermissao('gerencia') ? <Pagamento /> : <BloqueioAssinatura podeAssinar={false} onSair={logout} />} />
+        <Route path="*" element={<BloqueioAssinatura podeAssinar={temPermissao('gerencia')} onSair={logout} />} />
+      </Routes>
+    );
+  }
+
   return (
     <>
-      {impersonando && <BannerSuporte nome={impersonando.restauranteNome} onSair={sairImpersonacao} />}
+      {impersonando && <BannerSuporte nome={impersonando.restauranteNome} podeMexer={impersonando.podeMexer} onSair={sairImpersonacao} />}
+      {/* Faixa do modo demonstração — lembra o visitante que nada é salvo */}
+      {sessao?.demo && (
+        <div className="sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md bg-polo-gold text-polo-navy print:hidden">
+          <p className="text-xs font-semibold min-w-0 truncate">🎬 Demonstração — dados de exemplo, nada é salvo</p>
+          <button onClick={logout}
+            className="font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0 bg-polo-navy text-polo-gold">
+            Sair da demo
+          </button>
+        </div>
+      )}
+      {/* Faixa do período de teste (some quando a assinatura é ativada) */}
+      {plano.tipo === 'teste' && (
+        <Link to="/pagamento" className="block bg-polo-gold text-polo-navy text-center text-xs font-bold px-4 py-1.5 print:hidden">
+          ⏳ Período de teste — {plano.diasRestantes} dia(s) restante(s). Toque para assinar.
+        </Link>
+      )}
       <Routes>
       <Route path="/" element={
         sessao?.eSuperAdmin && !sessao.restauranteId && !impersonando

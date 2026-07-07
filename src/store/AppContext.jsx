@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { PRODUTOS_BASE, PESSOAS_BASE, DESTINOS_APARA, CATEGORIAS_BASE } from '../data/produtos';
 import { FICHAS_BASE } from '../data/fichas';
+import { gerarDemoSeed } from '../data/demo';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
@@ -46,6 +47,10 @@ const soAparelho = (p) => { const o = {}; PREFS_APARELHO.forEach(k => { if (p[k]
 // leitura), para não exibir um "sucesso" enganoso ao super-admin (AUR-SUP-002).
 const avisaBloqueioLeitura = () => { try { window.dispatchEvent(new Event('escrita-bloqueada')); } catch { /* sem window (SSR/teste) */ } };
 
+// Modo demonstração: rid 'demo' NUNCA fala com o Supabase — tudo fica só no
+// cache local do navegador (apagado ao sair). Retorna o rid quando é de nuvem.
+const nuvemDe = (r) => (r && r !== 'demo' ? r : null);
+
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -53,9 +58,9 @@ export function AppProvider({ children }) {
   // Em modo suporte, o super-admin carrega o restaurante impersonado em SOMENTE
   // LEITURA — nada é escrito na conta do cliente (o RLS também bloqueia).
   const rid = impersonando?.restauranteId || sessao?.restauranteId || null;
-  // O modo suporte é sempre somente leitura: o super-admin nunca escreve na
-  // conta do cliente (o RLS também bloqueia escrita cruzada).
-  const soLeitura = !!impersonando;
+  // Modo suporte: somente leitura, EXCETO quando o cliente autorizou "ver e
+  // editar" (24h) — aí o RLS (migration7) também libera a escrita do super-admin.
+  const soLeitura = !!impersonando && !impersonando.podeMexer;
 
   // ── Estado (hidratado do cache → rede) ─────────────────────
   const [produtos,    setProdutosRaw]    = useState(CAT.produtos);
@@ -121,7 +126,7 @@ export function AppProvider({ children }) {
       if (r) cacheSet(r, 'auditoria', next);
       return next;
     });
-    if (!r) return;
+    if (!nuvemDe(r)) return;
     const row = { id: reg.id, restaurante_id: r, tipo: 'auditoria', ts: reg.ts, dados: semIdTs(reg), deleted: false };
     supabase.from('registros').insert(row).then(({ error }) => {
       if (error) outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
@@ -134,7 +139,7 @@ export function AppProvider({ children }) {
     setRaw(valor);
     const r = ridRef.current;
     cacheSet(r, chave, valor);
-    if (!r) return;
+    if (!nuvemDe(r)) return;
     const payload = { restaurante_id: r, chave, dados: valor, updated_at: new Date().toISOString() };
     supabase.from('documentos').upsert(payload).then(({ error }) => {
       if (error) outboxAdd(r, { kind: 'doc', op: 'upsert', payload });
@@ -162,7 +167,7 @@ export function AppProvider({ children }) {
       // preferência do restaurante → nuvem (sem as chaves de aparelho)
       const restPrefs = soRestaurante(next);
       cacheSet(r, 'prefs', restPrefs);
-      if (r) {
+      if (nuvemDe(r)) {
         const payload = { restaurante_id: r, chave: 'prefs', dados: restPrefs, updated_at: new Date().toISOString() };
         supabase.from('documentos').upsert(payload)
           .then(({ error }) => { if (error) outboxAdd(r, { kind: 'doc', op: 'upsert', payload }); });
@@ -191,7 +196,7 @@ export function AppProvider({ children }) {
       cacheSet(r, key, next);
       return next;
     });
-    if (r) {
+    if (nuvemDe(r)) {
       const row = { id: novo.id, restaurante_id: r, tipo, ts: novo.ts, dados: semIdTs(novo), deleted: false };
       supabase.from('registros').insert(row).then(({ error }) => {
         if (error) outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
@@ -209,7 +214,7 @@ export function AppProvider({ children }) {
       cacheSet(r, key, next);
       return next;
     });
-    if (r) {
+    if (nuvemDe(r)) {
       supabase.from('registros').update({ deleted: true }).eq('id', id).then(({ error }) => {
         if (error) outboxAdd(r, { kind: 'registro', op: 'delete', payload: { id } });
       });
@@ -251,7 +256,7 @@ export function AppProvider({ children }) {
       cacheSet(r, key, next);
       return next;
     });
-    if (r) {
+    if (nuvemDe(r)) {
       const row = { id: registro.id, restaurante_id: r, tipo, ts: registro.ts, dados: semIdTs(registro), deleted: false };
       supabase.from('registros').upsert(row).then(({ error }) => {
         if (error) outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
@@ -336,6 +341,32 @@ export function AppProvider({ children }) {
       setFichasRaw(CAT.fichas); setProducoesRaw(CAT.producoes); setLocaisRaw(CAT.locais); setListaManualRaw(CAT.listaManual); setEtiquetasAvulsasRaw(CAT.etiquetasAvulsas); setPrefsRaw(CAT.prefs);
       setComprasRaw([]); setEntradasRaw([]); setSaidasRaw([]);
       setAparasRaw([]); setDesperdicioRaw([]); setAjustesRaw([]); setAuditoriaRaw([]);
+      return;
+    }
+
+    // MODO DEMONSTRAÇÃO: semeia os dados de exemplo e PARA aqui — nada de
+    // rede, realtime nem fila offline. O rascunho do visitante fica no cache
+    // pe::demo::* (apagado no logout pelo AuthContext).
+    if (rid === 'demo') {
+      const seed = gerarDemoSeed();
+      const c = seed.catalogos, g = seed.registros;
+      setProdutosRaw(cacheGet(rid, 'produtos', c.produtos));
+      setCategoriasRaw(cacheGet(rid, 'categorias', c.categorias));
+      setPessoasRaw(cacheGet(rid, 'pessoas', c.pessoas));
+      setDestinosRaw(cacheGet(rid, 'destinos', c.destinos));
+      setFichasRaw(cacheGet(rid, 'fichas', c.fichas));
+      setProducoesRaw(cacheGet(rid, 'producoes', c.producoes));
+      setLocaisRaw(cacheGet(rid, 'locais', c.locais));
+      setListaManualRaw(cacheGet(rid, 'listaManual', c.listaManual));
+      setEtiquetasAvulsasRaw(cacheGet(rid, 'etiquetasAvulsas', c.etiquetasAvulsas));
+      setPrefsRaw(cacheGet(rid, 'prefs', c.prefs));
+      setComprasRaw(cacheGet(rid, 'compras', g.compras));
+      setEntradasRaw(cacheGet(rid, 'entradas', g.entradas));
+      setSaidasRaw(cacheGet(rid, 'saidas', g.saidas));
+      setAparasRaw(cacheGet(rid, 'aparas', g.aparas));
+      setDesperdicioRaw(cacheGet(rid, 'desperdicio', g.desperdicio));
+      setAjustesRaw(cacheGet(rid, 'ajustes', g.ajustes));
+      setAuditoriaRaw(cacheGet(rid, 'auditoria', g.auditoria));
       return;
     }
     let ativo = true;
@@ -525,7 +556,7 @@ export function AppProvider({ children }) {
     [['compras', setComprasRaw], ['entradas', setEntradasRaw], ['saidas', setSaidasRaw],
      ['aparas', setAparasRaw], ['desperdicio', setDesperdicioRaw], ['ajustes', setAjustesRaw]]
       .forEach(([key, setRaw]) => { setRaw([]); cacheSet(r, key, []); });
-    if (r) supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).neq('tipo', 'auditoria')
+    if (nuvemDe(r)) supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).neq('tipo', 'auditoria')
       .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: {} }); });
     logAudit('apagou todos os registros', 'compras, entradas, saídas, aparas, perdas e contagens');
   }, [logAudit]);
@@ -587,7 +618,7 @@ export function AppProvider({ children }) {
     const reg = (key, setRaw, tipo, arr) => {
       if (!arr) return;
       setRaw(arr); cacheSet(r, key, arr);
-      if (r && arr.length) {
+      if (nuvemDe(r) && arr.length) {
         const rows = arr.map(x => ({ id: x.id, restaurante_id: r, tipo, ts: x.ts || Date.now(), dados: semIdTs(x), deleted: false }));
         supabase.from('registros').upsert(rows).then(({ error }) => {
           // Falha ao subir (offline/erro): enfileira para reenviar ao reconectar,

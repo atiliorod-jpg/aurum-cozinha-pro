@@ -312,7 +312,15 @@ describe('etiquetas — montagem dos campos', () => {
     expect(campos.validade).toBe('2026-06-20');
     expect(campos.validadeFmt).toBe('20/06/2026');
     expect(campos.dataFabricacaoFmt).toBe('10/06/2026');
-    expect(campos.rotuloData).toBe('Fab.');
+    expect(campos.rotuloData).toBe('MANIPULAÇÃO');
+  });
+
+  it('hora da impressão entra junto das datas de manipulação e validade', () => {
+    const campos = montarCamposEtiqueta({
+      nome: 'Patinho moído', dataFabricacao: '2026-06-10', diasValidade: 2, hora: '12:59',
+    });
+    expect(campos.dataFabricacaoFmt).toBe('10/06/2026 - 12:59');
+    expect(campos.validadeFmt).toBe('12/06/2026 - 12:59');
   });
 
   it('validade pronta (de registro real) tem prioridade sobre o cálculo', () => {
@@ -329,7 +337,7 @@ describe('etiquetas — montagem dos campos', () => {
       nome: 'Leite aberto', tipoData: 'abertura',
       dataFabricacao: '2026-06-10', diasValidade: 5,
     });
-    expect(aberta.rotuloData).toBe('Abertura');
+    expect(aberta.rotuloData).toBe('ABERTURA');
     expect(aberta.validade).toBe('2026-06-15');
 
     const semPrazo = montarCamposEtiqueta({ nome: 'Tempero da casa', dataFabricacao: '2026-06-10', diasValidade: 0 });
@@ -337,10 +345,18 @@ describe('etiquetas — montagem dos campos', () => {
     expect(semPrazo.validadeFmt).toBe('');
   });
 
-  it('payload do QR é pipe-delimitado com restaurante, nome e datas', () => {
+  it('payload do QR é uma ficha legível linha a linha (Chave: valor)', () => {
     const campos = montarCamposEtiqueta({
-      nome: 'Molho misto', dataFabricacao: '2026-06-10', diasValidade: 4, restauranteNome: 'Polo',
+      nome: 'Molho misto', dataFabricacao: '2026-06-10', diasValidade: 4, restauranteNome: 'Polo', responsavel: 'Ceará',
     });
-    expect(montarPayloadQR(campos)).toBe('Polo|Molho misto|2026-06-10|2026-06-14');
+    const qr = montarPayloadQR(campos, { idEtiqueta: '#T1A2B0', estabelecimento: { cnpj: '12.345.678/0001-00' } });
+    expect(qr).toContain('Restaurante: Polo');
+    expect(qr).toContain('Produto: Molho misto');
+    expect(qr).toContain('Manipulacao: 10/06/2026');
+    expect(qr).toContain('Validade: 14/06/2026');
+    expect(qr).toContain('Resp: Ceará');
+    expect(qr).toContain('CNPJ: 12.345.678/0001-00');
+    expect(qr).toContain('Etiqueta: #T1A2B0');
+    expect(qr.split('\n').length).toBe(7); // só as linhas com valor entram
   });
 });

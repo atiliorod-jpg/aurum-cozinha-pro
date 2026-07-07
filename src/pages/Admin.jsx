@@ -17,10 +17,17 @@ export default function Admin() {
     if (!sessao?.eSuperAdmin) return;
     async function carregar() {
       setCarregando(true);
-      const { data: rests, error: errR } = await supabase
+      // assinatura_ate pode não existir ainda (migração 7) — cai no select básico
+      let { data: rests, error: errR } = await supabase
         .from('restaurantes')
-        .select('id, nome, created_at')
+        .select('id, nome, created_at, assinatura_ate')
         .order('created_at', { ascending: false });
+      if (errR) {
+        ({ data: rests, error: errR } = await supabase
+          .from('restaurantes')
+          .select('id, nome, created_at')
+          .order('created_at', { ascending: false }));
+      }
 
       if (errR || !rests) {
         setErro(errR?.message || 'Sem acesso');
@@ -53,6 +60,7 @@ export default function Admin() {
           usuarios: (perfis || []).filter(p => p.restaurante_id === r.id),
           suporteAtivo,
           suporteAte: suporteAtivo ? conf.suporteAtivo : null,
+          podeMexer: suporteAtivo && conf.suportePermissao === 'mexer',
         };
       }));
       setCarregando(false);
@@ -174,13 +182,30 @@ CREATE POLICY "super_admin_documentos" ON documentos
                     )}
                   </div>
 
+                  {/* Assinatura (plano único R$149 — ativação manual pós-pagamento) */}
+                  <div className="px-4 pb-2 flex items-center justify-between gap-2">
+                    <p className="text-[11px] text-gray-500">
+                      {r.assinatura_ate && new Date(r.assinatura_ate) > new Date()
+                        ? <>💳 Assinatura ativa até <strong>{new Date(r.assinatura_ate).toLocaleDateString('pt-BR')}</strong></>
+                        : <>Sem assinatura ativa (teste de 7 dias após o cadastro)</>}
+                    </p>
+                    <button onClick={async () => {
+                        const { data, error } = await supabase.rpc('ativar_assinatura', { p_restaurante: r.id, p_dias: 30 });
+                        if (error) { alert('Erro: ' + error.message); return; }
+                        setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, assinatura_ate: data } : x));
+                      }}
+                      className="text-[11px] font-bold text-polo-navy border border-polo-navy rounded-lg px-2.5 py-1.5 whitespace-nowrap flex-shrink-0">
+                      +30 dias
+                    </button>
+                  </div>
+
                   {/* Acesso de suporte */}
                   <div className="px-4 pb-3">
                     {r.suporteAtivo ? (
                       <button
-                        onClick={() => { verComoRestaurante(r.id, r.nome); navigate('/'); }}
-                        className="w-full font-bold text-xs py-2.5 rounded-lg bg-polo-navy text-polo-gold">
-                        👁️ Ver como este restaurante (somente leitura)
+                        onClick={() => { verComoRestaurante(r.id, r.nome, r.podeMexer); navigate('/'); }}
+                        className={`w-full font-bold text-xs py-2.5 rounded-lg ${r.podeMexer ? 'bg-red-600 text-white' : 'bg-polo-navy text-polo-gold'}`}>
+                        {r.podeMexer ? '✏️ Entrar como este restaurante (pode EDITAR)' : '👁️ Ver como este restaurante (somente leitura)'}
                       </button>
                     ) : (
                       <p className="text-[10px] text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">

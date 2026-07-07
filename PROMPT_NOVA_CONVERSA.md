@@ -32,6 +32,16 @@ App PWA para controle de estoque de cozinha industrial (Polo Beer / Aurum Servi�
 - `suporteAtivo`: timestamp Unix (Date.now() + 24h) quando o cliente autoriza suporte
 - `suportePermissao`: `'ver'` | `'mexer'` — o que o cliente permitiu ao super-admin fazer
 
+### Rodada 07/07/2026 (tarde) — etiqueta Suflex, demo, plano único, suporte-edição
+- **Etiqueta estilo Suflex**: MANIPULAÇÃO/ABERTURA + hora da impressão, VALIDADE com hora, VAL. ORIGINAL (opcional), MARCA/FORN + SIF (cadastro do produto), medida por item, rodapé com estabelecimento (prefs.estabelecimento: CNPJ/CEP/endereço/cidade em Config→Sistema→Etiquetas), #ID de rastreio por etiqueta, QR legível linha a linha (Chave: valor)
+- **Guia de impressoras**: aba 🖨️ Impressora na página Etiquetas (4 cenários com passo a passo + links; botão salvar em PDF via print)
+- **Modo DEMO 100% local**: botão "🎬 Ver demonstração" no Login → rid='demo', dados de `src/data/demo.js`, ZERO chamadas Supabase (verificado), reset ao sair; banner dourado fixo
+- **Plano único R$149 + teste 7 dias**: sem plano grátis; trial = created_at+7d; faixa de contagem; bloqueio visual ao vencer (só /pagamento acessível); ativação manual no /admin (botão +30 dias → RPC ativar_assinatura)
+- **Suporte com edição real**: cliente escolhe 👁️ ver ou ✏️ editar (24h); policies v7 liberam escrita do super-admin SÓ com autorização 'mexer' vigente; banner vermelho ao editar; suporte nunca altera a linha prefs do cliente
+- **migration7_suporte_assinatura.sql RODADO em produção 07/07**; **contas de teste APAGADAS** (só atiliopinpolho@gmail.com resta; banco zerado)
+- **Excel do relatório**: 8 abas com Leia-me + autofiltros; planilha modelo de produtos ganhou colunas Marca/SIF
+- Removidos: jspdf, jspdf-autotable (nunca usados), deploy.ps1 (obsoleto)
+
 ### Módulo de Etiquetas (07/07/2026 — Fase 1, impressão via navegador)
 - **Motor:** `components/EtiquetaPrint.jsx` montado na raiz do App; aberto via `abrirEtiquetas(itens)` do `useUI()` (estado central no UIContext, padrão do confirm)
 - **Página `/etiquetas`** (card no hub Registrar): aba "📦 Do estoque" (imprime qualquer produto a qualquer momento) + aba "📝 Avulsas" (catálogo `etiquetasAvulsas` no AppContext — itens fora do estoque, ex. "Leite aberto", com data de fabricação OU abertura + dias de validade)

@@ -34,10 +34,12 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
     ? Math.ceil((prefs.suporteAtivo - agora) / 3600000)
     : 0;
 
-  const autorizar = () => {
+  const autorizar = (permissao) => {
     setPref('suporteAtivo', Date.now() + 24 * 3600 * 1000);
-    setPref('suportePermissao', 'ver'); // o suporte é sempre somente leitura
-    toast('Suporte autorizado a visualizar seus dados por 24h.', 'sucesso');
+    setPref('suportePermissao', permissao); // 'ver' | 'mexer'
+    toast(permissao === 'mexer'
+      ? 'Suporte autorizado a VER E EDITAR seus dados por 24h.'
+      : 'Suporte autorizado a visualizar seus dados por 24h.', 'sucesso');
   };
 
   const revogar = () => {
@@ -52,7 +54,8 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
       {suporteAtivo ? (
         <>
           <p className="text-xs text-green-700 mt-0.5">
-            ✅ Suporte autorizado — expira em ~{restante}h. <strong>Somente visualização</strong> dos seus dados.
+            ✅ Suporte autorizado — expira em ~{restante}h.{' '}
+            <strong>{prefs.suportePermissao === 'mexer' ? 'Pode ver e EDITAR' : 'Somente visualização'}</strong> dos seus dados.
           </p>
           <button onClick={revogar}
             className="mt-3 w-full bg-red-100 text-red-700 font-bold px-3 py-2.5 rounded-lg text-xs">Revogar acesso</button>
@@ -60,12 +63,19 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
       ) : (
         <>
           <p className="text-xs text-gray-500 mt-0.5">
-            Libera o suporte (Aurum) a <strong>visualizar</strong> sua conta por 24h para ajudar com problemas. O suporte nunca altera seus dados.
+            Libera o suporte (Aurum) a acessar sua conta por 24h para ajudar com problemas.
+            Você escolhe se ele pode só olhar ou também corrigir dados por você.
           </p>
-          <button onClick={autorizar}
-            className="mt-3 w-full bg-polo-navy text-polo-gold font-bold px-3 py-2.5 rounded-lg text-xs">
-            👁️ Autorizar visualização (24h)
-          </button>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button onClick={() => autorizar('ver')}
+              className="bg-polo-navy text-polo-gold font-bold px-3 py-2.5 rounded-lg text-xs">
+              👁️ Só visualizar (24h)
+            </button>
+            <button onClick={() => autorizar('mexer')}
+              className="border-2 border-polo-navy text-polo-navy font-bold px-3 py-2.5 rounded-lg text-xs">
+              ✏️ Ver e editar (24h)
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -93,11 +103,25 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
 
   const CAMPOS = [
     ['restaurante', 'Nome do estabelecimento'],
-    ['fabricacao', 'Data de fabricação/abertura'],
+    ['estabelecimento', 'CNPJ / endereço (rodapé)'],
+    ['fabricacao', 'Data de manipulação/abertura'],
     ['validade', 'Vencimento'],
-    ['armazenamento', 'Armazenamento (❄️/🧊)'],
+    ['valOriginal', 'Validade original (fornecedor)'],
+    ['armazenamento', 'Armazenamento'],
+    ['marca', 'Marca / fornecedor'],
+    ['sif', 'SIF'],
     ['responsavel', 'Responsável'],
+    ['id', 'Código da etiqueta (#T...)'],
   ];
+
+  // Dados do estabelecimento (rodapé da etiqueta) — prefs.estabelecimento
+  const est = prefs.estabelecimento || {};
+  const [estLocal, setEstLocal] = useState(est);
+  const salvarEst = () => {
+    const limpo = Object.fromEntries(Object.entries(estLocal).map(([k, v]) => [k, (v || '').trim()]));
+    setPref('estabelecimento', limpo);
+    toast('Dados do estabelecimento salvos.', 'sucesso');
+  };
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
@@ -134,7 +158,7 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
       </div>
       <div className="border-t border-gray-100 pt-3">
         <p className="text-xs font-semibold text-gray-600 mb-2">Campos que aparecem na etiqueta</p>
-        <div className="space-y-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           {CAMPOS.map(([k, label]) => (
             <label key={k} className="flex items-center gap-2 text-xs text-gray-700">
               <input type="checkbox" checked={cfg.campos[k] !== false} onChange={() => toggleCampo(k)}
@@ -144,6 +168,37 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
           ))}
         </div>
         <p className="text-[11px] text-gray-400 mt-2">O nome do produto sempre aparece.</p>
+      </div>
+      <div className="border-t border-gray-100 pt-3 space-y-2">
+        <p className="text-xs font-semibold text-gray-600">Dados do estabelecimento (rodapé da etiqueta)</p>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label htmlFor="est-cnpj" className="block text-[10px] text-gray-500 mb-0.5">CNPJ</label>
+            <input id="est-cnpj" type="text" value={estLocal.cnpj || ''} placeholder="00.000.000/0001-00"
+              onChange={e => setEstLocal(p => ({ ...p, cnpj: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
+          </div>
+          <div>
+            <label htmlFor="est-cep" className="block text-[10px] text-gray-500 mb-0.5">CEP</label>
+            <input id="est-cep" type="text" value={estLocal.cep || ''} placeholder="00000-000"
+              onChange={e => setEstLocal(p => ({ ...p, cep: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="est-end" className="block text-[10px] text-gray-500 mb-0.5">Endereço</label>
+          <input id="est-end" type="text" value={estLocal.endereco || ''} placeholder="Rua, número"
+            onChange={e => setEstLocal(p => ({ ...p, endereco: e.target.value }))}
+            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
+        </div>
+        <div>
+          <label htmlFor="est-cid" className="block text-[10px] text-gray-500 mb-0.5">Cidade - UF</label>
+          <input id="est-cid" type="text" value={estLocal.cidade || ''} placeholder="Recife - PE"
+            onChange={e => setEstLocal(p => ({ ...p, cidade: e.target.value }))}
+            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
+        </div>
+        <button onClick={salvarEst}
+          className="w-full bg-polo-navy text-polo-gold font-bold py-2.5 rounded-lg text-xs">Salvar dados do estabelecimento</button>
       </div>
     </div>
   );
@@ -436,7 +491,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
       }
     : {
         nome: '', categoria: categorias[0], unidade: 'kg',
-        estoqueInicial: '', min: '', max: '', valCongelado: '', valResfriado: '', pesoUnidade: '',
+        estoqueInicial: '', min: '', max: '', valCongelado: '', valResfriado: '', pesoUnidade: '', marca: '', sif: '',
         gramatura: '', coccao: '', entradaCozida: false, ativo: true,
       });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
@@ -543,6 +598,27 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
           </div>
         </div>
         <p className="text-xs text-gray-500 -mt-2">Ao registrar uma entrada, o vencimento é calculado sozinho com esses prazos. 0 = sem controle de validade.</p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="mp-marca" className="block text-xs font-semibold text-gray-600 mb-1">
+              🏭 Marca / fornecedor
+            </label>
+            <input id="mp-marca" type="text" value={form.marca || ''}
+              onChange={e => set('marca', e.target.value)}
+              placeholder="Ex: Swift (sai na etiqueta)"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label htmlFor="mp-sif" className="block text-xs font-semibold text-gray-600 mb-1">
+              🎖️ SIF
+            </label>
+            <input id="mp-sif" type="text" value={form.sif || ''}
+              onChange={e => set('sif', e.target.value)}
+              placeholder="Nº de inspeção (opcional)"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
 
         {form.unidade === 'unid' && (
           <div>
@@ -937,12 +1013,14 @@ export default function Configuracoes() {
       'Validade congelado (dias)', 'Validade resfriado (dias)',
       'Peso por unidade (g)',
       'Gramatura (g/porção)', 'Cocção (%)', 'Entrada cozida (sim/não)',
+      'Marca/Fornecedor (etiqueta)', 'SIF (etiqueta)',
     ];
     const GRUPOS = [
       ['BÁSICO  * OBRIGATÓRIO', 0, 2],
       ['ESTOQUE', 3, 5],
       ['VALIDADES', 6, 7],
       ['PESO / FICHA TÉCNICA', 8, 11],
+      ['ETIQUETA', 12, 13],
     ];
 
     const gruposRow = Array(COLS.length).fill('');
@@ -955,6 +1033,7 @@ export default function Configuracoes() {
       p.estoqueInicial || 0, p.min || 0, p.max || 0,
       p.valCongelado || 0, p.valResfriado || 0, p.pesoUnidade || 0,
       p.gramatura || 0, p.coccao || 0, p.entradaCozida ? 'sim' : 'não',
+      p.marca || '', p.sif || '',
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet([titulo, gruposRow, COLS, ...linhas]);
@@ -962,7 +1041,7 @@ export default function Configuracoes() {
       { s: { r: 0, c: 0 }, e: { r: 0, c: COLS.length - 1 } },
       ...GRUPOS.map(([, from, to]) => ({ s: { r: 1, c: from }, e: { r: 1, c: to } })),
     ];
-    ws['!cols'] = [{ wch: 30 }, { wch: 18 }, { wch: 24 }, ...Array(11).fill({ wch: 22 })];
+    ws['!cols'] = [{ wch: 30 }, { wch: 18 }, { wch: 24 }, ...Array(COLS.length - 3).fill({ wch: 22 })];
 
     // Aba Instruções
     const instrucoes = [
@@ -979,6 +1058,8 @@ export default function Configuracoes() {
       ['Gramatura (g/porção)', 'Não', 'Número', 'Grama por porção usada nas fichas técnicas.'],
       ['Cocção (%)', 'Não', 'Número 0 a 90', 'Perda percentual no cozimento. 0 = sem perda.'],
       ['Entrada cozida (sim/não)', 'Não', 'sim / não', 'Marque "sim" se o produto entra já pronto/cozido.'],
+      ['Marca/Fornecedor (etiqueta)', 'Não', 'Texto', 'Sai no campo MARCA/FORN da etiqueta impressa (ex: Swift).'],
+      ['SIF (etiqueta)', 'Não', 'Texto', 'Nº de inspeção federal — sai no campo SIF da etiqueta.'],
     ];
     const wsInst = XLSX.utils.aoa_to_sheet(instrucoes);
     wsInst['!cols'] = [{ wch: 26 }, { wch: 14 }, { wch: 22 }, { wch: 65 }];
@@ -1023,6 +1104,8 @@ export default function Configuracoes() {
         const iGram = col(h => h.includes('gramatura'));
         const iCoc = col(h => h.includes('cocç') || h.includes('coccao') || h.includes('cocc'));
         const iCozido = col(h => h.includes('cozido') || h.includes('cozida'));
+        const iMarca = col(h => h.includes('marca'));
+        const iSif = col(h => h.includes('sif'));
         if (iNome < 0) { toast('A planilha precisa de uma coluna "Nome".', 'erro'); return; }
 
         const unidsValidas = ['kg', 'unid', 'g', 'L'];
@@ -1046,6 +1129,8 @@ export default function Configuracoes() {
             gramatura: iGram >= 0 ? numBR(r[iGram]) : 0,
             coccao: iCoc >= 0 ? Math.min(numBR(r[iCoc]), 90) : 0,
             entradaCozida: cozido, ativo: true,
+            marca: iMarca >= 0 ? String(r[iMarca] ?? '').trim() : '',
+            sif: iSif >= 0 ? String(r[iSif] ?? '').trim() : '',
           });
         });
         if (!novos.length) { toast('Nenhum produto válido na planilha.', 'erro'); return; }

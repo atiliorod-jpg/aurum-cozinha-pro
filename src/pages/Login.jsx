@@ -5,7 +5,7 @@ const campo = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm";
 const botao = "w-full bg-polo-navy text-polo-gold font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50";
 
 export default function Login() {
-  const { login, esqueceuSenha, criarPrimeiroAdmin, usarConvite } = useAuth();
+  const { login, esqueceuSenha, criarPrimeiroAdmin, usarConvite, entrarDemo } = useAuth();
   const [modo, setModo] = useState('entrar'); // entrar | convite | novo | esqueci
   const [mostraPrivacidade, setMostraPrivacidade] = useState(false);
   const [carregando, setCarregando] = useState(false);
@@ -89,6 +89,13 @@ export default function Login() {
               <button onClick={() => trocar('convite')} className="text-xs font-semibold text-polo-navy">Tenho um código de convite →</button>
               <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante →</button>
             </div>
+            <button onClick={entrarDemo}
+              className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-[0.98] transition-transform">
+              🎬 Ver demonstração — sem cadastro
+            </button>
+            <p className="text-[10px] text-gray-400 text-center -mt-1">
+              Restaurante de exemplo já preenchido. Mexa à vontade: nada é salvo e tudo reseta ao sair.
+            </p>
           </>}
 
           {/* ESQUECI SENHA */}

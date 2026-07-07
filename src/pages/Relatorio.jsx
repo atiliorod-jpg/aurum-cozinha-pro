@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
 import { filtrarPorPeriodo, totalPorProduto, statusEstoque } from '../utils/calculos';
@@ -28,6 +29,7 @@ export default function Relatorio() {
   const destinoDaApara = (a) => a.destinoOutro || rotuloDestino(a.destino);
   const motivoDaPerda = (d) => d.motivoOutro || rotuloMotivo(d.motivo);
   const { toast } = useUI();
+  const { sessao } = useAuth();
   const semana = semanaAtual();
   const [modo, setModo] = useState('diario'); // 'diario' | 'periodo'
   const [dia, setDia] = useState(hoje());
@@ -79,26 +81,54 @@ export default function Relatorio() {
     try {
       const XLSX = await import('xlsx'); // carregado só na hora do export
       const wb = XLSX.utils.book_new();
-      const sheet = (nome, aoa, larguras) => {
+      // filtroAte: nº da linha do cabeçalho (1-based) para ligar o autofiltro
+      // (setinhas de filtrar/ordenar em cada coluna — deixa a planilha dinâmica)
+      const sheet = (nome, aoa, larguras, filtroLinha = null) => {
         const ws = XLSX.utils.aoa_to_sheet(aoa);
         if (larguras) ws['!cols'] = larguras.map(wch => ({ wch }));
+        if (filtroLinha && aoa.length > filtroLinha) {
+          const nCols = aoa[filtroLinha - 1].length;
+          ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: filtroLinha - 1, c: 0 }, e: { r: aoa.length - 1, c: nCols - 1 } }) };
+        }
         XLSX.utils.book_append_sheet(wb, ws, nome);
       };
+      const nomeRest = sessao?.restauranteNome || '';
+
+      // 0. Como ler este arquivo
+      sheet('Leia-me', [
+        ['AURUM COZINHA PRO — RELATÓRIO DE PRODUÇÃO E ESTOQUE'],
+        nomeRest ? ['Restaurante', nomeRest] : [],
+        ['Período', `${fmtData(rIni)} a ${fmtData(rFim)}`],
+        ['Gerado em', `${fmtData(hoje())}`],
+        [],
+        ['Aba', 'O que mostra'],
+        ['Resumo', 'Os números do período em uma tela: compras, entradas, saídas, aparas e perdas.'],
+        ['Movimentação', 'Produto por produto: o que entrou, o que saiu (por destino) e o estoque atual com a situação (OK / abaixo do mínimo / zerado). Use as setinhas do cabeçalho para filtrar e ordenar.'],
+        ['Produção', 'Tudo que a cozinha produziu no período (receitas executadas).'],
+        ['Saídas por Dia', 'Total enviado a cada dia — bom para ver o ritmo da semana.'],
+        ['Compras', 'Recebimentos de fornecedor + rendimento de cada fornecedor (quanto vira aproveitável).'],
+        ['Aparas', 'Reaproveitamentos registrados, com destino.'],
+        ['Perdas', 'Descartes com motivo e se abateram o estoque.'],
+        [],
+        ['Dica', 'Todas as abas de lista têm FILTRO no cabeçalho: clique na setinha da coluna para filtrar ou ordenar.'],
+      ], [16, 95]);
 
       // 1. Resumo executivo
       sheet('Resumo', [
-        ['RELATÓRIO POLO ESTOQUE — PRODUÇÃO'],
-        ['Período', `${fmtData(rIni)} a ${fmtData(rFim)}`],
+        [`RESUMO DO PERÍODO — ${fmtData(rIni)} a ${fmtData(rFim)}${nomeRest ? ` — ${nomeRest}` : ''}`],
         [],
         ['Indicador', 'Valor'],
         ['Compras recebidas (registros)', comprasF.length],
         ['Compras recebidas (kg)', totalComprasKg],
         ['Entradas na produção (registros)', entradasF.length],
+        ['Produções executadas', entradasF.filter(e => e.producaoId).length],
         ['Saídas (registros)', saidasF.length],
         ['Aparas para reaproveitamento (total)', totalAparas],
         ['Perdas totais', totalPerdas],
         ['Perdas que abateram estoque', perdasEstoque],
         ['Perdas no recebimento', totalPerdas - perdasEstoque],
+        ['Produtos abaixo do mínimo (hoje)', produtosAtivos.filter(p => p.min > 0 && (estoque[p.id] ?? 0) < p.min).length],
+        ['Produtos zerados (hoje)', produtosAtivos.filter(p => (estoque[p.id] ?? 0) <= 0 && ((totalEntradas[p.id] || 0) || (totalSaidas[p.id] || 0))).length],
       ], [38, 18]);
 
       // 2. Movimentação por produto + estoque atual (1 coluna de saída por destino)
@@ -120,41 +150,50 @@ export default function Relatorio() {
           }
         });
       });
-      sheet('Movimentação', mov, [16, 26, 6, 10, ...locaisAtivos.map(() => 12), 12, 13, 8, 8, 18]);
+      sheet('Movimentação', mov, [16, 26, 6, 10, ...locaisAtivos.map(() => 12), 12, 13, 8, 8, 18], 1);
 
-      // 3. Saídas por dia (totais — drill-down por destino fica na aba Movimentação)
+      // 3. Produção do período (receitas executadas)
+      const prod = [['Data', 'Hora', 'Produto Final', 'Qtd', 'Un.', 'Responsável', 'Obs']];
+      entradasF.filter(e => e.producaoId).forEach(e => (e.itens || []).forEach(item => {
+        const p = produtos.find(x => x.id === item.produtoId);
+        prod.push([fmtData(e.data), e.hora || '', p?.nome || item.produtoId, item.quantidade, p?.unidade || '', e.responsavel || '', e.obs || '']);
+      }));
+      if (prod.length === 1) prod.push(['— nenhuma produção no período —']);
+      sheet('Produção', prod, [12, 8, 26, 8, 6, 16, 34], 1);
+
+      // 4. Saídas por dia (totais — drill-down por destino fica na aba Movimentação)
       const dias = [['Data', 'Saídas (total)']];
       serieDias.forEach(d => dias.push([fmtData(d.data), d.total]));
-      sheet('Saídas por Dia', dias, [12, 14]);
+      sheet('Saídas por Dia', dias, [12, 14], 1);
 
-      // 4. Compras & rendimento por fornecedor
+      // 5. Compras & rendimento por fornecedor
       const cmp = [['Data', 'Fornecedor', 'Item', 'Qtd Bruta', 'Un.', 'Responsável']];
       comprasF.forEach(c => cmp.push([fmtData(c.data), c.fornecedor || '', c.item, c.quantidade, c.unidade, c.responsavel || '']));
       cmp.push([]);
       cmp.push(['RENDIMENTO POR FORNECEDOR']);
       cmp.push(['Fornecedor', 'Recebimentos', 'Total Comprado', 'Aparas+Perdas Assoc.', 'Rendimento %']);
       fornecedores.forEach(f => cmp.push([f.fornecedor, f.n, f.comprado, f.correcao, f.rendimento != null ? Number(f.rendimento.toFixed(1)) : '—']));
-      sheet('Compras', cmp, [12, 22, 24, 12, 6, 16]);
+      sheet('Compras', cmp, [12, 22, 24, 12, 6, 16], 1);
 
-      // 5. Aparas (com resumo por destino)
+      // 6. Aparas (com resumo por destino)
       const apr = [['Data', 'Turno', 'Item', 'Qtd', 'Un.', 'Destino', 'Responsável']];
       aparasF.forEach(a => apr.push([fmtData(a.data), a.turno, a.item, a.quantidade, a.unidade, destinoDaApara(a), a.responsavel || '']));
       apr.push([]);
       apr.push(['TOTAL POR DESTINO']);
       aparasPorDestino.forEach(d => apr.push([d.label, d.valor]));
-      sheet('Aparas', apr, [12, 10, 24, 8, 6, 22, 16]);
+      sheet('Aparas', apr, [12, 10, 24, 8, 6, 22, 16], 1);
 
-      // 6. Perdas (com resumo por motivo)
+      // 7. Perdas (com resumo por motivo)
       const per = [['Data', 'Turno', 'Item', 'Qtd', 'Un.', 'Motivo', 'Origem', 'Abateu Estoque?', 'Responsável']];
       perdasF.forEach(d => per.push([fmtData(d.data), d.turno, d.item, d.quantidade, d.unidade, motivoDaPerda(d),
         d.origem === 'estoque' ? 'Estoque' : 'Recebimento', d.origem === 'estoque' ? 'SIM' : 'NÃO', d.responsavel || '']));
       per.push([]);
       per.push(['TOTAL POR MOTIVO']);
       perdasPorMotivo.forEach(m => per.push([m.label, m.valor]));
-      sheet('Perdas', per, [12, 10, 24, 8, 6, 20, 14, 16, 16]);
+      sheet('Perdas', per, [12, 10, 24, 8, 6, 20, 14, 16, 16], 1);
 
-      XLSX.writeFile(wb, `relatorio_polo_${rIni}_a_${rFim}.xlsx`);
-      toast('Excel exportado com 6 abas de análise!', 'sucesso');
+      XLSX.writeFile(wb, `relatorio_aurum_${rIni}_a_${rFim}.xlsx`);
+      toast('Excel exportado com 8 abas (com filtros no cabeçalho)!', 'sucesso');
     } catch (e) {
       toast('Falha ao exportar: ' + e.message, 'erro');
     } finally {

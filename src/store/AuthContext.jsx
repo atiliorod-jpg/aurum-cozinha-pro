@@ -49,11 +49,19 @@ export function AuthProvider({ children }) {
     const email = authUser?.email || '';
 
     if (perfil) {
-      const { data: rest } = await supabase
+      let { data: rest, error: errRest } = await supabase
         .from('restaurantes')
-        .select('nome')
+        .select('nome, created_at, assinatura_ate')
         .eq('id', perfil.restaurante_id)
         .maybeSingle();
+      if (errRest) {
+        // banco ainda sem a coluna assinatura_ate (migração 7 não rodada) — segue sem ela
+        ({ data: rest } = await supabase
+          .from('restaurantes')
+          .select('nome, created_at')
+          .eq('id', perfil.restaurante_id)
+          .maybeSingle());
+      }
       setSessao({
         usuarioId:        userId,
         email,
@@ -61,6 +69,9 @@ export function AuthProvider({ children }) {
         cargo:            perfil.cargo,
         restauranteId:    perfil.restaurante_id,
         restauranteNome:  rest?.nome || '',
+        // Assinatura/teste (migration7): usados pelo aviso e bloqueio do plano
+        restauranteCriadoEm: rest?.created_at || null,
+        assinaturaAte:    rest?.assinatura_ate || null,
         eSuperAdmin:      email === 'atiliopinpolho@gmail.com',
         ts:               Date.now(),
       });
@@ -79,10 +90,10 @@ export function AuthProvider({ children }) {
   }, [registrarSessaoAtiva]);
 
   // Sessão única: escuta o token desta conta. Se mudar (outro aparelho logou),
-  // este aparelho cai e mostra a mensagem.
+  // este aparelho cai e mostra a mensagem. (Demo não toca o Supabase.)
   useEffect(() => {
     const uid = sessao?.usuarioId;
-    if (!uid) return;
+    if (!uid || sessao?.demo) return;
     const canal = supabase.channel(`sessao-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sessoes', filter: `user_id=eq.${uid}` },
         (p) => {
@@ -94,7 +105,7 @@ export function AuthProvider({ children }) {
         })
       .subscribe();
     return () => supabase.removeChannel(canal);
-  }, [sessao?.usuarioId]);
+  }, [sessao?.usuarioId, sessao?.demo]);
 
   // Escuta mudanças de sessão do Supabase Auth.
   // IMPORTANTE: não chamar o banco DENTRO do callback do onAuthStateChange
@@ -131,20 +142,41 @@ export function AuthProvider({ children }) {
     return error?.message || null; // null = sucesso
   }, []);
 
+  // ── Modo demonstração (100% local — nada toca o banco real) ──
+  // Sessão fake com cargo diretoria para o visitante ver todas as telas;
+  // o AppContext detecta rid==='demo' e nunca fala com o Supabase.
+  const entrarDemo = useCallback(() => {
+    setSessao({
+      usuarioId: 'demo', email: '', nome: 'Visitante',
+      cargo: 'diretoria', restauranteId: 'demo', restauranteNome: 'Restaurante Exemplo',
+      demo: true, eSuperAdmin: false, ts: Date.now(),
+    });
+    setUsuarios([{ id: 'demo', nome: 'Visitante', cargo: 'diretoria' }]);
+    setCarregando(false);
+  }, []);
+
   // ── Logout ───────────────────────────────────────────────────
   const logout = useCallback(async () => {
-    await supabase.auth.signOut();
+    if (sessao?.demo) {
+      // reset do demo: apaga o rascunho local para o próximo visitante começar limpo
+      try {
+        Object.keys(localStorage).filter(k => k.startsWith('pe::demo::')).forEach(k => localStorage.removeItem(k));
+      } catch { /* storage indisponível — ignora */ }
+    } else {
+      await supabase.auth.signOut();
+    }
     setSessao(null);
     setUsuarios([]);
     setImpersonando(null);
     setDerrubado(false);
-  }, []);
+  }, [sessao]);
 
   // ── Modo suporte (super-admin vê outro restaurante) ──
-  // Sempre SOMENTE LEITURA — o super-admin nunca escreve na conta do cliente.
-  const verComoRestaurante = useCallback((restauranteId, restauranteNome) => {
+  // podeMexer=true só quando o CLIENTE autorizou "ver e editar" (24h) — a
+  // escrita real depende das policies do migration7 (suporte_pode_editar).
+  const verComoRestaurante = useCallback((restauranteId, restauranteNome, podeMexer = false) => {
     if (!sessao?.eSuperAdmin || !restauranteId) return;
-    setImpersonando({ restauranteId, restauranteNome: restauranteNome || '' });
+    setImpersonando({ restauranteId, restauranteNome: restauranteNome || '', podeMexer: !!podeMexer });
   }, [sessao]);
   const sairImpersonacao = useCallback(() => setImpersonando(null), []);
   const limparDerrubado = useCallback(() => setDerrubado(false), []);
@@ -193,7 +225,7 @@ export function AuthProvider({ children }) {
 
   // ── Gera token de convite para novo funcionário ───────────────
   const criarConvite = useCallback(async (cargo) => {
-    if (!sessao?.restauranteId) return null;
+    if (!sessao?.restauranteId || sessao?.demo) return null;
     // Limite de 3 contas por restaurante (a checagem definitiva é no banco —
     // RPC aceitar_convite — mas barramos cedo aqui para não gerar convite à toa).
     if (usuarios.length >= 3) return null;
@@ -209,7 +241,7 @@ export function AuthProvider({ children }) {
 
   // ── Lista os convites pendentes (não usados e não expirados) ──
   const carregarConvites = useCallback(async () => {
-    if (!sessao?.restauranteId) { setConvites([]); return; }
+    if (!sessao?.restauranteId || sessao?.demo) { setConvites([]); return; }
     const { data } = await supabase
       .from('convites')
       .select('token, cargo, expira_em, usado, created_at')
@@ -253,6 +285,7 @@ export function AuthProvider({ children }) {
 
   // ── Alterar cargo de um usuário do mesmo restaurante ─────────
   const alterarCargo = useCallback(async (usuarioId, novoCargo) => {
+    if (sessao?.demo) return 'Indisponível na demonstração.';
     if (!sessao?.restauranteId) return;
     // Usa a função segura no banco (valida quem chama e impede autopromoção).
     const { error } = await supabase.rpc('alterar_cargo', { p_usuario: usuarioId, p_cargo: novoCargo });
@@ -263,11 +296,12 @@ export function AuthProvider({ children }) {
 
   // ── Definir/trocar a própria senha ───────────────────────────
   const atualizarSenha = useCallback(async (novaSenha) => {
+    if (sessao?.demo) return 'Indisponível na demonstração.';
     const { error } = await supabase.auth.updateUser({ password: novaSenha });
     if (error) return error.message;
     setRecuperando(false);
     return null;
-  }, []);
+  }, [sessao?.demo]);
 
   const temPermissao = useCallback((cargoMinimo) => {
     if (sessao?.eSuperAdmin) return true; // super-admin acessa tudo (inclusive em modo suporte)
@@ -279,7 +313,7 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       sessao, carregando, usuarios, recuperando,
       convites, carregarConvites, revogarConvite,
-      login, logout, esqueceuSenha, atualizarSenha,
+      login, logout, entrarDemo, esqueceuSenha, atualizarSenha,
       criarPrimeiroAdmin, criarConvite, usarConvite, alterarCargo,
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
