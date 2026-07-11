@@ -34,17 +34,27 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 |---|---------|-----------|-----------------|
 | 1 | `src/lib/schema.sql` | Tabelas (restaurantes, perfis, convites, documentos, registros) | ✅ rodado (06/2026) |
 | 2 | `SUPABASE_SETUP.sql` | RLS por restaurante, super-admin, sessão única, alterar_cargo | ✅ rodado (15/06/2026) |
-| 3 | `src/lib/migration4_hardening.sql` | **Segurança crítica**: fecha escalada via convite, auditoria imutável, RPC criar_restaurante, anti-corrida no aceitar_convite | ⚠️ conferir |
-| 4 | `src/lib/migration5_convite_valido.sql` | RPC `convite_valido` (valida convite antes do signUp — evita conta órfã) | ⚠️ rodar |
-| 5 | `src/lib/migration6_indices.sql` | Índice composto de `registros` (performance com histórico grande) | ⚠️ rodar |
+| 3 | `src/lib/migration4_hardening.sql` | **Segurança crítica**: fecha escalada via convite, auditoria imutável, RPC criar_restaurante, anti-corrida no aceitar_convite | ✅ rodado (03/07/2026) |
+| 4 | `src/lib/migration5_convite_valido.sql` | RPC `convite_valido` (valida convite antes do signUp — evita conta órfã) | ✅ rodado (03/07/2026) |
+| 5 | `src/lib/migration6_indices.sql` | Índice composto de `registros` (performance com histórico grande) | ✅ rodado (03/07/2026) |
+| 6 | `src/lib/migration7_suporte_assinatura.sql` | Suporte com edição (policies condicionadas à autorização 24h do cliente) + coluna `assinatura_ate` + RPC `ativar_assinatura` | ✅ rodado (07/07/2026) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 
-**Como conferir se o migration4 foi rodado:**
+**Queries de checagem (SQL Editor) — banco novo ou na dúvida:**
 ```sql
-select polname from pg_policies where tablename = 'convites';
--- Esperado: conv_sel_v4, conv_ins_v4, conv_del_v4.
--- Se aparecer "conv_insert" (antiga), rode o migration4.
+-- migration4: policies consolidadas v4
+select policyname from pg_policies where tablename = 'convites';
+-- Esperado: conv_sel_v4, conv_ins_v4, conv_del_v4. Se aparecer "conv_insert" (antiga), rode o migration4.
+
+-- migration5/7: funções existem?
+select proname from pg_proc where proname in ('convite_valido', 'suporte_pode_editar', 'ativar_assinatura', 'criar_restaurante', 'aceitar_convite');
+
+-- migration6: índice existe?
+select indexname from pg_indexes where indexname = 'idx_registros_rest_deleted_tipo_ts';
+
+-- migration7: coluna de assinatura existe?
+select column_name from information_schema.columns where table_name = 'restaurantes' and column_name = 'assinatura_ate';
 ```
 
 **Atenção:** o `aceitar_convite` do migration4 usa `perfis.ativo` e `restaurantes.max_usuarios`. Se o schema não tiver essas colunas:
