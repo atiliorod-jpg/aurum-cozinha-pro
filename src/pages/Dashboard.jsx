@@ -7,7 +7,7 @@ import { statusEstoque, corStatus, pctBarra } from '../utils/calculos';
 import { calcSugestoesMinMax, produtosDivergentes } from '../utils/sugestoes';
 import { mediaDiariaSaidas, previsaoRuptura, listaDeCompras } from '../utils/analise';
 import { diasAte } from '../utils/datas';
-import { calcLotes } from '../utils/lotes';
+import { calcLotes, lotesVencendo } from '../utils/lotes';
 import { fmtNum, fmtData, hoje } from '../utils/formatters';
 import CalculadoraProducao from '../components/CalculadoraProducao';
 
@@ -29,17 +29,8 @@ export default function Dashboard() {
 
   // Lotes restantes por produto (FEFO) e os que vencem em até 5 dias
   const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio, produtos), [entradas, saidas, desperdicio, produtos]);
-  const vencendo = useMemo(() => {
-    const lista = [];
-    produtos.forEach(p => {
-      if (!p.ativo) return;
-      (lotes[p.id] || []).forEach(l => {
-        const dias = diasAte(l.validade);
-        if (dias <= 5) lista.push({ p, lote: l, dias });
-      });
-    });
-    return lista.sort((a, b) => a.dias - b.dias);
-  }, [produtos, lotes]);
+  // reconciliado com o estoque: produto zerado (ex.: contagem física) não gera alerta fantasma
+  const vencendo = useMemo(() => lotesVencendo(lotes, produtos, estoque, diasAte), [produtos, lotes, estoque]);
 
   // Previsão de ruptura (ritmo dos últimos 14 dias) e lista de compras
   const medias = useMemo(() => mediaDiariaSaidas(saidas), [saidas]);

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calcEstoquePuro } from '../estoque';
-import { calcLotes } from '../lotes';
+import { calcLotes, lotesVencendo } from '../lotes';
 import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem } from '../analise';
@@ -349,14 +349,34 @@ describe('etiquetas — montagem dos campos', () => {
     const campos = montarCamposEtiqueta({
       nome: 'Molho misto', dataFabricacao: '2026-06-10', diasValidade: 4, restauranteNome: 'Polo', responsavel: 'Ceará',
     });
-    const qr = montarPayloadQR(campos, { idEtiqueta: '#T1A2B0', estabelecimento: { cnpj: '12.345.678/0001-00' } });
+    const qr = montarPayloadQR(campos, { estabelecimento: { cnpj: '12.345.678/0001-00' } });
     expect(qr).toContain('Restaurante: Polo');
     expect(qr).toContain('Produto: Molho misto');
     expect(qr).toContain('Manipulacao: 10/06/2026');
     expect(qr).toContain('Validade: 14/06/2026');
     expect(qr).toContain('Resp: Ceará');
     expect(qr).toContain('CNPJ: 12.345.678/0001-00');
-    expect(qr).toContain('Etiqueta: #T1A2B0');
-    expect(qr.split('\n').length).toBe(7); // só as linhas com valor entram
+    expect(qr.split('\n').length).toBe(6); // só as linhas com valor entram
+  });
+});
+
+describe('lotesVencendo — reconciliado com o estoque calculado', () => {
+  const diasFake = () => 2; // todo lote "vence em 2 dias" no teste
+
+  it('produto zerado por contagem física não gera alerta fantasma', () => {
+    const produtos = [P('charque', { valCongelado: 10 })];
+    const entradas = [{ ts: 1, data: '2026-06-01', armazenamento: 'congelado',
+      itens: [{ produtoId: 'charque', quantidade: 20, validade: '2026-06-12' }] }];
+    const lotes = calcLotes(entradas, [], [], produtos);
+    // sem contagem: lote aparece como vencendo
+    expect(lotesVencendo(lotes, produtos, { charque: 20 }, diasFake)).toHaveLength(1);
+    // contagem física zerou o produto → o alerta do lote some junto
+    expect(lotesVencendo(lotes, produtos, { charque: 0 }, diasFake)).toHaveLength(0);
+  });
+
+  it('produto inativo também não alerta', () => {
+    const produtos = [P('charque', { ativo: false })];
+    const lotes = { charque: [{ validade: '2026-06-12', restante: 5 }] };
+    expect(lotesVencendo(lotes, produtos, { charque: 5 }, diasFake)).toHaveLength(0);
   });
 });

@@ -142,7 +142,9 @@ export default function Compras() {
     return { fc, preparacoes, prodNome: prod?.nome || item };
   }, [form.item, produtos, fichas, compras, aparas, desperdicio]);
 
+  const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
   const handleSalvar = async () => {
+    if (salvando) return; // toque repetido — já registrando
     if (!form.item.trim() || !form.quantidade) {
       toast('Preencha o item e a quantidade.', 'aviso');
       return;
@@ -153,6 +155,8 @@ export default function Compras() {
       const ok = await confirm({ titulo: 'Registro antigo', mensagem: `Esta compra é de ${v.dias} dias atrás (${fmtData(form.data)}). Confirma a data?`, confirmar: 'Sim, registrar' });
       if (!ok) return;
     }
+    setSalvando(true);
+    setTimeout(() => setSalvando(false), 800);
     addCompra({ ...form, hora: fmtHora(), quantidade: parseFloat(form.quantidade) });
     if (form.responsavel) setPref('responsavel', form.responsavel);
     setForm(prev => ({ ...prev, item: '', quantidade: '', fornecedor: '' }));
@@ -521,7 +525,7 @@ export default function Compras() {
             <ResponsavelSelect value={form.responsavel} onChange={v => set('responsavel', v)} />
           </div>
 
-          <button onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade}
+          <button onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade || salvando}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
             ✓ Registrar Compra
           </button>

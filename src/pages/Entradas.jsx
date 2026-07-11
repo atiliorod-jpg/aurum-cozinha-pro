@@ -18,6 +18,7 @@ export default function Entradas() {
   const [catAtiva, setCatAtiva] = useState('');
   const [busca, setBusca] = useState('');
   const [tab, setTab] = useState('novo'); // 'novo' | 'historico'
+  const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
 
   const produtosAtivos = produtos.filter(p => p.ativo && !producoes.some(r => r.produtoFinalId === p.id));
   const buscando = busca.trim().length > 0;
@@ -35,6 +36,7 @@ export default function Entradas() {
   const itensPreenchidos = Object.entries(qtds).filter(([, v]) => parseFloat(v) > 0);
 
   const handleSalvar = async () => {
+    if (salvando) return; // toque repetido — já registrando
     if (!itensPreenchidos.length) {
       toast('Adicione pelo menos um produto com quantidade.', 'aviso');
       return;
@@ -52,6 +54,8 @@ export default function Entradas() {
       });
       if (!ok) return;
     }
+    setSalvando(true);
+    setTimeout(() => setSalvando(false), 800);
     addEntrada({
       data,
       hora: fmtHora(),
@@ -111,10 +115,10 @@ export default function Entradas() {
       </div>
       {tab === 'novo' ? (
         <div className="space-y-4">
-          <button onClick={handleSalvar} disabled={!itensPreenchidos.length}
+          <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
-            ✓ Registrar Entrada
+            {salvando ? 'Registrando…' : '✓ Registrar Entrada'}
           </button>
 
           {/* Cabeçalho */}

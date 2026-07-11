@@ -38,7 +38,9 @@ export default function AparasPerdas() {
 
   const comprasRecentes = [...compras].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 30);
 
+  const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque (apara e perda)
   const salvarApara = async () => {
+    if (salvando) return;
     if (!formApara.item.trim() || !formApara.quantidade) {
       toast('Preencha a descrição e a quantidade.', 'aviso');
       return;
@@ -63,6 +65,8 @@ export default function AparasPerdas() {
     if (unidApara === 'g') { qtdApara = qtdApara / 1000; unidApara = 'kg'; }
     // O fator de correção é calculado ao vivo (aparas + perdas ligadas ao produto/compra),
     // não precisa recalcular/gravar nada aqui — basta vincular a apara ao produto.
+    setSalvando(true);
+    setTimeout(() => setSalvando(false), 800);
     addApara({ ...formApara, origem: 'recebimento', hora: fmtHora(), quantidade: qtdApara, unidade: unidApara });
 
     if (formApara.responsavel) setPref('responsavel', formApara.responsavel);
@@ -72,6 +76,7 @@ export default function AparasPerdas() {
   };
 
   const salvarPerda = async () => {
+    if (salvando) return;
     if (!formPerda.item.trim() || !formPerda.quantidade) {
       toast('Preencha a descrição e a quantidade.', 'aviso');
       return;
@@ -97,6 +102,8 @@ export default function AparasPerdas() {
     let qtdPerda = parseFloat(formPerda.quantidade);
     let unidPerda = formPerda.unidade;
     if (unidPerda === 'g') { qtdPerda = qtdPerda / 1000; unidPerda = 'kg'; }
+    setSalvando(true);
+    setTimeout(() => setSalvando(false), 800);
     addDesperdicio({ ...formPerda, hora: fmtHora(), quantidade: qtdPerda, unidade: unidPerda });
     if (formPerda.responsavel) setPref('responsavel', formPerda.responsavel);
     setPref('turno', formPerda.turno);
@@ -160,7 +167,7 @@ export default function AparasPerdas() {
           {tipo === 'apara' ? (
             <>
               <button onClick={salvarApara}
-                disabled={!formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}
+                disabled={salvando || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}
                 className="w-full bg-amber-500 text-white font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
                 ✓ Registrar Apara
               </button>
@@ -260,7 +267,7 @@ export default function AparasPerdas() {
           ) : (
             <>
               <button onClick={salvarPerda}
-                disabled={!formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}
+                disabled={salvando || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}
                 className="w-full bg-red-600 text-white font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
                 ✓ Registrar Perda
               </button>

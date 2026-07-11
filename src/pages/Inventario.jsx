@@ -21,7 +21,9 @@ export default function Inventario() {
 
   const itensContados = Object.entries(contagem).filter(([, v]) => v !== '' && v != null && !isNaN(parseFloat(v)));
 
+  const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
   const handleSalvar = async () => {
+    if (salvando) return; // toque repetido — já registrando
     if (!itensContados.length) {
       toast('Conte ao menos um produto.', 'aviso');
       return;
@@ -36,6 +38,8 @@ export default function Inventario() {
       confirmar: 'Salvar contagem',
     });
     if (!ok) return;
+    setSalvando(true);
+    setTimeout(() => setSalvando(false), 800);
     if (responsavel) setPref('responsavel', responsavel);
     const inventarioId = `inv_${Date.now().toString(36)}`;
     itensContados.forEach(([produtoId, quantidade]) => {
@@ -124,7 +128,7 @@ export default function Inventario() {
             })}
           </div>
 
-          <button onClick={handleSalvar} disabled={!itensContados.length}
+          <button onClick={handleSalvar} disabled={!itensContados.length || salvando}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
             ✓ Salvar Contagem ({itensContados.length})

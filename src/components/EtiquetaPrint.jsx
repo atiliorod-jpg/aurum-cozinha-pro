@@ -3,10 +3,10 @@ import QRCode from 'qrcode';
 import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
-import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarIdEtiqueta, gerarLoteBase } from '../utils/etiquetas';
+import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta } from '../utils/etiquetas';
 import { hoje, fmtHora } from '../utils/formatters';
 
-// Uma linha "RÓTULO: valor" da etiqueta (estilo ficha, como a referência Suflex)
+// Uma linha "RÓTULO: valor" da etiqueta (formato ficha de pré-preparo)
 function Linha({ rotulo, valor, forte = false }) {
   if (!valor) return null;
   return (
@@ -18,7 +18,7 @@ function Linha({ rotulo, valor, forte = false }) {
 }
 
 // Um bloco de etiqueta física (repetido N vezes conforme a quantidade de cópias).
-function EtiquetaLabel({ campos, config, qrDataUrl, idEtiqueta, estabelecimento }) {
+function EtiquetaLabel({ campos, config, qrDataUrl, estabelecimento }) {
   const c = config.campos;
   const comQR = config.incluirQR && qrDataUrl;
   const est = estabelecimento || {};
@@ -55,7 +55,6 @@ function EtiquetaLabel({ campos, config, qrDataUrl, idEtiqueta, estabelecimento 
               {est.cidade && <div>{est.cidade}</div>}
             </>
           )}
-          {c.id !== false && idEtiqueta && <div style={{ fontWeight: 800 }}>{idEtiqueta}</div>}
         </div>
         {comQR && (
           <img src={qrDataUrl} alt=""
@@ -73,10 +72,9 @@ export default function EtiquetaPrint() {
   const config = configEtiqueta(prefs);
   const estabelecimento = prefs.estabelecimento || {};
 
-  // Cópia local editável dos itens + lote/hora congelados na abertura do modal
+  // Cópia local editável dos itens + hora congelada na abertura do modal
   const [itens, setItens] = useState([]);
   const [qrs, setQrs] = useState({}); // idx -> dataURL
-  const [lote, setLote] = useState('');
   const [horaImpressao, setHoraImpressao] = useState('');
 
   // Espelha o estado externo numa cópia local editável — setState síncrono intencional.
@@ -104,7 +102,6 @@ export default function EtiquetaPrint() {
         // modal, a validade pré-calculada (do registro real) deixa de valer
         return { ...resolvido, _dataOriginal: resolvido.dataFabricacao, _armazOriginal: resolvido.armazenamento };
       }));
-      setLote(gerarLoteBase());
       setHoraImpressao(fmtHora());
     } else {
       setItens([]); setQrs({});
@@ -163,7 +160,7 @@ export default function EtiquetaPrint() {
       for (let i = 0; i < itens.length; i++) {
         try {
           novos[i] = await QRCode.toDataURL(
-            montarPayloadQR(camposDe(itens[i]), { idEtiqueta: gerarIdEtiqueta(lote, i), estabelecimento }),
+            montarPayloadQR(camposDe(itens[i]), { estabelecimento }),
             { margin: 0, width: 180 });
         } catch { /* QR falhou — etiqueta sai sem ele */ }
       }
@@ -171,7 +168,7 @@ export default function EtiquetaPrint() {
     })();
     return () => { ativo = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens (já na lista)
-  }, [itens, config.incluirQR, lote]);
+  }, [itens, config.incluirQR]);
 
   if (!etiquetaState) return null;
 
@@ -180,6 +177,10 @@ export default function EtiquetaPrint() {
   const mudarQtd = (idx, delta) => setItens(prev => prev.map((it, i) =>
     i === idx ? { ...it, quantidade: Math.max(0, (parseInt(it.quantidade) || 0) + delta) } : it));
   const totalEtiquetas = itens.reduce((s, i) => s + (parseInt(i.quantidade) || 0), 0);
+  // QR ligado: segura o Imprimir até TODOS os QRs dos itens a imprimir ficarem
+  // prontos (toDataURL é assíncrono — sem isso a etiqueta podia sair sem QR)
+  const qrPendente = config.incluirQR &&
+    itens.some((it, i) => (parseInt(it.quantidade) || 0) > 0 && !qrs[i]);
   const inputCls = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs';
 
   return (
@@ -267,16 +268,16 @@ export default function EtiquetaPrint() {
           </div>
 
           <div className="text-[11px] text-gray-400">
-            Tamanho: {config.larguraMm}×{config.alturaMm}mm · lote {lote} · impressão {horaImpressao}
+            Tamanho: {config.larguraMm}×{config.alturaMm}mm · impressão {horaImpressao}
             — ajuste campos e tamanho em Config → Sistema → 🏷️ Etiquetas.
           </div>
 
           <div className="flex gap-3">
             <button onClick={fecharEtiquetas}
               className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Agora não</button>
-            <button onClick={() => window.print()} disabled={totalEtiquetas === 0}
+            <button onClick={() => window.print()} disabled={totalEtiquetas === 0 || qrPendente}
               className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
-              🖨️ Imprimir {totalEtiquetas > 0 ? `${totalEtiquetas} etiqueta(s)` : ''}
+              {qrPendente ? '⏳ Gerando QR…' : `🖨️ Imprimir ${totalEtiquetas > 0 ? `${totalEtiquetas} etiqueta(s)` : ''}`}
             </button>
           </div>
         </div>
@@ -290,8 +291,7 @@ export default function EtiquetaPrint() {
         {itens.flatMap((item, idx) =>
           Array.from({ length: Math.max(0, parseInt(item.quantidade) || 0) }, (_, c) => (
             <EtiquetaLabel key={`${idx}_${c}`} campos={camposDe(item)} config={config}
-              qrDataUrl={qrs[idx]} idEtiqueta={gerarIdEtiqueta(lote, idx * 100 + c)}
-              estabelecimento={estabelecimento} />
+              qrDataUrl={qrs[idx]} estabelecimento={estabelecimento} />
           ))
         )}
       </div>

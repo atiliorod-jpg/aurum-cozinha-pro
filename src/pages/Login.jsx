@@ -8,6 +8,8 @@ export default function Login() {
   const { login, esqueceuSenha, criarPrimeiroAdmin, usarConvite, entrarDemo } = useAuth();
   const [modo, setModo] = useState('entrar'); // entrar | convite | novo | esqueci
   const [mostraPrivacidade, setMostraPrivacidade] = useState(false);
+  const [mostraTermos, setMostraTermos] = useState(false);
+  const [aceitouTermos, setAceitouTermos] = useState(false);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
   const [info, setInfo] = useState('');
@@ -47,6 +49,7 @@ export default function Login() {
     if (!nomeRest.trim()) { setErro('Digite o nome do restaurante.'); return; }
     if (!/.+@.+\..+/.test(email)) { setErro('Digite um e-mail válido.'); return; }
     if (senha.length < 8) { setErro('A senha deve ter pelo menos 8 caracteres.'); return; }
+    if (!aceitouTermos) { setErro('Confirme que leu para que serve o sistema (caixinha acima do botão).'); return; }
     setCarregando(true);
     const err = await criarPrimeiroAdmin({ nome: nome.trim(), email: email.trim(), senha, nomeRestaurante: nomeRest.trim() });
     setCarregando(false);
@@ -72,7 +75,7 @@ export default function Login() {
           <img src={`${import.meta.env.BASE_URL}logo-aurum.png`} alt="Aurum Serviços Gastronômicos"
             className="w-32 h-32 mx-auto rounded-3xl ring-1 ring-polo-gold/30 shadow-2xl object-cover mb-5" />
           <h1 className="text-2xl font-bold text-polo-gold">Aurum Cozinha Pro</h1>
-          <p className="text-white/85 text-sm mt-1">Controle de produção na nuvem</p>
+          <p className="text-white/85 text-sm mt-1">Produção interna e estoque de cozinha profissional</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 space-y-3 shadow-2xl">
@@ -130,18 +133,64 @@ export default function Login() {
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
             <input type="email" aria-label="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
             <input type="password" aria-label="Senha (mínimo 8 caracteres)" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Crie uma senha (mín. 8)" className={campo} />
+            <label className="flex items-start gap-2 text-xs text-gray-600">
+              <input type="checkbox" checked={aceitouTermos} onChange={e => setAceitouTermos(e.target.checked)}
+                className="w-4 h-4 mt-0.5 accent-[#1B2A41] flex-shrink-0" />
+              <span>
+                Li e entendo que este sistema é para <strong>produção e estoque interno</strong> da cozinha
+                (porcionamentos e semiacabados), não para atendimento ao cliente final.{' '}
+                <button type="button" onClick={() => setMostraTermos(true)} className="underline underline-offset-2 text-polo-navy font-semibold">Ler os termos</button>
+              </span>
+            </label>
             <Msg erro={erro} info={info} />
             <button onClick={criarRestaurante} disabled={carregando} className={botao}>{carregando ? 'Criando…' : 'Criar e entrar'}</button>
             <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>
           </>}
         </div>
 
-        <button onClick={() => setMostraPrivacidade(true)} className="w-full text-center text-[11px] text-white/70 mt-4 underline underline-offset-2">
-          Privacidade e proteção de dados
-        </button>
+        <div className="flex items-center justify-center gap-4 mt-4">
+          <button onClick={() => setMostraTermos(true)} className="text-[11px] text-white/70 underline underline-offset-2">
+            Termos de uso e modo de uso
+          </button>
+          <button onClick={() => setMostraPrivacidade(true)} className="text-[11px] text-white/70 underline underline-offset-2">
+            Privacidade e proteção de dados
+          </button>
+        </div>
       </div>
 
       {mostraPrivacidade && <ModalPrivacidade onFechar={() => setMostraPrivacidade(false)} />}
+      {mostraTermos && <ModalTermos onFechar={() => setMostraTermos(false)} />}
+    </div>
+  );
+}
+
+// Termos de uso e modo de uso — deixa claro PARA QUEM é o sistema e o modelo
+// de trabalho (produção interna: porções e semiacabados, nunca prato montado).
+function ModalTermos({ onFechar }) {
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/50 overflow-y-auto p-4" onClick={onFechar}>
+      <div role="dialog" aria-modal="true" aria-labelledby="termos-titulo"
+        className="bg-white rounded-2xl p-5 max-w-sm m-auto mt-10 space-y-3 text-sm text-gray-700"
+        onClick={e => e.stopPropagation()}>
+        <h2 id="termos-titulo" className="font-bold text-polo-navy">📋 Termos de uso e modo de uso</h2>
+        <p><strong>Para quem é:</strong> cozinhas profissionais, centrais de produção e operações que
+        controlam estoque e porcionamento interno da casa — pensado para o tablet da cozinha.</p>
+        <p><strong>O que o sistema faz:</strong> recebimento (registro auxiliar), entradas de estoque,
+        produção por ficha (baixa os ingredientes e dá entrada na porção/semiacabado), saídas para
+        pontos internos (cozinha principal, polos), aparas e perdas, inventário, etiquetas de validade,
+        relatórios e múltiplos usuários com cargos (cozinha, gerência, diretoria).</p>
+        <p><strong>O que NÃO é:</strong> não é PDV, caixa, cardápio ou pedido do cliente final,
+        nem delivery de prato pronto, nem sistema financeiro/contábil.</p>
+        <p><strong>Modo de uso:</strong> cadastre os itens como <strong>porções e semiacabados</strong>.
+        Exemplo: a "parmegiana" do estoque é a <strong>porção empanada</strong>; o molho da casa é
+        <strong> outro item</strong>. A montagem final acontece na hora de servir — não se armazena
+        prato montado.</p>
+        <p><strong>Demonstração:</strong> usa dados fictícios que ficam só no seu navegador — nada vai
+        para a nuvem e tudo reseta ao sair.</p>
+        <p><strong>Contas reais:</strong> cada restaurante é isolado dos demais. Detalhes de dados
+        pessoais no link "Privacidade e proteção de dados".</p>
+        <button onClick={onFechar} className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl">Entendi</button>
+      </div>
     </div>
   );
 }
@@ -165,8 +214,8 @@ function ModalPrivacidade({ onFechar }) {
 }
 
 function Msg({ erro, info }) {
-  if (erro) return <p className="text-xs text-red-500 font-semibold">{erro}</p>;
-  if (info) return <p className="text-xs text-green-600 font-semibold">{info}</p>;
+  if (erro) return <p role="alert" className="text-xs text-red-500 font-semibold">{erro}</p>;
+  if (info) return <p role="status" className="text-xs text-green-600 font-semibold">{info}</p>;
   return null;
 }
 

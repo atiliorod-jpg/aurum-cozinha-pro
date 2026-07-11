@@ -53,7 +53,8 @@ export default function Producao() {
 
   const registrar = () => {
     const pid = `prc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const qtdFinal = quantidadeNum || (receita ? parseFloat(receita.rendimentoBase) : 0);
+    // quantidade é sempre a digitada — handleProduzir barra vazio/zero antes de chegar aqui
+    const qtdFinal = quantidadeNum;
     const receitaNome = receita?.nome || prodNome(produtoId);
     const obsTxt = `Produção: ${receitaNome}${obs ? ` — ${obs}` : ''}`;
     // calcula validade do produto final com base no armazenamento escolhido
@@ -97,8 +98,10 @@ export default function Producao() {
   const handleProduzir = async () => {
     if (salvando) return; // já registrando — ignora toques repetidos
     if (!produtoId) { toast('Escolha o produto produzido.', 'aviso'); return; }
-    const qtdFinal = quantidadeNum || (receita ? parseFloat(receita.rendimentoBase) : 0);
-    if (qtdFinal <= 0) { toast('Informe a quantidade produzida.', 'aviso'); return; }
+    // quantidade EXPLÍCITA obrigatória: sem fallback silencioso pro rendimento
+    // da ficha (gravava lote que o usuário não digitou — auditoria 11/07)
+    const qtdFinal = quantidadeNum;
+    if (qtdFinal <= 0) { toast('Digite a quantidade produzida (o rendimento da ficha é só sugestão).', 'aviso'); return; }
     if (produto?.unidade === 'unid' && !Number.isInteger(qtdFinal)) {
       toast('Quantidade deve ser número inteiro para produtos em unidades.', 'erro'); return;
     }
@@ -130,9 +133,10 @@ export default function Producao() {
       {semProdutos ? (
           <div className="bg-white rounded-xl p-6 text-center space-y-2">
             <p className="text-3xl">🍲</p>
-            <p className="font-semibold text-polo-navy">Nenhuma receita de produção ainda</p>
+            <p className="font-semibold text-polo-navy">Nenhuma ficha de porcionamento ainda</p>
             <p className="text-sm text-gray-500">
-              Aqui você registra a produção de itens feitos na cozinha.
+              Aqui você executa as fichas de porcionamento e semiacabados da casa
+              (ex.: empanado porcionado, molho base) — baixa os ingredientes e dá entrada no item produzido.
             </p>
             {temPermissao('gerencia')
               ? <Link to="/configuracoes" className="inline-block mt-2 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">Criar ficha de produção</Link>
@@ -160,8 +164,14 @@ export default function Producao() {
                     Quantidade ({prodUnid(produtoId)})
                   </label>
                   <input type="number" min="0" step={produto?.unidade === 'unid' ? '1' : '0.5'} value={quantidade} onChange={e => setQuantidade(e.target.value)}
-                    placeholder={receita ? fmtNum(receita.rendimentoBase) : '0'}
+                    placeholder={receita ? `ex: ${fmtNum(receita.rendimentoBase)}` : '0'}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  {receita && !quantidade && (
+                    <button type="button" onClick={() => setQuantidade(String(receita.rendimentoBase))}
+                      className="text-[10px] text-polo-navy font-semibold underline underline-offset-2 mt-0.5">
+                      Usar rendimento da ficha ({fmtNum(receita.rendimentoBase)})
+                    </button>
+                  )}
                 </div>
               </div>
               <div>
@@ -184,7 +194,7 @@ export default function Producao() {
               const atualFinal = estoque[produtoId] ?? 0;
               const minFinal = produto?.min ?? 0;
               const abaixo = minFinal > 0 && atualFinal < minFinal;
-              const qtdAposProduzir = quantidadeNum || (receita ? parseFloat(receita.rendimentoBase) : 0);
+              const qtdAposProduzir = quantidadeNum; // só o que foi digitado — sem fallback
               return (
                 <div className={`rounded-xl p-3 border ${abaixo ? 'bg-orange-50 border-orange-300' : 'bg-polo-beige border-polo-gold/30'}`}>
                   <div className="flex items-center justify-between">

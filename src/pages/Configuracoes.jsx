@@ -111,7 +111,6 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
     ['marca', 'Marca / fornecedor'],
     ['sif', 'SIF'],
     ['responsavel', 'Responsável'],
-    ['id', 'Código da etiqueta (#T...)'],
   ];
 
   // Dados do estabelecimento (rodapé da etiqueta) — prefs.estabelecimento
@@ -1404,6 +1403,19 @@ export default function Configuracoes() {
               Recalcula mín/máx de cada produto pela média de saídas dos últimos 15 dias.
               Desligado, apenas sugere e você aprova.
             </p>
+            <details className="mt-1.5">
+              <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">❓ Como funciona</summary>
+              <div className="text-[11px] text-gray-600 mt-1.5 space-y-1 leading-snug">
+                <p>• Olha as <strong>saídas dos últimos ~15 dias</strong> — tanto o envio para cozinha/polos
+                quanto o uso interno em produção (ingrediente consumido por ficha conta).</p>
+                <p>• Com isso calcula quanto a casa gasta por dia e define: mínimo = cobertura de
+                {' '}{prefs.diasMin || 3} dia(s) de operação; máximo = meta de reposição para {prefs.diasMax || 6} dia(s).</p>
+                <p>• <strong>Só começa a funcionar após ~15 dias com saídas registradas.</strong> Numa conta
+                nova, defina mín/máx manualmente no cadastro de cada produto até lá.</p>
+                <p>• Desligado: o Início mostra <em>sugestões</em> e você aprova. Ligado: atualiza sozinho
+                (com pausa de segurança entre recálculos) — revise se a operação estiver atípica.</p>
+              </div>
+            </details>
           </div>
           <button
             role="switch" aria-checked={!!prefs.autoMinMax}
@@ -1435,7 +1447,7 @@ export default function Configuracoes() {
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Máximo (meta de compra)</label>
+              <label className="block text-xs text-gray-500 mb-1">Máximo (meta de reposição)</label>
               <div className="flex items-center gap-1.5">
                 <input type="number" min="1" max="90"
                   value={diasMaxStr}
@@ -1451,7 +1463,8 @@ export default function Configuracoes() {
             </div>
           </div>
           <p className="text-[11px] text-gray-400 mt-2">
-            Ex: mín 3 dias → com esse estoque a cozinha trabalha por 3 dias sem repor. Máx 6 dias → meta de compra para 6 dias de produção.
+            Ex: mín 3 dias → alerta quando o estoque não cobre ~3 dias de saída no ritmo atual.
+            Máx 6 dias → repor/produzir até cobrir ~6 dias de operação.
           </p>
         </div>
         {!!prefs.autoMinMax && (
@@ -1461,8 +1474,18 @@ export default function Configuracoes() {
                 <p className="text-sm font-bold text-polo-navy">📅 Considerar o dia da semana</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Em vez da média lisa, dimensiona o mín/máx pelo consumo previsto dos próximos dias —
-                  sobe na véspera do fim de semana e cai no início da semana. Útil para casas com pico no sábado/domingo.
+                  sobe na véspera do fim de semana e cai no início da semana.
                 </p>
+                <details className="mt-1.5">
+                  <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">❓ Quando ligar</summary>
+                  <div className="text-[11px] text-gray-600 mt-1.5 space-y-1 leading-snug">
+                    <p>• <strong>Ligue</strong> se a casa tem pico real por dia da semana (ex.: sex–dom bem
+                    mais fortes) — o mínimo sobe antes do pico usando o histórico de cada dia.</p>
+                    <p>• <strong>Deixe desligado</strong> se a demanda é estável de seg a sex — evita o
+                    mínimo "dançar" todo dia.</p>
+                    <p>• Com poucas semanas de histórico a média por dia pode oscilar — é normal no começo.</p>
+                  </div>
+                </details>
               </div>
               <button
                 role="switch" aria-checked={!!prefs.minMaxPorDiaSemana}
@@ -1485,7 +1508,8 @@ export default function Configuracoes() {
           <div className="flex-1">
             <p className="text-sm font-bold text-polo-navy">📋 Guia de fluxo do turno</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Exibe um painel no topo de cada tela com os passos do turno (Entradas → Aparas → Produção → Saídas) e lembra o próximo passo a registrar.
+              Painel no topo de cada tela com os essenciais do turno (Produção/entrada → Saídas)
+              e lembretes opcionais de etiquetas e aparas — aparas só contam se houver.
             </p>
           </div>
           <button

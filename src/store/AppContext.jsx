@@ -615,10 +615,18 @@ export function AppProvider({ children }) {
     cat('prefs', setPrefsRaw, dados.prefs);
 
     const r = ridRef.current;
-    const reg = (key, setRaw, tipo, arr) => {
+    // RESTAURAÇÃO REAL: o backup SUBSTITUI o estado atual. Sem este soft-delete
+    // prévio, registros atuais que não estão no backup voltariam "zumbis" na
+    // próxima hidratação (o upsert sozinho não os remove). Auditoria fica de
+    // fora: é imutável no banco (insert-only) e registra a própria restauração.
+    if (nuvemDe(r)) {
+      supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).neq('tipo', 'auditoria')
+        .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: {} }); });
+    }
+    const reg = (key, setRaw, tipo, arr, sobeNuvem = true) => {
       if (!arr) return;
       setRaw(arr); cacheSet(r, key, arr);
-      if (nuvemDe(r) && arr.length) {
+      if (sobeNuvem && nuvemDe(r) && arr.length) {
         const rows = arr.map(x => ({ id: x.id, restaurante_id: r, tipo, ts: x.ts || Date.now(), dados: semIdTs(x), deleted: false }));
         supabase.from('registros').upsert(rows).then(({ error }) => {
           // Falha ao subir (offline/erro): enfileira para reenviar ao reconectar,
@@ -633,8 +641,11 @@ export function AppProvider({ children }) {
     reg('aparas', setAparasRaw, 'apara', dados.aparas);
     reg('desperdicio', setDesperdicioRaw, 'perda', dados.desperdicio);
     reg('ajustes', setAjustesRaw, 'ajuste', dados.ajustes);
-    reg('auditoria', setAuditoriaRaw, 'auditoria', dados.auditoria);
-  }, [persistCatalogo]);
+    // auditoria NÃO sobe: o RLS bloqueia UPDATE de auditoria (imutável) — o upsert
+    // de linhas já existentes falharia e entupiria o outbox em retries eternos.
+    reg('auditoria', setAuditoriaRaw, 'auditoria', dados.auditoria, false);
+    logAudit('restaurou backup', `${(dados.entradas || []).length + (dados.saidas || []).length + (dados.compras || []).length} registros`);
+  }, [persistCatalogo, logAudit]);
 
   return (
     <AppContext.Provider value={{

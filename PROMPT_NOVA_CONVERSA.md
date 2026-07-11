@@ -32,6 +32,19 @@ App PWA para controle de estoque de cozinha industrial (Polo Beer / Aurum Servi�
 - `suporteAtivo`: timestamp Unix (Date.now() + 24h) quando o cliente autoriza suporte
 - `suportePermissao`: `'ver'` | `'mexer'` — o que o cliente permitiu ao super-admin fazer
 
+### Rodada 11/07/2026 — auditoria "10-10" aplicada (Camada 1 + básicos da 2)
+- **DOMÍNIO ESCLARECIDO pelo dono:** o app é de PRODUÇÃO INTERNA/porcionamento (empanado = porção; molho = outro semiacabado; NUNCA prato montado armazenado). Demo reescrita nesse modelo (Empanado de Filé + molho separado; saídas = Cozinha principal/Polo Central; sem "delivery")
+- **Login:** modal "Termos de uso e modo de uso" (para quem é / o que não é / exemplo empanado), link ao lado da Privacidade, subtítulo "Produção interna e estoque de cozinha profissional", checkbox obrigatório no cadastro de restaurante (não trava demo), role="alert" nas mensagens
+- **GuideTour reescrito:** essenciais = [Produção/entrada, Saídas] (produção CONTA como entrada do dia); Etiquetas e Aparas são chips opcionais que não travam o 100%; copy de porcionamento; "Essenciais do turno ok"
+- **Produção:** quantidade EXPLÍCITA obrigatória (sem fallback silencioso pro rendimentoBase — era bug); botão "Usar rendimento da ficha" preenche como sugestão
+- **Lotes fantasma corrigido:** `lotesVencendo()` em utils/lotes.js reconcilia com o estoque calculado — produto zerado por contagem física não gera mais alerta de lote vencendo (Dashboard usa; 2 testes novos)
+- **Ajuda Mín/Máx:** `<details>` "Como funciona" (usa saídas ~15d, gate de 15 dias explicado, cobertura/reposição — sem "meta de compra") + "Quando ligar" no dia da semana
+- **Backup restaura de verdade:** importarBackup soft-deleta os registros atuais antes de subir os do backup (sem zumbis); auditoria não sobe (imutável no RLS — upsert entupia o outbox)
+- **Anti-duplo-toque em TODOS os lançamentos:** Entradas, Saídas, Compras, Inventário, Aparas/Perdas (padrão `salvando` da Produção)
+- **Etiquetas:** zero menção a concorrente no código; código #ID REMOVIDO de vez (decisão do dono — era só visual); QR agora trava o botão Imprimir até os QRs ficarem prontos ("⏳ Gerando QR…")
+- **Camada 2 pesada ADIADA por decisão do dono (próxima rodada):** produção atômica, versão/anti-LWW nos catálogos, janela de hidratação (PERIGOSO sem design — estoque precisa do histórico completo), refino do match FC/fornecedor
+- 39/39 testes, lint 0, build ok; verificado ao vivo (termos, demo nova, guia 2/2 sem apara, produção sem qtd não grava, zero chamadas Supabase na demo)
+
 ### Rodada 07/07/2026 (tarde) — etiqueta Suflex, demo, plano único, suporte-edição
 - **Etiqueta estilo Suflex**: MANIPULAÇÃO/ABERTURA + hora da impressão, VALIDADE com hora, VAL. ORIGINAL (opcional), MARCA/FORN + SIF (cadastro do produto), medida por item, rodapé com estabelecimento (prefs.estabelecimento: CNPJ/CEP/endereço/cidade em Config→Sistema→Etiquetas), #ID de rastreio por etiqueta, QR legível linha a linha (Chave: valor)
 - **Guia de impressoras**: aba 🖨️ Impressora na página Etiquetas (4 cenários com passo a passo + links; botão salvar em PDF via print)

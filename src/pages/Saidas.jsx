@@ -39,7 +39,10 @@ export default function Saidas() {
 
   const itensPreenchidos = Object.entries(qtds).filter(([, v]) => parseFloat(v) > 0);
 
+  const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
   const registrar = () => {
+    setSalvando(true);
+    setTimeout(() => setSalvando(false), 800);
     addSaida({
       data,
       hora: fmtHora(),
@@ -56,6 +59,7 @@ export default function Saidas() {
   };
 
   const handleSalvar = async () => {
+    if (salvando) return; // toque repetido — já registrando
     if (!itensPreenchidos.length) {
       toast('Adicione pelo menos um produto com quantidade.', 'aviso');
       return;
@@ -123,7 +127,7 @@ export default function Saidas() {
       </div>
       {tab === 'novo' ? (
         <div className="space-y-4">
-          <button onClick={handleSalvar} disabled={!itensPreenchidos.length}
+          <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
             ✓ Registrar Saída

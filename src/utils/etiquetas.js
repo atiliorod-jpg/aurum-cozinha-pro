@@ -1,4 +1,4 @@
-// Montagem dos campos de uma etiqueta de identificação/validade (estilo Suflex).
+// Montagem dos campos da etiqueta profissional de validade (padrão Aurum).
 // Serve todas as origens: entrada real, produção, reimpressão do histórico,
 // impressão sob demanda do catálogo e etiquetas avulsas (itens fora do estoque).
 
@@ -12,7 +12,7 @@ export const ETIQUETA_CONFIG_PADRAO = {
   incluirQR: false,
   campos: {
     restaurante: true, validade: true, fabricacao: true, armazenamento: true,
-    responsavel: true, valOriginal: true, marca: true, sif: true, estabelecimento: true, id: true,
+    responsavel: true, valOriginal: true, marca: true, sif: true, estabelecimento: true,
   },
 };
 
@@ -86,7 +86,7 @@ export function montarCamposEtiqueta({
  * Quem escanear com a câmera do celular vê a ficha da etiqueta na hora;
  * um sistema futuro consegue fazer parse pelas chaves.
  */
-export function montarPayloadQR(campos, { idEtiqueta = '', estabelecimento = null } = {}) {
+export function montarPayloadQR(campos, { estabelecimento = null } = {}) {
   const linhas = [
     campos.restauranteNome ? `Restaurante: ${campos.restauranteNome}` : null,
     `Produto: ${campos.nome}`,
@@ -99,19 +99,6 @@ export function montarPayloadQR(campos, { idEtiqueta = '', estabelecimento = nul
     campos.sif ? `SIF: ${campos.sif}` : null,
     campos.responsavel ? `Resp: ${campos.responsavel}` : null,
     estabelecimento?.cnpj ? `CNPJ: ${estabelecimento.cnpj}` : null,
-    idEtiqueta ? `Etiqueta: ${idEtiqueta}` : null,
   ];
   return linhas.filter(Boolean).join('\n');
-}
-
-/**
- * ID curto de rastreio da etiqueta (estilo "#T154B3"): prefixo do lote
- * (timestamp base36) + posição. Único o suficiente para conferência visual.
- */
-export function gerarIdEtiqueta(loteBase, indice) {
-  return `#${loteBase}${indice.toString(36).toUpperCase()}`;
-}
-
-export function gerarLoteBase() {
-  return `T${Date.now().toString(36).toUpperCase().slice(-4)}`;
 }

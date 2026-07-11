@@ -35,7 +35,7 @@ const TIPOS_IMPRESSORA = [
   {
     id: 'automatica',
     titulo: '⚡ Impressão automática sem janela (1 clique) — em breve',
-    resumo: 'Como os sistemas profissionais fazem (é assim que a Suflex funciona com a Zebra).',
+    resumo: 'Como os sistemas profissionais de etiquetagem funcionam com impressora dedicada.',
     comoFica: 'Clicou em Imprimir → as etiquetas saem DIRETO na impressora, sem janela nenhuma, na quantidade pedida.',
     passos: [
       'Isso exige um programinha instalado uma única vez no computador/tablet: Zebra Browser Print (zebra.com → busque "Browser Print") para impressoras Zebra, ou QZ Tray (qz.io) para qualquer marca.',

@@ -1,5 +1,10 @@
 // Dados do MODO DEMONSTRAÇÃO — 100% locais (nunca tocam o Supabase).
 // Gerados em relação ao dia atual para o Dashboard/Relatório parecerem vivos.
+//
+// MODELO DO PRODUTO (importante): este app é de PRODUÇÃO INTERNA da casa —
+// porcionamentos e semiacabados. "Parmegiana" no estoque = EMPANADO (porção);
+// o molho é OUTRO item semiacabado; a montagem final acontece na hora de
+// servir e fica fora do sistema. A demo precisa ensinar exatamente isso.
 
 import { hoje } from '../utils/formatters';
 import { addDias } from '../utils/datas';
@@ -14,26 +19,30 @@ const P = (id, nome, categoria, unidade, extra = {}) => ({
 
 export function gerarDemoSeed() {
   const produtos = [
+    // Matérias-primas
     P('file', 'Filé Mignon', 'PROTEÍNAS', 'kg', { min: 10, max: 20, valCongelado: 30, valResfriado: 3, marca: 'Swift', sif: '358' }),
     P('frango', 'Peito de Frango', 'PROTEÍNAS', 'kg', { min: 15, max: 30, valCongelado: 30, valResfriado: 2, marca: 'Sadia', sif: '124' }),
     P('charque', 'Charque', 'PROTEÍNAS', 'kg', { min: 8, max: 16, valCongelado: 45, valResfriado: 5 }),
     P('tilapia', 'Filé de Tilápia', 'PROTEÍNAS', 'kg', { min: 6, max: 12, valCongelado: 25, valResfriado: 2 }),
-    P('molho', 'Molho de Tomate da Casa', 'PRODUZIDOS', 'L', { min: 5, max: 15, valCongelado: 20, valResfriado: 4 }),
-    P('parmegiana', 'Parmegiana Montada', 'PRODUZIDOS', 'unid', { min: 20, max: 60, valCongelado: 15, valResfriado: 2, pesoUnidade: 150 }),
     P('queijo', 'Queijo Muçarela', 'FRIOS', 'kg', { min: 4, max: 10, valResfriado: 12, marca: 'Tirolez' }),
     P('batata', 'Batata Palito Congelada', 'CONGELADOS', 'kg', { min: 10, max: 25, valCongelado: 90 }),
+    // Semiacabados produzidos pela casa (porção/base — NUNCA prato montado)
+    P('molho', 'Molho de Tomate da Casa', 'PRODUZIDOS', 'L', { min: 5, max: 15, valCongelado: 20, valResfriado: 4 }),
+    P('empanado', 'Empanado de Filé (porção)', 'PRODUZIDOS', 'unid', { min: 20, max: 60, valCongelado: 15, valResfriado: 2, pesoUnidade: 150 }),
   ];
   const categorias = ['PROTEÍNAS', 'PRODUZIDOS', 'FRIOS', 'CONGELADOS'];
   const pessoas = ['Maria', 'João'];
-  const locais = [{ id: 'salao', nome: 'Salão' }, { id: 'delivery', nome: 'Delivery' }];
+  // Destinos de saída = transferência INTERNA (cozinha principal / polos)
+  const locais = [{ id: 'cozinha', nome: 'Cozinha principal' }, { id: 'polo_central', nome: 'Polo Central' }];
   const producoes = [{
-    id: 'rec_parm', nome: 'Parmegiana Montada', produtoFinalId: 'parmegiana',
+    id: 'rec_empanado', nome: 'Empanado de Filé (porcionamento)', produtoFinalId: 'empanado',
     rendimentoBase: 20, armazenamento: 'congelado',
+    // porcionamento: abate só a proteína controlada; secos apenas monitorados.
+    // SEM molho e SEM queijo — a montagem final não é armazenada.
     ingredientes: [
       { abate: true, produtoId: 'file', quantidade: 3 },
-      { abate: true, produtoId: 'molho', quantidade: 2 },
-      { abate: true, produtoId: 'queijo', quantidade: 1 },
       { abate: false, nome: 'Farinha panko', unidade: 'kg', quantidade: 0.6 },
+      { abate: false, nome: 'Ovos', unidade: 'unid', quantidade: 8 },
     ],
   }, {
     id: 'rec_molho', nome: 'Molho de Tomate da Casa', produtoFinalId: 'molho',
@@ -46,7 +55,7 @@ export function gerarDemoSeed() {
     responsavel: 'Maria', armazenamento: 'congelado',
     itens: itens.map(i => ({ ...i, validade: addDias(d(n), 20) })), ...extra,
   });
-  const saida = (n, itens, destino = 'salao') => ({
+  const saida = (n, itens, destino = 'cozinha') => ({
     id: `demo_s${n}_${destino}_${itens[0].produtoId}`, ts: ts(n, 16), data: d(n), hora: '16:00',
     responsavel: 'João', destino, itens,
   });
@@ -55,25 +64,25 @@ export function gerarDemoSeed() {
     entrada(6, [{ produtoId: 'file', quantidade: 18 }, { produtoId: 'frango', quantidade: 25 }]),
     entrada(5, [{ produtoId: 'queijo', quantidade: 8 }, { produtoId: 'batata', quantidade: 20 }]),
     entrada(4, [{ produtoId: 'charque', quantidade: 12 }, { produtoId: 'tilapia', quantidade: 10 }]),
-    // produção de ontem: molho + parmegianas (entrada do produto final + saída interna)
+    // produção de ontem: molho base + porcionamento do empanado (itens SEPARADOS)
     { id: 'demo_prod_molho', ts: ts(1, 11), data: d(1), hora: '11:00', responsavel: 'Maria', armazenamento: 'resfriado',
-      producaoId: 'demo_pid1', obs: 'Produção: Molho de Tomate da Casa',
+      producaoId: 'demo_pid1', obs: 'Produção: Molho de Tomate da Casa (semiacabado)',
       monitorados: [{ nome: 'Tomate pelado', unidade: 'kg', quantidade: 8 }],
       itens: [{ produtoId: 'molho', quantidade: 10, validade: addDias(d(1), 4) }] },
-    { id: 'demo_prod_parm', ts: ts(1, 14), data: d(1), hora: '14:00', responsavel: 'Maria', armazenamento: 'congelado',
-      producaoId: 'demo_pid2', obs: 'Produção: Parmegiana Montada',
-      monitorados: [{ nome: 'Farinha panko', unidade: 'kg', quantidade: 1.2 }],
-      itens: [{ produtoId: 'parmegiana', quantidade: 40, validade: addDias(d(1), 15) }] },
+    { id: 'demo_prod_empanado', ts: ts(1, 14), data: d(1), hora: '14:00', responsavel: 'Maria', armazenamento: 'congelado',
+      producaoId: 'demo_pid2', obs: 'Produção: Empanado de Filé (porcionamento)',
+      monitorados: [{ nome: 'Farinha panko', unidade: 'kg', quantidade: 1.2 }, { nome: 'Ovos', unidade: 'unid', quantidade: 16 }],
+      itens: [{ produtoId: 'empanado', quantidade: 40, validade: addDias(d(1), 15) }] },
   ];
   const saidas = [
     saida(4, [{ produtoId: 'frango', quantidade: 5 }]),
     saida(3, [{ produtoId: 'file', quantidade: 4 }, { produtoId: 'batata', quantidade: 6 }]),
-    saida(2, [{ produtoId: 'frango', quantidade: 6 }], 'delivery'),
-    saida(1, [{ produtoId: 'parmegiana', quantidade: 12 }]),
-    saida(0, [{ produtoId: 'parmegiana', quantidade: 8 }], 'delivery'),
-    // saída interna da produção de parmegiana (consumo dos ingredientes)
+    saida(2, [{ produtoId: 'frango', quantidade: 6 }], 'polo_central'),
+    saida(1, [{ produtoId: 'empanado', quantidade: 12 }]),
+    saida(0, [{ produtoId: 'empanado', quantidade: 8 }], 'polo_central'),
+    // saída interna da produção do empanado (consumo do ingrediente controlado)
     { id: 'demo_s_prod', ts: ts(1, 14), data: d(1), hora: '14:00', responsavel: 'Maria', destino: 'producao', producaoId: 'demo_pid2',
-      itens: [{ produtoId: 'file', quantidade: 6 }, { produtoId: 'molho', quantidade: 4 }, { produtoId: 'queijo', quantidade: 2 }] },
+      itens: [{ produtoId: 'file', quantidade: 6 }] },
   ];
   const compras = [
     { id: 'demo_c1', ts: ts(6, 8), data: d(6), hora: '08:20', item: 'Filé Mignon', quantidade: 20, unidade: 'kg', fornecedor: 'Frigorífico Bom Corte', responsavel: 'Maria' },
@@ -92,7 +101,7 @@ export function gerarDemoSeed() {
       destinos: [{ cod: 'STG', label: 'Strogonoff' }, { cod: 'HAM', label: 'Hambúrguer' }, { cod: 'OUT', label: 'Outro' }],
       fichas: [], listaManual: [],
       etiquetasAvulsas: [{ id: 'demo_etq1', nome: 'Leite aberto', tipoData: 'abertura', diasValidade: 3 }],
-      prefs: { responsavel: 'Maria', turno: 'Manhã', destino: 'salao', guia: true },
+      prefs: { responsavel: 'Maria', turno: 'Manhã', destino: 'cozinha', guia: true },
     },
     registros: { compras, entradas, saidas, aparas, desperdicio, ajustes: [], auditoria: [] },
   };

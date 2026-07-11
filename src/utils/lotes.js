@@ -64,3 +64,21 @@ export function calcLotes(entradas, saidas, desperdicio, produtos = []) {
   });
   return lotes;
 }
+
+// Lotes "vencendo" para alertas de UI, reconciliados com o ESTOQUE CALCULADO.
+// calcLotes não enxerga a contagem física (ajustes) — após um inventário que
+// zera um produto, o lote antigo continuaria "vencendo" e o operador leria
+// como erro do sistema. Aqui o alerta só sai se o estoque atual for positivo.
+export function lotesVencendo(lotes, produtos, estoque, diasAteFn, limiteDias = 5) {
+  const lista = [];
+  produtos.forEach(p => {
+    if (!p.ativo) return;
+    const limiar = p.unidade === 'unid' ? 1 : 0.001;
+    if ((estoque[p.id] ?? 0) < limiar) return; // zerado (ex.: por contagem) → sem alerta fantasma
+    (lotes[p.id] || []).forEach(l => {
+      const dias = diasAteFn(l.validade);
+      if (dias <= limiteDias) lista.push({ p, lote: l, dias });
+    });
+  });
+  return lista.sort((a, b) => a.dias - b.dias);
+}

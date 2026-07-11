@@ -13,15 +13,15 @@ const SECOES = [
     label: 'Estoque interno',
     desc: 'Produção e entradas que alimentam o estoque',
     acoes: [
-      { to: '/producao', emoji: '🍲', titulo: 'Produção', desc: 'Executar receita — baixa ingredientes e entra produto final' },
-      { to: '/entradas', emoji: '📥', titulo: 'Entrada avulsa', desc: 'Produto pronto sem receita (ex.: item comprado pronto)' },
+      { to: '/producao', emoji: '🍲', titulo: 'Produção', desc: 'Executar ficha — baixa ingredientes e entra a porção/semiacabado' },
+      { to: '/entradas', emoji: '📥', titulo: 'Entrada avulsa', desc: 'Item que entra pronto no estoque, sem passar por ficha' },
     ],
   },
   {
     label: 'Saída e correções',
-    desc: 'Envios e ajustes',
+    desc: 'Transferências internas e ajustes',
     acoes: [
-      { to: '/saidas',  emoji: '📤', titulo: 'Saída',         desc: 'Envio para os pontos de venda' },
+      { to: '/saidas',  emoji: '📤', titulo: 'Saída',         desc: 'Envio para a cozinha principal / polos (transferência interna)' },
       { to: '/aparas',  emoji: '✂️', titulo: 'Apara / Perda', desc: 'Aproveitamento e descarte' },
     ],
   },
