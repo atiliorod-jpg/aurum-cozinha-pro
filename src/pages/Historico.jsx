@@ -40,6 +40,13 @@ export default function Historico() {
       remover: () => removerProducao(r) })),
     ...saidas.filter(s => s.destino !== 'producao').map(r => ({ id: r.id, grupo: 'saidas', icon: '📤', cor: 'text-red-600', r,
       resumo: `${itensTxt(r)} → ${destNome(r.destino)}`, remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
+    // Saída interna ÓRFÃ (produção incompleta): a entrada do produto final não
+    // existe — precisa aparecer aqui para o operador remover/desfazer o consumo
+    ...saidas.filter(s => s.destino === 'producao' && s.producaoId &&
+        !entradas.some(e => e.producaoId === s.producaoId))
+      .map(r => ({ id: r.id, grupo: 'producao', icon: '⚠️', cor: 'text-red-600', r,
+        resumo: `PRODUÇÃO INCOMPLETA — ingredientes baixados sem produto final: ${itensTxt(r)}`,
+        remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
     ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: '✂️', cor: 'text-teal-600', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,
       remover: () => { removeApara(r.id); return { tipo: 'apara', reg: r }; } })),

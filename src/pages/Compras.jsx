@@ -157,7 +157,10 @@ export default function Compras() {
     }
     setSalvando(true);
     setTimeout(() => setSalvando(false), 800);
-    addCompra({ ...form, hora: fmtHora(), quantidade: parseFloat(form.quantidade) });
+    // Vincula ao produto do catálogo quando o nome digitado é IGUAL (o match por
+    // id é exato e blinda o FC/fornecedor contra ambiguidade de texto livre)
+    const prodExato = produtos.find(p => p.ativo && (p.nome || '').trim().toLowerCase() === form.item.trim().toLowerCase());
+    addCompra({ ...form, ...(prodExato ? { produtoId: prodExato.id } : {}), hora: fmtHora(), quantidade: parseFloat(form.quantidade) });
     if (form.responsavel) setPref('responsavel', form.responsavel);
     setForm(prev => ({ ...prev, item: '', quantidade: '', fornecedor: '' }));
     toast('Compra registrada!', 'sucesso');

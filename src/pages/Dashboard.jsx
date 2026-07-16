@@ -8,6 +8,7 @@ import { calcSugestoesMinMax, produtosDivergentes } from '../utils/sugestoes';
 import { mediaDiariaSaidas, previsaoRuptura, listaDeCompras } from '../utils/analise';
 import { diasAte } from '../utils/datas';
 import { calcLotes, lotesVencendo } from '../utils/lotes';
+import { producoesIncompletas } from '../utils/producao';
 import { fmtNum, fmtData, hoje } from '../utils/formatters';
 import CalculadoraProducao from '../components/CalculadoraProducao';
 
@@ -31,6 +32,10 @@ export default function Dashboard() {
   const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio, produtos), [entradas, saidas, desperdicio, produtos]);
   // reconciliado com o estoque: produto zerado (ex.: contagem física) não gera alerta fantasma
   const vencendo = useMemo(() => lotesVencendo(lotes, produtos, estoque, diasAte), [produtos, lotes, estoque]);
+
+  // Produção incompleta: saída interna gravada sem a entrada do produto final
+  // (falha entre os dois passos do par) — ingredientes baixados "no vazio"
+  const prodIncompletas = useMemo(() => producoesIncompletas(entradas, saidas), [entradas, saidas]);
 
   // Previsão de ruptura (ritmo dos últimos 14 dias) e lista de compras
   const medias = useMemo(() => mediaDiariaSaidas(saidas), [saidas]);
@@ -185,6 +190,22 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Produção incompleta — ingredientes baixados sem entrada do produto final */}
+      {prodIncompletas.length > 0 && (
+        <div className="bg-red-50 border border-red-300 rounded-xl p-3 mb-4">
+          <p className="text-xs font-bold text-red-700 mb-1">⚠️ Produção incompleta detectada</p>
+          <p className="text-[11px] text-red-600 mb-2">
+            {prodIncompletas.length} produção(ões) baixaram ingredientes mas a entrada do produto final não foi gravada
+            (provável falha de conexão no meio do registro). Confira no Histórico: remova a saída interna órfã
+            (o Desfazer devolve os ingredientes) e registre a produção de novo.
+          </p>
+          <button onClick={() => navigate('/historico')}
+            className="text-[11px] font-bold text-red-50 bg-red-600 rounded-lg px-2.5 py-1.5">
+            Abrir Histórico →
+          </button>
         </div>
       )}
 

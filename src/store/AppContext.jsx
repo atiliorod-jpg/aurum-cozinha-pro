@@ -134,17 +134,45 @@ export function AppProvider({ children }) {
   }, []);
 
   // ── Catálogos (documentos JSONB, 1 linha por lista) ────────
+  // Versão conhecida de cada documento (anti-sobrescrita entre 2 tablets —
+  // migração 8). Atualizada na hidratação, no realtime e a cada gravação ok.
+  const versoesRef = useRef({});
+
+  // Gravação versionada: o servidor compara a versão que ESTE aparelho conhece.
+  // Conflito (outro tablet gravou antes) → aplicamos o conteúdo vigente aqui e
+  // avisamos, em vez de sobrescrever o trabalho do outro em silêncio.
+  const salvarDocNuvem = useCallback((r, chave, dadosDoc, aplicarServidor) => {
+    const payload = { restaurante_id: r, chave, dados: dadosDoc, updated_at: new Date().toISOString() };
+    supabase.rpc('salvar_documento', { p_restaurante: r, p_chave: chave, p_dados: dadosDoc, p_versao: versoesRef.current[chave] ?? 0 })
+      .then(({ data, error }) => {
+        if (error) {
+          // migração 8 não rodada → caminho antigo (upsert); erro de rede → fila offline
+          if (/salvar_documento|function|does not exist|schema cache|not find/i.test(error.message || '')) {
+            supabase.from('documentos').upsert(payload).then(({ error: e2 }) => {
+              if (e2) outboxAdd(r, { kind: 'doc', op: 'upsert', payload });
+            });
+          } else {
+            outboxAdd(r, { kind: 'doc', op: 'upsert', payload });
+          }
+          return;
+        }
+        if (data?.ok) { versoesRef.current[chave] = data.versao; return; }
+        if (data?.conflito) {
+          versoesRef.current[chave] = data.versao;
+          aplicarServidor?.(data.dados);
+          try { window.dispatchEvent(new CustomEvent('catalogo-conflito', { detail: { chave } })); } catch { /* sem window */ }
+        }
+      });
+  }, []);
+
   const persistCatalogo = useCallback((chave, setRaw, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     setRaw(valor);
     const r = ridRef.current;
     cacheSet(r, chave, valor);
     if (!nuvemDe(r)) return;
-    const payload = { restaurante_id: r, chave, dados: valor, updated_at: new Date().toISOString() };
-    supabase.from('documentos').upsert(payload).then(({ error }) => {
-      if (error) outboxAdd(r, { kind: 'doc', op: 'upsert', payload });
-    });
-  }, []);
+    salvarDocNuvem(r, chave, valor, (dadosSrv) => { setRaw(dadosSrv); cacheSet(r, chave, dadosSrv); });
+  }, [salvarDocNuvem]);
 
   const setProdutos   = useCallback((v) => persistCatalogo('produtos',   setProdutosRaw,   v), [persistCatalogo]);
   const setCategorias = useCallback((v) => persistCatalogo('categorias', setCategoriasRaw, v), [persistCatalogo]);
@@ -168,12 +196,13 @@ export function AppProvider({ children }) {
       const restPrefs = soRestaurante(next);
       cacheSet(r, 'prefs', restPrefs);
       if (nuvemDe(r)) {
-        const payload = { restaurante_id: r, chave: 'prefs', dados: restPrefs, updated_at: new Date().toISOString() };
-        supabase.from('documentos').upsert(payload)
-          .then(({ error }) => { if (error) outboxAdd(r, { kind: 'doc', op: 'upsert', payload }); });
+        salvarDocNuvem(r, 'prefs', restPrefs, (dadosSrv) => {
+          cacheSet(r, 'prefs', dadosSrv);
+          setPrefsRaw({ ...dadosSrv, ...cacheGet(r, '_prefs_device', {}) });
+        });
       }
     }
-  }, []);
+  }, [salvarDocNuvem]);
 
   const addPessoa = useCallback((nome) => {
     const n = (nome || '').trim();
@@ -404,8 +433,19 @@ export function AppProvider({ children }) {
             ({ error } = await supabase.from('registros').upsert(item.payload));
           else if (item.kind === 'registro' && item.op === 'delete')
             ({ error } = await supabase.from('registros').update({ deleted: true }).eq('id', item.payload.id));
-          else if (item.kind === 'doc' && item.op === 'upsert')
-            ({ error } = await supabase.from('documentos').upsert(item.payload));
+          else if (item.kind === 'doc' && item.op === 'upsert') {
+            // replay offline: RPC com versão -1 (força com bump — mantém o
+            // contador coerente); fallback pro upsert se a migração 8 faltar
+            const { error: eRpc } = await supabase.rpc('salvar_documento', {
+              p_restaurante: item.payload.restaurante_id, p_chave: item.payload.chave,
+              p_dados: item.payload.dados, p_versao: -1,
+            });
+            if (eRpc && /salvar_documento|does not exist|schema cache|not find/i.test(eRpc.message || '')) {
+              ({ error } = await supabase.from('documentos').upsert(item.payload));
+            } else {
+              error = eRpc;
+            }
+          }
           else if (item.kind === 'clearAll')
             ({ error } = await supabase.from('registros').update({ deleted: true }).eq('restaurante_id', rid).neq('tipo', 'auditoria'));
           if (error) restantes.push(item);
@@ -429,17 +469,15 @@ export function AppProvider({ children }) {
         console.warn('[hidratação] falha ao buscar catálogos — mantendo o cache local (não sobrescreve com padrões):', errDocs.message);
       } else {
         const mapa = {};
-        (docs || []).forEach(d => { mapa[d.chave] = d.dados; });
+        versoesRef.current = {}; // recomeça o controle de versão para este restaurante
+        (docs || []).forEach(d => { mapa[d.chave] = d.dados; versoesRef.current[d.chave] = d.versao || 0; });
         const aplicaCat = (chave, setRaw, def) => {
           if (docsPendentes.has(chave)) return; // alteração local não sincronizada → não rebaixa
           if (mapa[chave] !== undefined) { setRaw(mapa[chave]); cacheSet(rid, chave, mapa[chave]); }
-          else { // catálogo ainda não existe na nuvem → semeia
+          else { // catálogo ainda não existe na nuvem → semeia (versionado)
             setRaw(def); cacheSet(rid, chave, def);
             if (soLeituraRef.current) return; // modo suporte: não escreve na conta do cliente
-            // .then() é obrigatório: a query do Supabase só é ENVIADA quando consumida
-            const payload = { restaurante_id: rid, chave, dados: def, updated_at: new Date().toISOString() };
-            supabase.from('documentos').upsert(payload)
-              .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload }); });
+            salvarDocNuvem(rid, chave, def, (dadosSrv) => { setRaw(dadosSrv); cacheSet(rid, chave, dadosSrv); });
           }
         };
         aplicaCat('produtos', setProdutosRaw, CAT.produtos);
@@ -455,9 +493,7 @@ export function AppProvider({ children }) {
         if (!docsPendentes.has('prefs')) {
           const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
           if (mapa['prefs'] === undefined && !soLeituraRef.current) {
-            const prefPayload = { restaurante_id: rid, chave: 'prefs', dados: prefsNuvem, updated_at: new Date().toISOString() };
-            supabase.from('documentos').upsert(prefPayload)
-              .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'doc', op: 'upsert', payload: prefPayload }); });
+            salvarDocNuvem(rid, 'prefs', prefsNuvem, () => {});
           }
           cacheSet(rid, 'prefs', prefsNuvem);
           setPrefsRaw({ ...prefsNuvem, ...cacheGet(rid, '_prefs_device', {}) });
@@ -520,6 +556,8 @@ export function AppProvider({ children }) {
     };
     const aplicaDocRT = (row) => {
       if (!row) return;
+      // outro aparelho gravou: a versão dele passa a ser a que conhecemos
+      if (row.chave) versoesRef.current[row.chave] = row.versao || 0;
       if (row.chave === 'prefs') { // mescla com as preferências locais do aparelho
         cacheSet(rid, 'prefs', row.dados);
         setPrefsRaw({ ...row.dados, ...cacheGet(rid, '_prefs_device', {}) });
@@ -546,7 +584,7 @@ export function AppProvider({ children }) {
       supabase.removeChannel(canal);
       window.removeEventListener('online', onOnline);
     };
-  }, [rid]);
+  }, [rid, salvarDocNuvem]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Administração de dados ─────────────────────────────────

@@ -22,6 +22,23 @@ export function ingredientesParaProduzir(receita, alvo) {
   }));
 }
 
+/**
+ * Produções INCOMPLETAS: a produção grava um PAR (saída interna dos
+ * ingredientes + entrada do produto final) com o mesmo producaoId. Se a
+ * saída existe e a entrada não (falha entre os dois passos), o estoque foi
+ * abatido sem o produto entrar — o pior caso. A entrada sem saída é legítima
+ * (receita só de itens monitorados), então NÃO conta como incompleta.
+ * `idadeMinMs` ignora pares recém-criados (sincronização ainda em curso).
+ */
+export function producoesIncompletas(entradas, saidas, agora = Date.now(), idadeMinMs = 10 * 60 * 1000) {
+  const entradasPid = new Set(entradas.filter(e => e.producaoId).map(e => e.producaoId));
+  return saidas.filter(s =>
+    s.destino === 'producao' && s.producaoId &&
+    !entradasPid.has(s.producaoId) &&
+    (agora - (s.ts || 0)) > idadeMinMs
+  );
+}
+
 // Junta a necessidade com o estoque atual. Só os ingredientes que abatem
 // estoque entram na checagem de falta; os monitorados são só informativos.
 // estoque = { [produtoId]: quantidadeAtual }

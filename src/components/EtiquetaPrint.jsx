@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
+import ResponsavelSelect from './ResponsavelSelect';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta } from '../utils/etiquetas';
 import { hoje, fmtHora } from '../utils/formatters';
 
@@ -76,6 +77,9 @@ export default function EtiquetaPrint() {
   const [itens, setItens] = useState([]);
   const [qrs, setQrs] = useState({}); // idx -> dataURL
   const [horaImpressao, setHoraImpressao] = useState('');
+  // Responsável ÚNICO da impressão (sai no RESP. de todas as etiquetas) —
+  // escolhido entre as pessoas da equipe, como nas telas de registro
+  const [responsavel, setResponsavel] = useState('');
 
   // Espelha o estado externo numa cópia local editável — setState síncrono intencional.
   useEffect(() => {
@@ -103,6 +107,7 @@ export default function EtiquetaPrint() {
         return { ...resolvido, _dataOriginal: resolvido.dataFabricacao, _armazOriginal: resolvido.armazenamento };
       }));
       setHoraImpressao(fmtHora());
+      setResponsavel(etiquetaState[0]?.responsavel || prefs.responsavel || '');
     } else {
       setItens([]); setQrs({});
     }
@@ -139,7 +144,7 @@ export default function EtiquetaPrint() {
       tipoData: item.tipoData,
       armazenamento: item.armazenamento,
       restauranteNome: sessao?.restauranteNome || '',
-      responsavel: item.responsavel || '',
+      responsavel,
       // validade pronta (de registro real) só vale enquanto data/armazenamento não mudarem
       validade: naoEditado ? item.validade : null,
       diasValidade: dias,
@@ -167,8 +172,8 @@ export default function EtiquetaPrint() {
       if (ativo) setQrs(novos);
     })();
     return () => { ativo = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens (já na lista)
-  }, [itens, config.incluirQR]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens/responsavel (já na lista)
+  }, [itens, config.incluirQR, responsavel]);
 
   if (!etiquetaState) return null;
 
@@ -195,6 +200,8 @@ export default function EtiquetaPrint() {
             <button onClick={fecharEtiquetas} aria-label="Fechar"
               className="text-gray-400 text-2xl leading-none px-1 -mt-1">×</button>
           </div>
+
+          <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
 
           <div className="space-y-3">
             {itens.map((item, idx) => {

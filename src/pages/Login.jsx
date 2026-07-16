@@ -181,10 +181,10 @@ function ModalTermos({ onFechar }) {
         relatórios e múltiplos usuários com cargos (cozinha, gerência, diretoria).</p>
         <p><strong>O que NÃO é:</strong> não é PDV, caixa, cardápio ou pedido do cliente final,
         nem delivery de prato pronto, nem sistema financeiro/contábil.</p>
-        <p><strong>Modo de uso:</strong> cadastre os itens como <strong>porções e semiacabados</strong>.
-        Exemplo: a "parmegiana" do estoque é a <strong>porção empanada</strong>; o molho da casa é
-        <strong> outro item</strong>. A montagem final acontece na hora de servir — não se armazena
-        prato montado.</p>
+        <p><strong>Modo de uso:</strong> o estoque é organizado em <strong>itens porcionados e
+        semiacabados</strong> — cada preparo (proteína porcionada, molho base, guarnição) é cadastrado
+        e armazenado como um item independente, com sua própria ficha e validade. A montagem e a
+        finalização dos pratos ocorrem no serviço e não fazem parte do controle deste sistema.</p>
         <p><strong>Demonstração:</strong> usa dados fictícios que ficam só no seu navegador — nada vai
         para a nuvem e tudo reseta ao sair.</p>
         <p><strong>Contas reais:</strong> cada restaurante é isolado dos demais. Detalhes de dados
@@ -203,10 +203,19 @@ function ModalPrivacidade({ onFechar }) {
         className="bg-white rounded-2xl p-5 max-w-sm m-auto mt-10 space-y-3 text-sm text-gray-700"
         onClick={e => e.stopPropagation()}>
         <h2 id="priv-titulo" className="font-bold text-polo-navy">🔒 Privacidade e proteção de dados</h2>
-        <p><strong>O que guardamos:</strong> nome e e-mail dos usuários da sua equipe, e os registros operacionais do seu restaurante (estoque, produção, compras, trilha de quem registrou o quê).</p>
-        <p><strong>Para quê:</strong> exclusivamente para o funcionamento do app. Não vendemos nem compartilhamos seus dados com terceiros.</p>
-        <p><strong>Onde ficam:</strong> no banco de dados do app (Supabase), isolados por restaurante — uma conta nunca vê os dados de outra. A equipe Aurum só visualiza seus dados se você autorizar o suporte (Config → Sistema), por no máximo 24h e somente leitura.</p>
-        <p><strong>Seus direitos (LGPD):</strong> você pode exportar tudo a qualquer momento (Config → Sistema → Cópia de segurança) e pode pedir a exclusão definitiva da conta e dos dados pelo WhatsApp da Aurum — atendemos em até 15 dias.</p>
+        <p><strong>Dados tratados:</strong> nome e e-mail dos usuários vinculados à conta e os registros
+        operacionais do estabelecimento (estoque, produção, movimentações e trilha de auditoria).</p>
+        <p><strong>Finalidade:</strong> os dados são tratados exclusivamente para a prestação do serviço
+        contratado. Não há venda, cessão ou compartilhamento com terceiros para fins comerciais.</p>
+        <p><strong>Armazenamento e segurança:</strong> os dados residem em infraestrutura de nuvem com
+        criptografia em trânsito e isolamento por estabelecimento aplicado na camada do banco de dados —
+        cada conta acessa somente os próprios registros. O acesso da equipe Aurum ocorre apenas mediante
+        autorização expressa do cliente (Configurações → Sistema → Suporte remoto), limitado a 24 horas,
+        no nível concedido — visualização ou edição — e revogável a qualquer momento.</p>
+        <p><strong>Direitos do titular (LGPD):</strong> a conta permite exportar a íntegra dos dados a
+        qualquer momento (Configurações → Sistema → Cópia de segurança). Solicitações de correção ou de
+        exclusão definitiva da conta e dos dados podem ser feitas pelo canal oficial de atendimento
+        (WhatsApp da Aurum) e são atendidas em até <strong>4 dias úteis</strong>.</p>
         <button onClick={onFechar} className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl">Entendi</button>
       </div>
     </div>

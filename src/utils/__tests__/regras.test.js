@@ -3,8 +3,8 @@ import { calcEstoquePuro } from '../estoque';
 import { calcLotes, lotesVencendo } from '../lotes';
 import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
-import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem } from '../analise';
-import { ingredientesParaProduzir, planejarProducao } from '../producao';
+import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem, nomesCasam } from '../analise';
+import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
 import { montarCamposEtiqueta, montarPayloadQR } from '../etiquetas';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
@@ -357,6 +357,52 @@ describe('etiquetas — montagem dos campos', () => {
     expect(qr).toContain('Resp: Ceará');
     expect(qr).toContain('CNPJ: 12.345.678/0001-00');
     expect(qr.split('\n').length).toBe(6); // só as linhas com valor entram
+  });
+});
+
+describe('nomesCasam — match de compra × produto sem falso positivo', () => {
+  it('casa igual, prefixo e sufixo em fronteira de palavra', () => {
+    expect(nomesCasam('Filé Mignon', 'filé mignon')).toBe(true);
+    expect(nomesCasam('Peito', 'Peito de Frango')).toBe(true);   // prefixo
+    expect(nomesCasam('Frango', 'Peito de Frango')).toBe(true);  // sufixo
+  });
+
+  it('NÃO casa substring solta nem nomes curtos', () => {
+    expect(nomesCasam('sal', 'Salmão')).toBe(false);          // <4 chars
+    expect(nomesCasam('salsa', 'Salsão')).toBe(false);        // substring sem fronteira
+    expect(nomesCasam('Filé Mignon', 'Filé de Tilápia')).toBe(false);
+  });
+});
+
+describe('produtoId na compra blinda o FC contra ambiguidade de nome', () => {
+  it('compra com produtoId só conta para AQUELE produto', () => {
+    const mignon = P('mignon', { nome: 'Filé Mignon' });
+    const compras = [
+      { id: 'c1', produtoId: 'mignon', item: 'Filé', quantidade: 10 }, // id vence o nome ambíguo
+      { id: 'c2', produtoId: 'tilapia', item: 'Filé', quantidade: 99 },
+    ];
+    const aparas = [{ id: 'a1', compraId: 'c1', quantidade: 2 }];
+    expect(fatorCorrecaoProduto(mignon, compras, aparas, [])).toBeCloseTo(0.2);
+  });
+});
+
+describe('producoesIncompletas — saída interna órfã (ingrediente baixado sem produto)', () => {
+  const antiga = Date.now() - 60 * 60 * 1000; // 1h atrás (passou da carência)
+
+  it('detecta saída de produção sem a entrada do par', () => {
+    const saidas = [{ id: 's1', ts: antiga, destino: 'producao', producaoId: 'p1', itens: [] }];
+    expect(producoesIncompletas([], saidas)).toHaveLength(1);
+  });
+
+  it('par completo e entrada sem saída (receita só monitorados) NÃO alertam', () => {
+    const entradas = [{ id: 'e1', ts: antiga, producaoId: 'p1' }, { id: 'e2', ts: antiga, producaoId: 'p2' }];
+    const saidas = [{ id: 's1', ts: antiga, destino: 'producao', producaoId: 'p1' }];
+    expect(producoesIncompletas(entradas, saidas)).toHaveLength(0);
+  });
+
+  it('par recém-criado (sync em curso) não alerta', () => {
+    const saidas = [{ id: 's1', ts: Date.now(), destino: 'producao', producaoId: 'p1' }];
+    expect(producoesIncompletas([], saidas)).toHaveLength(0);
   });
 });
 

@@ -38,6 +38,7 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 | 4 | `src/lib/migration5_convite_valido.sql` | RPC `convite_valido` (valida convite antes do signUp — evita conta órfã) | ✅ rodado (03/07/2026) |
 | 5 | `src/lib/migration6_indices.sql` | Índice composto de `registros` (performance com histórico grande) | ✅ rodado (03/07/2026) |
 | 6 | `src/lib/migration7_suporte_assinatura.sql` | Suporte com edição (policies condicionadas à autorização 24h do cliente) + coluna `assinatura_ate` + RPC `ativar_assinatura` | ✅ rodado (07/07/2026) |
+| 7 | `src/lib/migration8_versao_documentos.sql` | Versão nos catálogos + RPC `salvar_documento` (anti-sobrescrita entre 2 tablets; app tem fallback se faltar) | ✅ rodado (11/07/2026) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 
@@ -47,8 +48,8 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 select policyname from pg_policies where tablename = 'convites';
 -- Esperado: conv_sel_v4, conv_ins_v4, conv_del_v4. Se aparecer "conv_insert" (antiga), rode o migration4.
 
--- migration5/7: funções existem?
-select proname from pg_proc where proname in ('convite_valido', 'suporte_pode_editar', 'ativar_assinatura', 'criar_restaurante', 'aceitar_convite');
+-- migration5/7/8: funções existem?
+select proname from pg_proc where proname in ('convite_valido', 'suporte_pode_editar', 'ativar_assinatura', 'criar_restaurante', 'aceitar_convite', 'salvar_documento');
 
 -- migration6: índice existe?
 select indexname from pg_indexes where indexname = 'idx_registros_rest_deleted_tipo_ts';

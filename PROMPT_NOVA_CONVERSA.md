@@ -32,6 +32,15 @@ App PWA para controle de estoque de cozinha industrial (Polo Beer / Aurum Servi�
 - `suporteAtivo`: timestamp Unix (Date.now() + 24h) quando o cliente autoriza suporte
 - `suportePermissao`: `'ver'` | `'mexer'` — o que o cliente permitiu ao super-admin fazer
 
+### Rodada 11/07/2026 (parte 2) — Camada 2 pesada + refinamentos do dono
+- **Termos**: "Modo de uso" reescrito profissional (itens porcionados/semiacabados, sem exemplos coloquiais); **Privacidade** reescrita formal (dados tratados/finalidade/segurança/direitos, exclusão em **4 dias úteis**, reflete suporte ver OU editar)
+- **Etiquetas**: seletor de **Responsável** no modal de impressão (ResponsavelSelect da equipe; sai no RESP. de todas as etiquetas; QR regenera ao trocar)
+- **T1.6 match FC/fornecedor**: helper `nomesCasam()` (igual OU prefixo/sufixo em fronteira de palavra — fim do falso positivo "sal"×"salmão"); compras novas gravam `produtoId` quando o item digitado é igual a um produto ativo (match por id tem prioridade absoluta)
+- **T1.3 produção incompleta**: `producoesIncompletas()` detecta saída interna órfã (ingrediente baixado sem entrada do produto, carência de 10min); card vermelho no Dashboard + a saída órfã aparece no Histórico como "PRODUÇÃO INCOMPLETA" para remover/desfazer
+- **T1.4 anti-sobrescrita de catálogos (migration8 RODADO em produção 11/07)**: coluna `versao` em documentos + RPC `salvar_documento` (SECURITY INVOKER, RLS normal); AppContext grava versionado (versoesRef via hidratação/realtime), conflito → aplica a versão vigente + toast explicativo; replay offline usa p_versao=-1 (força com bump); fallback total para upsert se a migração faltar
+- **T1.5 (janela de hidratação) segue ADIADO**: exige design de snapshot — calcEstoquePuro precisa do histórico completo
+- 45/45 testes, lint 0, build ok; verificado ao vivo (termos, privacidade, responsável na etiqueta trocando o RESP.)
+
 ### Rodada 11/07/2026 — auditoria "10-10" aplicada (Camada 1 + básicos da 2)
 - **DOMÍNIO ESCLARECIDO pelo dono:** o app é de PRODUÇÃO INTERNA/porcionamento (empanado = porção; molho = outro semiacabado; NUNCA prato montado armazenado). Demo reescrita nesse modelo (Empanado de Filé + molho separado; saídas = Cozinha principal/Polo Central; sem "delivery")
 - **Login:** modal "Termos de uso e modo de uso" (para quem é / o que não é / exemplo empanado), link ao lado da Privacidade, subtítulo "Produção interna e estoque de cozinha profissional", checkbox obrigatório no cadastro de restaurante (não trava demo), role="alert" nas mensagens

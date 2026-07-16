@@ -71,19 +71,11 @@ export function listaDeCompras(produtos, estoque, compras = [], aparas = [], des
         ? Math.min(Math.ceil(liquidoKg / (1 - (fc || 0)) / (1 - coccaoFator) * 10) / 10, liquidoKg * 5)
         : null;
 
-      // Último fornecedor que vendeu este produto
-      // Usa mínimo de 4 chars para evitar falsos positivos por substring curta (ex: "Pei" em "Peito de Frango")
-      const nomeMin = p.nome.toLowerCase();
+      // Último fornecedor que vendeu este produto (produtoId gravado na compra
+      // tem prioridade; compras antigas sem id casam por nome com fronteira de palavra)
       const ultimaCompra = [...compras]
         .sort((a, b) => (b.ts || 0) - (a.ts || 0))
-        .find(c => {
-          const item = (c.item || '').toLowerCase().trim();
-          if (!item) return false;
-          if (item === nomeMin) return true;
-          const shorter = item.length <= nomeMin.length ? item : nomeMin;
-          if (shorter.length < 4) return false;
-          return item.includes(nomeMin) || nomeMin.includes(item);
-        });
+        .find(c => c.produtoId ? c.produtoId === p.id : nomesCasam(c.item, p.nome));
 
       return { p, atual, sugerido, liquidoKg, brutoKg, fc, fornecedor: ultimaCompra?.fornecedor || null };
     })
@@ -139,6 +131,22 @@ export function agruparListaPorMateriaPrima(lista = []) {
   return itens.sort((a, b) => crit(a) - crit(b)); // mais crítico primeiro
 }
 
+/**
+ * Match entre o texto livre de uma compra e o nome de um produto/matéria-prima.
+ * Casa quando: são iguais (normalizados) OU o menor é prefixo/sufixo do maior
+ * em FRONTEIRA DE PALAVRA ("peito" ⇢ "peito de frango"; "frango" ⇢ "peito de
+ * frango"). Substring solta era falso positivo ("sal" casava "salmão").
+ */
+export function nomesCasam(a, b) {
+  const x = (a || '').toLowerCase().trim();
+  const y = (b || '').toLowerCase().trim();
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const [menor, maior] = x.length <= y.length ? [x, y] : [y, x];
+  if (menor.length < 4) return false;
+  return maior.startsWith(menor + ' ') || maior.endsWith(' ' + menor);
+}
+
 // Soma de aparas + perdas associadas a cada compra (via compraId)
 export function correcoesPorCompra(aparas, desperdicio) {
   const m = {};
@@ -173,12 +181,10 @@ export function rendimentoPorFornecedor(compras, aparas, desperdicio) {
  */
 export function fatorCorrecaoItem(materiaPrima, compras, aparas, desperdicio) {
   const corr = correcoesPorCompra(aparas, desperdicio);
-  const alvo = (materiaPrima || '').toLowerCase();
-  if (!alvo) return null;
+  if (!(materiaPrima || '').trim()) return null;
   let comprado = 0, correcao = 0;
   compras.forEach(c => {
-    const nome = (c.item || '').toLowerCase();
-    if (nome && (nome.includes(alvo) || alvo.includes(nome))) {
+    if (nomesCasam(c.item, materiaPrima)) {
       comprado += num(c.quantidade);
       correcao += corr[c.id] || 0;
     }
@@ -187,18 +193,11 @@ export function fatorCorrecaoItem(materiaPrima, compras, aparas, desperdicio) {
   return Math.min(correcao / comprado, 0.9);
 }
 
-// Compras que correspondem a um produto (item da compra é texto livre → casa por nome).
+// Compras que correspondem a um produto: produtoId gravado na compra tem
+// prioridade absoluta; sem id, casa por nome com fronteira de palavra.
 function comprasDoProduto(produto, compras) {
-  const nome = (produto?.nome || '').toLowerCase().trim();
-  if (!nome) return [];
-  return compras.filter(c => {
-    const item = (c.item || '').toLowerCase().trim();
-    if (!item) return false;
-    if (item === nome) return true;
-    const menor = item.length <= nome.length ? item : nome;
-    if (menor.length < 4) return false;
-    return item.includes(nome) || nome.includes(item);
-  });
+  if (!produto?.id) return [];
+  return compras.filter(c => c.produtoId ? c.produtoId === produto.id : nomesCasam(c.item, produto.nome));
 }
 
 /**
@@ -244,18 +243,11 @@ export function preparacoesPorMateriaPrima(fichas = []) {
 }
 
 // Encontra as preparações que usam um ingrediente, casando o nome digitado
-// (item comprado) com a matéria-prima das fichas — tolerante a substrings.
+// (item comprado) com a matéria-prima das fichas (fronteira de palavra).
 export function preparacoesDoItem(item, fichas = []) {
-  const alvo = (item || '').toLowerCase().trim();
-  if (!alvo) return [];
+  if (!(item || '').trim()) return [];
   return fichas
-    .filter(f => {
-      const mp = (f.materiaPrima || '').toLowerCase().trim();
-      if (!mp) return false;
-      const menor = mp.length <= alvo.length ? mp : alvo;
-      if (menor.length < 4) return mp === alvo;
-      return mp === alvo || mp.includes(alvo) || alvo.includes(mp);
-    })
+    .filter(f => nomesCasam(f.materiaPrima, item))
     .map(f => ({ preparacao: f.preparacao, gramatura: f.gramatura, materiaPrima: f.materiaPrima }));
 }
 

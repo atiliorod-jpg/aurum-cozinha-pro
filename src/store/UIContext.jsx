@@ -72,6 +72,23 @@ export function UIProvider({ children }) {
     return () => window.removeEventListener('escrita-bloqueada', handler);
   }, [toast]);
 
+  // Conflito de catálogo (migração 8): outro aparelho gravou primeiro — a tela
+  // foi recarregada com a versão vigente em vez de sobrescrever o outro.
+  useEffect(() => {
+    const ROTULOS = {
+      produtos: 'os produtos', categorias: 'as categorias', pessoas: 'a equipe',
+      destinos: 'os destinos', fichas: 'as fichas', producoes: 'as receitas',
+      locais: 'os destinos de saída', listaManual: 'a lista de compras',
+      etiquetasAvulsas: 'as etiquetas avulsas', prefs: 'as configurações',
+    };
+    const handler = (e) => {
+      const rotulo = ROTULOS[e.detail?.chave] || 'este catálogo';
+      toast(`Outro aparelho alterou ${rotulo} agora há pouco — a tela foi atualizada com a versão mais recente. Refaça sua alteração se ainda precisar.`, 'aviso', { duracao: 7000 });
+    };
+    window.addEventListener('catalogo-conflito', handler);
+    return () => window.removeEventListener('catalogo-conflito', handler);
+  }, [toast]);
+
   return (
     <UIContext.Provider value={{ toast, confirm, etiquetaState, abrirEtiquetas, fecharEtiquetas }}>
       {children}
