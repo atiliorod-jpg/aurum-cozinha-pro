@@ -39,6 +39,7 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 | 5 | `src/lib/migration6_indices.sql` | Índice composto de `registros` (performance com histórico grande) | ✅ rodado (03/07/2026) |
 | 6 | `src/lib/migration7_suporte_assinatura.sql` | Suporte com edição (policies condicionadas à autorização 24h do cliente) + coluna `assinatura_ate` + RPC `ativar_assinatura` | ✅ rodado (07/07/2026) |
 | 7 | `src/lib/migration8_versao_documentos.sql` | Versão nos catálogos + RPC `salvar_documento` (anti-sobrescrita entre 2 tablets; app tem fallback se faltar) | ✅ rodado (11/07/2026) |
+| 8 | `src/lib/migration9_admin_convites.sql` | `aceitar_convite` v9 (não queima token se a conta já tem restaurante), RPCs de super-admin (`definir_max_usuarios`, `definir_bloqueio`, `usuarios_do_restaurante`, `salvar_notas_admin`) + colunas `bloqueado`/`notas_admin` | ✅ rodado (17/07/2026) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 

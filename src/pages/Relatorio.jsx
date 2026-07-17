@@ -153,7 +153,7 @@ export default function Relatorio() {
       sheet('Movimentação', mov, [16, 26, 6, 10, ...locaisAtivos.map(() => 12), 12, 13, 8, 8, 18], 1);
 
       // 3. Produção do período (receitas executadas)
-      const prod = [['Data', 'Hora', 'Produto Final', 'Qtd', 'Un.', 'Responsável', 'Obs']];
+      const prod = [['Data', 'Hora', 'Item Produzido', 'Qtd', 'Un.', 'Responsável', 'Obs']];
       entradasF.filter(e => e.producaoId).forEach(e => (e.itens || []).forEach(item => {
         const p = produtos.find(x => x.id === item.produtoId);
         prod.push([fmtData(e.data), e.hora || '', p?.nome || item.produtoId, item.quantidade, p?.unidade || '', e.responsavel || '', e.obs || '']);

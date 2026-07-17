@@ -1,8 +1,10 @@
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import { statusAssinatura } from './utils/assinatura';
 import { AppProvider } from './store/AppContext';
-import { UIProvider } from './store/UIContext';
+import { UIProvider, useUI } from './store/UIContext';
+import { fmtData } from './utils/formatters';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import EtiquetaPrint from './components/EtiquetaPrint';
@@ -17,12 +19,13 @@ import Saidas from './pages/Saidas';
 import Producao from './pages/Producao';
 import Inventario from './pages/Inventario';
 import AparasPerdas from './pages/AparasPerdas';
-import Relatorio from './pages/Relatorio';
 import Auditoria from './pages/Auditoria';
 import Pagamento from './pages/Pagamento';
-import Configuracoes from './pages/Configuracoes';
-import Admin from './pages/Admin';
 import Etiquetas from './pages/Etiquetas';
+// Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
+const Relatorio = lazy(() => import('./pages/Relatorio'));
+const Configuracoes = lazy(() => import('./pages/Configuracoes'));
+const Admin = lazy(() => import('./pages/Admin'));
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -59,14 +62,17 @@ function BannerSuporte({ nome, podeMexer, onSair }) {
   );
 }
 
-// Tela cheia quando teste e assinatura venceram — só a página Assinatura fica acessível
-function BloqueioAssinatura({ podeAssinar, onSair }) {
+// Tela cheia quando teste/assinatura venceram OU a conta foi suspensa —
+// só a página Assinatura fica acessível (dados sempre preservados)
+function BloqueioAssinatura({ podeAssinar, bloqueado, onSair }) {
   return (
     <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
-      <p className="text-4xl">⏳</p>
-      <p className="text-polo-gold font-bold text-lg">Seu período de teste terminou</p>
+      <p className="text-4xl">{bloqueado ? '🔒' : '⏳'}</p>
+      <p className="text-polo-gold font-bold text-lg">{bloqueado ? 'Conta suspensa' : 'Seu período de teste terminou'}</p>
       <p className="text-white/80 text-sm max-w-xs">
-        Os seus dados estão guardados e seguros. Assine o plano para continuar usando o sistema exatamente de onde parou.
+        {bloqueado
+          ? 'O acesso desta conta foi suspenso pela administração. Os seus dados estão guardados e seguros — fale com o suporte Aurum para reativar.'
+          : 'Os seus dados estão guardados e seguros. Assine o plano para continuar usando o sistema exatamente de onde parou.'}
       </p>
       {podeAssinar ? (
         <Link to="/pagamento" className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
@@ -82,6 +88,20 @@ function BloqueioAssinatura({ podeAssinar, onSair }) {
 
 function Rotas() {
   const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao } = useAuth();
+  const { toast } = useUI();
+
+  // Boas-vindas (flag gravada no cadastro/aceite de convite, antes da sessão montar)
+  useEffect(() => {
+    if (!sessao?.restauranteId || sessao.demo) return;
+    let flag = null;
+    try { flag = sessionStorage.getItem('aurum_boasvindas'); sessionStorage.removeItem('aurum_boasvindas'); } catch { /* sem storage */ }
+    if (flag === 'novo') {
+      const st = statusAssinatura(sessao);
+      toast(`🎉 Bem-vindo ao Aurum Cozinha Pro! Teste grátis com tudo liberado até ${st.ate ? fmtData(new Date(st.ate).toISOString().slice(0, 10)) : 'o fim dos 7 dias'}.`, 'sucesso', { duracao: 8000 });
+    } else if (flag === 'convite') {
+      toast(`👋 Você entrou no restaurante ${sessao.restauranteNome || ''} como ${sessao.cargo}. Bom trabalho!`, 'sucesso', { duracao: 7000 });
+    }
+  }, [sessao, toast]);
 
   if (carregando) return <Splash />;
   // Veio do link de recuperação de senha → tela de nova senha (tem prioridade)
@@ -121,6 +141,9 @@ function Rotas() {
   // Superadmin/impersonação/demo são isentos (statusAssinatura resolve).
   const plano = impersonando ? { ok: true, tipo: 'isento' } : statusAssinatura(sessao);
   if (!plano.ok) {
+    const bloqueado = plano.tipo === 'bloqueado';
+    // conta suspensa: nem a página de assinatura resolve (reativação é com o suporte)
+    if (bloqueado) return <BloqueioAssinatura bloqueado podeAssinar={false} onSair={logout} />;
     return (
       <Routes>
         <Route path="/pagamento" element={temPermissao('gerencia') ? <Pagamento /> : <BloqueioAssinatura podeAssinar={false} onSair={logout} />} />
@@ -148,6 +171,7 @@ function Rotas() {
           ⏳ Período de teste — {plano.diasRestantes} dia(s) restante(s). Toque para assinar.
         </Link>
       )}
+      <Suspense fallback={<Splash texto="Abrindo…" />}>
       <Routes>
       <Route path="/" element={
         sessao?.eSuperAdmin && !sessao.restauranteId && !impersonando
@@ -171,6 +195,7 @@ function Rotas() {
       <Route path="/configuracoes" element={<Restrito><Configuracoes /></Restrito>} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
       </Routes>
+      </Suspense>
     </>
   );
 }

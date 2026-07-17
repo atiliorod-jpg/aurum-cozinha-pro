@@ -45,7 +45,7 @@ export default function Historico() {
     ...saidas.filter(s => s.destino === 'producao' && s.producaoId &&
         !entradas.some(e => e.producaoId === s.producaoId))
       .map(r => ({ id: r.id, grupo: 'producao', icon: '⚠️', cor: 'text-red-600', r,
-        resumo: `PRODUÇÃO INCOMPLETA — ingredientes baixados sem produto final: ${itensTxt(r)}`,
+        resumo: `PRODUÇÃO INCOMPLETA — ingredientes baixados sem o item produzido: ${itensTxt(r)}`,
         remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
     ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: '✂️', cor: 'text-teal-600', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,
@@ -91,7 +91,7 @@ export default function Historico() {
     const undo = ev.remover();
     if (undo?.producao) {
       toast(
-        undo.saida ? 'Produção removida (produto final e ingredientes).' : 'Produção removida (ingredientes não encontrados — só o produto final foi retirado).',
+        undo.saida ? 'Produção removida (item produzido e ingredientes).' : 'Produção removida (ingredientes não encontrados — só o item produzido foi retirado).',
         'sucesso',
         { acao: { label: 'Desfazer', onClick: () => {
           restaurarRegistro('entrada', undo.entrada);

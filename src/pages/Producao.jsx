@@ -175,7 +175,7 @@ export default function Producao() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento do produto final</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento do item produzido</label>
                 <div className="flex gap-2">
                   {[['congelado', '❄️ Congelado'], ['resfriado', '🧊 Resfriado']].map(([v, l]) => (
                     <button key={v} onClick={() => setArmazenamento(v)}

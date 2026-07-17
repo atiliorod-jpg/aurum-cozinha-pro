@@ -49,13 +49,20 @@ export function AuthProvider({ children }) {
     const email = authUser?.email || '';
 
     if (perfil) {
+      // select completo → fallback progressivo p/ bancos sem as colunas novas
       let { data: rest, error: errRest } = await supabase
         .from('restaurantes')
-        .select('nome, created_at, assinatura_ate')
+        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado')
         .eq('id', perfil.restaurante_id)
         .maybeSingle();
       if (errRest) {
-        // banco ainda sem a coluna assinatura_ate (migração 7 não rodada) — segue sem ela
+        ({ data: rest, error: errRest } = await supabase
+          .from('restaurantes')
+          .select('nome, created_at, assinatura_ate')
+          .eq('id', perfil.restaurante_id)
+          .maybeSingle());
+      }
+      if (errRest) {
         ({ data: rest } = await supabase
           .from('restaurantes')
           .select('nome, created_at')
@@ -69,9 +76,11 @@ export function AuthProvider({ children }) {
         cargo:            perfil.cargo,
         restauranteId:    perfil.restaurante_id,
         restauranteNome:  rest?.nome || '',
-        // Assinatura/teste (migration7): usados pelo aviso e bloqueio do plano
+        // Assinatura/teste (migration7) + limite/bloqueio (migration9)
         restauranteCriadoEm: rest?.created_at || null,
         assinaturaAte:    rest?.assinatura_ate || null,
+        maxUsuarios:      rest?.max_usuarios || 3,
+        bloqueado:        !!rest?.bloqueado,
         eSuperAdmin:      email === 'atiliopinpolho@gmail.com',
         ts:               Date.now(),
       });
@@ -219,6 +228,7 @@ export function AuthProvider({ children }) {
       }
     }
 
+    try { sessionStorage.setItem('aurum_boasvindas', 'novo'); } catch { /* storage indisponível */ }
     await carregarPerfil(data.user.id);
     return null;
   }, [carregarPerfil]);
@@ -226,9 +236,11 @@ export function AuthProvider({ children }) {
   // ── Gera token de convite para novo funcionário ───────────────
   const criarConvite = useCallback(async (cargo) => {
     if (!sessao?.restauranteId || sessao?.demo) return null;
-    // Limite de 3 contas por restaurante (a checagem definitiva é no banco —
-    // RPC aceitar_convite — mas barramos cedo aqui para não gerar convite à toa).
-    if (usuarios.length >= 3) return null;
+    // Limite REAL do restaurante (3 padrão; VIP pode ter 4-5 — migração 9),
+    // contando também convites pendentes: não gerar código sem vaga para ele.
+    // A checagem definitiva continua no banco (RPC aceitar_convite).
+    const max = sessao.maxUsuarios || 3;
+    if (usuarios.length + convites.length >= max) return null;
     const { data, error } = await supabase
       .from('convites')
       .insert({ restaurante_id: sessao.restauranteId, cargo })
@@ -237,7 +249,7 @@ export function AuthProvider({ children }) {
     if (error) return null;
     setConvites(prev => [{ ...data }, ...prev]); // mostra na lista de pendentes
     return data.token;
-  }, [sessao, usuarios]);
+  }, [sessao, usuarios, convites]);
 
   // ── Lista os convites pendentes (não usados e não expirados) ──
   const carregarConvites = useCallback(async () => {
@@ -279,6 +291,7 @@ export function AuthProvider({ children }) {
     if (errRpc) return errRpc.message;
     if (aceito === false) return 'Código de convite inválido ou expirado.';
 
+    try { sessionStorage.setItem('aurum_boasvindas', 'convite'); } catch { /* storage indisponível */ }
     await carregarPerfil(data.user.id);
     return null;
   }, [carregarPerfil]);

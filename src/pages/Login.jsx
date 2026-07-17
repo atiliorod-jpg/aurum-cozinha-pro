@@ -4,9 +4,15 @@ import { useAuth } from '../store/AuthContext';
 const campo = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm";
 const botao = "w-full bg-polo-navy text-polo-gold font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50";
 
+// Código vindo do link direto (?convite=TOKEN) — compartilhado via WhatsApp
+const conviteDaURL = (() => {
+  try { return new URLSearchParams(window.location.search).get('convite') || ''; }
+  catch { return ''; }
+})();
+
 export default function Login() {
   const { login, esqueceuSenha, criarPrimeiroAdmin, usarConvite, entrarDemo } = useAuth();
-  const [modo, setModo] = useState('entrar'); // entrar | convite | novo | esqueci
+  const [modo, setModo] = useState(conviteDaURL ? 'convite' : 'entrar'); // entrar | convite | novo | esqueci
   const [mostraPrivacidade, setMostraPrivacidade] = useState(false);
   const [mostraTermos, setMostraTermos] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
@@ -19,7 +25,7 @@ export default function Login() {
   const [senha, setSenha] = useState('');
   const [nome, setNome] = useState('');
   const [nomeRest, setNomeRest] = useState('');
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState(conviteDaURL);
 
   const limpar = () => { setErro(''); setInfo(''); };
   const trocar = (m) => { limpar(); setSenha(''); setModo(m); };
@@ -90,7 +96,7 @@ export default function Login() {
             <button onClick={() => trocar('esqueci')} className="w-full text-xs text-polo-navy/70 pt-1">Esqueci minha senha</button>
             <div className="border-t border-gray-100 pt-3 flex flex-col gap-1.5">
               <button onClick={() => trocar('convite')} className="text-xs font-semibold text-polo-navy">Tenho um código de convite →</button>
-              <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante →</button>
+              <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante — <strong className="text-green-700">7 dias grátis</strong> →</button>
             </div>
             <button onClick={entrarDemo}
               className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-[0.98] transition-transform">
@@ -128,6 +134,7 @@ export default function Login() {
           {/* NOVO RESTAURANTE */}
           {modo === 'novo' && <>
             <h2 className="font-bold text-polo-navy">Cadastrar restaurante</h2>
+            <p className="text-xs font-semibold text-green-700">✨ 7 dias grátis com tudo liberado · depois R$ 149/mês para continuar.</p>
             <p className="text-xs text-gray-500">Você será o administrador (Diretoria — acesso total).</p>
             <input type="text" aria-label="Nome do restaurante" value={nomeRest} onChange={e => setNomeRest(e.target.value)} placeholder="Nome do restaurante" className={campo} />
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />

@@ -925,13 +925,17 @@ export default function Configuracoes() {
     toast('Destino adicionado.', 'sucesso');
   };
 
+  const maxUsuarios = sessao?.maxUsuarios || 3;
+  // vagas consideram usuários ativos + convites pendentes (cada código reserva uma vaga)
+  const vagasRestantes = Math.max(0, maxUsuarios - usuarios.length - convites.length);
+
   const handleGerarConvite = async () => {
-    if (usuarios.length >= 3) {
-      toast('Limite de 3 contas por restaurante. Remova um usuário antes de convidar outro.', 'aviso');
+    if (vagasRestantes <= 0) {
+      toast(`Sem vagas: ${usuarios.length} usuário(s) + ${convites.length} convite(s) pendente(s) de ${maxUsuarios} no total. Revogue um convite ou remova um usuário.`, 'aviso');
       return;
     }
     const token = await criarConvite(conviteCargo);
-    if (!token) { toast('Não foi possível gerar o convite (limite de 3 contas?).', 'erro'); return; }
+    if (!token) { toast('Não foi possível gerar o convite (sem vagas ou sem conexão).', 'erro'); return; }
     setConviteGerado({ token, cargo: conviteCargo });
     logAudit('gerou convite de acesso', CARGOS.find(c => c.id === conviteCargo)?.label || conviteCargo);
     toast('Convite gerado! Copie o código abaixo.', 'sucesso');
@@ -941,6 +945,29 @@ export default function Configuracoes() {
     if (!conviteGerado) return;
     try { await navigator.clipboard.writeText(conviteGerado.token); toast('Código copiado!', 'sucesso'); }
     catch { toast('Copie o código manualmente.', 'aviso'); }
+  };
+
+  // Link direto: abre o app já no modo convite com o código preenchido
+  const linkConvite = (token) => `${window.location.origin}${import.meta.env.BASE_URL}?convite=${token}`;
+
+  const copiarLinkConvite = async () => {
+    if (!conviteGerado) return;
+    try { await navigator.clipboard.writeText(linkConvite(conviteGerado.token)); toast('Link copiado! Quem abrir já cai no cadastro com o código preenchido.', 'sucesso'); }
+    catch { toast('Copie o link manualmente.', 'aviso'); }
+  };
+
+  const compartilharWhatsApp = () => {
+    if (!conviteGerado) return;
+    const msg = encodeURIComponent(
+      `Você foi convidado para a equipe do ${sessao?.restauranteNome || 'restaurante'} no Aurum Cozinha Pro! 🍳
+
+` +
+      `Abra o link, toque em "Tenho um código de convite" e crie sua conta:
+${linkConvite(conviteGerado.token)}
+
+` +
+      `Código: ${conviteGerado.token} (válido por 7 dias)`);
+    window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleRevogarConvite = async (token) => {
@@ -1598,6 +1625,11 @@ export default function Configuracoes() {
         </div>
 
         {/* Gerar convite */}
+        <p className="text-xs text-gray-500">
+          👥 Usuários <strong>{usuarios.length}/{maxUsuarios}</strong>
+          {convites.length > 0 && <> · {convites.length} convite(s) pendente(s)</>}
+          {' '}— {vagasRestantes > 0 ? `resta(m) ${vagasRestantes} vaga(s)` : 'sem vagas'}
+        </p>
         <div className="flex gap-2">
           <select value={conviteCargo} onChange={e => setConviteCargo(e.target.value)}
             className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
@@ -1617,6 +1649,12 @@ export default function Configuracoes() {
               </code>
               <button onClick={copiarConvite}
                 className="bg-polo-navy text-polo-gold font-bold px-3 py-2 rounded-lg text-sm">Copiar</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={compartilharWhatsApp}
+                className="bg-green-600 text-white font-bold py-2 rounded-lg text-xs">💬 Enviar no WhatsApp</button>
+              <button onClick={copiarLinkConvite}
+                className="border border-polo-navy text-polo-navy font-bold py-2 rounded-lg text-xs">🔗 Copiar link direto</button>
             </div>
           </div>
         )}

@@ -198,7 +198,7 @@ export default function Dashboard() {
         <div className="bg-red-50 border border-red-300 rounded-xl p-3 mb-4">
           <p className="text-xs font-bold text-red-700 mb-1">⚠️ Produção incompleta detectada</p>
           <p className="text-[11px] text-red-600 mb-2">
-            {prodIncompletas.length} produção(ões) baixaram ingredientes mas a entrada do produto final não foi gravada
+            {prodIncompletas.length} produção(ões) baixaram ingredientes mas a entrada do item produzido não foi gravada
             (provável falha de conexão no meio do registro). Confira no Histórico: remova a saída interna órfã
             (o Desfazer devolve os ingredientes) e registre a produção de novo.
           </p>
@@ -264,6 +264,13 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Conta nova: explica por que ainda não há sugestões de mín/máx (gate de ~15 dias) */}
+      {!prefs.autoMinMax && divergentes.length === 0 && Object.keys(sugestoes).length === 0 && produtosAtivos.length > 0 && (
+        <p className="text-[11px] text-gray-400 px-1 mb-4">
+          💡 Sugestões automáticas de mín/máx aparecem após ~15 dias de saídas registradas.
+        </p>
       )}
 
       {/* Filtro por categoria */}
