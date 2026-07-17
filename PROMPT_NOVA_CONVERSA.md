@@ -32,6 +32,14 @@ App PWA para controle de estoque de cozinha industrial (Polo Beer / Aurum Servi�
 - `suporteAtivo`: timestamp Unix (Date.now() + 24h) quando o cliente autoriza suporte
 - `suportePermissao`: `'ver'` | `'mexer'` — o que o cliente permitiu ao super-admin fazer
 
+### Rodada 17/07/2026 (parte 2) — auditoria de SEGURANÇA (migration10)
+- **S1 (P0)**: INSERT direto em `perfis` FECHADO — a policy `perfis_ins_v4` (`id = auth.uid()`) deixava qualquer conta autenticada se inserir no restaurante de outro cliente como diretoria via API; agora perfis só nascem pelas RPCs
+- **S2 (P1)**: notas internas do admin saíram de `restaurantes` (o dono lia via `?select=notas_admin`) para tabela `admin_notas` sem policy de cliente; leitura via RPC `notas_admin_todas()`, escrita via `salvar_notas_admin` (ambas só super-admin); coluna antiga DROPADA (dados migrados)
+- **S3 (P1)**: corte de plano/bloqueio agora vale no BANCO — `restaurante_pode_escrever(rid)` nas policies de escrita de `registros`/`documentos` (leitura livre; escrita exige não-bloqueado E teste 7d OU assinatura vigente); suporte continua condicionado a `suporte_pode_editar` (m7)
+- **S4 (P2)**: token de convite 8→16 chars hex (`gen_random_bytes(8)`); tokens antigos pendentes valem até expirar
+- **S5**: fallback de insert direto removido do `criarPrimeiroAdmin` (era código morto pós-m4 e reabriria spam se alguém reaplicasse schema antigo); seed renomeado ("Empanado de filé/frango (porção)" no lugar de "parmegiana")
+- **NÃO feito por decisão consciente** (mantidas as recusas do prompt): hidratação 120d, trocar setTimeout(800), parmegiana nos Termos, impersonar sem autorização, Sentry sem DSN, CMV, default max_usuarios>3
+
 ### Rodada 17/07/2026 — auditoria "Bloco de Notas" (admin rico, VIP, convites, onboarding) + E2E em produção
 - **migration9_admin_convites.sql RODADO em produção 17/07**: `aceitar_convite` v9 (conta que já tem restaurante NÃO queima o token — erro claro antes de consumir), RPC `definir_max_usuarios` (1–5, só super-admin), coluna `bloqueado` + RPC `definir_bloqueio`, RPC `usuarios_do_restaurante` (lista com e-mails via auth.users, só super-admin), coluna `notas_admin` + RPC `salvar_notas_admin`
 - **Admin.jsx reescrito**: badge de status comercial (🧪 teste/💳 assinatura/⛔ vencido/🔒 bloqueado), grid com datas + 👥 X/max + suporte, usuários com e-mail (fallback se RPC faltar), liberar dias (+7/+14/+30/+90 e campo livre 1–400), seletor VIP max_usuarios 3/4/5, bloquear/desbloquear com confirmação, notas internas por restaurante

@@ -30,7 +30,7 @@ export const PRODUTOS_INICIAIS = [
   { id: 'cupim', nome: 'Cupim', categoria: 'BOVINOS', unidade: 'kg', min: 50, max: 100, ativo: true },
   { id: 'cupim_espeto', nome: 'Cupim (espetinho)', categoria: 'BOVINOS', unidade: 'unid', min: 0, max: 0, ativo: true },
   { id: 'file_medalh', nome: 'Filé medalhão', categoria: 'BOVINOS', unidade: 'unid', pesoUnidade: 150, min: 10, max: 20, ativo: true },
-  { id: 'file_parm', nome: 'Filé parmegiana', categoria: 'BOVINOS', unidade: 'unid', pesoUnidade: 130, min: 175, max: 350, ativo: true },
+  { id: 'file_parm', nome: 'Empanado de filé (porção)', categoria: 'BOVINOS', unidade: 'unid', pesoUnidade: 130, min: 175, max: 350, ativo: true },
   { id: 'file_petisco', nome: 'Filé petisco', categoria: 'BOVINOS', unidade: 'unid', pesoUnidade: 300, min: 30, max: 60, ativo: true },
   { id: 'file_refeicao', nome: 'Filé refeição', categoria: 'BOVINOS', unidade: 'unid', pesoUnidade: 150, min: 90, max: 180, ativo: true },
   { id: 'file_yaki', nome: 'Filé Yakisoba', categoria: 'BOVINOS', unidade: 'kg', min: 5, max: 10, ativo: true },
@@ -43,7 +43,7 @@ export const PRODUTOS_INICIAIS = [
   // AVES
   { id: 'frango_grel', nome: 'Frango grelhado', categoria: 'AVES', unidade: 'unid', pesoUnidade: 150, min: 45, max: 90, ativo: true },
   { id: 'frango_medal', nome: 'Frango medalhão', categoria: 'AVES', unidade: 'unid', pesoUnidade: 150, min: 5, max: 10, ativo: true },
-  { id: 'frango_parm', nome: 'Frango parmegiana', categoria: 'AVES', unidade: 'unid', pesoUnidade: 150, min: 200, max: 400, ativo: true },
+  { id: 'frango_parm', nome: 'Empanado de frango (porção)', categoria: 'AVES', unidade: 'unid', pesoUnidade: 150, min: 200, max: 400, ativo: true },
   { id: 'frango_pet', nome: 'Frango petisco', categoria: 'AVES', unidade: 'unid', pesoUnidade: 300, min: 40, max: 80, ativo: true },
   { id: 'frango_espeto', nome: 'Frango espetinho', categoria: 'AVES', unidade: 'unid', min: 0, max: 0, ativo: true },
   { id: 'frango_xadrez', nome: 'Frango xadrez', categoria: 'AVES', unidade: 'kg', min: 8, max: 15, ativo: true },

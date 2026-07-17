@@ -34,7 +34,7 @@ export default function Admin() {
     // select completo → fallback progressivo p/ bancos sem as colunas novas
     let { data: rests, error: errR } = await supabase
       .from('restaurantes')
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, notas_admin')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado')
       .order('created_at', { ascending: false });
     if (errR) {
       ({ data: rests, error: errR } = await supabase
@@ -85,7 +85,17 @@ export default function Admin() {
         podeMexer: suporteAtivo && conf.suportePermissao === 'mexer',
       };
     }));
-    setNotasLocal(Object.fromEntries(rests.map(r => [r.id, r.notas_admin || ''])));
+    // Notas internas: tabela admin_notas via RPC (migração 10) — o cliente não
+    // tem mais como ler; fallback lê a coluna antiga em banco pré-m10.
+    let notas = {};
+    const { data: nTodas, error: eNotas } = await supabase.rpc('notas_admin_todas');
+    if (!eNotas && nTodas) {
+      notas = Object.fromEntries(nTodas.map(n => [n.restaurante_id, n.notas || '']));
+    } else {
+      const { data: antigas } = await supabase.from('restaurantes').select('id, notas_admin');
+      (antigas || []).forEach(x => { notas[x.id] = x.notas_admin || ''; });
+    }
+    setNotasLocal(Object.fromEntries(rests.map(r => [r.id, notas[r.id] || ''])));
     setCarregando(false);
   }, []);
 

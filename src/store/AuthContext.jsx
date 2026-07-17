@@ -211,21 +211,12 @@ export function AuthProvider({ children }) {
       p_nome_admin: nome,
     });
     if (errRpc) {
-      // Fallback para ambientes que ainda não rodaram a migração 4 (RPC ausente):
-      // mantém o cadastro funcionando com o método antigo (insert direto).
+      // Sem fallback de insert direto: desde a migração 10 o RLS não aceita
+      // INSERT em restaurantes/perfis pelo client — cadastro é SÓ pela RPC.
       if (/criar_restaurante|function|does not exist|schema cache|not find/i.test(errRpc.message || '')) {
-        const restauranteId = (crypto?.randomUUID?.() || `r_${Date.now()}`);
-        const { error: errR } = await supabase
-          .from('restaurantes')
-          .insert({ id: restauranteId, nome: nomeRestaurante || `${nome} — Restaurante` });
-        if (errR) return errR.message;
-        const { error: errP } = await supabase
-          .from('perfis')
-          .insert({ id: data.user.id, nome, cargo: 'diretoria', restaurante_id: restauranteId });
-        if (errP) return errP.message;
-      } else {
-        return errRpc.message;
+        return 'Cadastro indisponível no momento (banco sem a migração 4). Fale com o suporte Aurum.';
       }
+      return errRpc.message;
     }
 
     try { sessionStorage.setItem('aurum_boasvindas', 'novo'); } catch { /* storage indisponível */ }

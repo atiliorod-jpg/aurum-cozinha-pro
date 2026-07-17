@@ -40,6 +40,7 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 | 6 | `src/lib/migration7_suporte_assinatura.sql` | Suporte com edição (policies condicionadas à autorização 24h do cliente) + coluna `assinatura_ate` + RPC `ativar_assinatura` | ✅ rodado (07/07/2026) |
 | 7 | `src/lib/migration8_versao_documentos.sql` | Versão nos catálogos + RPC `salvar_documento` (anti-sobrescrita entre 2 tablets; app tem fallback se faltar) | ✅ rodado (11/07/2026) |
 | 8 | `src/lib/migration9_admin_convites.sql` | `aceitar_convite` v9 (não queima token se a conta já tem restaurante), RPCs de super-admin (`definir_max_usuarios`, `definir_bloqueio`, `usuarios_do_restaurante`, `salvar_notas_admin`) + colunas `bloqueado`/`notas_admin` | ✅ rodado (17/07/2026) |
+| 9 | `src/lib/migration10_hardening.sql` | **Segurança**: fecha INSERT direto em `perfis` (quebra de multi-tenant via API), notas internas migram para tabela `admin_notas` só-RPC (cliente não lê mais), corte de plano/bloqueio no RLS (`restaurante_pode_escrever` em registros/documentos — leitura livre, escrita exige teste/assinatura vigente), token de convite 8→16 chars | ✅ rodado (17/07/2026) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 
@@ -57,7 +58,20 @@ select indexname from pg_indexes where indexname = 'idx_registros_rest_deleted_t
 
 -- migration7: coluna de assinatura existe?
 select column_name from information_schema.columns where table_name = 'restaurantes' and column_name = 'assinatura_ate';
+
+-- migration9/10: RPCs de admin + hardening
+select proname from pg_proc where proname in (
+  'definir_max_usuarios', 'definir_bloqueio', 'usuarios_do_restaurante',
+  'salvar_notas_admin', 'notas_admin_todas', 'restaurante_pode_escrever');
+
+-- migration10: sem INSERT aberto em perfis (esperado: NENHUMA linha)
+select policyname, cmd from pg_policies where tablename = 'perfis' and cmd = 'INSERT';
+
+-- migration10: notas fora de restaurantes (esperado: erro "column does not exist")
+-- select notas_admin from restaurantes limit 1;
 ```
+
+**Corte de plano também no RLS (migração 10):** conta bloqueada ou com teste+assinatura vencidos continua LENDO os dados, mas qualquer escrita em `registros`/`documentos` é negada pelo banco (`restaurante_pode_escrever`) — a tela de bloqueio do app deixou de ser a única barreira. Se o plano vencer com o app offline, o outbox falha ao sincronizar: comportamento intencional (renovou → volta a subir).
 
 **Atenção:** o `aceitar_convite` do migration4 usa `perfis.ativo` e `restaurantes.max_usuarios`. Se o schema não tiver essas colunas:
 ```sql

@@ -626,7 +626,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
             </label>
             <input id="mp-peso-unidade" type="number" min="0" value={form.pesoUnidade}
               onChange={e => set('pesoUnidade', e.target.value)}
-              placeholder="Ex: 130 (1 parmegiana = 130 g)"
+              placeholder="Ex: 130 (1 porção = 130 g)"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             <p className="text-xs text-gray-500 mt-1">Usado para converter a lista de compras em kg (ex.: 120 unid ≈ 15,6 kg).</p>
           </div>
