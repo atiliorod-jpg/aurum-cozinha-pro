@@ -5,12 +5,13 @@ import GuideTour from './GuideTour';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
+import { pode } from '../utils/permissoes';
 
 const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
 export default function Layout({ title, children, actions }) {
-  const { sessao, logout, temPermissao } = useAuth();
-  const { pendencias, online } = useApp();
+  const { sessao, logout } = useAuth();
+  const { pendencias, online, prefs } = useApp();
   const { confirm } = useUI();
 
   const sair = async () => {
@@ -45,7 +46,7 @@ export default function Layout({ title, children, actions }) {
           {actions}
           {sessao && (
             <div className="flex items-center gap-1.5">
-              {temPermissao('gerencia') && (
+              {pode(sessao, prefs?.permissoes, 'verAuditoria') && (
                 <Link to="/auditoria" aria-label="Histórico de mudanças" title="Histórico de mudanças"
                   className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-polo-gold active:scale-90 transition-transform
                              focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">

@@ -1,7 +1,11 @@
 // Regras do plano único (R$149/mês) + período de teste de 7 dias.
 // Sem webhook de pagamento: a ativação é manual (super-admin, RPC ativar_assinatura).
-// O "corte" ao vencer é VISUAL (tela de bloqueio no app) — decisão do dono 07/07/2026.
-
+// Desde a migração 10 o corte também vale no banco (restaurante_pode_escrever),
+// além do bloqueio visual no app.
+//
+// ⚠️ PARIDADE: TESTE_DIAS precisa ser IGUAL ao "interval '7 days'" usado em
+// restaurante_pode_escrever (migration10). Mudou aqui, mude lá também — senão o
+// app diz "ok" e o banco nega a escrita (ou vice-versa).
 export const TESTE_DIAS = 7;
 export const PRECO_MES = 149;
 

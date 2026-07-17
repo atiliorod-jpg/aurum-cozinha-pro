@@ -6,7 +6,8 @@ import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
-import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount } from '../lib/cache';
+import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos } from '../lib/cache';
+import { registrarFalha, ressuscitar } from '../utils/outbox';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
 const CAT = {
@@ -82,6 +83,7 @@ export function AppProvider({ children }) {
   const [auditoria,   setAuditoriaRaw]   = useState([]);
   // Observabilidade da sincronização: nº de operações na fila offline + status de rede.
   const [pendencias,  setPendencias]     = useState(0);
+  const [mortos,      setMortos]         = useState([]); // itens que falharam demais (erro permanente)
   const [online,      setOnline]         = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
 
   // refs estáveis para callbacks não dependerem de closures velhas.
@@ -296,7 +298,10 @@ export function AppProvider({ children }) {
 
   // ── Pendências de sincronização (badge offline) ───────────
   useEffect(() => {
-    const atualiza = () => setPendencias(rid ? outboxCount(rid) : 0);
+    const atualiza = () => {
+      setPendencias(rid ? outboxCount(rid) : 0);
+      setMortos(rid ? outboxMortos(rid) : []);
+    };
     atualiza();
     const onOnline = () => { setOnline(true); atualiza(); };
     const onOffline = () => setOnline(false);
@@ -308,6 +313,18 @@ export function AppProvider({ children }) {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
+  }, [rid]);
+
+  // ── Fila morta: tentar de novo / descartar (erro permanente de sincronização) ──
+  const retentarMortos = useCallback(() => {
+    if (!rid) return;
+    // ressuscita (zera _morto/_tentativas) e dispara uma nova sincronização
+    outboxSet(rid, outboxGet(rid).map(i => i._morto ? ressuscitar(i) : i));
+    try { window.dispatchEvent(new Event('forcar-sync')); } catch { /* sem window */ }
+  }, [rid]);
+  const descartarMortos = useCallback(() => {
+    if (!rid) return;
+    outboxSet(rid, outboxGet(rid).filter(i => !i._morto));
   }, [rid]);
 
   // ── Estoque (calculado uma vez, partilhado por todos os componentes) ─
@@ -427,6 +444,9 @@ export function AppProvider({ children }) {
       if (!fila.length) return;
       const restantes = [];
       for (const item of fila) {
+        // Itens mortos (falharam MAX vezes) não são retentados no loop normal;
+        // ficam na fila para a lista de erro permanente / retry manual.
+        if (item._morto) { restantes.push(item); continue; }
         try {
           let error = null;
           if (item.kind === 'registro' && item.op === 'insert')
@@ -448,8 +468,9 @@ export function AppProvider({ children }) {
           }
           else if (item.kind === 'clearAll')
             ({ error } = await supabase.from('registros').update({ deleted: true }).eq('restaurante_id', rid).neq('tipo', 'auditoria'));
-          if (error) restantes.push(item);
-        } catch { restantes.push(item); }
+          // sucesso → não repõe; falha → conta a tentativa (vira morto no limite)
+          if (error) restantes.push(registrarFalha({ ...item, _ultimoErro: error.message || 'erro' }));
+        } catch (e) { restantes.push(registrarFalha({ ...item, _ultimoErro: e?.message || 'erro' })); }
       }
       outboxSet(rid, restantes);
     };
@@ -575,14 +596,16 @@ export function AppProvider({ children }) {
         p => aplicaDocRT(p.new))
       .subscribe();
 
-    // 4) reconexão → sobe pendências
+    // 4) reconexão / retry manual → sobe pendências
     const onOnline = () => flush();
     window.addEventListener('online', onOnline);
+    window.addEventListener('forcar-sync', onOnline);
 
     return () => {
       ativo = false;
       supabase.removeChannel(canal);
       window.removeEventListener('online', onOnline);
+      window.removeEventListener('forcar-sync', onOnline);
     };
   }, [rid, salvarDocNuvem]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -710,6 +733,7 @@ export function AppProvider({ children }) {
       exportarBackup, importarBackup,
       soLeitura,
       pendencias, online,
+      mortos, retentarMortos, descartarMortos,
     }}>
       {children}
     </AppContext.Provider>

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { statusAssinatura } from '../utils/assinatura';
 
 export const CARGOS = [
   { id: 'cozinha',  label: 'Cozinha',   nivel: 0 },
@@ -86,7 +87,7 @@ export function AuthProvider({ children }) {
       });
       const { data: todos } = await supabase
         .from('perfis')
-        .select('id, nome, cargo')
+        .select('id, nome, cargo, ativo')
         .eq('restaurante_id', perfil.restaurante_id);
       setUsuarios(todos || []);
     } else {
@@ -227,11 +228,16 @@ export function AuthProvider({ children }) {
   // ── Gera token de convite para novo funcionário ───────────────
   const criarConvite = useCallback(async (cargo) => {
     if (!sessao?.restauranteId || sessao?.demo) return null;
+    // Conta suspensa ou plano vencido não gera convite (a migração 11 também
+    // barra no banco; aqui é só para não oferecer o botão à toa).
+    const plano = statusAssinatura(sessao);
+    if (!plano.ok) return null;
     // Limite REAL do restaurante (3 padrão; VIP pode ter 4-5 — migração 9),
     // contando também convites pendentes: não gerar código sem vaga para ele.
     // A checagem definitiva continua no banco (RPC aceitar_convite).
     const max = sessao.maxUsuarios || 3;
-    if (usuarios.length + convites.length >= max) return null;
+    const ativos = usuarios.filter(u => u.ativo !== false).length;
+    if (ativos + convites.length >= max) return null;
     const { data, error } = await supabase
       .from('convites')
       .insert({ restaurante_id: sessao.restauranteId, cargo })
@@ -298,6 +304,25 @@ export function AuthProvider({ children }) {
     return null;
   }, [sessao]);
 
+  // ── Desativar / reativar acesso (libera vaga sem apagar histórico) ──
+  const desativarUsuario = useCallback(async (usuarioId) => {
+    if (sessao?.demo) return 'Indisponível na demonstração.';
+    if (!sessao?.restauranteId) return 'Sem restaurante.';
+    const { error } = await supabase.rpc('desativar_usuario', { p_usuario: usuarioId });
+    if (error) return error.message;
+    setUsuarios(prev => prev.map(u => u.id === usuarioId ? { ...u, ativo: false } : u));
+    return null;
+  }, [sessao]);
+
+  const reativarUsuario = useCallback(async (usuarioId) => {
+    if (sessao?.demo) return 'Indisponível na demonstração.';
+    if (!sessao?.restauranteId) return 'Sem restaurante.';
+    const { error } = await supabase.rpc('reativar_usuario', { p_usuario: usuarioId });
+    if (error) return error.message;
+    setUsuarios(prev => prev.map(u => u.id === usuarioId ? { ...u, ativo: true } : u));
+    return null;
+  }, [sessao]);
+
   // ── Definir/trocar a própria senha ───────────────────────────
   const atualizarSenha = useCallback(async (novaSenha) => {
     if (sessao?.demo) return 'Indisponível na demonstração.';
@@ -319,6 +344,7 @@ export function AuthProvider({ children }) {
       convites, carregarConvites, revogarConvite,
       login, logout, entrarDemo, esqueceuSenha, atualizarSenha,
       criarPrimeiroAdmin, criarConvite, usarConvite, alterarCargo,
+      desativarUsuario, reativarUsuario,
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,

@@ -1,6 +1,13 @@
 -- ============================================================
+-- ⚠️ ARQUIVO HISTÓRICO / BOOTSTRAP ANTIGO — NÃO REAPLICAR EM PRODUÇÃO.
+--    As policies aqui (ex.: perfis_insert aberto, rest_insert with check true)
+--    foram SUPERADAS e ENDURECIDAS pelas migrations 4–11. Rodar este arquivo
+--    por cima da produção REABRE buracos de segurança já fechados.
+--    Estado correto = migrations 4–11 aplicadas em ordem (ver README).
+--    Use este schema só para entender a estrutura ou semear um banco novo
+--    DO ZERO (e, mesmo aí, rode as migrations 4–11 em seguida).
+-- ============================================================
 -- Polo Estoque — Schema Supabase (multi-tenant / multi-restaurante)
--- Execute UMA vez no SQL Editor do Supabase Dashboard.
 -- Modelo: cada restaurante é isolado por Row Level Security (RLS).
 -- ============================================================
 

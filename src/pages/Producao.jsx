@@ -8,10 +8,12 @@ import ResponsavelSelect from '../components/ResponsavelSelect';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro, addDias } from '../utils/datas';
 import { planejarProducao } from '../utils/producao';
+import { pode } from '../utils/permissoes';
 
 export default function Producao() {
   const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref } = useApp();
-  const { temPermissao } = useAuth();
+  const { sessao } = useAuth();
+  const podeCriarFicha = pode(sessao, prefs?.permissoes, 'gerenciarProdutos');
   const { toast, confirm, abrirEtiquetas } = useUI();
 
   const [searchParams] = useSearchParams();
@@ -138,7 +140,7 @@ export default function Producao() {
               Aqui você executa as fichas de porcionamento e semiacabados da casa
               (ex.: empanado porcionado, molho base) — baixa os ingredientes e dá entrada no item produzido.
             </p>
-            {temPermissao('gerencia')
+            {podeCriarFicha
               ? <Link to="/configuracoes" className="inline-block mt-2 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">Criar ficha de produção</Link>
               : <p className="text-xs text-gray-400 mt-2">Peça à gerência para cadastrar as receitas em Configurações.</p>}
           </div>

@@ -1,6 +1,11 @@
 -- =====================================================================
---  AURUM COZINHA PRO — Configuração de segurança no Supabase
---  Cole este arquivo INTEIRO no Supabase → SQL Editor → New query → Run.
+--  ⚠️ ARQUIVO HISTÓRICO — NÃO REAPLICAR EM PRODUÇÃO.
+--     As migrations 4–11 já consolidaram e ENDURECERAM este RLS. Rodar este
+--     setup por cima da produção pode reabrir policies antigas mais permissivas.
+--     Estado correto = migrations 4–11 em ordem (ver README). Use só para
+--     bootstrap de um banco novo do zero, seguido das migrations 4–11.
+-- =====================================================================
+--  AURUM COZINHA PRO — Configuração de segurança no Supabase (bootstrap)
 --  É seguro rodar mais de uma vez (usa IF NOT EXISTS / DROP POLICY IF EXISTS).
 --
 --  O que ele faz:

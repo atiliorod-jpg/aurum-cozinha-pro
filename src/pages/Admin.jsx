@@ -168,6 +168,9 @@ export default function Admin() {
         <div className="bg-polo-navy rounded-xl p-4 text-polo-gold">
           <p className="font-bold text-sm">🔑 Painel super-admin</p>
           <p className="text-[11px] text-white/80 mt-0.5">Logado como {sessao.email}</p>
+          <p className="text-[11px] text-polo-gold/90 mt-1.5">
+            🔒 Conta crítica: ative a verificação em duas etapas (MFA) no Supabase Auth e use uma senha forte e exclusiva.
+          </p>
         </div>
 
         {/* Erro de RLS */}
@@ -175,7 +178,7 @@ export default function Admin() {
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
             <p className="text-sm font-bold text-red-700">Sem acesso aos dados ({erro})</p>
             <p className="text-xs text-red-600">
-              Confira no README a ordem dos scripts SQL (migrations 1–9) e as policies do super-admin
+              Confira no README a ordem dos scripts SQL (migrations 1–11) e as policies do super-admin
               (e-mail {SUPER_ADMIN_EMAIL}) no Supabase.
             </p>
           </div>

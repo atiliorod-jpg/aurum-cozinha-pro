@@ -2,19 +2,20 @@ import { NavLink } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { statusEstoque } from '../utils/calculos';
+import { pode, podeAbrirConfig } from '../utils/permissoes';
 import Icon from './Icons';
 
 const NAV = [
   { to: '/',              icon: 'inicio',    label: 'Início' },
   { to: '/registrar',     icon: 'registrar', label: 'Registrar' },
   { to: '/historico',     icon: 'historico', label: 'Histórico' },
-  { to: '/relatorio',     icon: 'relatorio', label: 'Relatório', cargo: 'gerencia' },
-  { to: '/configuracoes', icon: 'config',    label: 'Config.',   cargo: 'gerencia' },
+  { to: '/relatorio',     icon: 'relatorio', label: 'Relatório', cap: 'verRelatorio' },
+  { to: '/configuracoes', icon: 'config',    label: 'Config.',   cap: 'config' },
 ];
 
 export default function NavBar() {
-  const { produtos, estoque, producoes } = useApp();
-  const { temPermissao } = useAuth();
+  const { produtos, estoque, producoes, prefs } = useApp();
+  const { sessao } = useAuth();
   const alertas = produtos.filter(p => {
     const s = statusEstoque(estoque[p.id] ?? 0, p.min, p.max);
     return s === 'critico' || s === 'zerado';
@@ -25,7 +26,11 @@ export default function NavBar() {
     return p?.ativo && p.min > 0 && (estoque[p.id] ?? 0) < p.min;
   }).length;
 
-  const itens = NAV.filter(n => !n.cargo || temPermissao(n.cargo));
+  const itens = NAV.filter(n => {
+    if (!n.cap) return true;
+    if (n.cap === 'config') return podeAbrirConfig(sessao, prefs?.permissoes);
+    return pode(sessao, prefs?.permissoes, n.cap);
+  });
 
   return (
     <nav aria-label="Navegação principal"

@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { fmtData, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
+import { pode } from '../utils/permissoes';
 
 export default function Historico() {
   const {
-    produtos, compras, entradas, saidas, aparas, desperdicio, locais,
+    produtos, compras, entradas, saidas, aparas, desperdicio, locais, prefs,
     removeCompra, removeEntrada, removeSaida, removeApara, removeDesperdicio,
     restaurarRegistro,
   } = useApp();
+  const { sessao } = useAuth();
+  const podeRemover = pode(sessao, prefs?.permissoes, 'removerRegistros');
   const { toast, confirm, abrirEtiquetas } = useUI();
   const destNome = (v) => v === 'producao' ? '🍲 Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [filtro, setFiltro] = useState('todas');
@@ -136,8 +140,10 @@ export default function Historico() {
               <button onClick={() => reimprimirEtiquetas(ev)} aria-label="Reimprimir etiquetas deste registro"
                 className="text-polo-navy text-xs font-semibold px-2 py-1 rounded hover:bg-polo-beige flex-shrink-0">🏷️</button>
             )}
-            <button onClick={() => handleRemover(ev)}
-              className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50 flex-shrink-0">Remover</button>
+            {podeRemover && (
+              <button onClick={() => handleRemover(ev)}
+                className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50 flex-shrink-0">Remover</button>
+            )}
           </div>
         ))}
       </div>

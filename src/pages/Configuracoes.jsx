@@ -9,6 +9,7 @@ import { calcSugestoesMinMax } from '../utils/sugestoes';
 import { fmtNum } from '../utils/formatters';
 import { POLO_PRESET } from '../data/presetPolo';
 import { fatorCorrecaoProduto } from '../utils/analise';
+import { pode, CAPACIDADES, permissoesEfetivas } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
 import { configEtiqueta } from '../utils/etiquetas';
 
@@ -836,10 +837,27 @@ export default function Configuracoes() {
   const { produtos, setProdutos, saidas, limparTudo, resetarProdutos, exportarBackup, importarBackup,
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref,
-          compras, aparas, desperdicio } = useApp();
-  const { usuarios, sessao, criarConvite, alterarCargo, convites, carregarConvites, revogarConvite } = useAuth();
+          compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos } = useApp();
+  const { usuarios, sessao, criarConvite, alterarCargo, convites, carregarConvites, revogarConvite,
+          desativarUsuario, reativarUsuario } = useAuth();
   const { toast, confirm } = useUI();
   const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
+
+  // Capacidades da sessão atual (matriz de permissões). Diretoria/super-admin = tudo.
+  const podeProdutos = pode(sessao, prefs?.permissoes, 'gerenciarProdutos');
+  const podeSistema  = pode(sessao, prefs?.permissoes, 'configurarSistema');
+  const podeInventario = pode(sessao, prefs?.permissoes, 'inventario');
+  const podeAuditoria  = pode(sessao, prefs?.permissoes, 'verAuditoria');
+  const eDiretoria = sessao?.eSuperAdmin || sessao?.cargo === 'diretoria';
+  // Só gerência+ mexe em acessos (convites/cargos); a matriz de permissões é só diretoria.
+  const podeAcessos = eDiretoria || sessao?.cargo === 'gerencia';
+  // Matriz de permissões efetiva (padrão + o que a diretoria ajustou)
+  const permMatriz = permissoesEfetivas(prefs?.permissoes);
+  const togglePermissao = (cargo, cap, valor) => {
+    const nova = { ...permMatriz, [cargo]: { ...permMatriz[cargo], [cap]: valor } };
+    setPref('permissoes', nova);
+    logAudit('ajustou permissões', `${cargo}: ${cap} ${valor ? 'liberado' : 'bloqueado'}`);
+  };
 
   // Cargos que o usuário logado pode CONCEDER: ninguém atribui acima do próprio
   // nível (gerência não cria diretoria). Super-admin/diretoria concedem tudo.
@@ -926,8 +944,10 @@ export default function Configuracoes() {
   };
 
   const maxUsuarios = sessao?.maxUsuarios || 3;
-  // vagas consideram usuários ativos + convites pendentes (cada código reserva uma vaga)
-  const vagasRestantes = Math.max(0, maxUsuarios - usuarios.length - convites.length);
+  const usuariosAtivos = usuarios.filter(u => u.ativo !== false);
+  const usuariosInativos = usuarios.filter(u => u.ativo === false);
+  // vagas consideram usuários ATIVOS + convites pendentes (cada código reserva uma vaga)
+  const vagasRestantes = Math.max(0, maxUsuarios - usuariosAtivos.length - convites.length);
 
   const handleGerarConvite = async () => {
     if (vagasRestantes <= 0) {
@@ -984,9 +1004,16 @@ ${linkConvite(conviteGerado.token)}
   const [criando, setCriando] = useState(false);
   const [busca, setBusca] = useState('');
   const [novaPessoa, setNovaPessoa] = useState('');
-  const [secao, setSecao] = useState('produtos'); // produtos | acessos | sistema
+  const [secao, setSecao] = useState('produtos'); // produtos | receitas | acessos | sistema
+  // Abas visíveis dependem da função; secaoAtiva garante que uma aba escolhida
+  // some (permissão retirada) caia numa aba permitida em vez de tela vazia.
+  const abasDisponiveis = [
+    ['produtos', podeProdutos], ['receitas', podeProdutos],
+    ['acessos', podeAcessos], ['sistema', podeSistema],
+  ].filter(([, ok]) => ok).map(([v]) => v);
+  const secaoAtiva = abasDisponiveis.includes(secao) ? secao : (abasDisponiveis[0] || 'produtos');
   // Carrega os convites pendentes ao abrir a aba "Acessos"
-  useEffect(() => { if (secao === 'acessos') carregarConvites(); }, [secao, carregarConvites]);
+  useEffect(() => { if (secaoAtiva === 'acessos') carregarConvites(); }, [secaoAtiva, carregarConvites]);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
   const planilhaRef = useRef(null);
@@ -1227,12 +1254,12 @@ ${linkConvite(conviteGerado.token)}
     <Layout
       title="Configurações"
       actions={
-        secao === 'produtos' ? (
+        secaoAtiva === 'produtos' ? (
           <button onClick={() => setCriando(true)} aria-label="Adicionar produto"
             className="bg-polo-gold text-polo-navy text-xs font-bold px-3 py-1.5 rounded-lg">
             + Produto
           </button>
-        ) : secao === 'receitas' ? (
+        ) : secaoAtiva === 'receitas' ? (
           <button onClick={() => setCriandoProducao(true)} aria-label="Adicionar receita de produção"
             className="bg-polo-gold text-polo-navy text-xs font-bold px-3 py-1.5 rounded-lg">
             + Receita
@@ -1240,18 +1267,23 @@ ${linkConvite(conviteGerado.token)}
         ) : null
       }
     >
-      {/* Seções — 4 abas */}
+      {/* Seções — abas conforme as permissões da função */}
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['produtos', '📦 Produtos'], ['receitas', '🍽️ Receitas'], ['acessos', '👤 Acessos'], ['sistema', '🛠️ Sistema']].map(([v, l]) => (
+        {[
+          ['produtos', '📦 Produtos', podeProdutos],
+          ['receitas', '🍽️ Receitas', podeProdutos],
+          ['acessos', '👤 Acessos', podeAcessos],
+          ['sistema', '🛠️ Sistema', podeSistema],
+        ].filter(([, , ok]) => ok).map(([v, l]) => (
           <button key={v} onClick={() => setSecao(v)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors
-              ${secao === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
+              ${secaoAtiva === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
             {l}
           </button>
         ))}
       </div>
 
-      {secao === 'produtos' && <>
+      {secaoAtiva === 'produtos' && <>
       {/* Busca */}
       <div className="mb-3">
         <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
@@ -1344,7 +1376,7 @@ ${linkConvite(conviteGerado.token)}
       </div>
       </>}
 
-      {secao === 'receitas' && <>
+      {secaoAtiva === 'receitas' && <>
         <div className="bg-polo-beige border border-polo-gold/40 rounded-xl p-3 text-xs text-polo-navy mb-3">
           Receitas de itens <strong>produzidos</strong> (molhos, caldos, refogados): vários ingredientes viram 1 produto com rendimento. A equipe executa em <strong>Registrar → Produção</strong>.
           <br />Gramatura por porção é configurada diretamente em cada <strong>📦 Produto</strong>.
@@ -1382,7 +1414,32 @@ ${linkConvite(conviteGerado.token)}
         </div>
       </>}
 
-      {secao === 'sistema' && <>
+      {secaoAtiva === 'sistema' && <>
+      {/* Fila de erro permanente (itens que não sincronizaram após várias tentativas) */}
+      {mortos.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <p className="text-sm font-bold text-red-700">⚠️ {mortos.length} lançamento(s) não sincronizaram</p>
+          <p className="text-xs text-red-600/90 mt-0.5">
+            Estes itens falharam várias vezes ao subir para a nuvem e pararam de tentar sozinhos.
+            Toque em <strong>Tentar de novo</strong>; se persistir, o último erro foi:
+          </p>
+          <ul className="text-[11px] text-red-600/80 mt-1.5 space-y-0.5 max-h-24 overflow-y-auto">
+            {mortos.slice(0, 6).map((m, i) => (
+              <li key={m.id || i}>• {m.kind}/{m.op}{m._ultimoErro ? ` — ${m._ultimoErro}` : ''}</li>
+            ))}
+          </ul>
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => { retentarMortos(); toast('Tentando sincronizar de novo…', 'sucesso'); }}
+              className="bg-polo-navy text-polo-gold font-bold px-3 py-1.5 rounded-lg text-xs">Tentar de novo</button>
+            <button onClick={async () => {
+                const ok = await confirm({ titulo: 'Descartar itens', mensagem: `Descartar ${mortos.length} lançamento(s) que não sincronizam? Eles somem deste aparelho e não sobem para a nuvem.`, perigo: true, confirmar: 'Descartar' });
+                if (ok) { descartarMortos(); toast('Itens descartados.', 'sucesso'); }
+              }}
+              className="text-red-500 font-semibold px-3 py-1.5 rounded-lg text-xs border border-red-200">Descartar</button>
+          </div>
+        </div>
+      )}
+
       {/* Atalho admin (só super-admin) */}
       {sessao?.eSuperAdmin && (
         <Link to="/admin" className="block bg-polo-navy rounded-xl p-4 mb-4">
@@ -1549,14 +1606,16 @@ ${linkConvite(conviteGerado.token)}
       </div>
 
       {/* Contagem física */}
-      <Link to="/inventario"
-        className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
-        <div>
-          <p className="text-sm font-bold text-polo-navy">📐 Contagem física / conferência</p>
-          <p className="text-xs text-gray-500 mt-0.5">Use quando conferir o estoque real e ele divergir do calculado.</p>
-        </div>
-        <span className="text-polo-navy text-lg">›</span>
-      </Link>
+      {podeInventario && (
+        <Link to="/inventario"
+          className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
+          <div>
+            <p className="text-sm font-bold text-polo-navy">📐 Contagem física / conferência</p>
+            <p className="text-xs text-gray-500 mt-0.5">Use quando conferir o estoque real e ele divergir do calculado.</p>
+          </div>
+          <span className="text-polo-navy text-lg">›</span>
+        </Link>
+      )}
 
       {/* Assinatura — diretoria */}
       {sessao?.cargo === 'diretoria' && (
@@ -1570,8 +1629,8 @@ ${linkConvite(conviteGerado.token)}
         </Link>
       )}
 
-      {/* Histórico de mudanças — diretoria */}
-      {sessao?.cargo === 'diretoria' && (
+      {/* Histórico de mudanças */}
+      {podeAuditoria && (
         <Link to="/auditoria"
           className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
           <div>
@@ -1584,7 +1643,7 @@ ${linkConvite(conviteGerado.token)}
 
       </>}
 
-      {secao === 'acessos' && <>
+      {secaoAtiva === 'acessos' && <>
       {/* Equipe */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
@@ -1626,7 +1685,7 @@ ${linkConvite(conviteGerado.token)}
 
         {/* Gerar convite */}
         <p className="text-xs text-gray-500">
-          👥 Usuários <strong>{usuarios.length}/{maxUsuarios}</strong>
+          👥 Usuários <strong>{usuariosAtivos.length}/{maxUsuarios}</strong>
           {convites.length > 0 && <> · {convites.length} convite(s) pendente(s)</>}
           {' '}— {vagasRestantes > 0 ? `resta(m) ${vagasRestantes} vaga(s)` : 'sem vagas'}
         </p>
@@ -1677,42 +1736,128 @@ ${linkConvite(conviteGerado.token)}
           </div>
         )}
 
-        {/* Lista de usuários */}
+        {/* Lista de usuários ativos */}
         <div className="space-y-1.5">
-          {usuarios.map(u => {
+          {usuariosAtivos.map(u => {
             const euMesmo = u.id === sessao?.usuarioId;
             return (
-              <div key={u.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                <div>
+              <div key={u.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2">
+                <div className="min-w-0">
                   <span className="text-sm font-semibold text-gray-800">{u.nome}</span>
                   {euMesmo && <span className="text-[10px] text-green-600 font-semibold ml-1.5">• você</span>}
                 </div>
-                {euMesmo ? (
-                  <span className="text-[10px] font-bold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
-                    {CARGOS.find(c => c.id === u.cargo)?.label}
-                  </span>
-                ) : (
-                  <select value={u.cargo} onChange={async e => {
-                      const novoCargo = e.target.value;
-                      const label = CARGOS.find(c => c.id === novoCargo)?.label;
-                      const erro = await alterarCargo(u.id, novoCargo);
-                      if (erro) { toast(erro, 'erro'); return; } // RPC recusou — não loga
-                      logAudit('alterou cargo', `${u.nome} → ${label}`);
-                      toast(`Cargo de ${u.nome} alterado para ${label}.`, 'sucesso');
-                    }}
-                    className="text-xs font-semibold text-polo-navy bg-polo-beige border border-polo-gold/40 rounded-lg px-2 py-1">
-                    {cargosAtribuiveis.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                  </select>
-                )}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {euMesmo ? (
+                    <span className="text-[10px] font-bold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
+                      {CARGOS.find(c => c.id === u.cargo)?.label}
+                    </span>
+                  ) : (
+                    <>
+                      <select value={u.cargo} onChange={async e => {
+                          const novoCargo = e.target.value;
+                          const label = CARGOS.find(c => c.id === novoCargo)?.label;
+                          const erro = await alterarCargo(u.id, novoCargo);
+                          if (erro) { toast(erro, 'erro'); return; } // RPC recusou — não loga
+                          logAudit('alterou cargo', `${u.nome} → ${label}`);
+                          toast(`Cargo de ${u.nome} alterado para ${label}.`, 'sucesso');
+                        }}
+                        className="text-xs font-semibold text-polo-navy bg-polo-beige border border-polo-gold/40 rounded-lg px-2 py-1">
+                        {cargosAtribuiveis.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                      </select>
+                      <button onClick={async () => {
+                          const ok = await confirm({ titulo: 'Desativar acesso', mensagem: `Desativar o acesso de ${u.nome}? A pessoa não entra mais, mas o histórico dela é preservado e a vaga fica livre.`, perigo: true, confirmar: 'Desativar' });
+                          if (!ok) return;
+                          const erro = await desativarUsuario(u.id);
+                          if (erro) { toast(erro, 'erro'); return; }
+                          logAudit('desativou acesso', u.nome);
+                          toast(`Acesso de ${u.nome} desativado.`, 'sucesso');
+                        }}
+                        aria-label={`Desativar acesso de ${u.nome}`}
+                        className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">Desativar</button>
+                    </>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
+
+        {/* Acessos desativados (colapsável) — reativar libera se houver vaga */}
+        {usuariosInativos.length > 0 && (
+          <details className="mt-3">
+            <summary className="text-xs font-semibold text-gray-500 cursor-pointer">
+              Acessos desativados ({usuariosInativos.length})
+            </summary>
+            <div className="space-y-1.5 mt-2">
+              {usuariosInativos.map(u => (
+                <div key={u.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2 opacity-70">
+                  <div className="min-w-0">
+                    <span className="text-sm font-semibold text-gray-700">{u.nome}</span>
+                    <span className="text-[10px] text-gray-400 ml-1.5">{CARGOS.find(c => c.id === u.cargo)?.label} · inativo</span>
+                  </div>
+                  <button onClick={async () => {
+                      const erro = await reativarUsuario(u.id);
+                      if (erro) { toast(erro, 'erro'); return; }
+                      logAudit('reativou acesso', u.nome);
+                      toast(`Acesso de ${u.nome} reativado.`, 'sucesso');
+                    }}
+                    aria-label={`Reativar acesso de ${u.nome}`}
+                    className="text-polo-navy text-xs font-semibold px-2 py-1 rounded hover:bg-polo-beige flex-shrink-0">Reativar</button>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
       </div>
+
+      {/* Matriz de permissões — só a diretoria configura o que cozinha/gerência podem */}
+      {eDiretoria && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
+          <div>
+            <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🔑 O que cada função pode fazer</p>
+            <p className="text-xs text-gray-500 mt-1">
+              A <strong>diretoria</strong> tem acesso total, sempre. Aqui você escolhe o que <strong>cozinha</strong> e{' '}
+              <strong>gerência</strong> podem fazer — é o que aparece no app para cada pessoa.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-500">
+                  <th className="text-left font-semibold py-1">Ação</th>
+                  <th className="font-semibold py-1 px-2 text-center w-16">Cozinha</th>
+                  <th className="font-semibold py-1 px-2 text-center w-16">Gerência</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CAPACIDADES.map(cap => (
+                  <tr key={cap.id} className="border-t border-gray-100 align-top">
+                    <td className="py-2 pr-2">
+                      <span className="font-semibold text-gray-800">{cap.label}</span>
+                      <span className="block text-[10px] text-gray-400 leading-snug">{cap.desc}</span>
+                    </td>
+                    {['cozinha', 'gerencia'].map(cargo => (
+                      <td key={cargo} className="text-center px-2 py-2">
+                        <input type="checkbox" checked={!!permMatriz[cargo][cap.id]}
+                          aria-label={`${cap.label} — ${cargo === 'cozinha' ? 'Cozinha' : 'Gerência'}`}
+                          onChange={e => togglePermissao(cargo, cap.id, e.target.checked)}
+                          className="w-4 h-4 accent-polo-navy" />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-gray-400">
+            Criar convites e trocar cargos continua sendo só da diretoria. As mudanças valem para todos os aparelhos.
+          </p>
+        </div>
+      )}
 
       </>}
 
-      {secao === 'sistema' && <>
+      {secaoAtiva === 'sistema' && <>
       {/* Destinos de saída (para onde o estoque vai) */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>

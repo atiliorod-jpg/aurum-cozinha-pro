@@ -4,6 +4,23 @@ import { useAuth } from '../store/AuthContext';
 const campo = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm";
 const botao = "w-full bg-polo-navy text-polo-gold font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50";
 
+// Campo de senha com botão mostrar/ocultar (dedo grosso no tablet erra a senha)
+function CampoSenha({ valor, onChange, aria, placeholder, autoComplete, onEnter }) {
+  const [ver, setVer] = useState(false);
+  return (
+    <div className="relative">
+      <input type={ver ? 'text' : 'password'} autoComplete={autoComplete} aria-label={aria}
+        value={valor} onChange={e => onChange(e.target.value)}
+        onKeyDown={onEnter ? (e => { if (e.key === 'Enter') onEnter(); }) : undefined}
+        placeholder={placeholder} className={`${campo} pr-12`} />
+      <button type="button" onClick={() => setVer(v => !v)} aria-label={ver ? 'Ocultar senha' : 'Mostrar senha'}
+        className="absolute right-1 top-1/2 -translate-y-1/2 text-lg px-2 py-1">
+        {ver ? '🙈' : '👁️'}
+      </button>
+    </div>
+  );
+}
+
 // Código vindo do link direto (?convite=TOKEN) — compartilhado via WhatsApp
 const conviteDaURL = (() => {
   try { return new URLSearchParams(window.location.search).get('convite') || ''; }
@@ -89,8 +106,7 @@ export default function Login() {
           {modo === 'entrar' && <>
             <h2 className="font-bold text-polo-navy">Entrar</h2>
             <input type="email" autoComplete="email" aria-label="E-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="E-mail" className={campo} />
-            <input type="password" autoComplete="current-password" aria-label="Senha" value={senha} onChange={e => setSenha(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') entrar(); }} placeholder="Senha" className={campo} />
+            <CampoSenha valor={senha} onChange={setSenha} aria="Senha" autoComplete="current-password" placeholder="Senha" onEnter={entrar} />
             <Msg erro={erro} info={info} />
             <button onClick={entrar} disabled={carregando} className={botao}>{carregando ? 'Entrando…' : 'Entrar'}</button>
             <button onClick={() => trocar('esqueci')} className="w-full text-xs text-polo-navy/70 pt-1">Esqueci minha senha</button>
@@ -125,7 +141,7 @@ export default function Login() {
               className={`${campo} tracking-widest text-center font-bold`} />
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
             <input type="email" aria-label="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
-            <input type="password" aria-label="Senha (mínimo 8 caracteres)" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Crie uma senha (mín. 8)" className={campo} />
+            <CampoSenha valor={senha} onChange={setSenha} aria="Senha (mínimo 8 caracteres)" autoComplete="new-password" placeholder="Crie uma senha (mín. 8)" />
             <Msg erro={erro} info={info} />
             <button onClick={cadastrarConvite} disabled={carregando} className={botao}>{carregando ? 'Criando…' : 'Criar conta'}</button>
             <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>
@@ -139,7 +155,8 @@ export default function Login() {
             <input type="text" aria-label="Nome do restaurante" value={nomeRest} onChange={e => setNomeRest(e.target.value)} placeholder="Nome do restaurante" className={campo} />
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
             <input type="email" aria-label="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
-            <input type="password" aria-label="Senha (mínimo 8 caracteres)" value={senha} onChange={e => setSenha(e.target.value)} placeholder="Crie uma senha (mín. 8)" className={campo} />
+            <CampoSenha valor={senha} onChange={setSenha} aria="Senha (mínimo 8 caracteres)" autoComplete="new-password" placeholder="Crie uma senha (mín. 8)" />
+            <p className="text-[11px] text-gray-400 -mt-1">Use um e-mail que só você controla — quem tiver acesso a ele pode recuperar a senha da conta.</p>
             <label className="flex items-start gap-2 text-xs text-gray-600">
               <input type="checkbox" checked={aceitouTermos} onChange={e => setAceitouTermos(e.target.checked)}
                 className="w-4 h-4 mt-0.5 accent-[#1B2A41] flex-shrink-0" />

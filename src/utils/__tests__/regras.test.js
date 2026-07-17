@@ -6,6 +6,9 @@ import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem, nomesCasam } from '../analise';
 import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
 import { montarCamposEtiqueta, montarPayloadQR } from '../etiquetas';
+import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
+import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX } from '../outbox';
+import { statusAssinatura, TESTE_DIAS } from '../assinatura';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
 
@@ -424,5 +427,98 @@ describe('lotesVencendo — reconciliado com o estoque calculado', () => {
     const produtos = [P('charque', { ativo: false })];
     const lotes = { charque: [{ validade: '2026-06-12', restante: 5 }] };
     expect(lotesVencendo(lotes, produtos, { charque: 5 }, diasFake)).toHaveLength(0);
+  });
+});
+
+describe('permissões por função (matriz configurável)', () => {
+  const superAdmin = { eSuperAdmin: true };
+  const diretoria = { cargo: 'diretoria' };
+  const gerencia = { cargo: 'gerencia' };
+  const cozinha = { cargo: 'cozinha' };
+
+  it('diretoria e super-admin podem tudo, sempre', () => {
+    expect(pode(superAdmin, {}, 'configurarSistema')).toBe(true);
+    expect(pode(diretoria, {}, 'verRelatorio')).toBe(true);
+    expect(pode(diretoria, { diretoria: { verRelatorio: false } }, 'verRelatorio')).toBe(true);
+  });
+
+  it('sem prefs, cai no padrão (cozinha operacional, gerência com gestão)', () => {
+    expect(pode(cozinha, undefined, 'verRelatorio')).toBe(false);
+    expect(pode(cozinha, undefined, 'removerRegistros')).toBe(true);
+    expect(pode(gerencia, undefined, 'configurarSistema')).toBe(true);
+  });
+
+  it('a diretoria pode conceder e retirar capacidades', () => {
+    const permissoes = { cozinha: { verRelatorio: true }, gerencia: { configurarSistema: false } };
+    expect(pode(cozinha, permissoes, 'verRelatorio')).toBe(true);   // concedido
+    expect(pode(cozinha, permissoes, 'inventario')).toBe(false);    // não mexido → padrão
+    expect(pode(gerencia, permissoes, 'configurarSistema')).toBe(false); // retirado
+  });
+
+  it('sessão nula não pode nada', () => {
+    expect(pode(null, {}, 'verRelatorio')).toBe(false);
+  });
+
+  it('permissoesEfetivas completa as chaves a partir do padrão', () => {
+    const ef = permissoesEfetivas({ cozinha: { verRelatorio: true } });
+    expect(ef.cozinha.verRelatorio).toBe(true);
+    expect(ef.cozinha.inventario).toBe(PERMISSOES_PADRAO.cozinha.inventario);
+    expect(ef.gerencia).toEqual(PERMISSOES_PADRAO.gerencia);
+  });
+});
+
+describe('outbox — fila morta (não retentar para sempre)', () => {
+  it('marca _morto ao atingir o máximo de tentativas', () => {
+    let item = { id: 'a', kind: 'registro', op: 'insert' };
+    for (let i = 0; i < MAX_TENTATIVAS_OUTBOX - 1; i++) item = registrarFalha(item);
+    expect(item._morto).toBe(false);
+    expect(item._tentativas).toBe(MAX_TENTATIVAS_OUTBOX - 1);
+    item = registrarFalha(item);
+    expect(item._morto).toBe(true);
+    expect(item._tentativas).toBe(MAX_TENTATIVAS_OUTBOX);
+  });
+
+  it('ressuscitar limpa _morto e _tentativas', () => {
+    const morto = { id: 'a', _morto: true, _tentativas: 8 };
+    const vivo = ressuscitar(morto);
+    expect(vivo._morto).toBeUndefined();
+    expect(vivo._tentativas).toBeUndefined();
+    expect(vivo.id).toBe('a');
+  });
+
+  it('conta vivos e mortos separadamente', () => {
+    const fila = [{ id: 1 }, { id: 2, _morto: true }, { id: 3 }];
+    expect(contarVivos(fila)).toBe(2);
+    expect(contarMortos(fila)).toBe(1);
+  });
+});
+
+describe('statusAssinatura — borda dos 7 dias de teste (paridade com o SQL)', () => {
+  const DIA = 86400000;
+  const base = (createdAt) => ({ restauranteId: 'r1', restauranteCriadoEm: createdAt });
+
+  it('dentro do teste (6 dias) = ok', () => {
+    const agora = Date.now();
+    const st = statusAssinatura(base(new Date(agora - 6 * DIA).toISOString()), agora);
+    expect(st.ok).toBe(true);
+    expect(st.tipo).toBe('teste');
+  });
+
+  it('passou dos 7 dias sem assinatura = vencido', () => {
+    const agora = Date.now();
+    const st = statusAssinatura(base(new Date(agora - 8 * DIA).toISOString()), agora);
+    expect(st.ok).toBe(false);
+    expect(st.tipo).toBe('vencido');
+  });
+
+  it('TESTE_DIAS é 7 (precisa bater com migration10)', () => {
+    expect(TESTE_DIAS).toBe(7);
+  });
+
+  it('conta bloqueada não escreve mesmo com assinatura em dia', () => {
+    const agora = Date.now();
+    const st = statusAssinatura({ restauranteId: 'r1', bloqueado: true, assinaturaAte: new Date(agora + 30 * DIA).toISOString() }, agora);
+    expect(st.ok).toBe(false);
+    expect(st.tipo).toBe('bloqueado');
   });
 });

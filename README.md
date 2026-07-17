@@ -41,6 +41,7 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 | 7 | `src/lib/migration8_versao_documentos.sql` | Versão nos catálogos + RPC `salvar_documento` (anti-sobrescrita entre 2 tablets; app tem fallback se faltar) | ✅ rodado (11/07/2026) |
 | 8 | `src/lib/migration9_admin_convites.sql` | `aceitar_convite` v9 (não queima token se a conta já tem restaurante), RPCs de super-admin (`definir_max_usuarios`, `definir_bloqueio`, `usuarios_do_restaurante`, `salvar_notas_admin`) + colunas `bloqueado`/`notas_admin` | ✅ rodado (17/07/2026) |
 | 9 | `src/lib/migration10_hardening.sql` | **Segurança**: fecha INSERT direto em `perfis` (quebra de multi-tenant via API), notas internas migram para tabela `admin_notas` só-RPC (cliente não lê mais), corte de plano/bloqueio no RLS (`restaurante_pode_escrever` em registros/documentos — leitura livre, escrita exige teste/assinatura vigente), token de convite 8→16 chars | ✅ rodado (17/07/2026) |
+| 10 | `src/lib/migration11_convites_equipe.sql` | Convites passam a respeitar o corte de plano/bloqueio (`conv_ins_v11`/`conv_del_v11`); RPCs `desativar_usuario`/`reativar_usuario` (libera vaga sem apagar histórico; não desativa a si mesmo nem a última diretoria) | ✅ rodado (17/07/2026) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 
@@ -71,7 +72,25 @@ select policyname, cmd from pg_policies where tablename = 'perfis' and cmd = 'IN
 -- select notas_admin from restaurantes limit 1;
 ```
 
-**Corte de plano também no RLS (migração 10):** conta bloqueada ou com teste+assinatura vencidos continua LENDO os dados, mas qualquer escrita em `registros`/`documentos` é negada pelo banco (`restaurante_pode_escrever`) — a tela de bloqueio do app deixou de ser a única barreira. Se o plano vencer com o app offline, o outbox falha ao sincronizar: comportamento intencional (renovou → volta a subir).
+**Corte de plano também no RLS (migração 10):** conta bloqueada ou com teste+assinatura vencidos continua LENDO os dados, mas qualquer escrita em `registros`/`documentos` é negada pelo banco (`restaurante_pode_escrever`) — a tela de bloqueio do app deixou de ser a única barreira. Se o plano vencer com o app offline, o outbox falha ao sincronizar: comportamento intencional (renovou → volta a subir). O período de teste (`interval '7 days'`) precisa ficar IGUAL a `TESTE_DIAS` em `src/utils/assinatura.js`.
+
+## Permissões por função (matriz configurável)
+
+A diretoria (quem cria o restaurante já entra assim) tem acesso total sempre. Em **Config → Acessos** ela ajusta uma matriz do que **cozinha** e **gerência** podem fazer (ver relatório, configurar, remover lançamentos, inventário, produtos, auditoria) — guardada em `prefs.permissoes`, com defaults que reproduzem o comportamento hierárquico antigo (`src/utils/permissoes.js`, helper `pode()`). É uma trava de **interface** (organiza a equipe, evita acidentes num time pequeno); as barreiras duras — criar convite, trocar cargo, painel admin — continuam enforçadas por cargo no banco.
+
+## Pentest / regressão de segurança
+
+Scripts em `scripts/` rodam ataques reais contra o Supabase (multi-tenant, convite, plano). **Precisam do `.env.local`** (URL + anon; service role para bloquear/limpar) e **criam contas `pentest.*@aurum.app` que devem ser APAGADAS depois** (Authentication → Users, ou o snippet de limpeza via service role). **Nunca no CI de produção** — prefira um projeto de staging.
+
+```bash
+node scripts/pentest-adversarial.mjs   # 13 checagens multi-tenant + m10 (S1/S2/S4, RPCs super-admin)
+node scripts/pentest-convite.mjs       # convite: mesma memória, token 16, reuso bloqueado, R1 não queima
+node scripts/pentest-m11.mjs           # M1 (convite respeita bloqueio) + P1 (desativar/reativar)
+```
+
+Última execução (17/07/2026): 13/13 + suíte convite + 9/9 (m11), todas PASS; contas de teste apagadas.
+
+**Segurança da conta super-admin:** ative MFA (TOTP) em `atiliopinpolho@gmail.com` no Supabase Auth e use senha forte e exclusiva — `sou_super_admin()` confia no e-mail do JWT, então comprometer esse e-mail = acesso total.
 
 **Atenção:** o `aceitar_convite` do migration4 usa `perfis.ativo` e `restaurantes.max_usuarios`. Se o schema não tiver essas colunas:
 ```sql

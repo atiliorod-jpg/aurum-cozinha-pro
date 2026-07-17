@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import { statusAssinatura } from './utils/assinatura';
-import { AppProvider } from './store/AppContext';
+import { pode, podeAbrirConfig } from './utils/permissoes';
+import { AppProvider, useApp } from './store/AppContext';
 import { UIProvider, useUI } from './store/UIContext';
 import { fmtData } from './utils/formatters';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
@@ -89,6 +90,10 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, onSair }) {
 function Rotas() {
   const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao } = useAuth();
   const { toast } = useUI();
+  const { prefs } = useApp();
+  // Capacidade configurável (matriz de permissões da diretoria) — diretoria e
+  // super-admin sempre podem; cozinha/gerência seguem prefs.permissoes.
+  const can = (cap) => pode(sessao, prefs?.permissoes, cap);
 
   // Boas-vindas (flag gravada no cadastro/aceite de convite, antes da sessão montar)
   useEffect(() => {
@@ -188,11 +193,11 @@ function Rotas() {
       <Route path="/etiquetas" element={<Etiquetas />} />
       <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
       <Route path="/fichas" element={<Navigate to="/compras" replace />} />
-      <Route path="/inventario" element={<Restrito><Inventario /></Restrito>} />
-      <Route path="/relatorio" element={<Restrito><Relatorio /></Restrito>} />
-      <Route path="/auditoria" element={<Restrito><Auditoria /></Restrito>} />
+      <Route path="/inventario" element={can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
+      <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
+      <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
-      <Route path="/configuracoes" element={<Restrito><Configuracoes /></Restrito>} />
+      <Route path="/configuracoes" element={podeAbrirConfig(sessao, prefs?.permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
       </Routes>
       </Suspense>

@@ -1,6 +1,8 @@
 // Cache offline em localStorage, isolado por restaurante.
 // Permite o app funcionar sem internet e sincronizar ao reconectar.
 
+import { contarVivos, contarMortos } from '../utils/outbox';
+
 const ns = (rid, chave) => `pe::${rid}::${chave}`;
 
 export const cacheGet = (rid, chave, fallback) => {
@@ -32,5 +34,8 @@ export const outboxAdd = (rid, item) => {
 
 export const outboxClear = (rid) => outboxSet(rid, []);
 
-// Conta quantas operações estão pendentes de sincronização para um restaurante.
-export const outboxCount = (rid) => outboxGet(rid).length;
+// Badge de "sincronizando": conta só os itens VIVOS (os mortos aparecem numa
+// lista separada de erro permanente — ver utils/outbox e Configurações).
+export const outboxCount = (rid) => contarVivos(outboxGet(rid));
+export const outboxMortos = (rid) => outboxGet(rid).filter(i => i._morto);
+export const outboxMortosCount = (rid) => contarMortos(outboxGet(rid));
