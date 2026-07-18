@@ -42,6 +42,7 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 | 8 | `src/lib/migration9_admin_convites.sql` | `aceitar_convite` v9 (não queima token se a conta já tem restaurante), RPCs de super-admin (`definir_max_usuarios`, `definir_bloqueio`, `usuarios_do_restaurante`, `salvar_notas_admin`) + colunas `bloqueado`/`notas_admin` | ✅ rodado (17/07/2026) |
 | 9 | `src/lib/migration10_hardening.sql` | **Segurança**: fecha INSERT direto em `perfis` (quebra de multi-tenant via API), notas internas migram para tabela `admin_notas` só-RPC (cliente não lê mais), corte de plano/bloqueio no RLS (`restaurante_pode_escrever` em registros/documentos — leitura livre, escrita exige teste/assinatura vigente), token de convite 8→16 chars | ✅ rodado (17/07/2026) |
 | 10 | `src/lib/migration11_convites_equipe.sql` | Convites passam a respeitar o corte de plano/bloqueio (`conv_ins_v11`/`conv_del_v11`); RPCs `desativar_usuario`/`reativar_usuario` (libera vaga sem apagar histórico; não desativa a si mesmo nem a última diretoria) | ✅ rodado (17/07/2026) |
+| 11 | `src/lib/migration12_stripe.sql` | Coluna `stripe_customer_id` para o webhook reconhecer renovações mensais | ⏳ rodar só na Fase 2 do Stripe (ver `STRIPE_SETUP.md`) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 

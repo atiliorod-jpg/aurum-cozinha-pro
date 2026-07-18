@@ -28,7 +28,18 @@ export default function Pagamento() {
 
   const assinar = () => {
     if (STRIPE_LINK) {
-      window.open(STRIPE_LINK, '_blank', 'noopener,noreferrer');
+      // Passa o id do restaurante pro Stripe (client_reference_id). É assim que o
+      // webhook sabe QUAL restaurante pagou e ativa a assinatura certa sozinho.
+      // É um UUID, não um dado pessoal — seguro na URL.
+      let destino = STRIPE_LINK;
+      if (sessao?.restauranteId) {
+        try {
+          const u = new URL(STRIPE_LINK);
+          u.searchParams.set('client_reference_id', sessao.restauranteId);
+          destino = u.toString();
+        } catch { /* link malformado — abre como está */ }
+      }
+      window.open(destino, '_blank', 'noopener,noreferrer');
       return;
     }
     setCarregando(true);
