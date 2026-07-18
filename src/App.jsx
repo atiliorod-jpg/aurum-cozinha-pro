@@ -9,6 +9,7 @@ import { fmtData } from './utils/formatters';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import EtiquetaPrint from './components/EtiquetaPrint';
+import AvisoVencimento from './components/AvisoVencimento';
 import Login from './pages/Login';
 import NovaSenha from './pages/NovaSenha';
 import Dashboard from './pages/Dashboard';
@@ -201,6 +202,7 @@ function Rotas() {
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
       </Routes>
       </Suspense>
+      <AvisoVencimento />
     </>
   );
 }

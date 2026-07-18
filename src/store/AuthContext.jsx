@@ -323,6 +323,15 @@ export function AuthProvider({ children }) {
     return null;
   }, [sessao]);
 
+  // ── Cliente avisa que pagou por Pix (super-admin ativa depois) ──
+  // Funciona mesmo com a conta vencida/bloqueada (RPC SECURITY DEFINER).
+  const avisarPagamento = useCallback(async (plano) => {
+    if (sessao?.demo) return 'Indisponível na demonstração.';
+    if (!sessao?.restauranteId) return 'Sem restaurante.';
+    const { error } = await supabase.rpc('avisar_pagamento', { p_plano: plano || 'mensal' });
+    return error ? error.message : null;
+  }, [sessao]);
+
   // ── Definir/trocar a própria senha ───────────────────────────
   const atualizarSenha = useCallback(async (novaSenha) => {
     if (sessao?.demo) return 'Indisponível na demonstração.';
@@ -344,7 +353,7 @@ export function AuthProvider({ children }) {
       convites, carregarConvites, revogarConvite,
       login, logout, entrarDemo, esqueceuSenha, atualizarSenha,
       criarPrimeiroAdmin, criarConvite, usarConvite, alterarCargo,
-      desativarUsuario, reativarUsuario,
+      desativarUsuario, reativarUsuario, avisarPagamento,
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,

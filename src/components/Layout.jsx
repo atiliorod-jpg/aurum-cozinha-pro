@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import NavBar from './NavBar';
 import Icon from './Icons';
 import GuideTour from './GuideTour';
+import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -46,6 +47,7 @@ export default function Layout({ title, children, actions }) {
           {actions}
           {sessao && (
             <div className="flex items-center gap-1.5">
+              <BotaoFeedback />
               {pode(sessao, prefs?.permissoes, 'verAuditoria') && (
                 <Link to="/auditoria" aria-label="Histórico de mudanças" title="Histórico de mudanças"
                   className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-polo-gold active:scale-90 transition-transform

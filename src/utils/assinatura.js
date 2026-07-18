@@ -9,6 +9,23 @@
 export const TESTE_DIAS = 7;
 export const PRECO_MES = 149;
 
+// Planos de pagamento (Pix manual). Semestral -10%, anual -20%.
+// `dias` é quanto o super-admin adiciona ao ativar (30 dias = 1 mês, como o teste).
+export const PLANOS = [
+  { id: 'mensal',    label: 'Mensal',    meses: 1,  dias: 30,  desconto: 0    },
+  { id: 'semestral', label: 'Semestral', meses: 6,  dias: 180, desconto: 0.10 },
+  { id: 'anual',     label: 'Anual',     meses: 12, dias: 365, desconto: 0.20 },
+];
+
+const r2 = (n) => Math.round(n * 100) / 100;
+// Preço TOTAL do período, já com o desconto aplicado.
+export const precoPlano = (plano) => r2(PRECO_MES * plano.meses * (1 - plano.desconto));
+// Quanto sai por mês naquele plano (para mostrar "equivale a R$X/mês").
+export const precoMensalEquivalente = (plano) => r2(precoPlano(plano) / plano.meses);
+// Quanto o cliente economiza vs. pagar mês a mês.
+export const economiaPlano = (plano) => r2(PRECO_MES * plano.meses - precoPlano(plano));
+export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
+
 /**
  * Situação do plano de uma sessão:
  *  { ok:true,  tipo:'assinatura', ate }            — assinatura ativa

@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
-import { statusRestaurante, TESTE_DIAS } from '../utils/assinatura';
+import { statusRestaurante, TESTE_DIAS, PLANOS } from '../utils/assinatura';
 
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
@@ -34,7 +34,7 @@ export default function Admin() {
     // select completo → fallback progressivo p/ bancos sem as colunas novas
     let { data: rests, error: errR } = await supabase
       .from('restaurantes')
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano')
       .order('created_at', { ascending: false });
     if (errR) {
       ({ data: rests, error: errR } = await supabase
@@ -115,8 +115,16 @@ export default function Admin() {
     if (!ok) return;
     const { data, error } = await supabase.rpc('ativar_assinatura', { p_restaurante: r.id, p_dias: dias });
     if (error) { toast('Erro ao liberar: ' + error.message, 'erro'); return; }
-    setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, assinatura_ate: data } : x));
+    // ativar_assinatura (migração 13) também limpa o aviso de pagamento
+    setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, assinatura_ate: data, aviso_pagamento_em: null, aviso_pagamento_plano: null } : x));
     toast(`✅ ${r.nome}: acesso liberado até ${dataBR(data)}.`, 'sucesso');
+  };
+
+  const dispensarAviso = async (r) => {
+    const { error } = await supabase.rpc('limpar_aviso_pagamento', { p_restaurante: r.id });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, aviso_pagamento_em: null, aviso_pagamento_plano: null } : x));
+    toast('Aviso dispensado.', 'sucesso');
   };
 
   const mudarMax = async (r, novoMax) => {
@@ -227,6 +235,17 @@ export default function Admin() {
                     <BadgeStatus st={st} />
                   </div>
 
+                  {/* Aviso de pagamento (o cliente tocou "Já paguei") */}
+                  {r.aviso_pagamento_em && (
+                    <div className="px-4 py-2 bg-polo-gold/15 border-b border-polo-gold/30 flex items-center justify-between gap-2">
+                      <p className="text-[11px] text-polo-navy font-semibold">
+                        💰 Avisou pagamento — plano <strong>{r.aviso_pagamento_plano || 'mensal'}</strong> em {dataBR(r.aviso_pagamento_em)}
+                      </p>
+                      <button onClick={() => dispensarAviso(r)}
+                        className="text-[10px] font-semibold text-gray-500 underline underline-offset-2 flex-shrink-0">dispensar</button>
+                    </div>
+                  )}
+
                   {/* Visão comercial */}
                   <div className="px-4 py-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-600 border-b border-gray-50">
                     <span>🧪 Teste até: <strong>{dataBR(fimTeste)}</strong></span>
@@ -251,9 +270,18 @@ export default function Admin() {
                     )}
                   </div>
 
-                  {/* Liberar dias (cortesia / pós-pagamento) */}
+                  {/* Ativar plano pago (após confirmar o Pix) */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Liberar acesso (cortesia / pós-pagamento)</p>
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Ativar plano pago</p>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {PLANOS.map(p => (
+                        <button key={p.id} onClick={() => liberarDias(r, p.dias)}
+                          className="text-[11px] font-bold text-polo-gold bg-polo-navy rounded-lg px-2.5 py-1.5">
+                          {p.label} (+{p.dias}d)
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Cortesia (dias avulsos)</p>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {[7, 14, 30, 90].map(d => (
                         <button key={d} onClick={() => liberarDias(r, d)}

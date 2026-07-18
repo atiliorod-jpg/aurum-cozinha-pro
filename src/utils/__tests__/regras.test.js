@@ -8,7 +8,8 @@ import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from
 import { montarCamposEtiqueta, montarPayloadQR } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX } from '../outbox';
-import { statusAssinatura, TESTE_DIAS } from '../assinatura';
+import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
+import { crc16, montarPixBRCode } from '../pix';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
 
@@ -520,5 +521,43 @@ describe('statusAssinatura — borda dos 7 dias de teste (paridade com o SQL)', 
     const st = statusAssinatura({ restauranteId: 'r1', bloqueado: true, assinaturaAte: new Date(agora + 30 * DIA).toISOString() }, agora);
     expect(st.ok).toBe(false);
     expect(st.tipo).toBe('bloqueado');
+  });
+});
+
+describe('planos de pagamento (Pix)', () => {
+  const plano = (id) => PLANOS.find(p => p.id === id);
+
+  it('mensal = R$149 sem desconto', () => {
+    expect(precoPlano(plano('mensal'))).toBe(149);
+  });
+  it('semestral = 10% off (804,60) e mostra economia', () => {
+    expect(precoPlano(plano('semestral'))).toBe(804.60);
+    expect(precoMensalEquivalente(plano('semestral'))).toBe(134.10);
+    expect(economiaPlano(plano('semestral'))).toBe(89.40);
+  });
+  it('anual = 20% off (1430,40)', () => {
+    expect(precoPlano(plano('anual'))).toBe(1430.40);
+    expect(precoMensalEquivalente(plano('anual'))).toBe(119.20);
+    expect(economiaPlano(plano('anual'))).toBe(357.60);
+  });
+  it('dias por plano batem com 30/180/365', () => {
+    expect(plano('mensal').dias).toBe(30);
+    expect(plano('semestral').dias).toBe(180);
+    expect(plano('anual').dias).toBe(365);
+  });
+});
+
+describe('Pix BR Code', () => {
+  it('CRC16-CCITT-FALSE de "123456789" = 29B1', () => {
+    expect(crc16('123456789')).toBe('29B1');
+  });
+  it('monta um BR Code válido, com o CRC no fim conferindo', () => {
+    const code = montarPixBRCode({ chave: 'teste@aurum.app', nome: 'Aurum Gastronomia', cidade: 'Recife', valor: 149, txid: 'MENSAL' });
+    expect(code.startsWith('000201')).toBe(true);          // formato
+    expect(code.includes('5406149.00')).toBe(true);         // valor 149,00
+    expect(crc16(code.slice(0, -4))).toBe(code.slice(-4));   // CRC bate
+  });
+  it('sem chave, retorna string vazia (cai no fallback WhatsApp)', () => {
+    expect(montarPixBRCode({ chave: '', valor: 149 })).toBe('');
   });
 });

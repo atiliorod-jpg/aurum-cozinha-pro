@@ -43,6 +43,7 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 | 9 | `src/lib/migration10_hardening.sql` | **Segurança**: fecha INSERT direto em `perfis` (quebra de multi-tenant via API), notas internas migram para tabela `admin_notas` só-RPC (cliente não lê mais), corte de plano/bloqueio no RLS (`restaurante_pode_escrever` em registros/documentos — leitura livre, escrita exige teste/assinatura vigente), token de convite 8→16 chars | ✅ rodado (17/07/2026) |
 | 10 | `src/lib/migration11_convites_equipe.sql` | Convites passam a respeitar o corte de plano/bloqueio (`conv_ins_v11`/`conv_del_v11`); RPCs `desativar_usuario`/`reativar_usuario` (libera vaga sem apagar histórico; não desativa a si mesmo nem a última diretoria) | ✅ rodado (17/07/2026) |
 | 11 | `src/lib/migration12_stripe.sql` | Coluna `stripe_customer_id` para o webhook reconhecer renovações mensais | ⏳ rodar só na Fase 2 do Stripe (ver `STRIPE_SETUP.md`) |
+| 12 | `src/lib/migration13_aviso_pagamento.sql` | Colunas `aviso_pagamento_em/plano` + RPC `avisar_pagamento` (cliente avisa que pagou o Pix, vale vencido) + `ativar_assinatura` limpa o aviso + `limpar_aviso_pagamento` | ✅ rodado (18/07/2026) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 
@@ -105,6 +106,9 @@ Push na branch `main` → GitHub Actions (`.github/workflows/deploy.yml`) roda *
 
 **Secrets do repositório** (Settings → Secrets and variables → Actions):
 `VITE_SUPABASE_URL` · `VITE_SUPABASE_ANON_KEY` · `VITE_STRIPE_PUBLISHABLE_KEY` · `VITE_STRIPE_PAYMENT_LINK`
+
+**Pagamento por Pix (manual):** a tela de Assinatura mostra a chave Pix + QR (BR Code) e um botão "Já paguei" que registra um aviso para o super-admin (RPC `avisar_pagamento`, funciona mesmo com a conta vencida) e abre o WhatsApp para o cliente mandar o comprovante. Configure via secrets:
+`VITE_PIX_CHAVE` (a chave — **use uma chave aleatória** do banco, não CPF/telefone, já que o valor fica público no app) · `VITE_PIX_NOME` (nome do recebedor, sem acento) · `VITE_PIX_CIDADE`. Sem `VITE_PIX_CHAVE`, a tela cai no fluxo só-WhatsApp. Planos: Mensal R$149, Semestral −10%, Anual −20% (`src/utils/assinatura.js`). O super-admin ativa o plano pago no `/admin` (botões Mensal/Semestral/Anual). **Teste o QR escaneando com seu banco uma vez** — o padrão BR Code é sensível a um caractere.
 
 Regras deste repo:
 - **Nunca `git add -A`** — adicionar arquivos por nome (protege o `.env.local`).
