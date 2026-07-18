@@ -6,6 +6,7 @@ import { useUI } from '../store/UIContext';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
 import { filtrarPorPeriodo, totalPorProduto, statusEstoque } from '../utils/calculos';
 import { saidasPorDia, topProdutosSaida, somaPorCampo, rendimentoPorFornecedor } from '../utils/analise';
+import { saidasPorDestinoDia, chegadasPorDia } from '../utils/relatorios';
 import { fmtData, fmtNum, semanaAtual, hoje } from '../utils/formatters';
 import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../components/Charts';
 
@@ -48,6 +49,8 @@ export default function Relatorio() {
 
   const totalEntradas = useMemo(() => totalPorProduto(entradasF), [entradasF]);
   const totalSaidas = useMemo(() => totalPorProduto(saidasF), [saidasF]);
+  const porDestinoDia = useMemo(() => saidasPorDestinoDia(saidasF, produtos, locais), [saidasF, produtos, locais]);
+  const chegadas = useMemo(() => chegadasPorDia(comprasF), [comprasF]);
   // Saídas por destino (genérico — usa o catálogo de locais editável).
   // Saídas internas para "Produção" são excluídas (são consumo, não envio).
   const totaisPorLocal = useMemo(() => {
@@ -351,6 +354,59 @@ export default function Relatorio() {
         </table>
         {!Object.keys(totalEntradas).length && !Object.keys(totalSaidas).length && (
           <div className="text-center text-gray-500 py-8 text-sm">Nenhum registro neste período.</div>
+        )}
+      </div>
+
+      {/* Saídas por destino (por dia) — sem misturar destinos */}
+      <div className="bg-white rounded-xl p-4 mb-4">
+        <p className="text-sm font-bold text-polo-navy mb-1">🎯 Saídas por destino (por dia)</p>
+        <p className="text-[11px] text-gray-500 mb-3">O que foi enviado para cada unidade, dia a dia. Cada destino é separado.</p>
+        {porDestinoDia.length === 0 ? (
+          <div className="text-center text-gray-400 py-6 text-sm">Nenhuma saída para unidades neste período.</div>
+        ) : (
+          <div className="space-y-3">
+            {porDestinoDia.map(d => (
+              <details key={d.destinoId} className="border border-gray-100 rounded-lg">
+                <summary className="cursor-pointer px-3 py-2 font-semibold text-sm text-polo-navy flex justify-between">
+                  <span>📤 {d.destinoNome}</span>
+                  <span className="text-[11px] text-gray-400 font-normal">{d.dias.length} dia(s)</span>
+                </summary>
+                <div className="px-3 pb-3 space-y-2">
+                  {d.dias.map(dia => (
+                    <div key={dia.data} className="border-t border-gray-50 pt-2">
+                      <p className="text-[11px] font-semibold text-gray-500">{fmtData(dia.data)}</p>
+                      <ul className="text-xs text-gray-700">
+                        {dia.itens.map(it => <li key={it.produtoId}>{fmtNum(it.quantidade)} — {it.nome}</li>)}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Chegadas por dia (controle diário do que entrou) */}
+      <div className="bg-white rounded-xl p-4 mb-4">
+        <p className="text-sm font-bold text-polo-navy mb-1">📦 Chegadas por dia</p>
+        <p className="text-[11px] text-gray-500 mb-3">O que chegou em cada data, com o peso total do dia (itens em kg).</p>
+        {chegadas.length === 0 ? (
+          <div className="text-center text-gray-400 py-6 text-sm">Nenhuma compra recebida neste período.</div>
+        ) : (
+          <div className="space-y-2">
+            {chegadas.map(c => (
+              <div key={c.data} className="border-t border-gray-50 pt-2 first:border-0 first:pt-0">
+                <p className="text-[11px] font-semibold text-gray-500 flex justify-between">
+                  <span>{fmtData(c.data)}</span>
+                  {c.pesoKg > 0 && <span className="text-polo-navy">{fmtNum(c.pesoKg)} kg no dia</span>}
+                </p>
+                <ul className="text-xs text-gray-700">
+                  {c.itens.map((it, i) => <li key={i}>{fmtNum(it.quantidade)} {it.unidade} — {it.item}{it.fornecedor ? ` · ${it.fornecedor}` : ''}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 

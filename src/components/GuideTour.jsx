@@ -19,7 +19,7 @@ const ESSENCIAIS = [
     label: 'Saídas',
     icon: '📤',
     rota: '/saidas',
-    hint: 'Registre o envio para a cozinha principal / polos (transferência interna).',
+    hint: 'Registre o envio para a cozinha principal / outras unidades (transferência interna).',
   },
 ];
 const OPCIONAIS = [
@@ -53,7 +53,7 @@ export default function GuideTour() {
   const feitos = {
     // produção OU entrada avulsa contam — dia só de produção não fica "incompleto"
     estoque: entradas.some(e => e.data === dt),
-    // só conta saída para cozinha/polos — a saída interna de produção
+    // só conta saída para a cozinha/unidades — a saída interna de produção
     // (destino 'producao') não fecha a etapa "Saídas" do turno
     saida: saidas.some(s => s.data === dt && s.destino !== 'producao'),
     // opcionais: registrados = ✅; sem registro = "não se aplica" (não trava)

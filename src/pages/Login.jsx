@@ -201,7 +201,7 @@ function ModalTermos({ onFechar }) {
         controlam estoque e porcionamento interno da casa — pensado para o tablet da cozinha.</p>
         <p><strong>O que o sistema faz:</strong> recebimento (registro auxiliar), entradas de estoque,
         produção por ficha (baixa os ingredientes e dá entrada na porção/semiacabado), saídas para
-        pontos internos (cozinha principal, polos), aparas e perdas, inventário, etiquetas de validade,
+        pontos internos (cozinha principal, outras unidades), aparas e perdas, inventário, etiquetas de validade,
         relatórios e múltiplos usuários com cargos (cozinha, gerência, diretoria).</p>
         <p><strong>O que NÃO é:</strong> não é PDV, caixa, cardápio ou pedido do cliente final,
         nem delivery de prato pronto, nem sistema financeiro/contábil.</p>

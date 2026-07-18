@@ -10,6 +10,7 @@ import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX } from '../outbox';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { crc16, montarPixBRCode } from '../pix';
+import { saidasPorDestinoDia, chegadasPorDia } from '../relatorios';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
 
@@ -559,5 +560,40 @@ describe('Pix BR Code', () => {
   });
   it('sem chave, retorna string vazia (cai no fallback WhatsApp)', () => {
     expect(montarPixBRCode({ chave: '', valor: 149 })).toBe('');
+  });
+});
+
+describe('relatórios — saídas por destino/dia e chegadas por dia', () => {
+  const produtos = [{ id: 'file', nome: 'Filé' }, { id: 'frango', nome: 'Frango' }];
+  const locais = [{ id: 'centro', nome: 'Unidade Centro' }, { id: 'praia', nome: 'Unidade Praia' }];
+  const saidas = [
+    { destino: 'centro', data: '2026-07-10', itens: [{ produtoId: 'file', quantidade: 3 }] },
+    { destino: 'centro', data: '2026-07-11', itens: [{ produtoId: 'file', quantidade: 2 }, { produtoId: 'frango', quantidade: 5 }] },
+    { destino: 'praia', data: '2026-07-10', itens: [{ produtoId: 'frango', quantidade: 4 }] },
+    { destino: 'producao', data: '2026-07-10', itens: [{ produtoId: 'file', quantidade: 9 }] }, // interna: ignorar
+  ];
+
+  it('agrupa por destino sem misturar e ignora saída interna de produção', () => {
+    const r = saidasPorDestinoDia(saidas, produtos, locais);
+    expect(r.map(d => d.destinoNome)).toEqual(['Unidade Centro', 'Unidade Praia']);
+    const centro = r.find(d => d.destinoId === 'centro');
+    expect(centro.dias.length).toBe(2);
+    // total do filé no Centro = 3 + 2 = 5 (não conta a saída de produção)
+    expect(centro.totalPorItem.find(i => i.produtoId === 'file').quantidade).toBe(5);
+    const praia = r.find(d => d.destinoId === 'praia');
+    expect(praia.totalPorItem.find(i => i.produtoId === 'frango').quantidade).toBe(4);
+  });
+
+  it('chegadasPorDia soma o peso só dos itens em kg', () => {
+    const compras = [
+      { data: '2026-07-10', item: 'Filé Mignon', quantidade: 10, unidade: 'kg', fornecedor: 'Fri A' },
+      { data: '2026-07-10', item: 'Tempero', quantidade: 3, unidade: 'unid' },
+      { data: '2026-07-11', item: 'Frango', quantidade: 8, unidade: 'kg' },
+    ];
+    const r = chegadasPorDia(compras);
+    expect(r.length).toBe(2);
+    const dia10 = r.find(d => d.data === '2026-07-10');
+    expect(dia10.pesoKg).toBe(10);       // só o filé (kg); o tempero (unid) não entra no peso
+    expect(dia10.itens.length).toBe(2);
   });
 });

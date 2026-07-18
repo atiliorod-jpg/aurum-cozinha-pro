@@ -6,7 +6,9 @@ import { useAuth } from '../store/AuthContext';
 // repetir — e monta uma mensagem organizada no WhatsApp, com o contexto técnico
 // (tela, cargo, navegador) que facilita o conserto/análise.
 const WPP_NUMERO = '5581998184489';
-const campo = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
+// text-gray-900 é essencial: o modal é filho do cabeçalho (texto branco) e sem
+// isto os campos herdam cor branca — o texto digitado fica invisível no fundo branco.
+const campo = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900';
 
 export default function BotaoFeedback() {
   const { sessao } = useAuth();
@@ -58,16 +60,17 @@ ${rodape}`;
     <>
       <button onClick={() => setAberto(true)} aria-label="Enviar problema ou sugestão"
         title="Relatar problema ou sugerir melhoria"
-        className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-polo-gold active:scale-90 transition-transform
-                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
-        💬
+        className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
+                   focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
+        <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">💬</span>
+        <span className="text-[8px] leading-none font-semibold text-white/70">Ajuda</span>
       </button>
 
       {aberto && (
         <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-3 print:hidden"
           onClick={() => setAberto(false)}>
           <div role="dialog" aria-modal="true" aria-label="Relatar problema ou sugestão"
-            className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5"
+            className="bg-white text-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-polo-navy">Falar com a equipe Aurum</h2>

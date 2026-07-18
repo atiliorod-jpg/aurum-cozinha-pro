@@ -38,6 +38,8 @@ export default function Pagamento() {
 
   const [qr, setQr] = useState('');
   const [avisando, setAvisando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false); // revela o campo do nome
+  const [nomePagador, setNomePagador] = useState('');
 
   useEffect(() => {
     let vivo = true;
@@ -52,15 +54,16 @@ export default function Pagamento() {
     catch { toast('Não consegui copiar automaticamente — segure o dedo no texto.', 'erro'); }
   };
 
-  const jaPaguei = async () => {
+  const confirmarPagamento = async () => {
+    if (!nomePagador.trim()) { toast('Diga o nome de quem fez o Pix.', 'erro'); return; }
     setAvisando(true);
-    const erro = await avisarPagamento(plano.id);
+    const erro = await avisarPagamento(plano.id, nomePagador.trim());
     if (erro) toast('Não registrou o aviso: ' + erro, 'erro');
     else toast('Recebemos seu aviso! Mande o comprovante no WhatsApp que ativamos rapidinho.', 'sucesso', { duracao: 6000 });
     const msg = encodeURIComponent(
-      `Olá! Paguei o plano ${plano.label} (${brl(valor)}) do Aurum Cozinha Pro — restaurante ${sessao?.restauranteNome || ''}. Segue o comprovante:`);
+      `Olá! Paguei o plano ${plano.label} (${brl(valor)}) do Aurum Cozinha Pro — restaurante ${sessao?.restauranteNome || ''}. Pagamento feito por ${nomePagador.trim()}. Segue o comprovante:`);
     window.open(`https://wa.me/${WPP_NUMERO}?text=${msg}`, '_blank', 'noopener,noreferrer');
-    setTimeout(() => setAvisando(false), 800);
+    setTimeout(() => { setAvisando(false); setConfirmando(false); setNomePagador(''); }, 800);
   };
 
   return (
@@ -144,7 +147,8 @@ export default function Pagamento() {
         <div className="border-2 border-polo-gold bg-white rounded-2xl p-5 mb-5">
           <p className="font-bold text-polo-navy">💠 Pague por Pix — {brl(valor)}</p>
           <p className="text-xs text-gray-500 mt-0.5 mb-3">
-            Plano {plano.label}. Escaneie o QR ou copie o código no seu banco.
+            Plano {plano.label}. <strong>O valor já vem preenchido</strong> ao escanear o QR ou colar o código —
+            você não precisa digitar o valor. É só confirmar {brl(valor)} no seu banco.
           </p>
 
           {qr && (
@@ -169,13 +173,26 @@ export default function Pagamento() {
             <p><strong>Valor:</strong> {brl(valor)}</p>
           </div>
 
-          <button onClick={jaPaguei} disabled={avisando}
-            className="w-full mt-3 border-2 border-polo-navy text-polo-navy font-bold py-3 rounded-xl text-sm disabled:opacity-60">
-            {avisando ? 'Abrindo WhatsApp…' : '✅ Já paguei — enviar comprovante'}
-          </button>
+          {!confirmando ? (
+            <button onClick={() => setConfirmando(true)}
+              className="w-full mt-3 border-2 border-polo-navy text-polo-navy font-bold py-3 rounded-xl text-sm">
+              ✅ Já paguei
+            </button>
+          ) : (
+            <div className="mt-3 bg-polo-beige rounded-xl p-3">
+              <label className="block text-xs font-semibold text-polo-navy mb-1">Nome de quem fez o Pix</label>
+              <input value={nomePagador} onChange={e => setNomePagador(e.target.value)}
+                placeholder="Ex.: João da Silva" autoFocus
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 mb-2" />
+              <button onClick={confirmarPagamento} disabled={avisando}
+                className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm disabled:opacity-60">
+                {avisando ? 'Enviando…' : 'Confirmar e enviar comprovante'}
+              </button>
+            </div>
+          )}
           <p className="text-[11px] text-gray-400 text-center mt-1.5">
-            O botão avisa a equipe Aurum e abre o WhatsApp para você anexar o comprovante.
-            A ativação sai em até 24h úteis.
+            Ao confirmar, a equipe Aurum é avisada (com o nome e o horário) e o WhatsApp abre para você
+            anexar o comprovante. A ativação sai em até 24h úteis.
           </p>
         </div>
       ) : (
@@ -183,10 +200,23 @@ export default function Pagamento() {
         <div className="border-2 border-polo-gold bg-polo-beige rounded-2xl p-5 mb-5">
           <p className="font-bold text-polo-navy mb-1">Assinar o plano {plano.label} — {brl(valor)}</p>
           <p className="text-xs text-gray-600 mb-3">Fale com a equipe Aurum pelo WhatsApp para receber os dados do Pix e ativar.</p>
-          <button onClick={jaPaguei} disabled={avisando}
-            className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm disabled:opacity-60">
-            💬 Assinar pelo WhatsApp →
-          </button>
+          {!confirmando ? (
+            <button onClick={() => setConfirmando(true)}
+              className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm">
+              💬 Falar no WhatsApp
+            </button>
+          ) : (
+            <div className="bg-white rounded-xl p-3">
+              <label className="block text-xs font-semibold text-polo-navy mb-1">Seu nome (de quem vai pagar)</label>
+              <input value={nomePagador} onChange={e => setNomePagador(e.target.value)}
+                placeholder="Ex.: João da Silva" autoFocus
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 mb-2" />
+              <button onClick={confirmarPagamento} disabled={avisando}
+                className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm disabled:opacity-60">
+                {avisando ? 'Abrindo…' : 'Continuar no WhatsApp'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

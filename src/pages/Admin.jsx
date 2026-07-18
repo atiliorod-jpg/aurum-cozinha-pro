@@ -9,6 +9,8 @@ import { statusRestaurante, TESTE_DIAS, PLANOS } from '../utils/assinatura';
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
 const dataBR = (v) => v ? new Date(v).toLocaleDateString('pt-BR') : '—';
+// com hora — usado no aviso de pagamento (o dono quer ver quando o cliente avisou)
+const dataBRHora = (v) => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 
 // Badge de situação comercial do restaurante (mesma régua do app do cliente)
 function BadgeStatus({ st }) {
@@ -34,7 +36,7 @@ export default function Admin() {
     // select completo → fallback progressivo p/ bancos sem as colunas novas
     let { data: rests, error: errR } = await supabase
       .from('restaurantes')
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome')
       .order('created_at', { ascending: false });
     if (errR) {
       ({ data: rests, error: errR } = await supabase
@@ -239,7 +241,9 @@ export default function Admin() {
                   {r.aviso_pagamento_em && (
                     <div className="px-4 py-2 bg-polo-gold/15 border-b border-polo-gold/30 flex items-center justify-between gap-2">
                       <p className="text-[11px] text-polo-navy font-semibold">
-                        💰 Avisou pagamento — plano <strong>{r.aviso_pagamento_plano || 'mensal'}</strong> em {dataBR(r.aviso_pagamento_em)}
+                        💰 Avisou pagamento — plano <strong>{r.aviso_pagamento_plano || 'mensal'}</strong>
+                        {r.aviso_pagamento_nome ? <> por <strong>{r.aviso_pagamento_nome}</strong></> : null}
+                        {' '}em {dataBRHora(r.aviso_pagamento_em)}
                       </p>
                       <button onClick={() => dispensarAviso(r)}
                         className="text-[10px] font-semibold text-gray-500 underline underline-offset-2 flex-shrink-0">dispensar</button>

@@ -25,7 +25,7 @@ const arredondar = (v, unidade) =>
 
 /**
  * Sugestões de estoque mín/máx por produto, com base na média diária
- * de saídas (Polo Central + Polo Beer) na janela recente.
+ * de saídas (todos os destinos internos) na janela recente.
  * Retorna { [produtoId]: { min, max, mediaDiaria, dias } } apenas para
  * produtos com saídas registradas e histórico suficiente.
  */

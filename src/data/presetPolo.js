@@ -12,5 +12,5 @@ export const POLO_PRESET = {
   destinos:   DESTINOS_APARA,
   fichas:     FICHAS_INICIAIS,
   producoes:  [],
-  locais:     [{ id: 'polo_central', nome: 'Polo Central' }, { id: 'polo_beer', nome: 'Polo Beer' }],
+  locais:     [{ id: 'unidade_centro', nome: 'Unidade Centro' }, { id: 'unidade_praia', nome: 'Unidade Praia' }],
 };

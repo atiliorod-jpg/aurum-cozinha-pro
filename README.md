@@ -44,6 +44,7 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 | 10 | `src/lib/migration11_convites_equipe.sql` | Convites passam a respeitar o corte de plano/bloqueio (`conv_ins_v11`/`conv_del_v11`); RPCs `desativar_usuario`/`reativar_usuario` (libera vaga sem apagar histórico; não desativa a si mesmo nem a última diretoria) | ✅ rodado (17/07/2026) |
 | 11 | `src/lib/migration12_stripe.sql` | Coluna `stripe_customer_id` para o webhook reconhecer renovações mensais | ⏳ rodar só na Fase 2 do Stripe (ver `STRIPE_SETUP.md`) |
 | 12 | `src/lib/migration13_aviso_pagamento.sql` | Colunas `aviso_pagamento_em/plano` + RPC `avisar_pagamento` (cliente avisa que pagou o Pix, vale vencido) + `ativar_assinatura` limpa o aviso + `limpar_aviso_pagamento` | ✅ rodado (18/07/2026) |
+| 13 | `src/lib/migration14_pagador.sql` | Coluna `aviso_pagamento_nome` + `avisar_pagamento(p_plano, p_nome)` — guarda o nome de quem fez o Pix (app tem fallback se faltar) | ⏳ pendente (rodar no SQL Editor) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 

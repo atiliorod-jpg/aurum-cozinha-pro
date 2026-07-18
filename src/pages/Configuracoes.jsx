@@ -1453,6 +1453,16 @@ ${linkConvite(conviteGerado.token)}
         </Link>
       )}
 
+      {/* Novidades do app */}
+      <Link to="/novidades"
+        className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
+        <div>
+          <p className="text-sm font-bold text-polo-navy">✨ Novidades do app</p>
+          <p className="text-xs text-gray-500 mt-0.5">Veja o que mudou nas últimas atualizações.</p>
+        </div>
+        <span className="text-polo-navy text-lg">›</span>
+      </Link>
+
       {/* Instalar app no tablet */}
       <CartaoInstalarApp />
 
@@ -1490,7 +1500,7 @@ ${linkConvite(conviteGerado.token)}
             <details className="mt-1.5">
               <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">❓ Como funciona</summary>
               <div className="text-[11px] text-gray-600 mt-1.5 space-y-1 leading-snug">
-                <p>• Olha as <strong>saídas dos últimos ~15 dias</strong> — tanto o envio para cozinha/polos
+                <p>• Olha as <strong>saídas dos últimos ~15 dias</strong> — tanto o envio para a cozinha e outras unidades
                 quanto o uso interno em produção (ingrediente consumido por ficha conta).</p>
                 <p>• Com isso calcula quanto a casa gasta por dia e define: mínimo = cobertura de
                 {' '}{prefs.diasMin || 3} dia(s) de operação; máximo = meta de reposição para {prefs.diasMax || 6} dia(s).</p>
@@ -1867,7 +1877,7 @@ ${linkConvite(conviteGerado.token)}
         <div className="flex gap-2">
           <input type="text" value={novoLocal} onChange={e => setNovoLocal(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleAddLocal(); }}
-            placeholder="Novo destino (ex: Polo Beer)"
+            placeholder="Novo destino (ex: Unidade Centro)"
             className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           <button onClick={handleAddLocal}
             className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm">+ Add</button>

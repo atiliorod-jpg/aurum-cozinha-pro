@@ -15,8 +15,11 @@ export default function Layout({ title, children, actions }) {
   const { pendencias, online, prefs } = useApp();
   const { confirm } = useUI();
 
+  // Nome de exibição: o super-admin não tem perfil (nome null) → "Administrador".
+  const nomeExibicao = sessao?.nome || (sessao?.eSuperAdmin ? 'Administrador' : 'sua conta');
+
   const sair = async () => {
-    const ok = await confirm({ titulo: 'Sair', mensagem: `Encerrar a sessão de ${sessao?.nome}?`, confirmar: 'Sair' });
+    const ok = await confirm({ titulo: 'Sair', mensagem: `Encerrar a sessão de ${nomeExibicao}?`, confirmar: 'Sair' });
     if (ok) logout();
   };
 
@@ -50,18 +53,22 @@ export default function Layout({ title, children, actions }) {
               <BotaoFeedback />
               {pode(sessao, prefs?.permissoes, 'verAuditoria') && (
                 <Link to="/auditoria" aria-label="Histórico de mudanças" title="Histórico de mudanças"
-                  className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-polo-gold active:scale-90 transition-transform
-                             focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
-                  <Icon name="historico" size={17} />
+                  className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
+                             focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
+                  <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><Icon name="historico" size={17} /></span>
+                  <span className="text-[8px] leading-none font-semibold text-white/70">Histórico</span>
                 </Link>
               )}
-              <button onClick={sair} aria-label={`Sessão de ${sessao.nome || 'usuário'} — sair`} title={`${sessao.nome || 'usuário'} — sair`}
-                className="flex items-center gap-1.5 bg-white/10 rounded-full pl-2.5 pr-3 py-1.5 active:scale-95 transition-transform
-                           focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
-                <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-[10px] font-bold flex items-center justify-center">
-                  {(sessao.nome || '?').slice(0, 1).toUpperCase()}
+              <button onClick={sair} aria-label={`${nomeExibicao} — sair`} title={`${nomeExibicao} — sair`}
+                className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform
+                           focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
+                <span className="flex items-center gap-1.5 bg-white/10 rounded-full pl-2.5 pr-3 py-1.5">
+                  <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-[10px] font-bold flex items-center justify-center">
+                    {nomeExibicao.slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="text-[10px] font-semibold text-white/90 max-w-16 truncate">{nomeExibicao.split(' ')[0]}</span>
                 </span>
-                <span className="text-[10px] font-semibold text-white/90 max-w-16 truncate">{(sessao.nome || 'usuário').split(' ')[0]}</span>
+                <span className="text-[8px] leading-none font-semibold text-white/70">Sair</span>
               </button>
             </div>
           )}

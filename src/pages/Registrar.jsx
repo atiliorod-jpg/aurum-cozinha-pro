@@ -1,5 +1,8 @@
 import Layout from '../components/Layout';
 import { Link } from 'react-router-dom';
+import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
+import { pode } from '../utils/permissoes';
 
 const SECOES = [
   {
@@ -14,14 +17,14 @@ const SECOES = [
     desc: 'Produção e entradas que alimentam o estoque',
     acoes: [
       { to: '/producao', emoji: '🍲', titulo: 'Produção', desc: 'Executar ficha — baixa ingredientes e entra a porção/semiacabado' },
-      { to: '/entradas', emoji: '📥', titulo: 'Entrada avulsa', desc: 'Item que entra pronto no estoque, sem passar por ficha' },
+      { to: '/entradas', emoji: '📥', titulo: 'Entrada avulsa', desc: 'Item só porcionado, sem receita (ex.: picanha cortada e embalada)' },
     ],
   },
   {
     label: 'Saída e correções',
     desc: 'Transferências internas e ajustes',
     acoes: [
-      { to: '/saidas',  emoji: '📤', titulo: 'Saída',         desc: 'Envio para a cozinha principal / polos (transferência interna)' },
+      { to: '/saidas',  emoji: '📤', titulo: 'Saída',         desc: 'Envio para a cozinha principal / outras unidades (transferência interna)' },
       { to: '/aparas',  emoji: '✂️', titulo: 'Apara / Perda', desc: 'Aproveitamento e descarte' },
     ],
   },
@@ -32,13 +35,28 @@ const SECOES = [
       { to: '/etiquetas', emoji: '🏷️', titulo: 'Etiquetas', desc: 'Imprimir etiquetas do estoque ou avulsas' },
     ],
   },
+  {
+    label: 'Conferência',
+    desc: 'Ajuste o estoque quando conferir a prateleira',
+    acoes: [
+      // gate: só quem tem a permissão de inventário (a rota já exige o mesmo)
+      { to: '/inventario', emoji: '📐', titulo: 'Contagem física', desc: 'Corrige o estoque para o valor contado na prateleira', cap: 'inventario' },
+    ],
+  },
 ];
 
 export default function Registrar() {
+  const { prefs } = useApp();
+  const { sessao } = useAuth();
+  const podeAcao = (a) => !a.cap || pode(sessao, prefs?.permissoes, a.cap);
+  const secoes = SECOES
+    .map(s => ({ ...s, acoes: s.acoes.filter(podeAcao) }))
+    .filter(s => s.acoes.length > 0);
+
   return (
     <Layout title="Registrar">
       <div className="space-y-5">
-        {SECOES.map(s => (
+        {secoes.map(s => (
           <div key={s.label}>
             <div className="mb-2 px-1">
               <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">{s.label}</p>

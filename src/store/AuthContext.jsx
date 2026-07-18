@@ -325,10 +325,14 @@ export function AuthProvider({ children }) {
 
   // ── Cliente avisa que pagou por Pix (super-admin ativa depois) ──
   // Funciona mesmo com a conta vencida/bloqueada (RPC SECURITY DEFINER).
-  const avisarPagamento = useCallback(async (plano) => {
+  const avisarPagamento = useCallback(async (plano, nomePagador) => {
     if (sessao?.demo) return 'Indisponível na demonstração.';
     if (!sessao?.restauranteId) return 'Sem restaurante.';
-    const { error } = await supabase.rpc('avisar_pagamento', { p_plano: plano || 'mensal' });
+    // p_nome: fallback silencioso se o banco ainda não tem a migração 14
+    let { error } = await supabase.rpc('avisar_pagamento', { p_plano: plano || 'mensal', p_nome: nomePagador || null });
+    if (error && /p_nome|function|does not exist|schema cache|not find/i.test(error.message || '')) {
+      ({ error } = await supabase.rpc('avisar_pagamento', { p_plano: plano || 'mensal' }));
+    }
     return error ? error.message : null;
   }, [sessao]);
 

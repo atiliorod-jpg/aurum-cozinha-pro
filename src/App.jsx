@@ -10,6 +10,7 @@ import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import EtiquetaPrint from './components/EtiquetaPrint';
 import AvisoVencimento from './components/AvisoVencimento';
+import NovidadesPopup from './components/NovidadesPopup';
 import Login from './pages/Login';
 import NovaSenha from './pages/NovaSenha';
 import Dashboard from './pages/Dashboard';
@@ -24,6 +25,7 @@ import AparasPerdas from './pages/AparasPerdas';
 import Auditoria from './pages/Auditoria';
 import Pagamento from './pages/Pagamento';
 import Etiquetas from './pages/Etiquetas';
+import Novidades from './pages/Novidades';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 const Relatorio = lazy(() => import('./pages/Relatorio'));
 const Configuracoes = lazy(() => import('./pages/Configuracoes'));
@@ -192,6 +194,7 @@ function Rotas() {
       <Route path="/producao" element={<Producao />} />
       <Route path="/aparas" element={<AparasPerdas />} />
       <Route path="/etiquetas" element={<Etiquetas />} />
+      <Route path="/novidades" element={<Novidades />} />
       <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
       <Route path="/fichas" element={<Navigate to="/compras" replace />} />
       <Route path="/inventario" element={can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
@@ -203,6 +206,7 @@ function Rotas() {
       </Routes>
       </Suspense>
       <AvisoVencimento />
+      <NovidadesPopup />
     </>
   );
 }

@@ -32,8 +32,8 @@ export function gerarDemoSeed() {
   ];
   const categorias = ['PROTEÍNAS', 'PRODUZIDOS', 'FRIOS', 'CONGELADOS'];
   const pessoas = ['Maria', 'João'];
-  // Destinos de saída = transferência INTERNA (cozinha principal / polos)
-  const locais = [{ id: 'cozinha', nome: 'Cozinha principal' }, { id: 'polo_central', nome: 'Polo Central' }];
+  // Destinos de saída = transferência INTERNA (cozinha principal / outras unidades)
+  const locais = [{ id: 'cozinha', nome: 'Cozinha principal' }, { id: 'unidade_centro', nome: 'Unidade Centro' }];
   const producoes = [{
     id: 'rec_empanado', nome: 'Empanado de Filé (porcionamento)', produtoFinalId: 'empanado',
     rendimentoBase: 20, armazenamento: 'congelado',
@@ -77,9 +77,9 @@ export function gerarDemoSeed() {
   const saidas = [
     saida(4, [{ produtoId: 'frango', quantidade: 5 }]),
     saida(3, [{ produtoId: 'file', quantidade: 4 }, { produtoId: 'batata', quantidade: 6 }]),
-    saida(2, [{ produtoId: 'frango', quantidade: 6 }], 'polo_central'),
+    saida(2, [{ produtoId: 'frango', quantidade: 6 }], 'unidade_centro'),
     saida(1, [{ produtoId: 'empanado', quantidade: 12 }]),
-    saida(0, [{ produtoId: 'empanado', quantidade: 8 }], 'polo_central'),
+    saida(0, [{ produtoId: 'empanado', quantidade: 8 }], 'unidade_centro'),
     // saída interna da produção do empanado (consumo do ingrediente controlado)
     { id: 'demo_s_prod', ts: ts(1, 14), data: d(1), hora: '14:00', responsavel: 'Maria', destino: 'producao', producaoId: 'demo_pid2',
       itens: [{ produtoId: 'file', quantidade: 6 }] },
