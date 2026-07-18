@@ -37,6 +37,9 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
           VITE_STRIPE_PAYMENT_LINK: ${{ secrets.VITE_STRIPE_PAYMENT_LINK }}
+          VITE_PIX_CHAVE: ${{ secrets.VITE_PIX_CHAVE }}
+          VITE_PIX_NOME: ${{ secrets.VITE_PIX_NOME }}
+          VITE_PIX_CIDADE: ${{ secrets.VITE_PIX_CIDADE }}
       # SPA no GitHub Pages: o 404 devolve o app e o React Router resolve a rota
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
