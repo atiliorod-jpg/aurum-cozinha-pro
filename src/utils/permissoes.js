@@ -33,7 +33,9 @@ export const CAPACIDADES = [
 // uma chave, cai aqui — então bancos/contas antigas não mudam de comportamento.
 export const PERMISSOES_PADRAO = {
   cozinha: {
-    removerRegistros: true, inventario: false, verRelatorio: false,
+    // remover lançamentos é ação delicada — por padrão só gerência+; a diretoria
+    // pode liberar para a cozinha na matriz de permissões (Config → Acessos).
+    removerRegistros: false, inventario: false, verRelatorio: false,
     verAuditoria: false, gerenciarProdutos: false, configurarSistema: false,
   },
   gerencia: {

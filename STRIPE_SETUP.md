@@ -1,8 +1,15 @@
 # Ativar pagamentos de verdade (Stripe) — Aurum Cozinha Pro
 
-Hoje o app está em **modo de teste**: o botão "Assinar" abre um Payment Link do Stripe com
-cartões falsos e **nenhum dinheiro real é cobrado**. A ativação da assinatura é **manual**
-(o super-admin clica "+30 dias" no painel `/admin`).
+> ⚠️ **Situação atual (19/07/2026): o pagamento na tela do app é por PIX** (QR + copia-e-cola +
+> "Já paguei"), com ativação manual pelo super-admin no `/admin`. **O Stripe é OPCIONAL/futuro** —
+> este guia (webhook, Payment Link) só entra em cena se você decidir migrar para cartão automático.
+> O código do webhook está pronto em `supabase/functions/stripe-webhook/` mas **não está publicado**;
+> o app **não depende** dele. Premissa do webhook: Payment Link **mensal** (sempre +31 dias) e rode a
+> `migration12` antes (mapeia o cliente Stripe para reconhecer renovações).
+
+Este guia leva o pagamento (via Stripe) para produção, caso você opte por ele em vez do Pix.
+Enquanto o app usa Payment Link em **modo de teste**, cartões são falsos e nada é cobrado; a
+ativação é manual (super-admin, botões de plano no `/admin`).
 
 Este guia leva o pagamento para produção. São **duas fases**:
 

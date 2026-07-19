@@ -10,6 +10,7 @@ export default function NovaSenha({ aoConcluir, titulo = 'Criar nova senha' }) {
   const [erro, setErro] = useState('');
   const [info, setInfo] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [ver, setVer] = useState(false);
 
   const salvar = async () => {
     setErro(''); setInfo('');
@@ -33,9 +34,13 @@ export default function NovaSenha({ aoConcluir, titulo = 'Criar nova senha' }) {
           <h1 className="text-xl font-bold text-polo-gold">{titulo}</h1>
         </div>
         <div className="bg-white rounded-2xl p-6 space-y-3 shadow-2xl">
-          <input type="password" autoComplete="new-password" value={senha} onChange={e => setSenha(e.target.value)}
-            placeholder="Nova senha (mín. 8)" aria-label="Nova senha (mínimo 8 caracteres)" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm" />
-          <input type="password" autoComplete="new-password" value={confirma} onChange={e => setConfirma(e.target.value)}
+          <div className="relative">
+            <input type={ver ? 'text' : 'password'} autoComplete="new-password" value={senha} onChange={e => setSenha(e.target.value)}
+              placeholder="Nova senha (mín. 8)" aria-label="Nova senha (mínimo 8 caracteres)" className="w-full border border-gray-200 rounded-xl px-4 py-3 pr-12 text-sm" />
+            <button type="button" onClick={() => setVer(v => !v)} aria-label={ver ? 'Ocultar senha' : 'Mostrar senha'}
+              className="absolute right-1 top-1/2 -translate-y-1/2 text-lg px-2 py-1">{ver ? '🙈' : '👁️'}</button>
+          </div>
+          <input type={ver ? 'text' : 'password'} autoComplete="new-password" value={confirma} onChange={e => setConfirma(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') salvar(); }}
             placeholder="Confirme a nova senha" className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm" />
           {erro && <p className="text-xs text-red-500 font-semibold">{erro}</p>}

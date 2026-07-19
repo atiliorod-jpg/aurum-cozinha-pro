@@ -19,11 +19,13 @@ const P = (id, nome, categoria, unidade, extra = {}) => ({
 
 export function gerarDemoSeed() {
   const produtos = [
-    // Matérias-primas
-    P('file', 'Filé Mignon', 'PROTEÍNAS', 'kg', { min: 10, max: 20, valCongelado: 30, valResfriado: 3, marca: 'Swift', sif: '358' }),
-    P('frango', 'Peito de Frango', 'PROTEÍNAS', 'kg', { min: 15, max: 30, valCongelado: 30, valResfriado: 2, marca: 'Sadia', sif: '124' }),
-    P('charque', 'Charque', 'PROTEÍNAS', 'kg', { min: 8, max: 16, valCongelado: 45, valResfriado: 5 }),
-    P('tilapia', 'Filé de Tilápia', 'PROTEÍNAS', 'kg', { min: 6, max: 12, valCongelado: 25, valResfriado: 2 }),
+    // O estoque da casa é em PORÇÕES/UNIDADES (já porcionadas). A matéria-prima
+    // a granel (filé cru, queijo, batata) fica em kg — é a exceção.
+    P('picanha', 'Picanha (porção)', 'PROTEÍNAS', 'unid', { min: 20, max: 60, valCongelado: 30, valResfriado: 3, pesoUnidade: 180, marca: 'Friboi', sif: '358' }),
+    P('frango', 'Filé de Frango (porção)', 'PROTEÍNAS', 'unid', { min: 20, max: 50, valCongelado: 30, valResfriado: 2, pesoUnidade: 150, marca: 'Sadia', sif: '124' }),
+    P('tilapia', 'Filé de Tilápia (porção)', 'PROTEÍNAS', 'unid', { min: 15, max: 40, valCongelado: 25, valResfriado: 2, pesoUnidade: 140 }),
+    // Matéria-prima crua a granel (kg) — é porcionada/produzida aqui
+    P('file', 'Filé Mignon (cru, kg)', 'PROTEÍNAS', 'kg', { min: 8, max: 18, valCongelado: 30, valResfriado: 3, marca: 'Swift', sif: '358' }),
     P('queijo', 'Queijo Muçarela', 'FRIOS', 'kg', { min: 4, max: 10, valResfriado: 12, marca: 'Tirolez' }),
     P('batata', 'Batata Palito Congelada', 'CONGELADOS', 'kg', { min: 10, max: 25, valCongelado: 90 }),
     // Semiacabados produzidos pela casa (porção/base — NUNCA prato montado)
@@ -61,9 +63,11 @@ export function gerarDemoSeed() {
   });
 
   const entradas = [
-    entrada(6, [{ produtoId: 'file', quantidade: 18 }, { produtoId: 'frango', quantidade: 25 }]),
+    // filé cru (kg) para produzir; porções de frango já porcionadas (entrada avulsa)
+    entrada(6, [{ produtoId: 'file', quantidade: 15 }, { produtoId: 'frango', quantidade: 25 }]),
     entrada(5, [{ produtoId: 'queijo', quantidade: 8 }, { produtoId: 'batata', quantidade: 20 }]),
-    entrada(4, [{ produtoId: 'charque', quantidade: 12 }, { produtoId: 'tilapia', quantidade: 10 }]),
+    // porcionamento puro (cortado e embalado, sem receita): picanha e tilápia em porções
+    entrada(4, [{ produtoId: 'picanha', quantidade: 30 }, { produtoId: 'tilapia', quantidade: 20 }]),
     // produção de ontem: molho base + porcionamento do empanado (itens SEPARADOS)
     { id: 'demo_prod_molho', ts: ts(1, 11), data: d(1), hora: '11:00', responsavel: 'Maria', armazenamento: 'resfriado',
       producaoId: 'demo_pid1', obs: 'Produção: Molho de Tomate da Casa (semiacabado)',
@@ -76,17 +80,17 @@ export function gerarDemoSeed() {
   ];
   const saidas = [
     saida(4, [{ produtoId: 'frango', quantidade: 5 }]),
-    saida(3, [{ produtoId: 'file', quantidade: 4 }, { produtoId: 'batata', quantidade: 6 }]),
+    saida(3, [{ produtoId: 'picanha', quantidade: 10 }, { produtoId: 'batata', quantidade: 6 }]),
     saida(2, [{ produtoId: 'frango', quantidade: 6 }], 'unidade_centro'),
     saida(1, [{ produtoId: 'empanado', quantidade: 12 }]),
-    saida(0, [{ produtoId: 'empanado', quantidade: 8 }], 'unidade_centro'),
+    saida(0, [{ produtoId: 'empanado', quantidade: 8 }, { produtoId: 'picanha', quantidade: 8 }], 'unidade_centro'),
     // saída interna da produção do empanado (consumo do ingrediente controlado)
     { id: 'demo_s_prod', ts: ts(1, 14), data: d(1), hora: '14:00', responsavel: 'Maria', destino: 'producao', producaoId: 'demo_pid2',
       itens: [{ produtoId: 'file', quantidade: 6 }] },
   ];
   const compras = [
-    { id: 'demo_c1', ts: ts(6, 8), data: d(6), hora: '08:20', item: 'Filé Mignon', quantidade: 20, unidade: 'kg', fornecedor: 'Frigorífico Bom Corte', responsavel: 'Maria' },
-    { id: 'demo_c2', ts: ts(4, 8), data: d(4), hora: '08:40', item: 'Charque', quantidade: 12, unidade: 'kg', fornecedor: 'Distribuidora Sertão', responsavel: 'Maria' },
+    { id: 'demo_c1', ts: ts(6, 8), data: d(6), hora: '08:20', item: 'Filé Mignon', quantidade: 20, unidade: 'kg', fornecedor: 'Frigorífico Bom Corte', responsavel: 'Maria', produtoId: 'file' },
+    { id: 'demo_c2', ts: ts(4, 8), data: d(4), hora: '08:40', item: 'Picanha', quantidade: 18, unidade: 'kg', fornecedor: 'Distribuidora Sertão', responsavel: 'Maria', produtoId: 'picanha' },
   ];
   const aparas = [
     { id: 'demo_a1', ts: ts(6, 9), data: d(6), hora: '09:50', turno: 'Manhã', item: 'Filé Mignon', quantidade: 1.4, unidade: 'kg', destino: 'STG', responsavel: 'Maria', compraId: 'demo_c1', produtoId: 'file' },

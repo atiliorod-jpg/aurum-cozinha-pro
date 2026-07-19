@@ -23,7 +23,7 @@ VITE_SUPABASE_URL=<url do projeto Supabase>
 VITE_SUPABASE_ANON_KEY=<publishable/anon key>
 ```
 
-Login de teste: `teste-prod@aurum.app` / `teste123` (restaurante "Teste Produção").
+**Não há login de teste** — o banco de produção tem só o super-admin (contas de teste foram apagadas em 07/07/2026). Para experimentar sem cadastrar, use o botão **"🎬 Ver demonstração"** no Login (100% local, não toca o Supabase). Para testar fluxos completos, crie contas descartáveis `teste-e2e-*@aurum.app` e apague-as depois via SQL.
 
 ## Banco de dados — ORDEM DOS SCRIPTS SQL (importante!)
 
@@ -44,20 +44,24 @@ Todos são colados no Supabase → SQL Editor e são idempotentes (seguro rodar 
 | 10 | `src/lib/migration11_convites_equipe.sql` | Convites passam a respeitar o corte de plano/bloqueio (`conv_ins_v11`/`conv_del_v11`); RPCs `desativar_usuario`/`reativar_usuario` (libera vaga sem apagar histórico; não desativa a si mesmo nem a última diretoria) | ✅ rodado (17/07/2026) |
 | 11 | `src/lib/migration12_stripe.sql` | Coluna `stripe_customer_id` para o webhook reconhecer renovações mensais | ⏳ rodar só na Fase 2 do Stripe (ver `STRIPE_SETUP.md`) |
 | 12 | `src/lib/migration13_aviso_pagamento.sql` | Colunas `aviso_pagamento_em/plano` + RPC `avisar_pagamento` (cliente avisa que pagou o Pix, vale vencido) + `ativar_assinatura` limpa o aviso + `limpar_aviso_pagamento` | ✅ rodado (18/07/2026) |
-| 13 | `src/lib/migration14_aviso_nome.sql` (inline) | Coluna `aviso_pagamento_nome` + `avisar_pagamento(p_plano, p_nome)` guarda o nome de quem pagou | ✅ rodado (18/07/2026) |
+| 13 | `src/lib/migration14_aviso_nome.sql` | Coluna `aviso_pagamento_nome` + `avisar_pagamento(p_plano, p_nome)` guarda o nome de quem pagou (ativar/limpar também zeram o nome) | ✅ rodado (18/07/2026) |
 | 14 | `src/lib/migration15_feedback.sql` | Tabela `feedback` (sem policy de client) + RPCs `enviar_feedback` (cliente envia bug/sugestão, vale vencido), `feedback_todos`/`marcar_feedback` (só super-admin) | ✅ rodado (18/07/2026) |
-| 13 | `src/lib/migration14_pagador.sql` | Coluna `aviso_pagamento_nome` + `avisar_pagamento(p_plano, p_nome)` — guarda o nome de quem fez o Pix (app tem fallback se faltar) | ⏳ pendente (rodar no SQL Editor) |
+| 15 | `src/lib/migration16_rate_limit.sql` | Anti-spam: `avisar_pagamento` recusa 2º aviso em < 1h; `enviar_feedback` limita 10/hora por usuário | ✅ rodado (19/07/2026) |
 
 `migration2.sql`/`migration3.sql` são históricos — superados pelo migration4 (que consolida as policies).
 
 **Queries de checagem (SQL Editor) — banco novo ou na dúvida:**
 ```sql
--- migration4: policies consolidadas v4
+-- convites: policies atuais (após m11)
 select policyname from pg_policies where tablename = 'convites';
--- Esperado: conv_sel_v4, conv_ins_v4, conv_del_v4. Se aparecer "conv_insert" (antiga), rode o migration4.
+-- Esperado: conv_sel_v4, conv_ins_v11, conv_del_v11. Se aparecer conv_ins_v4/conv_insert, rode migration4→11.
 
 -- migration5/7/8: funções existem?
 select proname from pg_proc where proname in ('convite_valido', 'suporte_pode_editar', 'ativar_assinatura', 'criar_restaurante', 'aceitar_convite', 'salvar_documento');
+
+-- migration13–16: Pix, feedback e rate limit
+select proname from pg_proc where proname in ('avisar_pagamento', 'limpar_aviso_pagamento', 'enviar_feedback', 'feedback_todos', 'marcar_feedback');
+select column_name from information_schema.columns where table_name = 'restaurantes' and column_name in ('aviso_pagamento_em', 'aviso_pagamento_nome');
 
 -- migration6: índice existe?
 select indexname from pg_indexes where indexname = 'idx_registros_rest_deleted_tipo_ts';
@@ -91,9 +95,10 @@ Scripts em `scripts/` rodam ataques reais contra o Supabase (multi-tenant, convi
 node scripts/pentest-adversarial.mjs   # 13 checagens multi-tenant + m10 (S1/S2/S4, RPCs super-admin)
 node scripts/pentest-convite.mjs       # convite: mesma memória, token 16, reuso bloqueado, R1 não queima
 node scripts/pentest-m11.mjs           # M1 (convite respeita bloqueio) + P1 (desativar/reativar)
+node scripts/pentest-limpar.mjs        # LIMPA as contas pentest.* depois (service role) — rode SEMPRE ao fim
 ```
 
-Última execução (17/07/2026): 13/13 + suíte convite + 9/9 (m11), todas PASS; contas de teste apagadas.
+Última execução (19/07/2026): 13/13 adversarial + suíte convite + m11, todas PASS; contas de teste apagadas (`pentest-limpar.mjs`).
 
 **Segurança da conta super-admin:** ative MFA (TOTP) em `atiliopinpolho@gmail.com` no Supabase Auth e use senha forte e exclusiva — `sou_super_admin()` confia no e-mail do JWT, então comprometer esse e-mail = acesso total.
 

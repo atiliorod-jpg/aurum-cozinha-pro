@@ -26,6 +26,9 @@ const supabase = createClient(
   { auth: { persistSession: false } },
 );
 
+// Premissa: o Payment Link do Stripe é MENSAL (R$149). Sempre +31 dias.
+// Se um dia oferecer semestral/anual pelo Stripe, mapear o preço → dias aqui
+// (o app tem os planos em src/utils/assinatura.js PLANOS).
 const DIAS_POR_PAGAMENTO = 31; // 1 mês + folga para o cliente não ficar bloqueado no vencimento
 
 // Soma DIAS a partir do maior entre "agora" e o vencimento atual (renovação
@@ -38,7 +41,12 @@ async function ativarAssinatura(restauranteId: string, customerId?: string) {
   const atual = data.assinatura_ate ? new Date(data.assinatura_ate).getTime() : 0;
   const base = Math.max(Date.now(), atual);
   const ate = new Date(base + DIAS_POR_PAGAMENTO * 86400000).toISOString();
-  const patch: Record<string, unknown> = { assinatura_ate: ate, bloqueado: false };
+  // limpa o aviso "Já paguei" (senão o banner de aviso fica preso após ativar,
+  // igual faz a RPC ativar_assinatura do fluxo manual)
+  const patch: Record<string, unknown> = {
+    assinatura_ate: ate, bloqueado: false,
+    aviso_pagamento_em: null, aviso_pagamento_plano: null, aviso_pagamento_nome: null,
+  };
   if (customerId) patch.stripe_customer_id = customerId;
   const { error } = await supabase.from('restaurantes').update(patch).eq('id', restauranteId);
   if (error) console.error('falha ao ativar', restauranteId, error.message);

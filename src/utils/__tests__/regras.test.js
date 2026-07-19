@@ -446,7 +446,8 @@ describe('permissões por função (matriz configurável)', () => {
 
   it('sem prefs, cai no padrão (cozinha operacional, gerência com gestão)', () => {
     expect(pode(cozinha, undefined, 'verRelatorio')).toBe(false);
-    expect(pode(cozinha, undefined, 'removerRegistros')).toBe(true);
+    expect(pode(cozinha, undefined, 'removerRegistros')).toBe(false); // só gerência+ apaga por padrão
+    expect(pode(gerencia, undefined, 'removerRegistros')).toBe(true);
     expect(pode(gerencia, undefined, 'configurarSistema')).toBe(true);
   });
 
