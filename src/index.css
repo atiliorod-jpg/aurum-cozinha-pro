@@ -51,10 +51,17 @@ main .bg-white.rounded-xl {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Cabeçalho do relatório que só aparece no PDF/impressão */
+.relatorio-print-cabecalho { display: none; }
+
 @media print {
   header, nav, button { display: none !important; }
   body, #root { background: #fff !important; }
   main { padding: 0 !important; max-width: 100% !important; }
+  /* mostra o cabeçalho impresso e evita cortar cartões/blocos no meio da página */
+  .relatorio-print-cabecalho { display: block !important; }
+  main .bg-white.rounded-xl { box-shadow: none !important; border: 1px solid #e5e7eb; break-inside: avoid; }
+  details { break-inside: avoid; }
 }
 
 /* ── Impressão de ETIQUETAS (components/EtiquetaPrint.jsx) ──────────────

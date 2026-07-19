@@ -30,6 +30,7 @@ export default function Admin() {
   const [erro,         setErro]         = useState(null);
   const [diasCustom,   setDiasCustom]   = useState({}); // rid -> string
   const [notasLocal,   setNotasLocal]   = useState({}); // rid -> string
+  const [feedbacks,    setFeedbacks]    = useState([]);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -98,6 +99,10 @@ export default function Admin() {
       (antigas || []).forEach(x => { notas[x.id] = x.notas_admin || ''; });
     }
     setNotasLocal(Object.fromEntries(rests.map(r => [r.id, notas[r.id] || ''])));
+
+    // Feedback dos clientes (bug/sugestão) — só existe pós-migração 15
+    const { data: fbs } = await supabase.rpc('feedback_todos');
+    setFeedbacks(fbs || []);
     setCarregando(false);
   }, []);
 
@@ -120,6 +125,12 @@ export default function Admin() {
     // ativar_assinatura (migração 13) também limpa o aviso de pagamento
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, assinatura_ate: data, aviso_pagamento_em: null, aviso_pagamento_plano: null } : x));
     toast(`✅ ${r.nome}: acesso liberado até ${dataBR(data)}.`, 'sucesso');
+  };
+
+  const marcarFeedback = async (fb, status) => {
+    const { error } = await supabase.rpc('marcar_feedback', { p_id: fb.id, p_status: status });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setFeedbacks(prev => prev.map(x => x.id === fb.id ? { ...x, status } : x));
   };
 
   const dispensarAviso = async (r) => {
@@ -193,6 +204,53 @@ export default function Admin() {
             </p>
           </div>
         )}
+
+        {/* Feedback dos clientes (bug/sugestão) */}
+        {feedbacks.length > 0 && (() => {
+          const abertos = feedbacks.filter(f => f.status !== 'resolvido').length;
+          return (
+            <details className="bg-white border border-gray-100 rounded-xl overflow-hidden" open={abertos > 0}>
+              <summary className="cursor-pointer px-4 py-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-polo-navy">📨 Feedback dos clientes</span>
+                {abertos > 0 && <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{abertos} novo(s)</span>}
+              </summary>
+              <div className="divide-y divide-gray-50">
+                {feedbacks.map(fb => {
+                  const d = fb.dados || {};
+                  const linhas = fb.tipo === 'bug'
+                    ? [['Onde', d.onde], ['Esperava', d.esperava], ['Aconteceu', d.aconteceu], ['Repetir', d.repetir]]
+                    : [['Quer', d.ideia], ['Por quê', d.porque]];
+                  return (
+                    <div key={fb.id} className={`px-4 py-3 ${fb.status === 'resolvido' ? 'opacity-50' : ''}`}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-xs font-bold">{fb.tipo === 'bug' ? '🐛 Problema' : '💡 Sugestão'}</span>
+                        <span className="text-[10px] text-gray-400">{dataBR(fb.created_at)}</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 mb-1.5">
+                        {fb.restaurante_nome || '—'} · {fb.usuario_nome || '?'}{fb.contexto ? ` · ${fb.contexto}` : ''}
+                      </p>
+                      <div className="text-xs text-gray-700 space-y-0.5">
+                        {linhas.filter(([, v]) => v && v.trim()).map(([k, v]) => (
+                          <p key={k}><span className="font-semibold text-gray-500">{k}:</span> {v}</p>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        {fb.status !== 'resolvido' && (
+                          <button onClick={() => marcarFeedback(fb, 'resolvido')}
+                            className="text-[11px] font-bold text-green-700 border border-green-200 rounded-lg px-2.5 py-1">Marcar resolvido</button>
+                        )}
+                        {fb.status === 'resolvido' && (
+                          <button onClick={() => marcarFeedback(fb, 'novo')}
+                            className="text-[11px] font-semibold text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1">Reabrir</button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </details>
+          );
+        })()}
 
         {carregando && (
           <div className="bg-white rounded-xl p-8 text-center">

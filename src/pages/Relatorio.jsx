@@ -2,12 +2,12 @@ import { useState, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { useUI } from '../store/UIContext';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
-import { filtrarPorPeriodo, totalPorProduto, statusEstoque } from '../utils/calculos';
+import { filtrarPorPeriodo, totalPorProduto } from '../utils/calculos';
 import { saidasPorDia, topProdutosSaida, somaPorCampo, rendimentoPorFornecedor } from '../utils/analise';
-import { saidasPorDestinoDia, chegadasPorDia } from '../utils/relatorios';
-import { fmtData, fmtNum, semanaAtual, hoje } from '../utils/formatters';
+import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem } from '../utils/relatorios';
+import { fmtData, fmtNum, hoje } from '../utils/formatters';
+import { addDias } from '../utils/datas';
 import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../components/Charts';
 
 const rotuloMotivo = (cod) => MOTIVOS_DESPERDICIO.find(m => m.cod === cod)?.label || cod;
@@ -26,20 +26,21 @@ export default function Relatorio() {
   // destinos criados pelo usuário em Config também precisam aparecer com o nome certo
   const rotuloDestino = useCallback((cod) =>
     destinos.find(d => d.cod === cod)?.label || DESTINOS_APARA.find(d => d.cod === cod)?.label || cod, [destinos]);
-  // textos livres de "Outro" prevalecem sobre o rótulo genérico
-  const destinoDaApara = (a) => a.destinoOutro || rotuloDestino(a.destino);
-  const motivoDaPerda = (d) => d.motivoOutro || rotuloMotivo(d.motivo);
-  const { toast } = useUI();
   const { sessao } = useAuth();
-  const semana = semanaAtual();
-  const [modo, setModo] = useState('diario'); // 'diario' | 'periodo'
-  const [dia, setDia] = useState(hoje());
-  const [inicio, setInicio] = useState(semana.inicio);
-  const [fim, setFim] = useState(semana.fim);
-  const [exportando, setExportando] = useState(false);
+  const hj = hoje();
+  const primeiroDoMes = `${hj.slice(0, 8)}01`;
+  // Seletor único de período. 'custom' abre os campos de data manuais.
+  const [periodo, setPeriodo] = useState('7d'); // hoje | 7d | quinzena | mes | custom
+  const [inicio, setInicio] = useState(addDias(hj, -6));
+  const [fim, setFim] = useState(hj);
 
-  const rIni = modo === 'diario' ? dia : inicio;
-  const rFim = modo === 'diario' ? dia : fim;
+  const rangePreset = {
+    hoje: [hj, hj],
+    '7d': [addDias(hj, -6), hj],
+    quinzena: [addDias(hj, -14), hj],
+    mes: [primeiroDoMes, hj],
+  };
+  const [rIni, rFim] = periodo === 'custom' ? [inicio, fim] : rangePreset[periodo];
 
   const comprasF = useMemo(() => filtrarPorPeriodo(compras, rIni, rFim), [compras, rIni, rFim]);
   const entradasF = useMemo(() => filtrarPorPeriodo(entradas, rIni, rFim), [entradas, rIni, rFim]);
@@ -74,166 +75,45 @@ export default function Relatorio() {
   const produtosAtivos = produtos.filter(p => p.ativo);
 
   const somaQtd = (regs) => regs.reduce((s, r) => s + (parseFloat(r.quantidade) || 0), 0);
-  const totalComprasKg = somaQtd(comprasF.filter(c => c.unidade === 'kg'));
   const totalAparas = somaQtd(aparasF);
   const totalPerdas = somaQtd(perdasF);
   const perdasEstoque = somaQtd(perdasF.filter(p => p.origem === 'estoque'));
 
-  const exportarExcel = async () => {
-    setExportando(true);
-    try {
-      const XLSX = await import('xlsx'); // carregado só na hora do export
-      const wb = XLSX.utils.book_new();
-      // filtroAte: nº da linha do cabeçalho (1-based) para ligar o autofiltro
-      // (setinhas de filtrar/ordenar em cada coluna — deixa a planilha dinâmica)
-      const sheet = (nome, aoa, larguras, filtroLinha = null) => {
-        const ws = XLSX.utils.aoa_to_sheet(aoa);
-        if (larguras) ws['!cols'] = larguras.map(wch => ({ wch }));
-        if (filtroLinha && aoa.length > filtroLinha) {
-          const nCols = aoa[filtroLinha - 1].length;
-          ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: filtroLinha - 1, c: 0 }, e: { r: aoa.length - 1, c: nCols - 1 } }) };
-        }
-        XLSX.utils.book_append_sheet(wb, ws, nome);
-      };
-      const nomeRest = sessao?.restauranteNome || '';
+  // Novas visões "por item": rendimento (chegou → aparas/perdas → %) e produção
+  const rendItens = useMemo(() => rendimentoPorItem(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
+  const prodItens = useMemo(() => producaoPorItem(entradasF, produtos), [entradasF, produtos]);
 
-      // 0. Como ler este arquivo
-      sheet('Leia-me', [
-        ['AURUM COZINHA PRO — RELATÓRIO DE PRODUÇÃO E ESTOQUE'],
-        nomeRest ? ['Restaurante', nomeRest] : [],
-        ['Período', `${fmtData(rIni)} a ${fmtData(rFim)}`],
-        ['Gerado em', `${fmtData(hoje())}`],
-        [],
-        ['Aba', 'O que mostra'],
-        ['Resumo', 'Os números do período em uma tela: compras, entradas, saídas, aparas e perdas.'],
-        ['Movimentação', 'Produto por produto: o que entrou, o que saiu (por destino) e o estoque atual com a situação (OK / abaixo do mínimo / zerado). Use as setinhas do cabeçalho para filtrar e ordenar.'],
-        ['Produção', 'Tudo que a cozinha produziu no período (receitas executadas).'],
-        ['Saídas por Dia', 'Total enviado a cada dia — bom para ver o ritmo da semana.'],
-        ['Compras', 'Recebimentos de fornecedor + rendimento de cada fornecedor (quanto vira aproveitável).'],
-        ['Aparas', 'Reaproveitamentos registrados, com destino.'],
-        ['Perdas', 'Descartes com motivo e se abateram o estoque.'],
-        [],
-        ['Dica', 'Todas as abas de lista têm FILTRO no cabeçalho: clique na setinha da coluna para filtrar ou ordenar.'],
-      ], [16, 95]);
-
-      // 1. Resumo executivo
-      sheet('Resumo', [
-        [`RESUMO DO PERÍODO — ${fmtData(rIni)} a ${fmtData(rFim)}${nomeRest ? ` — ${nomeRest}` : ''}`],
-        [],
-        ['Indicador', 'Valor'],
-        ['Compras recebidas (registros)', comprasF.length],
-        ['Compras recebidas (kg)', totalComprasKg],
-        ['Entradas na produção (registros)', entradasF.length],
-        ['Produções executadas', entradasF.filter(e => e.producaoId).length],
-        ['Saídas (registros)', saidasF.length],
-        ['Aparas para reaproveitamento (total)', totalAparas],
-        ['Perdas totais', totalPerdas],
-        ['Perdas que abateram estoque', perdasEstoque],
-        ['Perdas no recebimento', totalPerdas - perdasEstoque],
-        ['Produtos abaixo do mínimo (hoje)', produtosAtivos.filter(p => p.min > 0 && (estoque[p.id] ?? 0) < p.min).length],
-        ['Produtos zerados (hoje)', produtosAtivos.filter(p => (estoque[p.id] ?? 0) <= 0 && ((totalEntradas[p.id] || 0) || (totalSaidas[p.id] || 0))).length],
-      ], [38, 18]);
-
-      // 2. Movimentação por produto + estoque atual (1 coluna de saída por destino)
-      const locaisAtivos = locais || [];
-      const movHeader = ['Categoria', 'Produto', 'Un.', 'Entradas',
-        ...locaisAtivos.map(l => `Saídas ${l.nome}`),
-        'Saídas Total', 'Estoque Atual', 'Mín', 'Máx', 'Situação'];
-      const mov = [movHeader];
-      categorias.forEach(cat => {
-        produtosAtivos.filter(p => p.categoria === cat).forEach(p => {
-          const e = totalEntradas[p.id] || 0;
-          const porLocal = locaisAtivos.map(l => (totaisPorLocal[l.id] || {})[p.id] || 0);
-          const st = totalSaidas[p.id] || 0;
-          const atual = estoque[p.id] ?? 0;
-          if (e || st || atual) {
-            const status = statusEstoque(atual, p.min, p.max);
-            mov.push([cat, p.nome, p.unidade, e, ...porLocal, st, atual, p.min, p.max,
-              status === 'ok' ? 'OK' : status === 'critico' ? 'ABAIXO DO MÍNIMO' : status === 'zerado' ? 'ZERADO' : status === 'excesso' ? 'ACIMA DO MÁXIMO' : '—']);
-          }
-        });
-      });
-      sheet('Movimentação', mov, [16, 26, 6, 10, ...locaisAtivos.map(() => 12), 12, 13, 8, 8, 18], 1);
-
-      // 3. Produção do período (receitas executadas)
-      const prod = [['Data', 'Hora', 'Item Produzido', 'Qtd', 'Un.', 'Responsável', 'Obs']];
-      entradasF.filter(e => e.producaoId).forEach(e => (e.itens || []).forEach(item => {
-        const p = produtos.find(x => x.id === item.produtoId);
-        prod.push([fmtData(e.data), e.hora || '', p?.nome || item.produtoId, item.quantidade, p?.unidade || '', e.responsavel || '', e.obs || '']);
-      }));
-      if (prod.length === 1) prod.push(['— nenhuma produção no período —']);
-      sheet('Produção', prod, [12, 8, 26, 8, 6, 16, 34], 1);
-
-      // 4. Saídas por dia (totais — drill-down por destino fica na aba Movimentação)
-      const dias = [['Data', 'Saídas (total)']];
-      serieDias.forEach(d => dias.push([fmtData(d.data), d.total]));
-      sheet('Saídas por Dia', dias, [12, 14], 1);
-
-      // 5. Compras & rendimento por fornecedor
-      const cmp = [['Data', 'Fornecedor', 'Item', 'Qtd Bruta', 'Un.', 'Responsável']];
-      comprasF.forEach(c => cmp.push([fmtData(c.data), c.fornecedor || '', c.item, c.quantidade, c.unidade, c.responsavel || '']));
-      cmp.push([]);
-      cmp.push(['RENDIMENTO POR FORNECEDOR']);
-      cmp.push(['Fornecedor', 'Recebimentos', 'Total Comprado', 'Aparas+Perdas Assoc.', 'Rendimento %']);
-      fornecedores.forEach(f => cmp.push([f.fornecedor, f.n, f.comprado, f.correcao, f.rendimento != null ? Number(f.rendimento.toFixed(1)) : '—']));
-      sheet('Compras', cmp, [12, 22, 24, 12, 6, 16], 1);
-
-      // 6. Aparas (com resumo por destino)
-      const apr = [['Data', 'Turno', 'Item', 'Qtd', 'Un.', 'Destino', 'Responsável']];
-      aparasF.forEach(a => apr.push([fmtData(a.data), a.turno, a.item, a.quantidade, a.unidade, destinoDaApara(a), a.responsavel || '']));
-      apr.push([]);
-      apr.push(['TOTAL POR DESTINO']);
-      aparasPorDestino.forEach(d => apr.push([d.label, d.valor]));
-      sheet('Aparas', apr, [12, 10, 24, 8, 6, 22, 16], 1);
-
-      // 7. Perdas (com resumo por motivo)
-      const per = [['Data', 'Turno', 'Item', 'Qtd', 'Un.', 'Motivo', 'Origem', 'Abateu Estoque?', 'Responsável']];
-      perdasF.forEach(d => per.push([fmtData(d.data), d.turno, d.item, d.quantidade, d.unidade, motivoDaPerda(d),
-        d.origem === 'estoque' ? 'Estoque' : 'Recebimento', d.origem === 'estoque' ? 'SIM' : 'NÃO', d.responsavel || '']));
-      per.push([]);
-      per.push(['TOTAL POR MOTIVO']);
-      perdasPorMotivo.forEach(m => per.push([m.label, m.valor]));
-      sheet('Perdas', per, [12, 10, 24, 8, 6, 20, 14, 16, 16], 1);
-
-      XLSX.writeFile(wb, `relatorio_aurum_${rIni}_a_${rFim}.xlsx`);
-      toast('Excel exportado com 8 abas (com filtros no cabeçalho)!', 'sucesso');
-    } catch (e) {
-      toast('Falha ao exportar: ' + e.message, 'erro');
-    } finally {
-      setExportando(false);
-    }
-  };
+  const corRend = (pct) => pct == null ? 'text-gray-400' : pct >= 90 ? 'text-green-700' : pct >= 80 ? 'text-amber-600' : 'text-red-600';
+  const nomeRest = sessao?.restauranteNome || '';
 
   return (
     <Layout
       title="Relatório"
       actions={
-        <button onClick={exportarExcel} disabled={exportando}
-          className="bg-polo-gold text-polo-navy text-xs font-bold px-3 py-1.5 rounded-lg disabled:opacity-50">
-          {exportando ? '...' : '↓ Excel'}
+        <button onClick={() => window.print()}
+          className="bg-polo-gold text-polo-navy text-xs font-bold px-3 py-1.5 rounded-lg">
+          🖨️ PDF
         </button>
       }
     >
-      {/* Modo Diário / Período */}
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['diario', '📅 Contabilização Diária'], ['periodo', '🗓️ Por Período']].map(([v, l]) => (
-          <button key={v} onClick={() => setModo(v)}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors
-              ${modo === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
+      {/* Cabeçalho que só aparece na impressão/PDF (o header do app some no print) */}
+      <div className="relatorio-print-cabecalho mb-4">
+        <p className="text-lg font-bold text-polo-navy">Relatório — {nomeRest || 'Aurum Cozinha Pro'}</p>
+        <p className="text-xs text-gray-500">Período: {fmtData(rIni)} a {fmtData(rFim)} · gerado em {fmtData(hj)}</p>
       </div>
-
-      <div className="bg-white rounded-xl p-4 mb-4">
-        {modo === 'diario' ? (
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Dia do fechamento</label>
-            <input type="date" value={dia} onChange={e => setDia(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
+      {/* Seletor único de período */}
+      <div className="bg-white rounded-xl p-3 mb-4 print:hidden">
+        <div className="flex flex-wrap gap-1.5 mb-1">
+          {[['hoje', 'Hoje'], ['7d', '7 dias'], ['quinzena', 'Quinzena'], ['mes', 'Mês'], ['custom', 'Personalizado']].map(([v, l]) => (
+            <button key={v} onClick={() => setPeriodo(v)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
+                ${periodo === v ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-500'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+        {periodo === 'custom' ? (
+          <div className="grid grid-cols-2 gap-3 mt-2">
             <div>
               <label className="block text-xs text-gray-500 mb-1">De</label>
               <input type="date" value={inicio} onChange={e => setInicio(e.target.value)}
@@ -245,6 +125,8 @@ export default function Relatorio() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
           </div>
+        ) : (
+          <p className="text-[11px] text-gray-400 mt-1">{fmtData(rIni)} a {fmtData(rFim)}</p>
         )}
       </div>
 
@@ -268,12 +150,64 @@ export default function Relatorio() {
         </div>
       </div>
 
-      {/* Tendência diária (só faz sentido em período) */}
-      {modo === 'periodo' && (
-        <Card titulo="📈 Saídas por dia">
-          <LinhaDias dados={serieDias} />
-        </Card>
-      )}
+      {/* Rendimento por item — chegou → aparas/perdas → % (o controle do período) */}
+      <div className="bg-white rounded-xl p-4 mb-4">
+        <p className="text-sm font-bold text-polo-navy mb-1">📊 Rendimento por item</p>
+        <p className="text-[11px] text-gray-500 mb-3">Quanto de cada matéria-prima chegou e quanto virou apara/perda. Rendimento = o que sobrou aproveitável.</p>
+        {rendItens.length === 0 ? (
+          <div className="text-center text-gray-400 py-6 text-sm">Nenhuma compra registrada neste período.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-100">
+                  <th className="text-left py-1.5 font-semibold">Item</th>
+                  <th className="text-right py-1.5 font-semibold">Chegou</th>
+                  <th className="text-right py-1.5 font-semibold">Aparas</th>
+                  <th className="text-right py-1.5 font-semibold">Perdas</th>
+                  <th className="text-right py-1.5 font-semibold">Rend.</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rendItens.map(it => (
+                  <tr key={it.item} className="border-b border-gray-50">
+                    <td className="py-1.5 text-gray-800">{it.item}</td>
+                    <td className="py-1.5 text-right text-gray-700">{fmtNum(it.comprado)} {it.unidade}</td>
+                    <td className="py-1.5 text-right text-amber-600">{it.aparas ? fmtNum(it.aparas) : '—'}</td>
+                    <td className="py-1.5 text-right text-red-500">{it.perdas ? fmtNum(it.perdas) : '—'}</td>
+                    <td className={`py-1.5 text-right font-bold ${corRend(it.rendimento)}`}>
+                      {it.rendimento == null ? '—' : `${it.rendimento.toFixed(0)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="text-[10px] text-gray-400 pt-2">Rendimento = 100% − (aparas + perdas associadas à compra ÷ total que chegou). Verde ≥ 90%, âmbar ≥ 80%, vermelho abaixo.</p>
+          </div>
+        )}
+      </div>
+
+      {/* Produção por item — quanto se produziu de cada semiacabado */}
+      <div className="bg-white rounded-xl p-4 mb-4">
+        <p className="text-sm font-bold text-polo-navy mb-1">🍲 Produção por item</p>
+        <p className="text-[11px] text-gray-500 mb-3">Quanto de cada item produzido saiu da cozinha no período.</p>
+        {prodItens.length === 0 ? (
+          <div className="text-center text-gray-400 py-6 text-sm">Nenhuma produção registrada neste período.</div>
+        ) : (
+          <ul className="text-xs text-gray-700 space-y-1">
+            {prodItens.map(it => (
+              <li key={it.produtoId} className="flex justify-between border-b border-gray-50 pb-1">
+                <span>{it.nome}</span>
+                <span className="font-semibold text-polo-navy">{fmtNum(it.quantidade)} {it.unidade}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <Card titulo="📈 Saídas por dia">
+        <LinhaDias dados={serieDias} />
+      </Card>
 
       <Card titulo="🏆 Produtos mais consumidos">
         <BarrasEmpilhadas dados={topProdutos} locais={locais} />

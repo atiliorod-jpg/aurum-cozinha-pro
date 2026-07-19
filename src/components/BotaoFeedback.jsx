@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../store/AuthContext';
+import { useUI } from '../store/UIContext';
+import { supabase } from '../lib/supabase';
 
 // Canal de feedback do cliente (bug ou sugestão) direto pelo app.
 // Guia o cliente a descrever direito — o que esperava, o que aconteceu e como
-// repetir — e monta uma mensagem organizada no WhatsApp, com o contexto técnico
-// (tela, cargo, navegador) que facilita o conserto/análise.
-const WPP_NUMERO = '5581998184489';
+// repetir — e envia direto para a aba do super-admin (RPC enviar_feedback),
+// com o contexto técnico (cargo, navegador) que facilita o conserto/análise.
 // text-gray-900 é essencial: o modal é filho do cabeçalho (texto branco) e sem
 // isto os campos herdam cor branca — o texto digitado fica invisível no fundo branco.
 const campo = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900';
 
 export default function BotaoFeedback() {
   const { sessao } = useAuth();
+  const { toast } = useUI();
+  const [enviando, setEnviando] = useState(false);
   const [aberto, setAberto] = useState(false);
   const [tipo, setTipo] = useState('bug'); // 'bug' | 'sugestao'
   // bug
@@ -34,25 +37,25 @@ export default function BotaoFeedback() {
     try { return navigator.userAgent.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim().slice(0, 60); }
     catch { return '—'; }
   })();
-  const rodape = `— enviado pelo app · ${sessao?.restauranteNome || 'restaurante'} · ${sessao?.cargo || '?'} · ${navegador}`;
+  const limpar = () => { setOnde(''); setEsperava(''); setAconteceu(''); setRepetir(''); setIdeia(''); setPorque(''); };
 
-  const enviar = () => {
-    let corpo;
-    if (tipo === 'bug') {
-      corpo = `🐛 PROBLEMA — Aurum Cozinha Pro
-📍 Onde (qual tela/botão): ${onde || '(não informado)'}
-🎯 O que eu esperava: ${esperava || '(não informado)'}
-⚠️ O que aconteceu: ${aconteceu || '(não informado)'}
-🔁 Como repetir (passo a passo): ${repetir || '(não informado)'}
-📎 Vou anexar um print a seguir.
-${rodape}`;
-    } else {
-      corpo = `💡 SUGESTÃO — Aurum Cozinha Pro
-O que eu queria poder fazer: ${ideia || '(não informado)'}
-Por que ajudaria no dia a dia: ${porque || '(não informado)'}
-${rodape}`;
-    }
-    window.open(`https://wa.me/${WPP_NUMERO}?text=${encodeURIComponent(corpo)}`, '_blank', 'noopener,noreferrer');
+  const enviar = async () => {
+    const dados = tipo === 'bug'
+      ? { onde, esperava, aconteceu, repetir }
+      : { ideia, porque };
+    const vazio = Object.values(dados).every(v => !v.trim());
+    if (vazio) { toast('Escreva pelo menos um campo antes de enviar.', 'aviso'); return; }
+
+    // Na demonstração não há restaurante real para vincular — envio simulado.
+    if (sessao?.demo) { toast('Na demonstração o envio é só de exemplo 🙂', 'sucesso'); limpar(); setAberto(false); return; }
+
+    setEnviando(true);
+    const contexto = `${sessao?.cargo || '?'} · ${navegador}`;
+    const { error } = await supabase.rpc('enviar_feedback', { p_tipo: tipo, p_dados: dados, p_contexto: contexto });
+    setEnviando(false);
+    if (error) { toast('Não consegui enviar agora. Tente de novo em instantes.', 'erro'); return; }
+    toast('Enviado! A equipe Aurum vai analisar. Obrigado 🙏', 'sucesso', { duracao: 6000 });
+    limpar();
     setAberto(false);
   };
 
@@ -110,7 +113,7 @@ ${rodape}`;
                   <textarea className={campo} rows={2} value={repetir} onChange={e => setRepetir(e.target.value)} placeholder="Ex.: 1) abri Produção 2) toquei em salvar 3) ..." />
                 </label>
                 <p className="text-[11px] text-gray-400">
-                  Dica: se der, tire um <strong>print da tela</strong> — você anexa no WhatsApp que vai abrir.
+                  Dica: descreva o <strong>passo a passo</strong> — quanto mais claro, mais rápido a gente resolve.
                 </p>
               </div>
             ) : (
@@ -126,12 +129,12 @@ ${rodape}`;
               </div>
             )}
 
-            <button onClick={enviar}
-              className="w-full mt-4 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm">
-              Enviar pelo WhatsApp →
+            <button onClick={enviar} disabled={enviando}
+              className="w-full mt-4 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm disabled:opacity-60">
+              {enviando ? 'Enviando…' : 'Enviar para a equipe Aurum'}
             </button>
             <p className="text-[11px] text-gray-400 text-center mt-1.5">
-              Abre o WhatsApp com sua mensagem já montada. Nada é enviado sem você confirmar lá.
+              Vai direto para a equipe Aurum pelo próprio sistema. Você não precisa fazer mais nada.
             </p>
           </div>
         </div>

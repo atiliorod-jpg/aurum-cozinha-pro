@@ -45,6 +45,49 @@ export function saidasPorDestinoDia(saidas, produtos, locais) {
   }).sort((a, b) => a.destinoNome.localeCompare(b.destinoNome));
 }
 
+// Rendimento POR ITEM (matéria-prima) no período: quanto chegou, quanto virou
+// apara e perda associada (ligadas à compra por compraId) e o rendimento %.
+// Mesma régua do rendimento por fornecedor, só que agrupado por item.
+export function rendimentoPorItem(compras, aparas, desperdicio) {
+  const num = (v) => Number(v) || 0;
+  const aparaPorCompra = {}, perdaPorCompra = {};
+  (aparas || []).forEach(a => { if (a.compraId) aparaPorCompra[a.compraId] = (aparaPorCompra[a.compraId] || 0) + num(a.quantidade); });
+  (desperdicio || []).forEach(d => { if (d.compraId) perdaPorCompra[d.compraId] = (perdaPorCompra[d.compraId] || 0) + num(d.quantidade); });
+
+  const porItem = {};
+  (compras || []).forEach(c => {
+    const nome = (c.item || '').trim() || '(sem nome)';
+    const chave = nome.toLowerCase();
+    if (!porItem[chave]) porItem[chave] = { item: nome, unidade: c.unidade || '', comprado: 0, aparas: 0, perdas: 0, n: 0 };
+    const g = porItem[chave];
+    g.comprado += num(c.quantidade);
+    g.aparas += aparaPorCompra[c.id] || 0;
+    g.perdas += perdaPorCompra[c.id] || 0;
+    g.n++;
+  });
+
+  return Object.values(porItem).map(g => {
+    const correcao = g.aparas + g.perdas;
+    return { ...g, correcao, rendimento: g.comprado > 0 ? (1 - correcao / g.comprado) * 100 : null };
+  }).sort((a, b) => b.comprado - a.comprado);
+}
+
+// Produção POR ITEM no período: soma o que foi produzido de cada produto final
+// (entradas geradas por uma produção). Base do "quanto produzi de cada item".
+export function producaoPorItem(entradas, produtos) {
+  const nomeProd = (id) => (produtos.find(p => p.id === id)?.nome) || id;
+  const unProd = (id) => (produtos.find(p => p.id === id)?.unidade) || '';
+  const m = {};
+  (entradas || []).filter(e => e.producaoId).forEach(e => {
+    (e.itens || []).forEach(it => {
+      m[it.produtoId] = (m[it.produtoId] || 0) + (Number(it.quantidade) || 0);
+    });
+  });
+  return Object.entries(m)
+    .map(([pid, q]) => ({ produtoId: pid, nome: nomeProd(pid), unidade: unProd(pid), quantidade: q }))
+    .sort((a, b) => b.quantidade - a.quantidade);
+}
+
 // Chegadas (compras) agrupadas por DIA, com o peso total em kg do dia.
 // Serve para o controle diário do que chegou em cada data do calendário.
 export function chegadasPorDia(compras) {

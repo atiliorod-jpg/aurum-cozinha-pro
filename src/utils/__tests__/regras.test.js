@@ -10,7 +10,7 @@ import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX } from '../outbox';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { crc16, montarPixBRCode } from '../pix';
-import { saidasPorDestinoDia, chegadasPorDia } from '../relatorios';
+import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem } from '../relatorios';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
 
@@ -595,5 +595,47 @@ describe('relatórios — saídas por destino/dia e chegadas por dia', () => {
     const dia10 = r.find(d => d.data === '2026-07-10');
     expect(dia10.pesoKg).toBe(10);       // só o filé (kg); o tempero (unid) não entra no peso
     expect(dia10.itens.length).toBe(2);
+  });
+});
+
+describe('rendimentoPorItem — chegou, aparas, perdas e rendimento %', () => {
+  const compras = [
+    { id: 'c1', item: 'Filé Mignon', quantidade: 10, unidade: 'kg' },
+    { id: 'c2', item: 'Filé Mignon', quantidade: 10, unidade: 'kg' },
+    { id: 'c3', item: 'Frango', quantidade: 5, unidade: 'kg' },
+  ];
+  const aparas = [
+    { compraId: 'c1', quantidade: 1.5 },   // apara ligada à 1ª compra de filé
+    { quantidade: 9 },                     // apara solta (sem compraId) — não conta
+  ];
+  const desperdicio = [
+    { compraId: 'c2', quantidade: 0.5 },   // perda ligada à 2ª compra de filé
+  ];
+
+  it('agrupa por item e calcula rendimento pelas correções ligadas à compra', () => {
+    const r = rendimentoPorItem(compras, aparas, desperdicio);
+    const file = r.find(x => x.item === 'Filé Mignon');
+    expect(file.comprado).toBe(20);        // 10 + 10
+    expect(file.aparas).toBe(1.5);
+    expect(file.perdas).toBe(0.5);
+    // rendimento = 100 − (1.5 + 0.5)/20 = 90%
+    expect(Math.round(file.rendimento)).toBe(90);
+    const frango = r.find(x => x.item === 'Frango');
+    expect(frango.rendimento).toBe(100);   // sem correções
+  });
+});
+
+describe('producaoPorItem — soma o produzido por produto final', () => {
+  const produtos = [P('molho'), P('empanado', { nome: 'Empanado de filé' })];
+  const entradas = [
+    { producaoId: 'p1', itens: [{ produtoId: 'molho', quantidade: 3 }] },
+    { producaoId: 'p2', itens: [{ produtoId: 'molho', quantidade: 2 }, { produtoId: 'empanado', quantidade: 12 }] },
+    { itens: [{ produtoId: 'molho', quantidade: 99 }] }, // entrada avulsa (sem producaoId) — ignora
+  ];
+  it('soma só as entradas de produção, por produto', () => {
+    const r = producaoPorItem(entradas, produtos);
+    expect(r.find(x => x.produtoId === 'molho').quantidade).toBe(5);
+    expect(r.find(x => x.produtoId === 'empanado').quantidade).toBe(12);
+    expect(r[0].quantidade).toBeGreaterThanOrEqual(r[1].quantidade); // ordenado desc
   });
 });
