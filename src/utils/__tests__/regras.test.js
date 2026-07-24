@@ -355,10 +355,12 @@ describe('etiquetas — montagem dos campos', () => {
       nome: 'Molho misto', dataFabricacao: '2026-06-10', diasValidade: 4, restauranteNome: 'Polo', responsavel: 'Ceará',
     });
     const qr = montarPayloadQR(campos, { estabelecimento: { cnpj: '12.345.678/0001-00' } });
-    expect(qr).toContain('Restaurante: Polo');
-    expect(qr).toContain('Produto: Molho misto');
-    expect(qr).toContain('Manipulacao: 10/06/2026');
-    expect(qr).toContain('Validade: 14/06/2026');
+    // rótulos ABREVIADOS de propósito — QR pequeno na etiqueta precisa de
+    // payload curto pra escanear bem (margin 0 + payload longo = ilegível)
+    expect(qr).toContain('Rest: Polo');
+    expect(qr).toContain('Prod: Molho misto');
+    expect(qr).toContain('Manip: 10/06/2026');
+    expect(qr).toContain('Val: 14/06/2026');
     expect(qr).toContain('Resp: Ceará');
     expect(qr).toContain('CNPJ: 12.345.678/0001-00');
     expect(qr.split('\n').length).toBe(6); // só as linhas com valor entram

@@ -59,7 +59,9 @@ function EtiquetaLabel({ campos, config, qrDataUrl, estabelecimento }) {
         </div>
         {comQR && (
           <img src={qrDataUrl} alt=""
-            style={{ width: `${Math.min(config.alturaMm * 0.32, 14)}mm`, height: `${Math.min(config.alturaMm * 0.32, 14)}mm`, flexShrink: 0 }} />
+            // teto maior que antes (era 14mm fixo): em etiquetas com mais altura,
+            // um QR maior imprime com pontos mais grossos e escaneia melhor
+            style={{ width: `${Math.min(config.alturaMm * 0.32, 20)}mm`, height: `${Math.min(config.alturaMm * 0.32, 20)}mm`, flexShrink: 0 }} />
         )}
       </div>
     </div>
@@ -166,7 +168,12 @@ export default function EtiquetaPrint() {
         try {
           novos[i] = await QRCode.toDataURL(
             montarPayloadQR(camposDe(itens[i]), { estabelecimento }),
-            { margin: 0, width: 180 });
+            // margin em "módulos" do QR — sem isso a câmera do celular não
+            // acha a borda do código (zona de silêncio é parte do padrão QR,
+            // não é só estética). margin:0 era a causa do QR não escanear.
+            // width maior que antes (180→260px) porque o QR agora pode
+            // imprimir até 20mm (era 14mm) — resolução acompanha o tamanho.
+            { margin: 2, width: 260 });
         } catch { /* QR falhou — etiqueta sai sem ele */ }
       }
       if (ativo) setQrs(novos);

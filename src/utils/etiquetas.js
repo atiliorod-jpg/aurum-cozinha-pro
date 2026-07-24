@@ -85,17 +85,22 @@ export function montarCamposEtiqueta({
  * Conteúdo do QR code — texto legível linha a linha ("Chave: valor").
  * Quem escanear com a câmera do celular vê a ficha da etiqueta na hora;
  * um sistema futuro consegue fazer parse pelas chaves.
+ *
+ * Chaves ABREVIADAS de propósito: a etiqueta imprime o QR bem pequeno
+ * (poucos mm), e quanto mais texto entra, mais denso (e mais difícil de
+ * escanear) o QR fica. Encurtar os rótulos reduz o payload sem perder
+ * nenhum dado — a mesma informação já aparece por extenso no texto impresso.
  */
 export function montarPayloadQR(campos, { estabelecimento = null } = {}) {
   const linhas = [
-    campos.restauranteNome ? `Restaurante: ${campos.restauranteNome}` : null,
-    `Produto: ${campos.nome}`,
-    campos.medida ? `Medida: ${campos.medida}` : null,
-    campos.armazenamentoLabel ? `Armazenamento: ${campos.armazenamentoLabel}` : null,
-    campos.valOriginalFmt ? `Val. original: ${campos.valOriginalFmt}` : null,
-    campos.dataFabricacaoFmt ? `${campos.rotuloData === 'ABERTURA' ? 'Abertura' : 'Manipulacao'}: ${campos.dataFabricacaoFmt}` : null,
-    campos.validadeFmt ? `Validade: ${campos.validadeFmt}` : null,
-    campos.marca ? `Marca/Forn: ${campos.marca}` : null,
+    campos.restauranteNome ? `Rest: ${campos.restauranteNome}` : null,
+    `Prod: ${campos.nome}`,
+    campos.medida ? `Med: ${campos.medida}` : null,
+    campos.armazenamentoLabel ? `Armaz: ${campos.armazenamentoLabel}` : null,
+    campos.valOriginalFmt ? `ValOrig: ${campos.valOriginalFmt}` : null,
+    campos.dataFabricacaoFmt ? `${campos.rotuloData === 'ABERTURA' ? 'Abert' : 'Manip'}: ${campos.dataFabricacaoFmt}` : null,
+    campos.validadeFmt ? `Val: ${campos.validadeFmt}` : null,
+    campos.marca ? `Marca: ${campos.marca}` : null,
     campos.sif ? `SIF: ${campos.sif}` : null,
     campos.responsavel ? `Resp: ${campos.responsavel}` : null,
     estabelecimento?.cnpj ? `CNPJ: ${estabelecimento.cnpj}` : null,
