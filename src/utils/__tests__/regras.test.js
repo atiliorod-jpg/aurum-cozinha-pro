@@ -8,6 +8,8 @@ import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from
 import { montarCamposEtiqueta, montarPayloadQR } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX } from '../outbox';
+import { statusEstoque } from '../calculos';
+import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem } from '../relatorios';
@@ -640,5 +642,31 @@ describe('producaoPorItem — soma o produzido por produto final', () => {
     expect(r.find(x => x.produtoId === 'molho').quantidade).toBe(5);
     expect(r.find(x => x.produtoId === 'empanado').quantidade).toBe(12);
     expect(r[0].quantidade).toBeGreaterThanOrEqual(r[1].quantidade); // ordenado desc
+  });
+});
+
+describe('statusEstoque — teto não definido', () => {
+  it('produto com mínimo preenchido e máximo em branco (0) não vira EXCESSO', () => {
+    // Configuracoes.jsx salva `max: parseFloat('') || 0` — máximo vazio vira 0.
+    // Antes desta guarda, tudo acima de zero era lido como excesso e o produto
+    // nunca aparecia como OK no painel.
+    expect(statusEstoque(25, 20, 0)).toBe('ok');
+    expect(statusEstoque(100, 20, 0)).toBe('ok');
+    expect(statusEstoque(5, 20, 0)).toBe('critico'); // abaixo do mínimo continua valendo
+    expect(statusEstoque(0, 20, 0)).toBe('zerado');
+  });
+  it('com máximo definido, o excesso continua sendo detectado', () => {
+    expect(statusEstoque(70, 20, 60)).toBe('excesso');
+    expect(statusEstoque(25, 20, 60)).toBe('ok');
+  });
+  it('sem mínimo nem máximo continua sem meta', () => {
+    expect(statusEstoque(10, 0, 0)).toBe('sem-meta');
+  });
+});
+
+describe('outbox — identidade estável dos itens', () => {
+  it('outboxUid não repete em chamadas seguidas no mesmo milissegundo', () => {
+    const ids = Array.from({ length: 500 }, () => outboxUid());
+    expect(new Set(ids).size).toBe(500);
   });
 });

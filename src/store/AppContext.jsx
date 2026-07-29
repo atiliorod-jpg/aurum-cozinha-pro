@@ -6,7 +6,7 @@ import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
-import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos } from '../lib/cache';
+import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
 import { registrarFalha, ressuscitar } from '../utils/outbox';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -94,6 +94,7 @@ export function AppProvider({ children }) {
   const ridRef = useRef(rid); ridRef.current = rid;
   const sessaoRef = useRef(sessao); sessaoRef.current = sessao;
   const soLeituraRef = useRef(soLeitura); soLeituraRef.current = soLeitura;
+  const flushandoRef = useRef(false); // impede dois flushes simultâneos (mount + 'online')
   const dadosRef = useRef({});
   dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
   /* eslint-enable react-hooks/refs */
@@ -440,13 +441,20 @@ export function AppProvider({ children }) {
     // sobe pendências acumuladas offline
     const flush = async () => {
       if (soLeituraRef.current) return; // modo suporte: não sobe nada para a conta do cliente
-      const fila = outboxGet(rid);
+      if (flushandoRef.current) return; // já tem um flush rodando (mount + evento 'online' juntos)
+      flushandoRef.current = true;
+      try {
+      const fila = outboxGarantirUids(rid);
       if (!fila.length) return;
-      const restantes = [];
+      // Resultado por ITEM (não por posição): o flush é assíncrono e a cozinha
+      // continua salvando durante ele. Reescrever a fila inteira no final
+      // apagava o que entrou no meio do caminho.
+      const sincronizados = new Set();
+      const falhados = new Map();
       for (const item of fila) {
         // Itens mortos (falharam MAX vezes) não são retentados no loop normal;
         // ficam na fila para a lista de erro permanente / retry manual.
-        if (item._morto) { restantes.push(item); continue; }
+        if (item._morto) continue;
         try {
           let error = null;
           if (item.kind === 'registro' && item.op === 'insert')
@@ -468,11 +476,17 @@ export function AppProvider({ children }) {
           }
           else if (item.kind === 'clearAll')
             ({ error } = await supabase.from('registros').update({ deleted: true }).eq('restaurante_id', rid).neq('tipo', 'auditoria'));
-          // sucesso → não repõe; falha → conta a tentativa (vira morto no limite)
-          if (error) restantes.push(registrarFalha({ ...item, _ultimoErro: error.message || 'erro' }));
-        } catch (e) { restantes.push(registrarFalha({ ...item, _ultimoErro: e?.message || 'erro' })); }
+          // sucesso → sai da fila; falha → conta a tentativa (vira morto no limite)
+          if (error) falhados.set(item._uid, registrarFalha({ ...item, _ultimoErro: error.message || 'erro' }));
+          else sincronizados.add(item._uid);
+        } catch (e) { falhados.set(item._uid, registrarFalha({ ...item, _ultimoErro: e?.message || 'erro' })); }
       }
-      outboxSet(rid, restantes);
+      // Relê a fila AGORA (pode ter crescido durante os awaits acima) e aplica o
+      // resultado item a item — o que entrou no meio do flush continua na fila.
+      outboxSet(rid, outboxGet(rid)
+        .filter(i => !sincronizados.has(i._uid))
+        .map(i => falhados.get(i._uid) || i));
+      } finally { flushandoRef.current = false; }
     };
 
     // 2) rede (fonte da verdade). IMPORTANTE: se a busca FALHAR (rede/RLS), NÃO

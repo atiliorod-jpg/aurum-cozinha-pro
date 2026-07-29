@@ -26,10 +26,26 @@ const avisaOutbox = () => { try { window.dispatchEvent(new Event('outbox-mudou')
 export const outboxGet = (rid) => cacheGet(rid, '_outbox', []);
 export const outboxSet = (rid, fila) => { cacheSet(rid, '_outbox', fila); avisaOutbox(); };
 
+// Identidade estável de cada item da fila. Sem isso o flush (que é assíncrono)
+// só sabe remover itens por POSIÇÃO — e um registro salvo no meio de um flush
+// era sobrescrito e perdido para sempre. Ver flush() em store/AppContext.
+let seq = 0;
+export const outboxUid = () => `${Date.now().toString(36)}_${(seq++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
 export const outboxAdd = (rid, item) => {
   const fila = outboxGet(rid);
-  fila.push({ ...item, _enfileiradoEm: Date.now() });
+  fila.push({ ...item, _uid: outboxUid(), _enfileiradoEm: Date.now() });
   outboxSet(rid, fila);
+};
+
+// Garante _uid em itens antigos (enfileirados antes desta versão) — chamado
+// pelo flush antes de qualquer await, para que a remoção seja sempre por id.
+export const outboxGarantirUids = (rid) => {
+  const fila = outboxGet(rid);
+  if (fila.every(i => i._uid)) return fila;
+  const comUid = fila.map(i => (i._uid ? i : { ...i, _uid: outboxUid() }));
+  outboxSet(rid, comUid);
+  return comUid;
 };
 
 export const outboxClear = (rid) => outboxSet(rid, []);

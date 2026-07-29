@@ -77,7 +77,11 @@ export default function EtiquetaPrint() {
 
   // Cópia local editável dos itens + hora congelada na abertura do modal
   const [itens, setItens] = useState([]);
-  const [qrs, setQrs] = useState({}); // idx -> dataURL
+  // Cache de QR indexado pelo PRÓPRIO CONTEÚDO (payload), não pela posição do
+  // item: assim um QR só é considerado pronto se foi gerado para os dados que
+  // estão na tela agora. Indexado por índice, editar a data deixava o QR antigo
+  // no lugar (texto novo + QR velho) até o laço assíncrono terminar.
+  const [qrs, setQrs] = useState({}); // payload -> dataURL
   const [horaImpressao, setHoraImpressao] = useState('');
   // Responsável ÚNICO da impressão (sai no RESP. de todas as etiquetas) —
   // escolhido entre as pessoas da equipe, como nas telas de registro
@@ -158,16 +162,23 @@ export default function EtiquetaPrint() {
     });
   };
 
-  // Gera os QR codes quando ligado (async — toDataURL é Promise)
+  // Payload do QR de cada item — é também a chave do cache de QR
+  const payloadDe = (item) => montarPayloadQR(camposDe(item), { estabelecimento });
+
+  // Gera os QR codes quando ligado (async — toDataURL é Promise).
+  // Só gera o que ainda não está em cache: editar um item de um lote não
+  // refaz o QR dos outros.
   useEffect(() => {
     if (!config.incluirQR || !itens.length) return;
     let ativo = true;
     (async () => {
+      const pendentes = [...new Set(itens.map(payloadDe))].filter(p => !qrs[p]);
+      if (!pendentes.length) return;
       const novos = {};
-      for (let i = 0; i < itens.length; i++) {
+      for (const payload of pendentes) {
         try {
-          novos[i] = await QRCode.toDataURL(
-            montarPayloadQR(camposDe(itens[i]), { estabelecimento }),
+          novos[payload] = await QRCode.toDataURL(
+            payload,
             // margin em "módulos" do QR — sem isso a câmera do celular não
             // acha a borda do código (zona de silêncio é parte do padrão QR,
             // não é só estética). margin:0 era a causa do QR não escanear.
@@ -176,10 +187,11 @@ export default function EtiquetaPrint() {
             { margin: 2, width: 260 });
         } catch { /* QR falhou — etiqueta sai sem ele */ }
       }
-      if (ativo) setQrs(novos);
+      // acumula no cache (não substitui): os QRs já prontos continuam valendo
+      if (ativo) setQrs(prev => ({ ...prev, ...novos }));
     })();
     return () => { ativo = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens/responsavel (já na lista)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens/responsavel (já na lista); qrs é lido só como cache
   }, [itens, config.incluirQR, responsavel]);
 
   if (!etiquetaState) return null;
@@ -191,8 +203,11 @@ export default function EtiquetaPrint() {
   const totalEtiquetas = itens.reduce((s, i) => s + (parseInt(i.quantidade) || 0), 0);
   // QR ligado: segura o Imprimir até TODOS os QRs dos itens a imprimir ficarem
   // prontos (toDataURL é assíncrono — sem isso a etiqueta podia sair sem QR)
+  // Checa pelo CONTEÚDO: se a data/armazenamento acabou de mudar, o QR daquele
+  // conteúdo ainda não existe e o Imprimir fica travado até ele ficar pronto —
+  // nunca sai etiqueta com texto novo e QR velho.
   const qrPendente = config.incluirQR &&
-    itens.some((it, i) => (parseInt(it.quantidade) || 0) > 0 && !qrs[i]);
+    itens.some(it => (parseInt(it.quantidade) || 0) > 0 && !qrs[payloadDe(it)]);
   const inputCls = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs';
 
   return (
@@ -305,7 +320,7 @@ export default function EtiquetaPrint() {
         {itens.flatMap((item, idx) =>
           Array.from({ length: Math.max(0, parseInt(item.quantidade) || 0) }, (_, c) => (
             <EtiquetaLabel key={`${idx}_${c}`} campos={camposDe(item)} config={config}
-              qrDataUrl={qrs[idx]} estabelecimento={estabelecimento} />
+              qrDataUrl={qrs[payloadDe(item)]} estabelecimento={estabelecimento} />
           ))
         )}
       </div>

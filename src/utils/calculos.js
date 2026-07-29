@@ -2,7 +2,9 @@ export const statusEstoque = (atual, min, max) => {
   if (min === 0 && max === 0) return 'sem-meta';
   if (atual <= 0) return 'zerado';
   if (atual < min) return 'critico';
-  if (atual > max) return 'excesso';
+  // max 0/vazio = "sem teto definido". Sem esta guarda, quem cadastra só o
+  // mínimo (max fica 0) via TUDO acima de zero como EXCESSO — nunca "OK".
+  if (max > 0 && atual > max) return 'excesso';
   return 'ok';
 };
 
