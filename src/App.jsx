@@ -5,7 +5,7 @@ import { statusAssinatura } from './utils/assinatura';
 import { pode, podeAbrirConfig } from './utils/permissoes';
 import { AppProvider, useApp } from './store/AppContext';
 import { UIProvider, useUI } from './store/UIContext';
-import { fmtData } from './utils/formatters';
+import { fmtData, isoLocal } from './utils/formatters';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import EtiquetaPrint from './components/EtiquetaPrint';
@@ -105,7 +105,9 @@ function Rotas() {
     try { flag = sessionStorage.getItem('aurum_boasvindas'); sessionStorage.removeItem('aurum_boasvindas'); } catch { /* sem storage */ }
     if (flag === 'novo') {
       const st = statusAssinatura(sessao);
-      toast(`🎉 Bem-vindo ao Aurum Cozinha Pro! Teste grátis com tudo liberado até ${st.ate ? fmtData(new Date(st.ate).toISOString().slice(0, 10)) : 'o fim dos 7 dias'}.`, 'sucesso', { duracao: 8000 });
+      // isoLocal, não toISOString: em Brasília o fim do teste caía no dia
+      // seguinte na tela e o cliente contava com um dia que não tinha.
+      toast(`🎉 Bem-vindo ao Aurum Cozinha Pro! Teste grátis com tudo liberado até ${st.ate ? fmtData(isoLocal(new Date(st.ate))) : 'o fim dos 7 dias'}.`, 'sucesso', { duracao: 8000 });
     } else if (flag === 'convite') {
       toast(`👋 Você entrou no restaurante ${sessao.restauranteNome || ''} como ${sessao.cargo}. Bom trabalho!`, 'sucesso', { duracao: 7000 });
     }

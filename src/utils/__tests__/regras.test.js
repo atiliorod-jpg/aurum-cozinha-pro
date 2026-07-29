@@ -9,6 +9,7 @@ import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES } from '../eti
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX } from '../outbox';
 import { statusEstoque } from '../calculos';
+import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { crc16, montarPixBRCode } from '../pix';
@@ -691,5 +692,23 @@ describe('outbox — identidade estável dos itens', () => {
   it('outboxUid não repete em chamadas seguidas no mesmo milissegundo', () => {
     const ids = Array.from({ length: 500 }, () => outboxUid());
     expect(new Set(ids).size).toBe(500);
+  });
+});
+
+describe('datas de cobrança — sem pular um dia por causa do fuso', () => {
+  it('isoLocal usa o dia LOCAL, não o dia UTC', () => {
+    // Fim de teste às 23h de 28/07 em Brasília = 29/07 02:00 UTC.
+    // toISOString().slice(0,10) devolvia "2026-07-29" e a tela prometia um dia
+    // a mais do que o cliente realmente tinha de acesso.
+    const fim = new Date('2026-07-29T02:00:00Z');
+    const utc = fim.toISOString().slice(0, 10);
+    const local = isoLocal(fim);
+    if (fim.getTimezoneOffset() > 0) {
+      // fuso a oeste de Greenwich (Brasil): o dia local fica ANTES do dia UTC
+      expect(local).not.toBe(utc);
+      expect(local).toBe('2026-07-28');
+    }
+    // invariante que vale em qualquer fuso: isoLocal casa com a data local real
+    expect(local).toBe(`${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`);
   });
 });

@@ -116,14 +116,21 @@ export default function Relatorio() {
           <div className="grid grid-cols-2 gap-3 mt-2">
             <div>
               <label className="block text-xs text-gray-500 mb-1">De</label>
-              <input type="date" value={inicio} onChange={e => setInicio(e.target.value)}
+              <input type="date" value={inicio} max={fim || hj} onChange={e => setInicio(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Até</label>
-              <input type="date" value={fim} onChange={e => setFim(e.target.value)}
+              <input type="date" value={fim} min={inicio} max={hj} onChange={e => setFim(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
+            {/* Data inicial depois da final zerava TODOS os relatórios sem dizer
+                por quê — parecia que o sistema tinha perdido os registros. */}
+            {inicio > fim && (
+              <p className="col-span-2 text-xs text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5">
+                ⚠️ A data inicial está depois da final — por isso os relatórios estão vazios. Inverta as datas.
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-[11px] text-gray-400 mt-1">{fmtData(rIni)} a {fmtData(rFim)}</p>

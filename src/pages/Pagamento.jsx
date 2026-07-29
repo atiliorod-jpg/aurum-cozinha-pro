@@ -5,7 +5,7 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../utils/assinatura';
 import { montarPixBRCode } from '../utils/pix';
-import { fmtData } from '../utils/formatters';
+import { fmtData, isoLocal } from '../utils/formatters';
 
 const WPP_NUMERO = '5581998184489';
 const PIX_CHAVE  = import.meta.env.VITE_PIX_CHAVE  || '';
@@ -13,14 +13,28 @@ const PIX_NOME   = import.meta.env.VITE_PIX_NOME   || 'Aurum Servicos Gastronomi
 const PIX_CIDADE = import.meta.env.VITE_PIX_CIDADE || 'Recife';
 
 const brl = (v) => `R$ ${v.toFixed(2).replace('.', ',')}`;
-const dataISO = (ts) => new Date(ts).toISOString().slice(0, 10);
+
+const linkWpp = (plano, valor, pagador, restaurante) => {
+  const msg = encodeURIComponent(
+    `Olá! Paguei o plano ${plano.label} (${brl(valor)}) do Aurum Cozinha Pro — restaurante ${restaurante || ''}. ` +
+    `Pagamento feito por ${pagador}. Segue o comprovante:`);
+  return `https://wa.me/${WPP_NUMERO}?text=${msg}`;
+};
+// Data LOCAL (não toISOString, que joga para UTC): um teste que acaba às 23h de
+// 28/07 em Brasília aparecia como "válido até 29/07" e o cliente perdia o acesso
+// um dia antes do que a tela prometia.
+const dataISO = (ts) => isoLocal(new Date(ts));
 
 const RECURSOS = [
   '✅ Estoque completo (FEFO, mín/máx automático)',
   '✅ Entradas, saídas, produção e receitas',
   '✅ Etiquetas de validade com impressão',
-  '✅ Relatórios + exportação Excel',
-  '✅ Até 3 usuários com permissões por função',
+  // ⚠️ Isto é promessa comercial: só liste o que o app REALMENTE faz hoje.
+  // "exportação Excel" saiu daqui porque o Excel dos relatórios foi removido —
+  // o que existe é imprimir/salvar em PDF e a planilha-modelo de produtos.
+  '✅ Relatórios por período (imprimir ou salvar em PDF)',
+  '✅ Cadastro de produtos por planilha (Excel)',
+  '✅ Usuários com permissões por função',
   '✅ Funciona offline e sincroniza na nuvem',
 ];
 
@@ -40,6 +54,7 @@ export default function Pagamento() {
   const [avisando, setAvisando] = useState(false);
   const [confirmando, setConfirmando] = useState(false); // revela o campo do nome
   const [nomePagador, setNomePagador] = useState('');
+  const [wppPronto, setWppPronto] = useState(''); // link do comprovante, se o pop-up for bloqueado
 
   useEffect(() => {
     let vivo = true;
@@ -55,15 +70,19 @@ export default function Pagamento() {
   };
 
   const confirmarPagamento = async () => {
+    if (avisando) return; // toque repetido
     if (!nomePagador.trim()) { toast('Diga o nome de quem fez o Pix.', 'erro'); return; }
     setAvisando(true);
+    const url = linkWpp(plano, valor, nomePagador.trim(), sessao?.restauranteNome);
     const erro = await avisarPagamento(plano.id, nomePagador.trim());
-    if (erro) toast('Não registrou o aviso: ' + erro, 'erro');
-    else toast('Recebemos seu aviso! Mande o comprovante no WhatsApp que ativamos rapidinho.', 'sucesso', { duracao: 6000 });
-    const msg = encodeURIComponent(
-      `Olá! Paguei o plano ${plano.label} (${brl(valor)}) do Aurum Cozinha Pro — restaurante ${sessao?.restauranteNome || ''}. Pagamento feito por ${nomePagador.trim()}. Segue o comprovante:`);
-    window.open(`https://wa.me/${WPP_NUMERO}?text=${msg}`, '_blank', 'noopener,noreferrer');
-    setTimeout(() => { setAvisando(false); setConfirmando(false); setNomePagador(''); }, 800);
+    setAvisando(false);
+    if (erro) { toast('Não registrou o aviso: ' + erro, 'erro'); return; }
+    toast('Recebemos seu aviso! Agora mande o comprovante no WhatsApp.', 'sucesso', { duracao: 6000 });
+    // Guarda o link e mostra um botão: o navegador do celular BLOQUEIA
+    // window.open chamado depois de um await (perdeu o gesto do usuário), e o
+    // cliente ficava achando que tinha mandado o comprovante sem ter mandado.
+    setWppPronto(url);
+    window.open(url, '_blank', 'noopener,noreferrer'); // se passar, ótimo; se bloquear, o botão resolve
   };
 
   return (
@@ -173,7 +192,17 @@ export default function Pagamento() {
             <p><strong>Valor:</strong> {brl(valor)}</p>
           </div>
 
-          {!confirmando ? (
+          {wppPronto ? (
+            <div className="mt-3 bg-green-50 border border-green-300 rounded-xl p-3">
+              <p className="text-xs text-green-800 mb-2">
+                ✅ Aviso registrado. Agora <strong>envie o comprovante</strong> para a equipe confirmar:
+              </p>
+              <a href={wppPronto} target="_blank" rel="noopener noreferrer"
+                className="block w-full bg-green-600 text-white font-bold py-3 rounded-xl text-sm text-center">
+                📲 Abrir WhatsApp e enviar comprovante
+              </a>
+            </div>
+          ) : !confirmando ? (
             <button onClick={() => setConfirmando(true)}
               className="w-full mt-3 border-2 border-polo-navy text-polo-navy font-bold py-3 rounded-xl text-sm">
               ✅ Já paguei
@@ -200,7 +229,12 @@ export default function Pagamento() {
         <div className="border-2 border-polo-gold bg-polo-beige rounded-2xl p-5 mb-5">
           <p className="font-bold text-polo-navy mb-1">Assinar o plano {plano.label} — {brl(valor)}</p>
           <p className="text-xs text-gray-600 mb-3">Fale com a equipe Aurum pelo WhatsApp para receber os dados do Pix e ativar.</p>
-          {!confirmando ? (
+          {wppPronto ? (
+            <a href={wppPronto} target="_blank" rel="noopener noreferrer"
+              className="block w-full bg-green-600 text-white font-bold py-3 rounded-xl text-sm text-center">
+              📲 Abrir WhatsApp e enviar comprovante
+            </a>
+          ) : !confirmando ? (
             <button onClick={() => setConfirmando(true)}
               className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm">
               💬 Falar no WhatsApp

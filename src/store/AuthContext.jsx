@@ -212,6 +212,12 @@ export function AuthProvider({ children }) {
       p_nome_admin: nome,
     });
     if (errRpc) {
+      // A conta Auth já foi criada acima. Se a RPC falha, ela fica ÓRFÃ (sem
+      // restaurante/perfil) e o e-mail passa a dar "já registrado" — a pessoa
+      // não consegue nem entrar nem recadastrar. Desloga para o e-mail poder
+      // ser reaproveitado numa nova tentativa. (Mesma armadilha já tratada em
+      // usarConvite, que valida o token antes do signUp.)
+      try { await supabase.auth.signOut(); } catch { /* já sem sessão */ }
       // Sem fallback de insert direto: desde a migração 10 o RLS não aceita
       // INSERT em restaurantes/perfis pelo client — cadastro é SÓ pela RPC.
       if (/criar_restaurante|function|does not exist|schema cache|not find/i.test(errRpc.message || '')) {
