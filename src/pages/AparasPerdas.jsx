@@ -51,13 +51,16 @@ export default function AparasPerdas() {
     }
     const v = validarDataRegistro(formApara.data);
     if (!v.ok) { toast('Não é possível registrar em data futura.', 'erro'); return; }
+    // A trava sobe ANTES do await da confirmação: senão um segundo toque
+    // passa pela guarda enquanto o diálogo está aberto.
+    setSalvando(true);
     if (v.confirmar) {
       const okData = await confirm({ titulo: 'Registro antigo', mensagem: `Este registro é de ${v.dias} dias atrás (${fmtData(formApara.data)}). Confirma a data?`, confirmar: 'Sim, registrar' });
-      if (!okData) return;
+      if (!okData) { setSalvando(false); return; }
     }
     if (formApara.destino === 'OUT' && !formApara.destinoOutro.trim()) {
       toast('Escreva qual é o destino previsto.', 'aviso');
-      return;
+      setSalvando(false); return;
     }
     // Apara é sempre monitoramento de rendimento: nunca abate estoque
     let qtdApara = parseFloat(formApara.quantidade);
@@ -65,7 +68,6 @@ export default function AparasPerdas() {
     if (unidApara === 'g') { qtdApara = qtdApara / 1000; unidApara = 'kg'; }
     // O fator de correção é calculado ao vivo (aparas + perdas ligadas ao produto/compra),
     // não precisa recalcular/gravar nada aqui — basta vincular a apara ao produto.
-    setSalvando(true);
     setTimeout(() => setSalvando(false), 800);
     addApara({ ...formApara, origem: 'recebimento', hora: fmtHora(), quantidade: qtdApara, unidade: unidApara });
 
@@ -87,22 +89,24 @@ export default function AparasPerdas() {
     }
     const v = validarDataRegistro(formPerda.data);
     if (!v.ok) { toast('Não é possível registrar em data futura.', 'erro'); return; }
+    // A trava sobe ANTES do await da confirmação: senão um segundo toque
+    // passa pela guarda enquanto o diálogo está aberto.
+    setSalvando(true);
     if (v.confirmar) {
       const okData = await confirm({ titulo: 'Registro antigo', mensagem: `Este registro é de ${v.dias} dias atrás (${fmtData(formPerda.data)}). Confirma a data?`, confirmar: 'Sim, registrar' });
-      if (!okData) return;
+      if (!okData) { setSalvando(false); return; }
     }
     if (formPerda.origem === 'estoque' && !formPerda.produtoId) {
       toast('Selecione o produto do estoque que perdeu.', 'aviso');
-      return;
+      setSalvando(false); return;
     }
     if (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim()) {
       toast('Escreva o motivo do descarte.', 'aviso');
-      return;
+      setSalvando(false); return;
     }
     let qtdPerda = parseFloat(formPerda.quantidade);
     let unidPerda = formPerda.unidade;
     if (unidPerda === 'g') { qtdPerda = qtdPerda / 1000; unidPerda = 'kg'; }
-    setSalvando(true);
     setTimeout(() => setSalvando(false), 800);
     addDesperdicio({ ...formPerda, hora: fmtHora(), quantidade: qtdPerda, unidade: unidPerda });
     if (formPerda.responsavel) setPref('responsavel', formPerda.responsavel);

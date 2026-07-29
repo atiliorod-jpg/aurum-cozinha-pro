@@ -156,6 +156,16 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
           <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.incluirQR ? 'left-6' : 'left-0.5'}`} />
         </button>
       </div>
+      {/* Numa térmica de 203 DPI o QR precisa de ~22mm para o leitor pegar. Se a
+          etiqueta for baixa, ele sai espremido e não escaneia — melhor avisar do
+          que imprimir um rolo inteiro de código ilegível. */}
+      {cfg.incluirQR && cfg.alturaMm < 45 && (
+        <p className="text-xs text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5">
+          ⚠️ Com {cfg.alturaMm}mm de altura o QR sai pequeno demais e a maioria dos leitores
+          não consegue ler. Para o QR funcionar, use etiqueta de <strong>50mm ou mais</strong> de
+          altura — ou desligue o QR e use só o texto.
+        </p>
+      )}
       <div className="border-t border-gray-100 pt-3">
         <p className="text-xs font-semibold text-gray-600 mb-2">Campos que aparecem na etiqueta</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
@@ -205,6 +215,57 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
 }
 
 // Cartão para instalar o app na tela inicial (Configurações → Sistema)
+/**
+ * Cartão de catálogo simples: campo "novo item" + lista de chips com remover.
+ * Destinos de saída e destinos de apara eram dois blocos praticamente iguais
+ * (input+Add, chips, confirmação de remoção) — qualquer ajuste de UX precisava
+ * ser feito duas vezes e as duas versões já tinham divergido (uma mostrava
+ * estado vazio, a outra não).
+ *
+ * `itens`: [{ chave, rotulo (node), nomeParaConfirmar, fixo? }]
+ */
+function CartaoCatalogoChips({ titulo, descricao, placeholder, valor, onValor, onAdd, itens, textoVazio, tituloRemover, mensagemRemover, onRemover }) {
+  const { confirm } = useUI();
+  const remover = async (item) => {
+    const ok = await confirm({
+      titulo: tituloRemover,
+      mensagem: mensagemRemover(item.nomeParaConfirmar),
+      perigo: true,
+      confirmar: 'Remover',
+    });
+    if (ok) onRemover(item);
+  };
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
+      <div>
+        <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">{titulo}</p>
+        <p className="text-xs text-gray-500 mt-1">{descricao}</p>
+      </div>
+      <div className="flex gap-2">
+        <input type="text" value={valor} onChange={e => onValor(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onAdd(); }}
+          placeholder={placeholder} aria-label={placeholder}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+        <button onClick={onAdd}
+          className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm">+ Add</button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {itens.length === 0 && <span className="text-xs text-gray-500">{textoVazio}</span>}
+        {itens.map(item => (
+          <span key={item.chave}
+            className="inline-flex items-center gap-1.5 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-sm font-medium text-polo-navy">
+            {item.rotulo}
+            {item.fixo
+              ? <span className="text-gray-500 text-[9px]">(fixo)</span>
+              : <button onClick={() => remover(item)} aria-label={`Remover ${item.nomeParaConfirmar}`}
+                  className="text-red-400 font-bold text-base leading-none">×</button>}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CartaoInstalarApp() {
   const { podeInstalar, instalado, ios, instalar } = usePwaInstall();
   return (
@@ -563,6 +624,12 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
           </div>
         </div>
         <p className="text-xs text-gray-500 -mt-2">Mín/Máx: 0 = sem meta definida (não exibe alerta)</p>
+        {parseFloat(form.max) > 0 && parseFloat(form.min) > parseFloat(form.max) && (
+          <p className="text-xs text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5 -mt-1">
+            ⚠️ O máximo ({fmtNum(form.max)}) está abaixo do mínimo ({fmtNum(form.min)}) — assim o produto
+            aparece como BAIXO e EXCESSO ao mesmo tempo. Confira os dois valores.
+          </p>
+        )}
 
         {sugestao && (
           <div className="flex items-center justify-between bg-polo-beige border border-polo-gold/50 rounded-xl px-3 py-2 -mt-1">
@@ -1869,69 +1936,44 @@ ${linkConvite(conviteGerado.token)}
 
       {secaoAtiva === 'sistema' && <>
       {/* Destinos de saída (para onde o estoque vai) */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
-        <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">📤 Destinos de Saída</p>
-          <p className="text-xs text-gray-500 mt-1">Para onde o estoque é enviado (ex.: unidades, salão, delivery). Aparecem na tela de Saídas.</p>
-        </div>
-        <div className="flex gap-2">
-          <input type="text" value={novoLocal} onChange={e => setNovoLocal(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAddLocal(); }}
-            placeholder="Novo destino (ex: Unidade Centro)"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          <button onClick={handleAddLocal}
-            className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm">+ Add</button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {locais.length === 0 && <span className="text-xs text-gray-500">Nenhum destino — adicione ao menos um para registrar saídas.</span>}
-          {locais.map(l => (
-            <span key={l.id} className="inline-flex items-center gap-2 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-sm font-medium text-polo-navy">
-              {l.nome}
-              <button onClick={async () => {
-                  const ok = await confirm({ titulo: 'Remover destino', mensagem: `Remover "${l.nome}"? Saídas antigas não mudam.`, perigo: true, confirmar: 'Remover' });
-                  if (ok) { setLocais(locais.filter(x => x.id !== l.id)); logAudit('removeu destino de saída', l.nome); toast('Destino removido.', 'sucesso'); }
-                }}
-                className="text-red-400 font-bold text-base leading-none">×</button>
-            </span>
-          ))}
-        </div>
-      </div>
+      <CartaoCatalogoChips
+        titulo="📤 Destinos de Saída"
+        descricao="Para onde o estoque é enviado (ex.: unidades, salão, delivery). Aparecem na tela de Saídas."
+        placeholder="Novo destino (ex: Unidade Centro)"
+        valor={novoLocal} onValor={setNovoLocal} onAdd={handleAddLocal}
+        itens={locais.map(l => ({ chave: l.id, rotulo: l.nome, nomeParaConfirmar: l.nome, ref: l }))}
+        textoVazio="Nenhum destino — adicione ao menos um para registrar saídas."
+        tituloRemover="Remover destino"
+        mensagemRemover={nome => `Remover "${nome}"? Saídas antigas não mudam.`}
+        onRemover={item => {
+          setLocais(locais.filter(x => x.id !== item.ref.id));
+          logAudit('removeu destino de saída', item.ref.nome);
+          toast('Destino removido.', 'sucesso');
+        }}
+      />
 
       {/* Destinos de apara */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
-        <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">✂️ Destinos de Apara</p>
-          <p className="text-xs text-gray-500 mt-1">Opções que aparecem ao registrar uma apara. "Outro" é fixo e abre campo livre.</p>
-        </div>
-        <div className="flex gap-2">
-          <input type="text" value={novoDestino} onChange={e => setNovoDestino(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAddDestino(); }}
-            placeholder="Novo destino (ex: Escondidinho)"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          <button onClick={handleAddDestino}
-            className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm">+ Add</button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {destinos.map(d => (
-            <span key={d.cod} className="inline-flex items-center gap-1.5 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-xs font-medium text-polo-navy">
-              <strong>{d.cod}</strong> {d.label}
-              {d.cod !== 'OUT' ? (
-                <button onClick={async () => {
-                    const ok = await confirm({ titulo: 'Remover destino', mensagem: `Remover "${d.label}"? Registros antigos não mudam.`, perigo: true, confirmar: 'Remover' });
-                    if (ok) {
-                      setDestinos(destinos.filter(x => x.cod !== d.cod));
-                      logAudit('removeu destino de apara', d.label);
-                      toast('Destino removido.', 'sucesso');
-                    }
-                  }}
-                  className="text-red-400 font-bold text-sm leading-none">×</button>
-              ) : (
-                <span className="text-gray-500 text-[9px]">(fixo)</span>
-              )}
-            </span>
-          ))}
-        </div>
-      </div>
+      <CartaoCatalogoChips
+        titulo="✂️ Destinos de Apara"
+        descricao={'Opções que aparecem ao registrar uma apara. "Outro" é fixo e abre campo livre.'}
+        placeholder="Novo destino (ex: Escondidinho)"
+        valor={novoDestino} onValor={setNovoDestino} onAdd={handleAddDestino}
+        itens={destinos.map(d => ({
+          chave: d.cod,
+          rotulo: <><strong>{d.cod}</strong> {d.label}</>,
+          nomeParaConfirmar: d.label,
+          fixo: d.cod === 'OUT',
+          ref: d,
+        }))}
+        textoVazio="Nenhum destino de apara cadastrado."
+        tituloRemover="Remover destino"
+        mensagemRemover={nome => `Remover "${nome}"? Registros antigos não mudam.`}
+        onRemover={item => {
+          setDestinos(destinos.filter(x => x.cod !== item.ref.cod));
+          logAudit('removeu destino de apara', item.ref.label);
+          toast('Destino removido.', 'sucesso');
+        }}
+      />
 
       {/* Planilha de produtos — cadastro padronizado em massa */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">

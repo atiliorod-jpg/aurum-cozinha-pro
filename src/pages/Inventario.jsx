@@ -32,13 +32,15 @@ export default function Inventario() {
       toast('A contagem não pode ser negativa.', 'aviso');
       return;
     }
+    // A trava sobe ANTES do await da confirmação: senão um segundo toque
+    // passa pela guarda enquanto o diálogo está aberto.
+    setSalvando(true);
     const ok = await confirm({
       titulo: 'Confirmar contagem física',
       mensagem: `Você está ajustando o estoque de ${itensContados.length} produto(s) para o valor contado fisicamente. Isso passa a ser a nova base de cálculo.`,
       confirmar: 'Salvar contagem',
     });
-    if (!ok) return;
-    setSalvando(true);
+    if (!ok) { setSalvando(false); return; }
     setTimeout(() => setSalvando(false), 800);
     if (responsavel) setPref('responsavel', responsavel);
     const inventarioId = `inv_${Date.now().toString(36)}`;

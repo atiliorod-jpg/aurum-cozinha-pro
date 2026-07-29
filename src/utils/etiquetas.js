@@ -81,29 +81,42 @@ export function montarCamposEtiqueta({
   };
 }
 
+// Acento vira 2 bytes no QR (UTF-8) e empurra a versão do código para cima.
+// Como o texto acentuado já está impresso em tamanho grande na etiqueta, o QR
+// usa a versão sem acento só para caber em menos módulos.
+const semAcento = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+const corta = (s, n) => { const t = semAcento(s).trim(); return t.length > n ? `${t.slice(0, n - 1)}.` : t; };
+
 /**
  * Conteúdo do QR code — texto legível linha a linha ("Chave: valor").
- * Quem escanear com a câmera do celular vê a ficha da etiqueta na hora;
- * um sistema futuro consegue fazer parse pelas chaves.
+ * Quem escanear com a câmera do celular vê a ficha da etiqueta na hora.
  *
- * Chaves ABREVIADAS de propósito: a etiqueta imprime o QR bem pequeno
- * (poucos mm), e quanto mais texto entra, mais denso (e mais difícil de
- * escanear) o QR fica. Encurtar os rótulos reduz o payload sem perder
- * nenhum dado — a mesma informação já aparece por extenso no texto impresso.
+ * ⚠️ PAYLOAD CURTO DE PROPÓSITO — é o que decide se o QR IMPRESSO escaneia.
+ * O QR sai com ~20mm numa impressora térmica de 203 DPI (8 pontos/mm). Cada
+ * "módulo" (quadradinho) precisa de ~4 pontos da impressora para sair com a
+ * borda limpa; abaixo disso o leitor não pega, por mais correto que o
+ * conteúdo esteja. Como o número de módulos cresce com o tamanho do texto:
+ *
+ *   11 campos, com acento e hora (212 ch) → versão 9-10, 53-57 módulos → 2,2 ❌
+ *   5 campos, sem acento e sem hora (~100 ch) → versão 6, 41 módulos → 4,1-4,7 ✅
+ *
+ * Por isso aqui ficam só os campos que alguém precisaria LER na hora, e as
+ * datas vão SEM hora. Armazenamento, hora, marca, SIF, CNPJ, medida e validade
+ * do fornecedor continuam impressos na etiqueta em texto — só não entram no
+ * QR, que não tem espaço físico para eles. Mexer nesta lista (ou nos limites
+ * do `corta`) muda direto a legibilidade do código impresso.
  */
-export function montarPayloadQR(campos, { estabelecimento = null } = {}) {
+export const QR_MAX_CARACTERES = 106;
+
+export function montarPayloadQR(campos) {
+  // Os limites abaixo somam, no PIOR caso, exatamente QR_MAX_CARACTERES:
+  // rótulos (30) + duas datas (20) + 4 quebras de linha + 26 + 12 + 14 = 106.
   const linhas = [
-    campos.restauranteNome ? `Rest: ${campos.restauranteNome}` : null,
-    `Prod: ${campos.nome}`,
-    campos.medida ? `Med: ${campos.medida}` : null,
-    campos.armazenamentoLabel ? `Armaz: ${campos.armazenamentoLabel}` : null,
-    campos.valOriginalFmt ? `ValOrig: ${campos.valOriginalFmt}` : null,
-    campos.dataFabricacaoFmt ? `${campos.rotuloData === 'ABERTURA' ? 'Abert' : 'Manip'}: ${campos.dataFabricacaoFmt}` : null,
-    campos.validadeFmt ? `Val: ${campos.validadeFmt}` : null,
-    campos.marca ? `Marca: ${campos.marca}` : null,
-    campos.sif ? `SIF: ${campos.sif}` : null,
-    campos.responsavel ? `Resp: ${campos.responsavel}` : null,
-    estabelecimento?.cnpj ? `CNPJ: ${estabelecimento.cnpj}` : null,
+    `Prod: ${corta(campos.nome, 26)}`,
+    campos.dataFabricacao ? `${campos.rotuloData === 'ABERTURA' ? 'Abert' : 'Manip'}: ${fmtData(campos.dataFabricacao)}` : null,
+    campos.validade ? `Val: ${fmtData(campos.validade)}` : null,
+    campos.responsavel ? `Resp: ${corta(campos.responsavel, 12)}` : null,
+    campos.restauranteNome ? `Rest: ${corta(campos.restauranteNome, 14)}` : null,
   ];
   return linhas.filter(Boolean).join('\n');
 }

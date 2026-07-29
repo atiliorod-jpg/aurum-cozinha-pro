@@ -7,6 +7,32 @@ import ResponsavelSelect from './ResponsavelSelect';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta } from '../utils/etiquetas';
 import { hoje, fmtHora } from '../utils/formatters';
 
+// Tamanho impresso do QR, calculado a partir do NÚMERO DE MÓDULOS do código.
+//
+// Térmica de 203 DPI = 8 pontos/mm. Cada módulo do QR precisa de ~4 pontos para
+// sair com a borda limpa (abaixo disso o leitor não pega, por mais correto que
+// o conteúdo esteja) → cada módulo precisa de ~0,5mm.
+//
+// ⚠️ A conta usa o total do viewBox, que INCLUI a zona de silêncio (margin:2 de
+// cada lado). Dimensionar só pelos módulos do código deixa o QR ~10% menor do
+// que o necessário — foi o que fez o código continuar ilegível mesmo depois de
+// encurtar o payload.
+// 0,5mm dá exatamente 3,99 pontos/módulo (203dpi = 7,99 pontos/mm, não 8) —
+// ou seja, em cima do limite, sem folga nenhuma para variação da impressora.
+// 0,55mm sobe para ~4,4 pontos/módulo e deixa margem real.
+const MM_POR_MODULO = 0.55;
+const tamanhoQRmm = (modulosTotais, alturaMm) => {
+  const ideal = (modulosTotais || 41) * MM_POR_MODULO;
+  // não pode passar de metade da etiqueta (senão não sobra espaço pro texto)
+  return Math.min(ideal, Math.max(alturaMm * 0.5, 18));
+};
+
+// Teto de cópias por item. Cada cópia é um bloco no DOM: digitar um zero a mais
+// (100 → 1000) travava o tablet renderizando mil etiquetas. 200 já é mais do que
+// cabe num rolo, então o teto não atrapalha uso real.
+const MAX_COPIAS = 200;
+const limitarCopias = (n) => Math.min(Math.max(0, parseInt(n) || 0), MAX_COPIAS);
+
 // Uma linha "RÓTULO: valor" da etiqueta (formato ficha de pré-preparo)
 function Linha({ rotulo, valor, forte = false }) {
   if (!valor) return null;
@@ -19,10 +45,11 @@ function Linha({ rotulo, valor, forte = false }) {
 }
 
 // Um bloco de etiqueta física (repetido N vezes conforme a quantidade de cópias).
-function EtiquetaLabel({ campos, config, qrDataUrl, estabelecimento }) {
+function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
   const c = config.campos;
-  const comQR = config.incluirQR && qrDataUrl;
+  const comQR = config.incluirQR && qr?.svg;
   const est = estabelecimento || {};
+  const qrMm = comQR ? tamanhoQRmm(qr.modulos, config.alturaMm) : 0;
   return (
     <div className="etiqueta-label bg-white text-black flex flex-col"
       style={{ width: `${config.larguraMm}mm`, height: `${config.alturaMm}mm`, padding: '1.6mm 2mm', boxSizing: 'border-box', lineHeight: 1.25, fontFamily: 'system-ui, sans-serif' }}>
@@ -58,10 +85,14 @@ function EtiquetaLabel({ campos, config, qrDataUrl, estabelecimento }) {
           )}
         </div>
         {comQR && (
-          <img src={qrDataUrl} alt=""
-            // teto maior que antes (era 14mm fixo): em etiquetas com mais altura,
-            // um QR maior imprime com pontos mais grossos e escaneia melhor
-            style={{ width: `${Math.min(config.alturaMm * 0.32, 20)}mm`, height: `${Math.min(config.alturaMm * 0.32, 20)}mm`, flexShrink: 0 }} />
+          // QR em SVG (vetor), não imagem: a impressora térmica é 1 bit (ponto
+          // preto ou branco). Um PNG reduzido para ~20mm chega borrado/cinza,
+          // vira meio-tom e o leitor não pega. O SVG é rasterizado direto na
+          // resolução da impressora, com borda dura (shape-rendering=crispEdges).
+          <div aria-hidden="true"
+            style={{ width: `${qrMm}mm`, height: `${qrMm}mm`, flexShrink: 0 }}
+            className="[&>svg]:w-full [&>svg]:h-full [&>svg]:block"
+            dangerouslySetInnerHTML={{ __html: qr.svg }} />
         )}
       </div>
     </div>
@@ -163,7 +194,7 @@ export default function EtiquetaPrint() {
   };
 
   // Payload do QR de cada item — é também a chave do cache de QR
-  const payloadDe = (item) => montarPayloadQR(camposDe(item), { estabelecimento });
+  const payloadDe = (item) => montarPayloadQR(camposDe(item));
 
   // Gera os QR codes quando ligado (async — toDataURL é Promise).
   // Só gera o que ainda não está em cache: editar um item de um lote não
@@ -177,14 +208,19 @@ export default function EtiquetaPrint() {
       const novos = {};
       for (const payload of pendentes) {
         try {
-          novos[payload] = await QRCode.toDataURL(
-            payload,
-            // margin em "módulos" do QR — sem isso a câmera do celular não
-            // acha a borda do código (zona de silêncio é parte do padrão QR,
-            // não é só estética). margin:0 era a causa do QR não escanear.
-            // width maior que antes (180→260px) porque o QR agora pode
-            // imprimir até 20mm (era 14mm) — resolução acompanha o tamanho.
-            { margin: 2, width: 260 });
+          const svg = await QRCode.toString(payload, {
+            type: 'svg',
+            // margin em "módulos" — a zona de silêncio faz parte do padrão QR;
+            // sem ela a câmera não acha a borda do código.
+            margin: 2,
+            // 'M' recupera ~15% de dano (vinco, condensação do freezer, borrão)
+            // sem inflar demais o número de módulos. Ver montarPayloadQR.
+            errorCorrectionLevel: 'M',
+          });
+          // o viewBox traz os módulos JÁ com a zona de silêncio — é essa conta
+          // que define o tamanho físico mínimo para o código sair legível
+          const modulos = parseInt((svg.match(/viewBox="0 0 (\d+)/) || [])[1], 10) || 41;
+          novos[payload] = { svg, modulos };
         } catch { /* QR falhou — etiqueta sai sem ele */ }
       }
       // acumula no cache (não substitui): os QRs já prontos continuam valendo
@@ -199,7 +235,7 @@ export default function EtiquetaPrint() {
   const setItem = (idx, patch) => setItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
   // Stepper com update funcional: toques rápidos seguidos não podem ler closure velha
   const mudarQtd = (idx, delta) => setItens(prev => prev.map((it, i) =>
-    i === idx ? { ...it, quantidade: Math.max(0, (parseInt(it.quantidade) || 0) + delta) } : it));
+    i === idx ? { ...it, quantidade: limitarCopias((parseInt(it.quantidade) || 0) + delta) } : it));
   const totalEtiquetas = itens.reduce((s, i) => s + (parseInt(i.quantidade) || 0), 0);
   // QR ligado: segura o Imprimir até TODOS os QRs dos itens a imprimir ficarem
   // prontos (toDataURL é assíncrono — sem isso a etiqueta podia sair sem QR)
@@ -236,8 +272,8 @@ export default function EtiquetaPrint() {
                       <button aria-label={`Menos etiquetas de ${item.nome}`}
                         onClick={() => mudarQtd(idx, -1)}
                         className="w-9 h-9 rounded-full bg-gray-100 text-gray-600 font-bold flex items-center justify-center">−</button>
-                      <input type="number" min="0" inputMode="numeric" value={item.quantidade}
-                        onChange={e => setItem(idx, { quantidade: e.target.value })}
+                      <input type="number" min="0" max={MAX_COPIAS} inputMode="numeric" value={item.quantidade}
+                        onChange={e => setItem(idx, { quantidade: e.target.value === '' ? '' : limitarCopias(e.target.value) })}
                         aria-label={`Quantidade de etiquetas de ${item.nome}`}
                         className="w-12 text-center border border-gray-200 rounded-lg py-1.5 text-sm font-semibold" />
                       <button aria-label={`Mais etiquetas de ${item.nome}`}
@@ -318,9 +354,9 @@ export default function EtiquetaPrint() {
       {/* Área que realmente imprime: invisível na tela, visível só no print (CSS em index.css) */}
       <div className="etiqueta-print-area" aria-hidden="true">
         {itens.flatMap((item, idx) =>
-          Array.from({ length: Math.max(0, parseInt(item.quantidade) || 0) }, (_, c) => (
+          Array.from({ length: limitarCopias(item.quantidade) }, (_, c) => (
             <EtiquetaLabel key={`${idx}_${c}`} campos={camposDe(item)} config={config}
-              qrDataUrl={qrs[payloadDe(item)]} estabelecimento={estabelecimento} />
+              qr={qrs[payloadDe(item)]} estabelecimento={estabelecimento} />
           ))
         )}
       </div>

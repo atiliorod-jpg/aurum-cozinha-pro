@@ -109,9 +109,12 @@ export default function Producao() {
     }
     const v = validarDataRegistro(data);
     if (!v.ok) { toast('Não é possível registrar em data futura.', 'erro'); return; }
+    // A trava sobe ANTES dos awaits: com uma confirmação aberta, `salvando`
+    // já precisa estar ligado — senão um segundo toque passa pela guarda.
+    setSalvando(true);
     if (v.confirmar) {
       const ok = await confirm({ titulo: 'Registro antigo', mensagem: `Esta produção é de ${v.dias} dias atrás (${fmtData(data)}). Confirma a data?`, confirmar: 'Sim' });
-      if (!ok) return;
+      if (!ok) { setSalvando(false); return; }
     }
     if (plano.faltaAlgum) {
       const lista = plano.itens.filter(i => !i.suficiente)
@@ -121,9 +124,8 @@ export default function Producao() {
         mensagem: `Faltam ingredientes em estoque:\n\n${lista}\n\nProduzir mesmo assim? (o estoque desses itens ficará negativo)`,
         perigo: true, confirmar: 'Produzir assim mesmo',
       });
-      if (!ok) return;
+      if (!ok) { setSalvando(false); return; }
     }
-    setSalvando(true);
     try { registrar(); } finally { setTimeout(() => setSalvando(false), 800); }
   };
 

@@ -5,7 +5,7 @@ import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem, nomesCasam } from '../analise';
 import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
-import { montarCamposEtiqueta, montarPayloadQR } from '../etiquetas';
+import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX } from '../outbox';
 import { statusEstoque } from '../calculos';
@@ -355,17 +355,40 @@ describe('etiquetas — montagem dos campos', () => {
   it('payload do QR é uma ficha legível linha a linha (Chave: valor)', () => {
     const campos = montarCamposEtiqueta({
       nome: 'Molho misto', dataFabricacao: '2026-06-10', diasValidade: 4, restauranteNome: 'Polo', responsavel: 'Ceará',
+      hora: '10:52', armazenamento: 'congelado',
     });
-    const qr = montarPayloadQR(campos, { estabelecimento: { cnpj: '12.345.678/0001-00' } });
-    // rótulos ABREVIADOS de propósito — QR pequeno na etiqueta precisa de
-    // payload curto pra escanear bem (margin 0 + payload longo = ilegível)
-    expect(qr).toContain('Rest: Polo');
+    const qr = montarPayloadQR(campos);
     expect(qr).toContain('Prod: Molho misto');
     expect(qr).toContain('Manip: 10/06/2026');
     expect(qr).toContain('Val: 14/06/2026');
-    expect(qr).toContain('Resp: Ceará');
-    expect(qr).toContain('CNPJ: 12.345.678/0001-00');
-    expect(qr.split('\n').length).toBe(6); // só as linhas com valor entram
+    expect(qr).toContain('Rest: Polo');
+    expect(qr.split('\n').length).toBe(5); // só as linhas com valor entram
+  });
+
+  it('QR do pior caso ainda imprime legível numa térmica de 203 DPI', async () => {
+    // Este é o teste que importa de verdade: não basta o conteúdo estar certo,
+    // o código PRECISA sair com módulo grande o bastante pro leitor pegar.
+    // Térmica de 203 DPI = 8 pontos/mm; o QR sai com ~21mm; cada módulo precisa
+    // de ~4 pontos pra ter borda limpa → no máximo 41 módulos (versão 6).
+    // Texto a mais empurra a versão pra cima e o QR volta a não escanear.
+    const { default: QRCode } = await import('qrcode');
+    const campos = montarCamposEtiqueta({
+      nome: 'EMPANADO DE FILÉ MIGNON PORCIONADO (PORÇÃO)', // pior caso realista
+      dataFabricacao: '2026-06-10', diasValidade: 90, hora: '10:52',
+      armazenamento: 'congelado', restauranteNome: 'Restaurante Muito Longo Ltda',
+      responsavel: 'Joana da Silva Sobrinho', marca: 'Friboi', sif: '1234',
+      valOriginal: '2026-12-01', medida: '1 kg',
+    });
+    const qr = montarPayloadQR(campos);
+    expect(qr).not.toMatch(/[À-ÿ]/);       // sem acento (acento = 2 bytes no QR)
+    expect(qr).not.toMatch(/\d{2}:\d{2}/); // datas sem hora
+    expect(qr.length).toBeLessThanOrEqual(QR_MAX_CARACTERES);
+
+    const { version, modules } = QRCode.create(qr, { errorCorrectionLevel: 'M' });
+    expect(version).toBeLessThanOrEqual(6);
+    expect(modules.size).toBeLessThanOrEqual(41);
+    const pontosPorModulo = (21 / modules.size) * (203 / 25.4);
+    expect(pontosPorModulo).toBeGreaterThanOrEqual(4);
   });
 });
 

@@ -41,7 +41,6 @@ export default function Saidas() {
 
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
   const registrar = () => {
-    setSalvando(true);
     setTimeout(() => setSalvando(false), 800);
     addSaida({
       data,
@@ -73,13 +72,17 @@ export default function Saidas() {
       toast('Não é possível registrar saída em data futura.', 'erro');
       return;
     }
+    // A trava sobe ANTES dos awaits: enquanto uma confirmação está aberta,
+    // `salvando` precisa já estar ligado — senão um segundo toque passa pela
+    // guarda e abre outro diálogo / registra duas vezes.
+    setSalvando(true);
     if (v.confirmar) {
       const okData = await confirm({
         titulo: 'Registro antigo',
         mensagem: `Esta saída é de ${v.dias} dias atrás (${fmtData(data)}). Confirma a data?`,
         confirmar: 'Sim, registrar',
       });
-      if (!okData) return;
+      if (!okData) { setSalvando(false); return; }
     }
     if (!responsavel) {
       const okResp = await confirm({
@@ -87,7 +90,7 @@ export default function Saidas() {
         mensagem: 'Nenhum responsável foi selecionado. Sem isso a saída fica sem rastreio de quem registrou. Deseja continuar mesmo assim?',
         confirmar: 'Registrar sem responsável',
       });
-      if (!okResp) return;
+      if (!okResp) { setSalvando(false); return; }
     }
     // Verifica se alguma saída deixa o estoque negativo
     const negativos = itensPreenchidos
@@ -101,7 +104,7 @@ export default function Saidas() {
         perigo: true,
         confirmar: 'Registrar assim mesmo',
       });
-      if (!ok) return;
+      if (!ok) { setSalvando(false); return; }
     }
     registrar();
   };

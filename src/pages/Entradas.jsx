@@ -46,15 +46,18 @@ export default function Entradas() {
       toast('Não é possível registrar entrada em data futura.', 'erro');
       return;
     }
+    // A trava sobe ANTES do await: a confirmação de data antiga deixava uma
+    // janela em que `salvando` ainda era false e um segundo toque passava
+    // pela guarda, abrindo dois diálogos / registrando duas vezes.
+    setSalvando(true);
     if (v.confirmar) {
       const ok = await confirm({
         titulo: 'Registro antigo',
         mensagem: `Esta entrada é de ${v.dias} dias atrás (${fmtData(data)}). Confirma a data?`,
         confirmar: 'Sim, registrar',
       });
-      if (!ok) return;
+      if (!ok) { setSalvando(false); return; }
     }
-    setSalvando(true);
     setTimeout(() => setSalvando(false), 800);
     addEntrada({
       data,

@@ -34,5 +34,3 @@ export const semanaAtual = () => {
     fim: isoLocal(end),
   };
 };
-
-export const diasDaSemana = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
