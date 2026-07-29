@@ -4,14 +4,25 @@
 // enfraquecer a checagem pra vulnerabilidades novas/reais.
 import { execSync } from 'node:child_process';
 
-// GHSA-qwww-vcr4-c8h2 (react-router, "RSC Mode CSRF Bypass"): o próprio
-// aviso oficial diz "This only affects your application if you are using
-// the unstable RSC APIs". Este app é 100% client-side (BrowserRouter puro,
-// sem servidor, sem RSC) — não se aplica. Não existe versão 7.x corrigida
-// ainda (patch é 8.3.0+, ainda não lançado); a "correção" do npm seria
-// REBAIXAR para 7.11.0, o que é mais arriscado que manter e documentar.
-// Revisitar quando react-router-dom 8.3.0+ (ou um backport 7.x) sair.
-const IGNORAR_GHSA = new Set(['GHSA-qwww-vcr4-c8h2']);
+const IGNORAR_GHSA = new Set([
+  // react-router, "RSC Mode CSRF Bypass": o próprio aviso oficial diz "This
+  // only affects your application if you are using the unstable RSC APIs".
+  // Este app é 100% client-side (BrowserRouter puro, sem servidor, sem RSC)
+  // — não se aplica. Não existe versão 7.x corrigida ainda (patch é 8.3.0+,
+  // ainda não lançado); a "correção" do npm seria REBAIXAR pra 7.11.0, mais
+  // arriscado que manter e documentar. Revisitar quando 8.3.0+ (ou um
+  // backport 7.x) sair. (18/07/2026)
+  'GHSA-qwww-vcr4-c8h2',
+  // brace-expansion, "DoS via unbounded expansion length": chegou via
+  // vite-plugin-pwa → workbox-build → …→ jake → filelist → minimatch →
+  // brace-expansion — TODA essa cadeia só roda em tempo de BUILD (gera o
+  // service worker/precache), processando os arquivos do próprio repo. Não
+  // há entrada de usuário/atacante alcançando esse código — inexplorável
+  // no nosso uso. Sem versão corrigida no momento (fix sugerido também é
+  // downgrade). Revisitar quando workbox-build/vite-plugin-pwa atualizar
+  // a dependência internamente. (29/07/2026)
+  'GHSA-mh99-v99m-4gvg',
+]);
 
 let saida;
 try {
@@ -33,15 +44,20 @@ for (const [nome, v] of graves) {
     ignoravel.add(nome);
   }
 }
-// Passo 2 (repete pra cadeias transitivas de mais de 1 nível): pacotes cujo
-// `via` é só nomes de outros pacotes (string) — ignorável se todos esses
-// pacotes-causa já foram marcados ignoráveis.
-for (let i = 0; i < 3; i++) {
+// Passo 2 (repete pra cadeias transitivas de N níveis, até estabilizar):
+// pacotes cujo `via` é só nomes de outros pacotes (string) — ignorável se
+// todos esses pacotes-causa já foram marcados ignoráveis. Loop de ponto
+// fixo (não um número fixo de passadas) porque cadeias reais chegam a
+// 8+ níveis (ex.: vite-plugin-pwa → workbox-build → … → brace-expansion).
+let mudou = true;
+while (mudou) {
+  mudou = false;
   for (const [nome, v] of graves) {
     if (ignoravel.has(nome)) continue;
     const refs = (v.via || []).filter(x => typeof x === 'string');
     if (refs.length === (v.via || []).length && refs.length && refs.every(r => ignoravel.has(r))) {
       ignoravel.add(nome);
+      mudou = true;
     }
   }
 }
