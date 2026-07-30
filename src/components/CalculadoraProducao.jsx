@@ -89,7 +89,7 @@ export default function CalculadoraProducao() {
                   {producoes.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}
                 </select>
                 <div className="flex gap-1.5 items-center">
-                  <input type="number" min="0" step="0.5" value={alvo} onChange={e => setAlvo(e.target.value)}
+                  <input type="number" inputMode="decimal" min="0" step="0.5" value={alvo} onChange={e => setAlvo(e.target.value)}
                     placeholder={fmtNum(receita?.rendimentoBase || 0)}
                     aria-label={`Quantidade a produzir em ${finalUnid}`}
                     className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm" />
@@ -144,7 +144,7 @@ export default function CalculadoraProducao() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Tenho disponível (kg bruto)</label>
-                  <input type="number" min="0" step="0.5" value={kgDisponivel}
+                  <input type="number" inputMode="decimal" min="0" step="0.5" value={kgDisponivel}
                     onChange={e => setKgDisponivel(e.target.value)}
                     placeholder="Ex: 10"
                     aria-label="kg disponível"
@@ -155,7 +155,7 @@ export default function CalculadoraProducao() {
                     Fator de correção (%)
                     <span className="ml-1 text-[10px] text-gray-400">osso, aparas…</span>
                   </label>
-                  <input type="number" min="0" max="90" step="0.5" value={correcaoPct}
+                  <input type="number" inputMode="decimal" min="0" max="90" step="0.5" value={correcaoPct}
                     onChange={e => setCorrecaoPct(e.target.value)}
                     placeholder="0"
                     aria-label="Fator de correção em %"

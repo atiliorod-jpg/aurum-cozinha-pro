@@ -167,7 +167,7 @@ export default function Producao() {
                   <label className="block text-xs font-semibold text-gray-600 mb-1">
                     Quantidade ({prodUnid(produtoId)})
                   </label>
-                  <input type="number" min="0" step={produto?.unidade === 'unid' ? '1' : '0.5'} value={quantidade} onChange={e => setQuantidade(e.target.value)}
+                  <input type="number" inputMode="decimal" min="0" step={produto?.unidade === 'unid' ? '1' : '0.5'} value={quantidade} onChange={e => setQuantidade(e.target.value)}
                     placeholder={receita ? `ex: ${fmtNum(receita.rendimentoBase)}` : '0'}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   {receita && !quantidade && (

@@ -460,7 +460,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                 <div className="mt-2 bg-polo-beige/60 rounded-lg p-2.5 space-y-2">
                   <label className="block text-[11px] font-semibold text-gray-600">Apara/perda na limpeza (%) — valor fixo</label>
                   <div className="flex items-center gap-2">
-                    <input type="number" min="0" max="90" step="1" value={fcEdit.pct} autoFocus
+                    <input type="number" inputMode="numeric" min="0" max="90" step="1" value={fcEdit.pct} autoFocus
                       onChange={e => setFcEdit({ id: produto.id, pct: e.target.value })}
                       placeholder="Ex: 12"
                       className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
@@ -599,7 +599,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
           <label htmlFor="mp-estoque-inicial" className="block text-xs font-semibold text-gray-600 mb-1">
             Estoque Inicial (ponto de partida)
           </label>
-          <input id="mp-estoque-inicial" type="number" min="0" step="0.5" value={form.estoqueInicial} onChange={e => set('estoqueInicial', e.target.value)}
+          <input id="mp-estoque-inicial" type="number" inputMode="decimal" min="0" step="0.5" value={form.estoqueInicial} onChange={e => set('estoqueInicial', e.target.value)}
             placeholder="0"
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           <p className="text-xs text-gray-500 mt-1">Quanto há hoje. A partir daqui, entradas/saídas/perdas calculam sozinhas.</p>
@@ -610,7 +610,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
             <label htmlFor="mp-min" className="block text-xs font-semibold text-gray-600 mb-1">
               Estoque Mínimo — alertar quando abaixo
             </label>
-            <input id="mp-min" type="number" min="0" step="0.5" value={form.min} onChange={e => set('min', e.target.value)}
+            <input id="mp-min" type="number" inputMode="decimal" min="0" step="0.5" value={form.min} onChange={e => set('min', e.target.value)}
               placeholder="0"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
@@ -618,7 +618,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
             <label htmlFor="mp-max" className="block text-xs font-semibold text-gray-600 mb-1">
               Estoque Máximo — meta de reposição
             </label>
-            <input id="mp-max" type="number" min="0" step="0.5" value={form.max} onChange={e => set('max', e.target.value)}
+            <input id="mp-max" type="number" inputMode="decimal" min="0" step="0.5" value={form.max} onChange={e => set('max', e.target.value)}
               placeholder="0"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
@@ -649,7 +649,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
             <label htmlFor="mp-val-congelado" className="block text-xs font-semibold text-gray-600 mb-1">
               ❄️ Validade congelado (dias)
             </label>
-            <input id="mp-val-congelado" type="number" min="0" value={form.valCongelado}
+            <input id="mp-val-congelado" type="number" inputMode="numeric" min="0" value={form.valCongelado}
               onChange={e => set('valCongelado', e.target.value)}
               placeholder="0 = sem controle"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -658,7 +658,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
             <label htmlFor="mp-val-resfriado" className="block text-xs font-semibold text-gray-600 mb-1">
               🧊 Validade resfriado (dias)
             </label>
-            <input id="mp-val-resfriado" type="number" min="0" value={form.valResfriado}
+            <input id="mp-val-resfriado" type="number" inputMode="numeric" min="0" value={form.valResfriado}
               onChange={e => set('valResfriado', e.target.value)}
               placeholder="0 = sem controle"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -692,7 +692,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
             <label htmlFor="mp-peso-unidade" className="block text-xs font-semibold text-gray-600 mb-1">
               ⚖️ Peso por unidade (g)
             </label>
-            <input id="mp-peso-unidade" type="number" min="0" value={form.pesoUnidade}
+            <input id="mp-peso-unidade" type="number" inputMode="decimal" min="0" value={form.pesoUnidade}
               onChange={e => set('pesoUnidade', e.target.value)}
               placeholder="Ex: 130 (1 porção = 130 g)"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -716,7 +716,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
           {form.entradaCozida && (
             <div>
               <label htmlFor="mp-coccao" className="block text-xs font-semibold text-gray-600 mb-1">Perda na cocção (%)</label>
-              <input id="mp-coccao" type="number" min="0" max="90" step="1" value={form.coccao} onChange={e => set('coccao', e.target.value)}
+              <input id="mp-coccao" type="number" inputMode="numeric" min="0" max="90" step="1" value={form.coccao} onChange={e => set('coccao', e.target.value)}
                 placeholder="Ex: 30"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               {form.coccao && (
@@ -820,7 +820,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Rende quanto? ({unid(form.produtoFinalId)})</label>
-            <input type="number" min="0" step="0.5" value={form.rendimentoBase} onChange={e => set('rendimentoBase', e.target.value)}
+            <input type="number" inputMode="decimal" min="0" step="0.5" value={form.rendimentoBase} onChange={e => set('rendimentoBase', e.target.value)}
               placeholder="Ex: 10" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
@@ -857,7 +857,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                         placeholder="Nome do ingrediente (ex: Tempero, Cebola)" className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm" />
                     )}
                   </div>
-                  <input type="number" min="0" step="0.1" value={ing.quantidade} onChange={e => setIng(i, 'quantidade', e.target.value)}
+                  <input type="number" inputMode="decimal" min="0" step="0.1" value={ing.quantidade} onChange={e => setIng(i, 'quantidade', e.target.value)}
                     placeholder="Qtd" className="w-14 border border-gray-200 rounded-lg px-2 py-2 text-sm" />
                   {ing.abate ? (
                     // Item controlado dá baixa na unidade do PRÓPRIO produto — fixa
@@ -1595,7 +1595,7 @@ ${linkConvite(conviteGerado.token)}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Mínimo (alerta abaixo de)</label>
               <div className="flex items-center gap-1.5">
-                <input type="number" min="1" max="30"
+                <input type="number" inputMode="numeric" min="1" max="30"
                   value={diasMinStr}
                   onChange={e => setDiasMinStr(e.target.value)}
                   onBlur={e => {
@@ -1610,7 +1610,7 @@ ${linkConvite(conviteGerado.token)}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Máximo (meta de reposição)</label>
               <div className="flex items-center gap-1.5">
-                <input type="number" min="1" max="90"
+                <input type="number" inputMode="numeric" min="1" max="90"
                   value={diasMaxStr}
                   onChange={e => setDiasMaxStr(e.target.value)}
                   onBlur={e => {

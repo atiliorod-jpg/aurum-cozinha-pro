@@ -113,7 +113,7 @@ export default function Inventario() {
                       <div className="text-xs text-gray-500">Sistema: {fmtNum(calc)} {p.unidade}</div>
                     </div>
                     <input
-                      type="number" min="0" step="0.5"
+                      type="number" inputMode="decimal" min="0" step="0.5"
                       value={contagem[p.id] ?? ''}
                       onChange={e => setCont(p.id, e.target.value)}
                       placeholder="contado"

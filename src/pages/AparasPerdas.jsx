@@ -230,7 +230,7 @@ export default function AparasPerdas() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Quantidade</label>
-                    <input type="number" min="0" step="0.1" value={formApara.quantidade} onChange={e => setA('quantidade', e.target.value)}
+                    <input type="number" inputMode="decimal" min="0" step="0.1" value={formApara.quantidade} onChange={e => setA('quantidade', e.target.value)}
                       placeholder="0"
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   </div>
@@ -308,7 +308,7 @@ export default function AparasPerdas() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Quantidade</label>
-                    <input type="number" min="0" step="0.1" value={formPerda.quantidade} onChange={e => setP('quantidade', e.target.value)}
+                    <input type="number" inputMode="decimal" min="0" step="0.1" value={formPerda.quantidade} onChange={e => setP('quantidade', e.target.value)}
                       placeholder="0"
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   </div>

@@ -200,7 +200,7 @@ export default function Entradas() {
                     onClick={() => setQtd(p.id, Math.max(0, (parseFloat(qtds[p.id]) || 0) - 1).toString())}
                     className="w-11 h-11 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center flex-shrink-0">−</button>
                   <input
-                    type="number" min="0" step="0.5"
+                    type="number" inputMode="decimal" min="0" step="0.5"
                     value={qtds[p.id] ?? ''}
                     onChange={e => setQtd(p.id, e.target.value)}
                     placeholder="0"
