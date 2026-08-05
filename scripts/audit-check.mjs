@@ -13,15 +13,10 @@ const IGNORAR_GHSA = new Set([
   // arriscado que manter e documentar. Revisitar quando 8.3.0+ (ou um
   // backport 7.x) sair. (18/07/2026)
   'GHSA-qwww-vcr4-c8h2',
-  // brace-expansion, "DoS via unbounded expansion length": chegou via
-  // vite-plugin-pwa → workbox-build → …→ jake → filelist → minimatch →
-  // brace-expansion — TODA essa cadeia só roda em tempo de BUILD (gera o
-  // service worker/precache), processando os arquivos do próprio repo. Não
-  // há entrada de usuário/atacante alcançando esse código — inexplorável
-  // no nosso uso. Sem versão corrigida no momento (fix sugerido também é
-  // downgrade). Revisitar quando workbox-build/vite-plugin-pwa atualizar
-  // a dependência internamente. (29/07/2026)
-  'GHSA-mh99-v99m-4gvg',
+  // (removida em 05/08/2026) GHSA-mh99-v99m-4gvg, brace-expansion: saiu um
+  // patch de verdade e o `npm audit fix` resolveu, então a exceção deixou de
+  // existir. Exceção obsoleta é pior que exceção nenhuma — ela continuaria
+  // aceitando o aviso em silêncio se ele voltasse.
 ]);
 
 let saida;
