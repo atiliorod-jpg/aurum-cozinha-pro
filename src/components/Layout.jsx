@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import NavBar from './NavBar';
 import Icon from './Icons';
@@ -5,6 +6,8 @@ import GuideTour from './GuideTour';
 import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
+import { moduloPorId } from '../utils/modulos';
+import SeletorModulo from './SeletorModulo';
 import { useUI } from '../store/UIContext';
 import { pode } from '../utils/permissoes';
 
@@ -12,7 +15,9 @@ const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
 export default function Layout({ title, children, actions }) {
   const { sessao, logout } = useAuth();
-  const { pendencias, online, prefs } = useApp();
+  const { pendencias, online, prefs, modulo } = useApp();
+  const mod = moduloPorId(modulo);
+  const [trocandoModulo, setTrocandoModulo] = useState(false);
   const { confirm } = useUI();
 
   // Nome de exibição: o super-admin não tem perfil (nome null) → "Administrador".
@@ -36,6 +41,14 @@ export default function Layout({ title, children, actions }) {
             )}
           </div>
         </div>
+        {/* Estoque aberto — toque para trocar (produção ⇄ seco) */}
+        <button onClick={() => setTrocandoModulo(true)}
+          aria-label={`Estoque aberto: ${mod.label}. Tocar para trocar de estoque`}
+          className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1">
+          <span aria-hidden="true">{mod.icone}</span>
+          <span className="text-[10px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
+          <span className="text-white/50 text-[9px]" aria-hidden="true">▾</span>
+        </button>
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Status de sincronização: avisa quando há dados ainda não enviados ou sem internet */}
           {(pendencias > 0 || !online) && (
@@ -78,6 +91,22 @@ export default function Layout({ title, children, actions }) {
       <div aria-hidden="true" className="fixed inset-0 pointer-events-none flex items-center justify-center print:hidden">
         <img src={LOGO} alt="" className="w-72 h-72 opacity-[0.05] rounded-full" />
       </div>
+      {trocandoModulo && (
+        <div className="fixed inset-0 bg-black/50 z-[130] flex items-center justify-center p-4 print:hidden"
+          onClick={e => { if (e.target === e.currentTarget) setTrocandoModulo(false); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="troca-mod" className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-start justify-between">
+              <h2 id="troca-mod" className="font-bold text-polo-navy">Trocar de estoque</h2>
+              <button onClick={() => setTrocandoModulo(false)} aria-label="Fechar"
+                className="text-gray-400 text-2xl leading-none px-1 -mt-1">×</button>
+            </div>
+            <SeletorModulo aoEscolher={() => setTrocandoModulo(false)} />
+            <p className="text-[11px] text-gray-400">
+              Cada estoque tem produtos e registros próprios. A escolha fica guardada neste aparelho.
+            </p>
+          </div>
+        </div>
+      )}
       <main className="flex-1 p-4 max-w-2xl lg:max-w-4xl mx-auto w-full relative">
         <GuideTour />
         {children}

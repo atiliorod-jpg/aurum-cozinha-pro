@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { hoje } from '../utils/formatters';
+import { MODULO_PADRAO } from '../utils/modulos';
 
 // Checklist do turno de uma casa de PRODUÇÃO INTERNA (porcionamento/semiacabados).
 // Passos ESSENCIAIS fecham o turno; os OPCIONAIS nunca travam o 100% — um dia
@@ -40,7 +41,7 @@ const OPCIONAIS = [
 ];
 
 export default function GuideTour() {
-  const { prefs, entradas, saidas, aparas, desperdicio } = useApp();
+  const { prefs, entradas, saidas, aparas, desperdicio, modulo } = useApp();
 
   const dt = hoje();
   const dismissKey = `guia_dismiss_${dt}`;
@@ -49,6 +50,10 @@ export default function GuideTour() {
 
   // guia ligado por padrão; só oculta quando explicitamente desligado (false)
   if (prefs.guia === false || dispensado) return null;
+  // Este checklist descreve o turno de uma casa de PRODUÇÃO (receita, apara,
+  // porcionamento). No estoque seco esses passos não existem — mostrar aqui
+  // seria pedir para a equipe fazer algo que a tela nem tem.
+  if (modulo !== MODULO_PADRAO) return null;
 
   const feitos = {
     // produção OU entrada avulsa contam — dia só de produção não fica "incompleto"

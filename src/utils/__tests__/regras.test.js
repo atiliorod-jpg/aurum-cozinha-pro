@@ -7,8 +7,9 @@ import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, media
 import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
 import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
-import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX } from '../outbox';
+import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
+import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
@@ -710,5 +711,85 @@ describe('datas de cobrança — sem pular um dia por causa do fuso', () => {
     }
     // invariante que vale em qualquer fuso: isoLocal casa com a data local real
     expect(local).toBe(`${fim.getFullYear()}-${String(fim.getMonth() + 1).padStart(2, '0')}-${String(fim.getDate()).padStart(2, '0')}`);
+  });
+});
+
+describe('módulos — namespacing sem migração', () => {
+  it('o módulo PADRÃO mantém exatamente as chaves e tipos de hoje', () => {
+    // Esta é a garantia de que nenhum restaurante que já usa o app precisa
+    // converter dado: no módulo de produção tudo continua onde sempre esteve.
+    for (const chave of ['produtos', 'categorias', 'entradas', 'saidas', 'prefs']) {
+      expect(chaveModulo(MODULO_PADRAO, chave)).toBe(chave);
+    }
+    for (const tipo of ['entrada', 'saida', 'compra', 'apara', 'perda', 'ajuste']) {
+      expect(tipoModulo(MODULO_PADRAO, tipo)).toBe(tipo);
+    }
+  });
+
+  it('módulo novo isola por prefixo', () => {
+    expect(chaveModulo('seco', 'produtos')).toBe('seco::produtos');
+    expect(tipoModulo('seco', 'entrada')).toBe('seco:entrada');
+  });
+
+  it('lerTipo devolve o módulo e o tipo de volta', () => {
+    expect(lerTipo('seco:entrada')).toEqual({ modulo: 'seco', tipo: 'entrada' });
+    expect(lerTipo('entrada')).toEqual({ modulo: MODULO_PADRAO, tipo: 'entrada' });
+  });
+
+  it('registro antigo sem prefixo cai na produção (compatibilidade)', () => {
+    // um registro gravado antes do multi-módulo não pode sumir da tela
+    expect(lerTipo('saida').modulo).toBe(MODULO_PADRAO);
+    // prefixo desconhecido (dado estranho) também não some: vai para produção
+    expect(lerTipo('xpto:entrada')).toEqual({ modulo: MODULO_PADRAO, tipo: 'xpto:entrada' });
+  });
+
+  it('ida e volta: gravar e ler devolve o mesmo módulo', () => {
+    for (const mod of ['producao', 'seco']) {
+      for (const tipo of ['entrada', 'saida', 'ajuste']) {
+        expect(lerTipo(tipoModulo(mod, tipo))).toEqual({ modulo: mod, tipo });
+      }
+    }
+  });
+
+  it('estoque seco não tem receita nem apara; produção tem tudo', () => {
+    expect(temRecurso('seco', 'receitas')).toBe(false);
+    expect(temRecurso('seco', 'producao')).toBe(false);
+    expect(temRecurso('seco', 'aparas')).toBe(false);
+    expect(temRecurso('seco', 'entradas')).toBe(true);
+    expect(temRecurso('seco', 'inventario')).toBe(true);
+    expect(temRecurso('producao', 'receitas')).toBe(true);
+    expect(temRecurso('producao', 'aparas')).toBe(true);
+  });
+
+  it('a auditoria fica fora do namespace (é do restaurante, não do módulo)', () => {
+    expect(ehTipoGlobal('auditoria')).toBe(true);
+    expect(ehTipoGlobal('entrada')).toBe(false);
+  });
+});
+
+describe('outbox — erro definitivo não fica retentando', () => {
+  it('violação de constraint morre na 1ª tentativa (não gasta 8 retries)', () => {
+    // Cenário real: módulo novo cujo tipo ainda não foi liberado na migração 17.
+    // Retentar não vai mudar a resposta do banco — o usuário precisa saber logo.
+    const item = registrarFalha({ kind: 'registro', _ultimoErro: 'new row for relation "registros" violates check constraint "registros_tipo_check"' });
+    expect(item._morto).toBe(true);
+    expect(item._tentativas).toBe(1);
+  });
+
+  it('erro de rede continua retentando até o limite', () => {
+    let item = { kind: 'registro', _ultimoErro: 'Failed to fetch' };
+    for (let i = 1; i < MAX_TENTATIVAS_OUTBOX; i++) {
+      item = registrarFalha({ ...item, _ultimoErro: 'Failed to fetch' });
+      expect(item._morto).toBe(false);
+    }
+    item = registrarFalha({ ...item, _ultimoErro: 'Failed to fetch' });
+    expect(item._morto).toBe(true); // só morre no limite
+  });
+
+  it('reconhece os erros que nunca passam num retry', () => {
+    expect(ehErroDefinitivo('violates check constraint')).toBe(true);
+    expect(ehErroDefinitivo('violates foreign key constraint')).toBe(true);
+    expect(ehErroDefinitivo('timeout')).toBe(false);
+    expect(ehErroDefinitivo(undefined)).toBe(false);
   });
 });

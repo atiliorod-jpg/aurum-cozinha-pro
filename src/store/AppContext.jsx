@@ -8,6 +8,8 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
 import { registrarFalha, ressuscitar } from '../utils/outbox';
+import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal } from '../utils/modulos';
+import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
 const CAT = {
@@ -26,6 +28,13 @@ const CAT = {
   etiquetasAvulsas: [],
   prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
+
+// Padrões de catálogo POR MÓDULO. O seco tem itens e categorias próprios e não
+// usa receita/produção — quem abre o módulo pela primeira vez vê exemplos do
+// seu ramo, não filé e molho.
+const catalogosPadrao = (mod) => mod === 'seco'
+  ? { ...CAT, produtos: SECO_BASE, categorias: SECO_CATEGORIAS, fichas: [], producoes: [], listaManual: [] }
+  : CAT;
 
 // tipo no banco → rótulo legível para a trilha de auditoria
 const ROTULO = {
@@ -95,6 +104,27 @@ export function AppProvider({ children }) {
   const sessaoRef = useRef(sessao); sessaoRef.current = sessao;
   const soLeituraRef = useRef(soLeitura); soLeituraRef.current = soLeitura;
   const flushandoRef = useRef(false); // impede dois flushes simultâneos (mount + 'online')
+
+  // ── Módulo ativo (multi-cozinha) ───────────────────────────
+  // Qual estoque está aberto: produção, seco… Fica por APARELHO (quem só
+  // trabalha no seco já abre nele), não na nuvem.
+  const [modulo, setModuloRaw] = useState(() => {
+    try {
+      const salvo = localStorage.getItem('pe::modulo');
+      return moduloValido(salvo) ? salvo : MODULO_PADRAO;
+    } catch { return MODULO_PADRAO; }
+  });
+  const moduloRef = useRef(modulo); moduloRef.current = modulo;
+  const setModulo = useCallback((id) => {
+    if (!moduloValido(id)) return;
+    try { localStorage.setItem('pe::modulo', id); } catch { /* storage indisponível */ }
+    setModuloRaw(id);
+  }, []);
+  // k() = chave de catálogo/cache do módulo ativo; t() = tipo do registro.
+  // No módulo padrão os dois devolvem o valor original — é o que mantém os
+  // dados de quem já usa o app exatamente onde sempre estiveram.
+  const k = useCallback((chave) => chaveModulo(moduloRef.current, chave), []);
+  const t = useCallback((tipo) => tipoModulo(moduloRef.current, tipo), []);
   const dadosRef = useRef({});
   dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
   /* eslint-enable react-hooks/refs */
@@ -168,14 +198,15 @@ export function AppProvider({ children }) {
       });
   }, []);
 
-  const persistCatalogo = useCallback((chave, setRaw, valor) => {
+  const persistCatalogo = useCallback((chaveBase, setRaw, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     setRaw(valor);
     const r = ridRef.current;
+    const chave = k(chaveBase); // catálogo é POR MÓDULO (no padrão, a chave não muda)
     cacheSet(r, chave, valor);
     if (!nuvemDe(r)) return;
     salvarDocNuvem(r, chave, valor, (dadosSrv) => { setRaw(dadosSrv); cacheSet(r, chave, dadosSrv); });
-  }, [salvarDocNuvem]);
+  }, [salvarDocNuvem, k]);
 
   const setProdutos   = useCallback((v) => persistCatalogo('produtos',   setProdutosRaw,   v), [persistCatalogo]);
   const setCategorias = useCallback((v) => persistCatalogo('categorias', setCategoriasRaw, v), [persistCatalogo]);
@@ -225,17 +256,18 @@ export function AppProvider({ children }) {
     const novo = { ...registro, id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`, ts: Date.now() };
     setRaw(prev => {
       const next = [...prev, novo];
-      cacheSet(r, key, next);
+      cacheSet(r, k(key), next);
       return next;
     });
     if (nuvemDe(r)) {
-      const row = { id: novo.id, restaurante_id: r, tipo, ts: novo.ts, dados: semIdTs(novo), deleted: false };
+      // tipo com o módulo embutido ('seco:entrada') — é o que separa os estoques
+      const row = { id: novo.id, restaurante_id: r, tipo: t(tipo), ts: novo.ts, dados: semIdTs(novo), deleted: false };
       supabase.from('registros').insert(row).then(({ error }) => {
         if (error) outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
       });
     }
     logAudit(`registrou ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(novo) || '');
-  }, [logAudit, RESUMOS]);
+  }, [logAudit, RESUMOS, k, t]);
 
   const removeRegistro = useCallback((tipo, setRaw, key, id) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -243,7 +275,7 @@ export function AppProvider({ children }) {
     const alvo = dadosRef.current[key].find(x => x.id === id);
     setRaw(prev => {
       const next = prev.filter(x => x.id !== id);
-      cacheSet(r, key, next);
+      cacheSet(r, k(key), next);
       return next;
     });
     if (nuvemDe(r)) {
@@ -252,7 +284,7 @@ export function AppProvider({ children }) {
       });
     }
     if (alvo) logAudit(`removeu ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(alvo) || '');
-  }, [logAudit, RESUMOS]);
+  }, [logAudit, RESUMOS, k]);
 
   const addCompra      = useCallback((x) => addRegistro('compra',  setComprasRaw,     'compras',     x), [addRegistro]);
   const removeCompra   = useCallback((x) => removeRegistro('compra', setComprasRaw,   'compras',     x), [removeRegistro]);
@@ -418,25 +450,27 @@ export function AppProvider({ children }) {
     }
     let ativo = true;
 
-    // 1) cache instantâneo (funciona offline)
-    setProdutosRaw(cacheGet(rid, 'produtos', CAT.produtos));
-    setCategoriasRaw(cacheGet(rid, 'categorias', CAT.categorias));
-    setPessoasRaw(cacheGet(rid, 'pessoas', CAT.pessoas));
-    setDestinosRaw(cacheGet(rid, 'destinos', CAT.destinos));
-    setFichasRaw(cacheGet(rid, 'fichas', CAT.fichas));
-    setProducoesRaw(cacheGet(rid, 'producoes', CAT.producoes));
-    setLocaisRaw(cacheGet(rid, 'locais', CAT.locais));
-    setListaManualRaw(cacheGet(rid, 'listaManual', CAT.listaManual));
-    setEtiquetasAvulsasRaw(cacheGet(rid, 'etiquetasAvulsas', CAT.etiquetasAvulsas));
-    // prefs = restaurante (nuvem) + aparelho (local), mescladas
-    setPrefsRaw({ ...cacheGet(rid, 'prefs', CAT.prefs), ...cacheGet(rid, '_prefs_device', {}) });
-    setComprasRaw(cacheGet(rid, 'compras', []));
-    setEntradasRaw(cacheGet(rid, 'entradas', []));
-    setSaidasRaw(cacheGet(rid, 'saidas', []));
-    setAparasRaw(cacheGet(rid, 'aparas', []));
-    setDesperdicioRaw(cacheGet(rid, 'desperdicio', []));
-    setAjustesRaw(cacheGet(rid, 'ajustes', []));
-    setAuditoriaRaw(cacheGet(rid, 'auditoria', []));
+    // 1) cache instantâneo (funciona offline) — tudo pela chave do MÓDULO ativo
+    const P = catalogosPadrao(modulo);
+    setProdutosRaw(cacheGet(rid, k('produtos'), P.produtos));
+    setCategoriasRaw(cacheGet(rid, k('categorias'), P.categorias));
+    setPessoasRaw(cacheGet(rid, 'pessoas', P.pessoas)); // equipe é do restaurante, não do módulo
+    setDestinosRaw(cacheGet(rid, k('destinos'), P.destinos));
+    setFichasRaw(cacheGet(rid, k('fichas'), P.fichas));
+    setProducoesRaw(cacheGet(rid, k('producoes'), P.producoes));
+    setLocaisRaw(cacheGet(rid, k('locais'), P.locais));
+    setListaManualRaw(cacheGet(rid, k('listaManual'), P.listaManual));
+    setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), P.etiquetasAvulsas));
+    // prefs = restaurante (nuvem) + aparelho (local), mescladas. NÃO é por
+    // módulo: etiqueta, estabelecimento e responsável valem para a conta toda.
+    setPrefsRaw({ ...cacheGet(rid, 'prefs', P.prefs), ...cacheGet(rid, '_prefs_device', {}) });
+    setComprasRaw(cacheGet(rid, k('compras'), []));
+    setEntradasRaw(cacheGet(rid, k('entradas'), []));
+    setSaidasRaw(cacheGet(rid, k('saidas'), []));
+    setAparasRaw(cacheGet(rid, k('aparas'), []));
+    setDesperdicioRaw(cacheGet(rid, k('desperdicio'), []));
+    setAjustesRaw(cacheGet(rid, k('ajustes'), []));
+    setAuditoriaRaw(cacheGet(rid, 'auditoria', [])); // auditoria é do restaurante
 
     // sobe pendências acumuladas offline
     const flush = async () => {
@@ -515,15 +549,16 @@ export function AppProvider({ children }) {
             salvarDocNuvem(rid, chave, def, (dadosSrv) => { setRaw(dadosSrv); cacheSet(rid, chave, dadosSrv); });
           }
         };
-        aplicaCat('produtos', setProdutosRaw, CAT.produtos);
-        aplicaCat('categorias', setCategoriasRaw, CAT.categorias);
-        aplicaCat('pessoas', setPessoasRaw, CAT.pessoas);
-        aplicaCat('destinos', setDestinosRaw, CAT.destinos);
-        aplicaCat('fichas', setFichasRaw, CAT.fichas);
-        aplicaCat('producoes', setProducoesRaw, CAT.producoes);
-        aplicaCat('locais', setLocaisRaw, CAT.locais);
-        aplicaCat('listaManual', setListaManualRaw, CAT.listaManual);
-        aplicaCat('etiquetasAvulsas', setEtiquetasAvulsasRaw, CAT.etiquetasAvulsas);
+        // catálogos do MÓDULO ativo (no padrão, k() devolve a chave de sempre)
+        aplicaCat(k('produtos'), setProdutosRaw, P.produtos);
+        aplicaCat(k('categorias'), setCategoriasRaw, P.categorias);
+        aplicaCat('pessoas', setPessoasRaw, P.pessoas); // equipe é do restaurante
+        aplicaCat(k('destinos'), setDestinosRaw, P.destinos);
+        aplicaCat(k('fichas'), setFichasRaw, P.fichas);
+        aplicaCat(k('producoes'), setProducoesRaw, P.producoes);
+        aplicaCat(k('locais'), setLocaisRaw, P.locais);
+        aplicaCat(k('listaManual'), setListaManualRaw, P.listaManual);
+        aplicaCat(k('etiquetasAvulsas'), setEtiquetasAvulsasRaw, P.etiquetasAvulsas);
         // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
         if (!docsPendentes.has('prefs')) {
           const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
@@ -538,8 +573,15 @@ export function AppProvider({ children }) {
       const { data: regs, error: errRegs } = await supabase.from('registros').select('*').eq('restaurante_id', rid).eq('deleted', false);
       if (!ativo) return;
       if (!errRegs) {
+        // Agrupa por tipo JÁ separando o módulo: 'seco:entrada' só alimenta o
+        // estoque seco. Registro antigo (sem prefixo) cai na produção, que é o
+        // comportamento correto para quem já usava o app.
         const porTipo = {};
-        (regs || []).forEach(r => { (porTipo[r.tipo] = porTipo[r.tipo] || []).push(linhaParaRegistro(r)); });
+        (regs || []).forEach(r => {
+          const { modulo: mod, tipo } = lerTipo(r.tipo);
+          if (!ehTipoGlobal(tipo) && mod !== modulo) return; // outro módulo
+          (porTipo[tipo] = porTipo[tipo] || []).push(linhaParaRegistro(r));
+        });
         const aplicaReg = (tipo, setRaw, key) => {
           const arr = (porTipo[tipo] || []).sort((a, b) => (a.ts || 0) - (b.ts || 0));
           setRaw(prev => {
@@ -548,7 +590,7 @@ export function AppProvider({ children }) {
             const merged = localOnly.length
               ? [...arr, ...localOnly].sort((a, b) => (a.ts || 0) - (b.ts || 0))
               : arr;
-            cacheSet(rid, key, merged);
+            cacheSet(rid, key === 'auditoria' ? key : k(key), merged);
             return merged;
           });
         };
@@ -572,15 +614,19 @@ export function AppProvider({ children }) {
       auditoria: [setAuditoriaRaw, 'auditoria'],
     };
     const setterDoc = {
-      produtos: setProdutosRaw, categorias: setCategoriasRaw, pessoas: setPessoasRaw,
+      produtos: setProdutosRaw, categorias: setCategoriasRaw,
       destinos: setDestinosRaw, fichas: setFichasRaw, producoes: setProducoesRaw, locais: setLocaisRaw, listaManual: setListaManualRaw,
       etiquetasAvulsas: setEtiquetasAvulsasRaw,
     };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
-      const alvo = setterReg[row.tipo];
+      // outro aparelho gravou: só entra se for do MÓDULO que está aberto aqui
+      const { modulo: mod, tipo } = lerTipo(row.tipo);
+      if (!ehTipoGlobal(tipo) && mod !== modulo) return;
+      const alvo = setterReg[tipo];
       if (!alvo) return;
-      const [setRaw, key] = alvo;
+      const [setRaw, keyBase] = alvo;
+      const key = keyBase === 'auditoria' ? keyBase : k(keyBase);
       setRaw(prev => {
         const semEle = prev.filter(x => x.id !== row.id);
         if (row.deleted) { cacheSet(rid, key, semEle); return semEle; }
@@ -593,15 +639,23 @@ export function AppProvider({ children }) {
       if (!row) return;
       // outro aparelho gravou: a versão dele passa a ser a que conhecemos
       if (row.chave) versoesRef.current[row.chave] = row.versao || 0;
+      // prefs e pessoas valem para a conta toda — não passam pelo filtro de módulo
       if (row.chave === 'prefs') { // mescla com as preferências locais do aparelho
         cacheSet(rid, 'prefs', row.dados);
         setPrefsRaw({ ...row.dados, ...cacheGet(rid, '_prefs_device', {}) });
         return;
       }
-      const setRaw = setterDoc[row.chave];
+      if (row.chave === 'pessoas') { setPessoasRaw(row.dados); cacheSet(rid, 'pessoas', row.dados); return; }
+      // demais chaves vêm namespaceadas ('seco::produtos'): ignora doc de outro módulo
+      const bruta = String(row.chave || '');
+      const chaveBase = bruta.includes('::')
+        ? (bruta.startsWith(`${modulo}::`) ? bruta.slice(modulo.length + 2) : null)
+        : (modulo === MODULO_PADRAO ? bruta : null);
+      if (!chaveBase) return;
+      const setRaw = setterDoc[chaveBase];
       if (!setRaw) return;
       setRaw(row.dados);
-      cacheSet(rid, row.chave, row.dados);
+      cacheSet(rid, bruta, row.dados);
     };
     const canal = supabase.channel(`rt-${rid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registros', filter: `restaurante_id=eq.${rid}` },
@@ -621,7 +675,8 @@ export function AppProvider({ children }) {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('forcar-sync', onOnline);
     };
-  }, [rid, salvarDocNuvem]);
+    // `modulo` nas deps: trocar de estoque re-hidrata tudo daquele módulo
+  }, [rid, salvarDocNuvem, modulo, k]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Administração de dados ─────────────────────────────────
@@ -742,6 +797,7 @@ export function AppProvider({ children }) {
       auditoria, logAudit,
       restaurarRegistro,
       prefs, setPref,
+      modulo, setModulo,
       estoque,
       limparTudo, resetarProdutos,
       exportarBackup, importarBackup,

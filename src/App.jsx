@@ -1,7 +1,9 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import { statusAssinatura } from './utils/assinatura';
+import SeletorModulo from './components/SeletorModulo';
+import { temRecurso } from './utils/modulos';
 import { pode, podeAbrirConfig } from './utils/permissoes';
 import { AppProvider, useApp } from './store/AppContext';
 import { UIProvider, useUI } from './store/UIContext';
@@ -92,8 +94,12 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, onSair }) {
 
 function Rotas() {
   const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao } = useAuth();
+  // marca de que este aparelho já escolheu o estoque de trabalho
+  const [escolheuModulo, setEscolheuModulo] = useState(() => {
+    try { return !!localStorage.getItem('pe::modulo'); } catch { return true; }
+  });
   const { toast } = useUI();
-  const { prefs } = useApp();
+  const { prefs, modulo } = useApp();
   // Capacidade configurável (matriz de permissões da diretoria) — diretoria e
   // super-admin sempre podem; cozinha/gerência seguem prefs.permissoes.
   const can = (cap) => pode(sessao, prefs?.permissoes, cap);
@@ -162,6 +168,12 @@ function Rotas() {
     );
   }
 
+  // Primeiro acesso NESTE aparelho: pergunta em qual estoque a pessoa trabalha.
+  // Depois disso a escolha fica lembrada (e dá para trocar pelo cabeçalho).
+  if (!escolheuModulo) {
+    return <SeletorModulo comoTela aoEscolher={() => setEscolheuModulo(true)} />;
+  }
+
   return (
     <>
       {impersonando && <BannerSuporte nome={impersonando.restauranteNome} podeMexer={impersonando.podeMexer} onSair={sairImpersonacao} />}
@@ -193,8 +205,9 @@ function Rotas() {
       <Route path="/compras" element={<Compras />} />
       <Route path="/entradas" element={<Entradas />} />
       <Route path="/saidas" element={<Saidas />} />
-      <Route path="/producao" element={<Producao />} />
-      <Route path="/aparas" element={<AparasPerdas />} />
+      {/* produção e aparas não existem no estoque seco — rota redireciona */}
+      <Route path="/producao" element={temRecurso(modulo, 'producao') ? <Producao /> : <Navigate to="/registrar" replace />} />
+      <Route path="/aparas" element={temRecurso(modulo, 'aparas') ? <AparasPerdas /> : <Navigate to="/registrar" replace />} />
       <Route path="/etiquetas" element={<Etiquetas />} />
       <Route path="/novidades" element={<Novidades />} />
       <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />

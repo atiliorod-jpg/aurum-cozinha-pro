@@ -12,6 +12,7 @@ import { fatorCorrecaoProduto } from '../utils/analise';
 import { pode, CAPACIDADES, permissoesEfetivas } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
 import { configEtiqueta } from '../utils/etiquetas';
+import { temRecurso } from '../utils/modulos';
 
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
 // a conversão para número acontece só no salvar.
@@ -904,7 +905,7 @@ export default function Configuracoes() {
   const { produtos, setProdutos, saidas, limparTudo, resetarProdutos, exportarBackup, importarBackup,
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref,
-          compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos } = useApp();
+          compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo } = useApp();
   const { usuarios, sessao, criarConvite, alterarCargo, convites, carregarConvites, revogarConvite,
           desativarUsuario, reativarUsuario } = useAuth();
   const { toast, confirm } = useUI();
@@ -1075,7 +1076,7 @@ ${linkConvite(conviteGerado.token)}
   // Abas visíveis dependem da função; secaoAtiva garante que uma aba escolhida
   // some (permissão retirada) caia numa aba permitida em vez de tela vazia.
   const abasDisponiveis = [
-    ['produtos', podeProdutos], ['receitas', podeProdutos],
+    ['produtos', podeProdutos], ['receitas', podeProdutos && temRecurso(modulo, 'receitas')],
     ['acessos', podeAcessos], ['sistema', podeSistema],
   ].filter(([, ok]) => ok).map(([v]) => v);
   const secaoAtiva = abasDisponiveis.includes(secao) ? secao : (abasDisponiveis[0] || 'produtos');

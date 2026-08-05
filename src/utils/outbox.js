@@ -7,11 +7,24 @@
 
 export const MAX_TENTATIVAS_OUTBOX = 8;
 
+// Erros que NUNCA vão passar numa nova tentativa: o payload viola uma regra
+// do banco (constraint/coluna/tipo inválido). Retentar 8 vezes só atrasa o
+// aviso ao usuário — o item vai direto para a lista de erro permanente.
+// Ex.: registro de um módulo cujo tipo ainda não foi liberado na migração 17.
+const ERRO_DEFINITIVO = /violates check constraint|violates foreign key|invalid input syntax|column .* does not exist|violates not-null/i;
+
+export const ehErroDefinitivo = (msg) => ERRO_DEFINITIVO.test(String(msg || ''));
+
 // Registra uma tentativa falha; devolve o item atualizado (imutável).
-// Ao atingir o máximo, marca _morto para o flush parar de retentá-lo.
+// Ao atingir o máximo (ou logo de cara, se o erro for definitivo), marca
+// _morto para o flush parar de retentá-lo.
 export function registrarFalha(item, max = MAX_TENTATIVAS_OUTBOX) {
   const tentativas = (item._tentativas || 0) + 1;
-  return { ...item, _tentativas: tentativas, _morto: tentativas >= max };
+  return {
+    ...item,
+    _tentativas: tentativas,
+    _morto: tentativas >= max || ehErroDefinitivo(item._ultimoErro),
+  };
 }
 
 // Zera o estado de falha (usado no "tentar de novo" manual).
