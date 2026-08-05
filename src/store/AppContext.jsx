@@ -8,7 +8,7 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
 import { registrarFalha, ressuscitar } from '../utils/outbox';
-import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal } from '../utils/modulos';
+import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, DESTINO_FINALIZACAO } from '../utils/modulos';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -19,7 +19,12 @@ const CAT = {
   destinos:   DESTINOS_APARA,
   fichas:     FICHAS_BASE,
   producoes:  [],
-  locais:     [{ id: 'salao', nome: 'Salão' }], // destinos de saída (editáveis em Config)
+  // Destinos de saída (editáveis em Config). "Cozinha de Finalização" é FIXO:
+  // enviar para ele é o que faz o item aparecer como recebimento do outro lado.
+  locais:     [
+    { id: 'finalizacao', nome: 'Cozinha de Finalização', fixo: true },
+    { id: 'salao', nome: 'Salão' },
+  ],
   // Itens adicionados manualmente à lista de compras (ex.: faltantes de uma
   // produção planejada). Cada item: { id, nome, unidade, quantidade, origem }
   listaManual: [],
@@ -90,6 +95,9 @@ export function AppProvider({ children }) {
   const [desperdicio, setDesperdicioRaw] = useState([]);
   const [ajustes,     setAjustesRaw]     = useState([]);
   const [auditoria,   setAuditoriaRaw]   = useState([]);
+  // Recebimentos da finalização = saídas da produção com destino Finalização.
+  // Derivado, nunca gravado: a produção é a dona do registro.
+  const [recebimentos, setRecebimentosRaw] = useState([]);
   // Observabilidade da sincronização: nº de operações na fila offline + status de rede.
   const [pendencias,  setPendencias]     = useState(0);
   const [mortos,      setMortos]         = useState([]); // itens que falharam demais (erro permanente)
@@ -124,6 +132,10 @@ export function AppProvider({ children }) {
   // No módulo padrão os dois devolvem o valor original — é o que mantém os
   // dados de quem já usa o app exatamente onde sempre estiveram.
   const k = useCallback((chave) => chaveModulo(moduloRef.current, chave), []);
+  // kc() = chave de CATÁLOGO. A finalização não cadastra produto: ela lê o
+  // catálogo da produção, senão o mesmo semiacabado teria ids diferentes dos
+  // dois lados e a ponte nunca casaria.
+  const kc = useCallback((chave) => chaveModulo(catalogoDe(moduloRef.current), chave), []);
   const t = useCallback((tipo) => tipoModulo(moduloRef.current, tipo), []);
   const dadosRef = useRef({});
   dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
@@ -202,11 +214,13 @@ export function AppProvider({ children }) {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     setRaw(valor);
     const r = ridRef.current;
-    const chave = k(chaveBase); // catálogo é POR MÓDULO (no padrão, a chave não muda)
+    // catálogos compartilhados (produtos/categorias/fichas) vão pela chave do
+    // MÓDULO DE CATÁLOGO; o resto é do próprio módulo
+    const chave = ['produtos', 'categorias', 'fichas'].includes(chaveBase) ? kc(chaveBase) : k(chaveBase);
     cacheSet(r, chave, valor);
     if (!nuvemDe(r)) return;
     salvarDocNuvem(r, chave, valor, (dadosSrv) => { setRaw(dadosSrv); cacheSet(r, chave, dadosSrv); });
-  }, [salvarDocNuvem, k]);
+  }, [salvarDocNuvem, k, kc]);
 
   const setProdutos   = useCallback((v) => persistCatalogo('produtos',   setProdutosRaw,   v), [persistCatalogo]);
   const setCategorias = useCallback((v) => persistCatalogo('categorias', setCategoriasRaw, v), [persistCatalogo]);
@@ -419,7 +433,7 @@ export function AppProvider({ children }) {
       setPessoasRaw(CAT.pessoas); setDestinosRaw(CAT.destinos);
       setFichasRaw(CAT.fichas); setProducoesRaw(CAT.producoes); setLocaisRaw(CAT.locais); setListaManualRaw(CAT.listaManual); setEtiquetasAvulsasRaw(CAT.etiquetasAvulsas); setPrefsRaw(CAT.prefs);
       setComprasRaw([]); setEntradasRaw([]); setSaidasRaw([]);
-      setAparasRaw([]); setDesperdicioRaw([]); setAjustesRaw([]); setAuditoriaRaw([]);
+      setAparasRaw([]); setDesperdicioRaw([]); setAjustesRaw([]); setAuditoriaRaw([]); setRecebimentosRaw([]);
       return;
     }
 
@@ -452,11 +466,11 @@ export function AppProvider({ children }) {
 
     // 1) cache instantâneo (funciona offline) — tudo pela chave do MÓDULO ativo
     const P = catalogosPadrao(modulo);
-    setProdutosRaw(cacheGet(rid, k('produtos'), P.produtos));
-    setCategoriasRaw(cacheGet(rid, k('categorias'), P.categorias));
+    setProdutosRaw(cacheGet(rid, kc('produtos'), P.produtos));
+    setCategoriasRaw(cacheGet(rid, kc('categorias'), P.categorias));
     setPessoasRaw(cacheGet(rid, 'pessoas', P.pessoas)); // equipe é do restaurante, não do módulo
     setDestinosRaw(cacheGet(rid, k('destinos'), P.destinos));
-    setFichasRaw(cacheGet(rid, k('fichas'), P.fichas));
+    setFichasRaw(cacheGet(rid, kc('fichas'), P.fichas));
     setProducoesRaw(cacheGet(rid, k('producoes'), P.producoes));
     setLocaisRaw(cacheGet(rid, k('locais'), P.locais));
     setListaManualRaw(cacheGet(rid, k('listaManual'), P.listaManual));
@@ -470,6 +484,7 @@ export function AppProvider({ children }) {
     setAparasRaw(cacheGet(rid, k('aparas'), []));
     setDesperdicioRaw(cacheGet(rid, k('desperdicio'), []));
     setAjustesRaw(cacheGet(rid, k('ajustes'), []));
+    setRecebimentosRaw(cacheGet(rid, k('recebimentos'), []));
     setAuditoriaRaw(cacheGet(rid, 'auditoria', [])); // auditoria é do restaurante
 
     // sobe pendências acumuladas offline
@@ -550,11 +565,11 @@ export function AppProvider({ children }) {
           }
         };
         // catálogos do MÓDULO ativo (no padrão, k() devolve a chave de sempre)
-        aplicaCat(k('produtos'), setProdutosRaw, P.produtos);
-        aplicaCat(k('categorias'), setCategoriasRaw, P.categorias);
+        aplicaCat(kc('produtos'), setProdutosRaw, P.produtos);
+        aplicaCat(kc('categorias'), setCategoriasRaw, P.categorias);
         aplicaCat('pessoas', setPessoasRaw, P.pessoas); // equipe é do restaurante
         aplicaCat(k('destinos'), setDestinosRaw, P.destinos);
-        aplicaCat(k('fichas'), setFichasRaw, P.fichas);
+        aplicaCat(kc('fichas'), setFichasRaw, P.fichas);
         aplicaCat(k('producoes'), setProducoesRaw, P.producoes);
         aplicaCat(k('locais'), setLocaisRaw, P.locais);
         aplicaCat(k('listaManual'), setListaManualRaw, P.listaManual);
@@ -579,6 +594,18 @@ export function AppProvider({ children }) {
         const porTipo = {};
         (regs || []).forEach(r => {
           const { modulo: mod, tipo } = lerTipo(r.tipo);
+          // PONTE PRODUÇÃO → FINALIZAÇÃO: a saída da produção com destino
+          // "Cozinha de Finalização" é lida aqui como RECEBIMENTO, sem gravar um
+          // segundo registro. Fonte única: se a produção corrigir ou apagar a
+          // saída, o recebimento acompanha sozinho — não existe cópia para
+          // dessincronizar.
+          if (modulo === 'finalizacao' && mod === MODULO_PADRAO && tipo === 'saida') {
+            const reg = linhaParaRegistro(r);
+            if (reg.destino === DESTINO_FINALIZACAO) {
+              (porTipo.recebimento = porTipo.recebimento || []).push(reg);
+            }
+            return;
+          }
           if (!ehTipoGlobal(tipo) && mod !== modulo) return; // outro módulo
           (porTipo[tipo] = porTipo[tipo] || []).push(linhaParaRegistro(r));
         });
@@ -600,6 +627,7 @@ export function AppProvider({ children }) {
         aplicaReg('apara', setAparasRaw, 'aparas');
         aplicaReg('perda', setDesperdicioRaw, 'desperdicio');
         aplicaReg('ajuste', setAjustesRaw, 'ajustes');
+        aplicaReg('recebimento', setRecebimentosRaw, 'recebimentos');
         aplicaReg('auditoria', setAuditoriaRaw, 'auditoria');
       }
 
@@ -676,7 +704,7 @@ export function AppProvider({ children }) {
       window.removeEventListener('forcar-sync', onOnline);
     };
     // `modulo` nas deps: trocar de estoque re-hidrata tudo daquele módulo
-  }, [rid, salvarDocNuvem, modulo, k]);
+  }, [rid, salvarDocNuvem, modulo, k, kc]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Administração de dados ─────────────────────────────────
@@ -797,7 +825,7 @@ export function AppProvider({ children }) {
       auditoria, logAudit,
       restaurarRegistro,
       prefs, setPref,
-      modulo, setModulo,
+      modulo, setModulo, recebimentos,
       estoque,
       limparTudo, resetarProdutos,
       exportarBackup, importarBackup,

@@ -40,6 +40,14 @@ const SECOES = [
     ],
   },
   {
+    label: 'Fim do turno',
+    desc: 'Conte a sobra da bancada — o consumo é calculado sozinho',
+    acoes: [
+      { to: '/fechar-turno', emoji: '🍳', titulo: 'Fechar turno', recurso: 'fecharTurno',
+        desc: 'Contagem da sobra: recebido − sobra − perdas = consumo do turno' },
+    ],
+  },
+  {
     label: 'Conferência',
     desc: 'Ajuste o estoque quando conferir a prateleira',
     acoes: [

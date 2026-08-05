@@ -1959,7 +1959,7 @@ ${linkConvite(conviteGerado.token)}
         descricao="Para onde o estoque é enviado (ex.: unidades, salão, delivery). Aparecem na tela de Saídas."
         placeholder="Novo destino (ex: Unidade Centro)"
         valor={novoLocal} onValor={setNovoLocal} onAdd={handleAddLocal}
-        itens={locais.map(l => ({ chave: l.id, rotulo: l.nome, nomeParaConfirmar: l.nome, ref: l }))}
+        itens={locais.map(l => ({ chave: l.id, rotulo: l.nome, nomeParaConfirmar: l.nome, fixo: l.fixo, ref: l }))}
         textoVazio="Nenhum destino — adicione ao menos um para registrar saídas."
         tituloRemover="Remover destino"
         mensagemRemover={nome => `Remover "${nome}"? Saídas antigas não mudam.`}

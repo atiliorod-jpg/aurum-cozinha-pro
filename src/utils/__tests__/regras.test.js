@@ -15,6 +15,7 @@ import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem } from '../relatorios';
+import { turnoAberto, consumoDoTurno } from '../turno';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
 
@@ -818,5 +819,76 @@ describe('módulos — despensa não tem câmara fria', () => {
     });
     expect(campos.validade).toBeNull();
     expect(campos.validadeFmt).toBe('');
+  });
+});
+
+describe('fechamento de turno da Finalização', () => {
+  const produtos = [P('molho', { unidade: 'L' }), P('empanado', { unidade: 'unid' })];
+
+  it('turno novo: disponível = recebido (não há sobra anterior)', () => {
+    const t = turnoAberto({
+      produtos,
+      recebimentos: [{ ts: 10, itens: [{ produtoId: 'molho', quantidade: 12 }] }],
+      perdas: [], fechamentos: [],
+    });
+    expect(t.linhas).toHaveLength(1);
+    expect(t.linhas[0]).toMatchObject({ abertura: 0, recebido: 12, perdido: 0, disponivel: 12 });
+  });
+
+  it('consumo sai da diferença: recebeu 12, sobrou 3 → consumiu 9', () => {
+    const t = turnoAberto({ produtos, recebimentos: [{ ts: 10, itens: [{ produtoId: 'molho', quantidade: 12 }] }], perdas: [], fechamentos: [] });
+    const c = consumoDoTurno(t.linhas, { molho: 3 });
+    expect(c[0].consumo).toBe(9);
+    expect(c[0].inconsistente).toBe(false);
+  });
+
+  it('perda entra na conta e NÃO vira consumo', () => {
+    // recebeu 12, perdeu 2 (estragou), sobrou 3 → consumo real 7, não 9
+    const t = turnoAberto({
+      produtos,
+      recebimentos: [{ ts: 10, itens: [{ produtoId: 'molho', quantidade: 12 }] }],
+      perdas: [{ ts: 11, produtoId: 'molho', quantidade: 2 }],
+      fechamentos: [],
+    });
+    expect(t.linhas[0].disponivel).toBe(10);
+    expect(consumoDoTurno(t.linhas, { molho: 3 })[0].consumo).toBe(7);
+  });
+
+  it('a sobra de um turno é a abertura do turno seguinte', () => {
+    const fechamentos = [{ ts: 100, data: '2026-08-05', itens: [{ produtoId: 'molho', quantidade: 3 }] }];
+    const t = turnoAberto({
+      produtos, fechamentos, perdas: [],
+      recebimentos: [
+        { ts: 50, itens: [{ produtoId: 'molho', quantidade: 12 }] },  // turno ANTERIOR: ignorado
+        { ts: 150, itens: [{ produtoId: 'molho', quantidade: 8 }] },  // turno atual
+      ],
+    });
+    expect(t.linhas[0]).toMatchObject({ abertura: 3, recebido: 8, disponivel: 11 });
+  });
+
+  it('dois turnos no mesmo dia contam separado', () => {
+    const almoco = { ts: 100, data: '2026-08-05', itens: [{ produtoId: 'molho', quantidade: 5 }] };
+    const t = turnoAberto({
+      produtos, fechamentos: [almoco], perdas: [],
+      recebimentos: [{ ts: 120, itens: [{ produtoId: 'molho', quantidade: 6 }] }],
+    });
+    // jantar abre com a sobra do almoço (5) + o que chegou depois (6)
+    expect(t.linhas[0].disponivel).toBe(11);
+    expect(consumoDoTurno(t.linhas, { molho: 2 })[0].consumo).toBe(9);
+  });
+
+  it('sobra maior que o disponível é sinalizada, não escondida', () => {
+    // contaram 20 mas só havia 12: falta registro em algum lugar — a tela avisa
+    const t = turnoAberto({ produtos, recebimentos: [{ ts: 10, itens: [{ produtoId: 'molho', quantidade: 12 }] }], perdas: [], fechamentos: [] });
+    const c = consumoDoTurno(t.linhas, { molho: 20 });
+    expect(c[0].consumo).toBe(-8);
+    expect(c[0].inconsistente).toBe(true);
+  });
+
+  it('item que não sobrou nada zera, sem virar negativo', () => {
+    const t = turnoAberto({ produtos, recebimentos: [{ ts: 10, itens: [{ produtoId: 'empanado', quantidade: 20 }] }], perdas: [], fechamentos: [] });
+    const c = consumoDoTurno(t.linhas, {}); // ninguém digitou nada = sobrou 0
+    expect(c[0].consumo).toBe(20);
+    expect(c[0].inconsistente).toBe(false);
   });
 });
