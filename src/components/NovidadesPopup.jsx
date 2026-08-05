@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
+import { useUI } from '../store/UIContext';
 import { APP_VERSAO, NOVIDADES } from '../data/novidades';
 
 // Aviso "O que há de novo" — aparece UMA vez quando o cliente abre uma versão
@@ -8,15 +9,30 @@ import { APP_VERSAO, NOVIDADES } from '../data/novidades';
 // a lista completa fica em Configurações → Novidades.
 const CHAVE = 'aurum_versao_vista';
 
+// data do release vem como 'DD/MM/AAAA'
+const dataRelease = (br) => { const [d,m,a]=String(br).split('/'); return new Date(`${a}-${m}-${d}T23:59:59`); };
+
 export default function NovidadesPopup() {
   const { sessao } = useAuth();
+  const { temDialogoAberto } = useUI();
   const ultimoRelease = NOVIDADES[0];
   const [vistoEm, setVistoEm] = useState(() => {
     try { return localStorage.getItem(CHAVE); } catch { return null; }
   });
 
+  // Conta criada DEPOIS deste release não precisa ver "o que há de novo": para
+  // ela nada disso é novidade, é o app inteiro — o cliente estrearia recebendo
+  // changelog de recursos que nunca usou. Quando sair um release NOVO, a conta
+  // passa a ser anterior a ele e volta a receber o aviso normalmente.
+  const contaNovaDemais = sessao?.restauranteCriadoEm && ultimoRelease?.data &&
+    new Date(sessao.restauranteCriadoEm) > dataRelease(ultimoRelease.data);
   // não mostra na demo, sem sessão, sem release, ou se já viu esta versão
   if (!sessao || sessao.demo || !ultimoRelease || vistoEm === APP_VERSAO) return null;
+  if (contaNovaDemais) return null;
+  // Nunca empilha sobre outro diálogo: já aconteceu de este aviso abrir por
+  // cima de uma confirmação e o toque do usuário ir parar no lugar errado —
+  // o registro simplesmente não acontecia.
+  if (temDialogoAberto) return null;
 
   const fechar = () => {
     try { localStorage.setItem(CHAVE, APP_VERSAO); } catch { /* sem storage */ }

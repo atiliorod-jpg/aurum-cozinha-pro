@@ -22,17 +22,20 @@ export function AuthProvider({ children }) {
   const [impersonando, setImpersonando] = useState(null); // { restauranteId, restauranteNome } | null (suporte = só leitura)
   const [derrubado, setDerrubado] = useState(false); // a conta foi aberta em outro aparelho
   const tokenRef = useRef(null); // token desta sessão (sessão única por conta)
+  const registradoEmRef = useRef(null); // quando ESTA sessão se registrou
 
   // Registra esta sessão como a ativa (sessão única): grava um token novo em
   // `sessoes`. Outros aparelhos da mesma conta veem o token mudar (realtime) e
   // se deslogam. Falha em silêncio se a tabela ainda não existe no banco.
   const registrarSessaoAtiva = useCallback(async (userId) => {
     const token = (crypto?.randomUUID?.() || `t_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+    const agora = new Date().toISOString();
     tokenRef.current = token;
+    registradoEmRef.current = agora;
     // O Supabase NÃO lança em erro PostgREST normal — retorna { error }. Por isso
     // checamos o retorno (o catch só pega falha de rede/exceção).
     try {
-      const { error } = await supabase.from('sessoes').upsert({ user_id: userId, token, updated_at: new Date().toISOString() });
+      const { error } = await supabase.from('sessoes').upsert({ user_id: userId, token, updated_at: agora });
       if (error) console.warn('[sessão única] não foi possível registrar a sessão ativa:', error.message);
     }
     catch { /* tabela sessoes ainda não criada — recurso fica inerte */ }
@@ -108,10 +111,16 @@ export function AuthProvider({ children }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sessoes', filter: `user_id=eq.${uid}` },
         (p) => {
           const novoToken = p.new?.token;
-          if (novoToken && tokenRef.current && novoToken !== tokenRef.current) {
-            setDerrubado(true);
-            supabase.auth.signOut();
-          }
+          if (!novoToken || !tokenRef.current || novoToken === tokenRef.current) return;
+          // Só cai se o outro registro for MAIS NOVO que o nosso. Sem esta
+          // comparação, recarregar a página logo depois de entrar derrubava o
+          // usuário: a aba antiga ainda estava gravando o token dela e a nova,
+          // já assinada no realtime, lia aquilo como "abriram em outro
+          // aparelho". Aparecia um aviso de segurança assustador num reload.
+          const quando = p.new?.updated_at;
+          if (quando && registradoEmRef.current && quando <= registradoEmRef.current) return;
+          setDerrubado(true);
+          supabase.auth.signOut();
         })
       .subscribe();
     return () => supabase.removeChannel(canal);

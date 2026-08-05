@@ -90,7 +90,7 @@ export function UIProvider({ children }) {
   }, [toast]);
 
   return (
-    <UIContext.Provider value={{ toast, confirm, etiquetaState, abrirEtiquetas, fecharEtiquetas }}>
+    <UIContext.Provider value={{ toast, confirm, etiquetaState, abrirEtiquetas, fecharEtiquetas, temDialogoAberto: !!confirmState || !!etiquetaState }}>
       {children}
 
       {/* Toasts */}
