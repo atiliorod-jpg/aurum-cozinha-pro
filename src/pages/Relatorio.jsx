@@ -8,6 +8,7 @@ import { saidasPorDia, topProdutosSaida, somaPorCampo, rendimentoPorFornecedor }
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem } from '../utils/relatorios';
 import { fmtData, fmtNum, hoje } from '../utils/formatters';
 import { addDias } from '../utils/datas';
+import { temRecurso } from '../utils/modulos';
 import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../components/Charts';
 
 const rotuloMotivo = (cod) => MOTIVOS_DESPERDICIO.find(m => m.cod === cod)?.label || cod;
@@ -22,7 +23,11 @@ const Card = ({ titulo, children }) => (
 );
 
 export default function Relatorio() {
-  const { produtos, compras, entradas, saidas, aparas, desperdicio, estoque, categorias, destinos, locais } = useApp();
+  const { produtos, compras, entradas, saidas, aparas, desperdicio, estoque, categorias, destinos, locais, modulo } = useApp();
+  // O estoque seco não tem apara de limpeza nem receita — esconder os blocos
+  // evita seções eternamente vazias no relatório dele.
+  const temApara = temRecurso(modulo, 'aparas');
+  const temProducao = temRecurso(modulo, 'producao');
   // destinos criados pelo usuário em Config também precisam aparecer com o nome certo
   const rotuloDestino = useCallback((cod) =>
     destinos.find(d => d.cod === cod)?.label || DESTINOS_APARA.find(d => d.cod === cod)?.label || cod, [destinos]);
@@ -145,12 +150,14 @@ export default function Relatorio() {
         </div>
         <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
           <div className="text-xl font-bold text-green-700">{entradasF.length}</div>
-          <div className="text-xs text-green-600">Entradas na produção</div>
+          <div className="text-xs text-green-600">{temProducao ? 'Entradas na produção' : 'Entradas no estoque'}</div>
         </div>
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-          <div className="text-xl font-bold text-amber-700">{fmtNum(totalAparas)}</div>
-          <div className="text-xs text-amber-600">Aparas reaproveitadas</div>
-        </div>
+        {temApara && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+            <div className="text-xl font-bold text-amber-700">{fmtNum(totalAparas)}</div>
+            <div className="text-xs text-amber-600">Aparas reaproveitadas</div>
+          </div>
+        )}
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
           <div className="text-xl font-bold text-red-600">{fmtNum(totalPerdas)}</div>
           <div className="text-xs text-red-500">Perdas ({fmtNum(perdasEstoque)} do estoque)</div>
@@ -158,6 +165,7 @@ export default function Relatorio() {
       </div>
 
       {/* Rendimento por item — chegou → aparas/perdas → % (o controle do período) */}
+      {temApara && (
       <div className="bg-white rounded-xl p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">📊 Rendimento por item</p>
         <p className="text-[11px] text-gray-500 mb-3">Quanto de cada matéria-prima chegou e quanto virou apara/perda. Rendimento = o que sobrou aproveitável.</p>
@@ -193,8 +201,10 @@ export default function Relatorio() {
           </div>
         )}
       </div>
+      )}
 
       {/* Produção por item — quanto se produziu de cada semiacabado */}
+      {temProducao && (
       <div className="bg-white rounded-xl p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">🍲 Produção por item</p>
         <p className="text-[11px] text-gray-500 mb-3">Quanto de cada item produzido saiu da cozinha no período.</p>
@@ -211,6 +221,7 @@ export default function Relatorio() {
           </ul>
         )}
       </div>
+      )}
 
       <Card titulo="📈 Saídas por dia">
         <LinhaDias dados={serieDias} />
@@ -224,10 +235,13 @@ export default function Relatorio() {
         <Donut dados={perdasPorMotivo} />
       </Card>
 
+      {temApara && (
       <Card titulo="✂️ Aparas por destino">
         <Donut dados={aparasPorDestino} />
       </Card>
+      )}
 
+      {temApara && (
       <Card titulo="🚚 Rendimento por fornecedor">
         {fornecedores.length === 0 ? (
           <p className="text-center text-gray-500 text-xs py-4">Nenhuma compra no período. Registre compras e associe aparas/perdas a elas.</p>
@@ -246,6 +260,7 @@ export default function Relatorio() {
           </div>
         )}
       </Card>
+      )}
 
       {/* Movimentação por produto */}
       <div className="bg-white rounded-xl overflow-hidden mb-4">

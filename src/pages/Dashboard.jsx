@@ -11,9 +11,10 @@ import { calcLotes, lotesVencendo } from '../utils/lotes';
 import { producoesIncompletas } from '../utils/producao';
 import { fmtNum, fmtData, hoje } from '../utils/formatters';
 import CalculadoraProducao from '../components/CalculadoraProducao';
+import { temRecurso } from '../utils/modulos';
 
 export default function Dashboard() {
-  const { produtos, setProdutos, saidas, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs } = useApp();
+  const { produtos, setProdutos, saidas, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs, modulo } = useApp();
   const { toast } = useUI();
   const navigate = useNavigate();
   const [catAtiva, setCatAtiva] = useState('TODOS');
@@ -135,7 +136,8 @@ export default function Dashboard() {
       )}
 
       {/* Calculadora rápida de produção (apoio à equipe) */}
-      <CalculadoraProducao />
+      {/* calculadora depende de receita — não existe no estoque seco */}
+      {temRecurso(modulo, 'receitas') && <CalculadoraProducao />}
 
       {/* Lista de compras (automática + manual) */}
       {(lista.length > 0 || listaManual.length > 0) && (
@@ -152,7 +154,7 @@ export default function Dashboard() {
       )}
 
       {/* Produzir hoje — receitas com produto final abaixo do mínimo */}
-      {produzirHoje.length > 0 && (
+      {temRecurso(modulo, 'producao') && produzirHoje.length > 0 && (
         <div className="mb-4">
           <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2">🍲 Produzir hoje</p>
           <div className="space-y-2">
@@ -194,7 +196,7 @@ export default function Dashboard() {
       )}
 
       {/* Produção incompleta — ingredientes baixados sem entrada do produto final */}
-      {prodIncompletas.length > 0 && (
+      {temRecurso(modulo, 'producao') && prodIncompletas.length > 0 && (
         <div className="bg-red-50 border border-red-300 rounded-xl p-3 mb-4">
           <p className="text-xs font-bold text-red-700 mb-1">⚠️ Produção incompleta detectada</p>
           <p className="text-[11px] text-red-600 mb-2">
