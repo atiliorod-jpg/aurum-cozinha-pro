@@ -36,10 +36,15 @@ export const RECURSOS_MODULO = {
   producao: {
     compras: true, entradas: true, saidas: true, producao: true,
     aparas: true, inventario: true, etiquetas: true, receitas: true, listaCompras: true,
+    // câmara fria: o item entra congelado OU resfriado, e cada um tem prazo próprio
+    armazenamento: true,
   },
   seco: {
     compras: true, entradas: true, saidas: true, producao: false,
     aparas: false, inventario: true, etiquetas: true, receitas: false, listaCompras: true,
+    // despensa é temperatura ambiente: não existe "congelado/resfriado" aqui, e
+    // a validade é UM prazo de prateleira só (o do fabricante).
+    armazenamento: false,
   },
 };
 

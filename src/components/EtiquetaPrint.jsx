@@ -6,6 +6,7 @@ import { useApp } from '../store/AppContext';
 import ResponsavelSelect from './ResponsavelSelect';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta } from '../utils/etiquetas';
 import { hoje, fmtHora } from '../utils/formatters';
+import { temRecurso } from '../utils/modulos';
 
 // Tamanho impresso do QR, calculado a partir do NÚMERO DE MÓDULOS do código.
 //
@@ -102,7 +103,9 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao } = useAuth();
-  const { prefs, produtos } = useApp();
+  const { prefs, produtos, modulo } = useApp();
+  // despensa não tem congelado/resfriado: a etiqueta do seco não pergunta isso
+  const comArmazenamento = temRecurso(modulo, 'armazenamento');
   const config = configEtiqueta(prefs);
   const estabelecimento = prefs.estabelecimento || {};
 
@@ -171,6 +174,9 @@ export default function EtiquetaPrint() {
   // `diasCongelado`/`diasResfriado` e o prazo acompanha o armazenamento escolhido.
   const camposDe = (item) => {
     const dias = item.diasValidade != null ? item.diasValidade
+      // sem câmara fria (despensa): o prazo de prateleira é único e fica em
+      // diasCongelado. Sem esta linha a etiqueta do seco saía SEM validade.
+      : !comArmazenamento ? (item.diasCongelado || 0)
       : item.armazenamento === 'congelado' ? (item.diasCongelado || 0)
       : item.armazenamento === 'resfriado' ? (item.diasResfriado || 0)
       : 0;
@@ -289,7 +295,7 @@ export default function EtiquetaPrint() {
                       <input type="date" value={item.dataFabricacao} max={hoje()}
                         onChange={e => setItem(idx, { dataFabricacao: e.target.value })} className={inputCls} />
                     </div>
-                    {item.armazenamento !== null ? (
+                    {comArmazenamento && item.armazenamento !== null ? (
                       <div>
                         <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">Armazenamento</label>
                         <select value={item.armazenamento || 'congelado'}
@@ -308,7 +314,7 @@ export default function EtiquetaPrint() {
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {item.armazenamento !== null && (
+                    {comArmazenamento && item.armazenamento !== null && (
                       <div>
                         <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
                         <input type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}

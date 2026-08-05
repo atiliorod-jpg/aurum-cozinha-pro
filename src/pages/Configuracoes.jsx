@@ -537,7 +537,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
   );
 }
 
-function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
+function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comArmazenamento = true }) {
   const [form, setForm] = useState(() => produto
     ? {
         ...produto,
@@ -645,27 +645,44 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        {/* Câmara fria tem dois prazos (congelado/resfriado); despensa tem um só. */}
+        {comArmazenamento ? (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="mp-val-congelado" className="block text-xs font-semibold text-gray-600 mb-1">
+                ❄️ Validade congelado (dias)
+              </label>
+              <input id="mp-val-congelado" type="number" inputMode="numeric" min="0" value={form.valCongelado}
+                onChange={e => set('valCongelado', e.target.value)}
+                placeholder="0 = sem controle"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label htmlFor="mp-val-resfriado" className="block text-xs font-semibold text-gray-600 mb-1">
+                🧊 Validade resfriado (dias)
+              </label>
+              <input id="mp-val-resfriado" type="number" inputMode="numeric" min="0" value={form.valResfriado}
+                onChange={e => set('valResfriado', e.target.value)}
+                placeholder="0 = sem controle"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+          </div>
+        ) : (
           <div>
             <label htmlFor="mp-val-congelado" className="block text-xs font-semibold text-gray-600 mb-1">
-              ❄️ Validade congelado (dias)
+              📦 Prazo de prateleira (dias)
             </label>
             <input id="mp-val-congelado" type="number" inputMode="numeric" min="0" value={form.valCongelado}
               onChange={e => set('valCongelado', e.target.value)}
-              placeholder="0 = sem controle"
+              placeholder="0 = sem controle (ex.: descartáveis)"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
-          <div>
-            <label htmlFor="mp-val-resfriado" className="block text-xs font-semibold text-gray-600 mb-1">
-              🧊 Validade resfriado (dias)
-            </label>
-            <input id="mp-val-resfriado" type="number" inputMode="numeric" min="0" value={form.valResfriado}
-              onChange={e => set('valResfriado', e.target.value)}
-              placeholder="0 = sem controle"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          </div>
-        </div>
-        <p className="text-xs text-gray-500 -mt-2">Ao registrar uma entrada, o vencimento é calculado sozinho com esses prazos. 0 = sem controle de validade.</p>
+        )}
+        <p className="text-xs text-gray-500 -mt-2">
+          {comArmazenamento
+            ? 'Ao registrar uma entrada, o vencimento é calculado sozinho com esses prazos. 0 = sem controle de validade.'
+            : 'Validade do fabricante, em dias a partir da entrada. Use 0 em item que não vence (descartáveis, limpeza).'}
+        </p>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -2041,7 +2058,7 @@ ${linkConvite(conviteGerado.token)}
       </>}
 
       {(editando || criando) && (
-        <ModalProduto
+        <ModalProduto comArmazenamento={temRecurso(modulo, 'armazenamento')}
           produto={editando}
           sugestao={editando ? sugestoes[editando.id] : null}
           categorias={categorias}

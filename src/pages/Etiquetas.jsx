@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
+import { temRecurso } from '../utils/modulos';
 
 // Guia de configuração de impressora — escolhe a situação e mostra o passo a
 // passo com links de download. Imprimível (o print CSS global já esconde
@@ -104,7 +105,7 @@ function GuiaImpressora() {
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
 export default function Etiquetas() {
-  const { produtos, categorias, etiquetasAvulsas, setEtiquetasAvulsas, prefs } = useApp();
+  const { produtos, categorias, etiquetasAvulsas, setEtiquetasAvulsas, prefs, modulo } = useApp();
   const { abrirEtiquetas, toast, confirm } = useUI();
 
   const [tab, setTab] = useState('catalogo'); // 'catalogo' | 'avulsas'
@@ -125,7 +126,8 @@ export default function Etiquetas() {
     nome: p.nome,
     tipoData: 'fabricacao',
     dataFabricacao: hoje(),
-    armazenamento: 'congelado',
+    // na despensa não existe congelado/resfriado — sem rótulo de armazenamento
+    armazenamento: temRecurso(modulo, 'armazenamento') ? 'congelado' : null,
     diasCongelado: p.valCongelado || 0,
     diasResfriado: p.valResfriado || 0,
     responsavel: prefs.responsavel || '',

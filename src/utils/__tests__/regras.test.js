@@ -793,3 +793,30 @@ describe('outbox — erro definitivo não fica retentando', () => {
     expect(ehErroDefinitivo(undefined)).toBe(false);
   });
 });
+
+describe('módulos — despensa não tem câmara fria', () => {
+  it('produção distingue congelado/resfriado; seco não', () => {
+    expect(temRecurso('producao', 'armazenamento')).toBe(true);
+    expect(temRecurso('seco', 'armazenamento')).toBe(false);
+  });
+
+  it('no seco a validade sai do prazo único de prateleira', () => {
+    // Sem câmara fria o prazo do fabricante fica em valCongelado (campo único
+    // na tela "Prazo de prateleira"). A etiqueta precisa usá-lo mesmo sem
+    // rótulo de armazenamento — antes disso ela saía SEM validade.
+    const campos = montarCamposEtiqueta({
+      nome: 'Arroz tipo 1', dataFabricacao: '2026-08-05',
+      diasValidade: 365, armazenamento: null,
+    });
+    expect(campos.validade).toBe('2027-08-05');
+    expect(campos.armazenamentoLabel).toBe(''); // sem CONGELADO/RESFRIADO na etiqueta
+  });
+
+  it('item de despensa sem prazo (descartável) não ganha validade', () => {
+    const campos = montarCamposEtiqueta({
+      nome: 'Guardanapo', dataFabricacao: '2026-08-05', diasValidade: 0, armazenamento: null,
+    });
+    expect(campos.validade).toBeNull();
+    expect(campos.validadeFmt).toBe('');
+  });
+});
