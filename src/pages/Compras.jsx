@@ -9,12 +9,23 @@ import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
 import { listaDeCompras, agruparListaPorMateriaPrima, fcEfetivo, preparacoesDoItem } from '../utils/analise';
 
+// Faixas de boas práticas no recebimento. Não bloqueia nada — só avisa, porque
+// a decisão de aceitar ou recusar a carga é de quem está na doca.
+const avisoTemp = (v) => {
+  const t = parseFloat(v);
+  if (isNaN(t)) return '';
+  if (t <= -12) return '';                                   // congelado ok
+  if (t >= 0 && t <= 7) return '';                            // resfriado ok
+  if (t > -12 && t < 0) return '⚠️ Congelado deve chegar a −12 °C ou menos. Registre a ocorrência.';
+  return '⚠️ Acima de 7 °C: fora da faixa de resfriado. Confira com o fornecedor antes de aceitar.';
+};
+
 export default function Compras() {
   const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
   const location = useLocation();
   const [form, setForm] = useState({
-    data: hoje(), fornecedor: '', item: '', quantidade: '', unidade: 'kg', responsavel: prefs.responsavel || '',
+    data: hoje(), fornecedor: '', item: '', quantidade: '', unidade: 'kg', responsavel: prefs.responsavel || '', temperatura: '',
   });
   const [tab, setTab] = useState(location.state?.tab === 'lista' ? 'lista' : 'novo'); // novo | lista
   const [fornecedorAuto, setFornecedorAuto] = useState(false);
@@ -504,6 +515,24 @@ export default function Compras() {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+
+            {/* Temperatura de recebimento: exigência de boas práticas (RDC 216) e
+                a primeira coisa que um fiscal pergunta. Opcional para não travar
+                quem recebe item seco/descartável. */}
+            <div>
+              <label htmlFor="cmp-temp" className="block text-xs font-semibold text-gray-600 mb-1">
+                🌡️ Temperatura no recebimento (°C) — opcional
+              </label>
+              <input id="cmp-temp" type="number" inputMode="decimal" step="0.1" value={form.temperatura}
+                onChange={e => set('temperatura', e.target.value)}
+                placeholder="Ex.: -18 congelado, 4 resfriado"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+              {form.temperatura !== '' && !isNaN(parseFloat(form.temperatura)) && (
+                <p className={`text-[11px] mt-1 ${avisoTemp(form.temperatura) ? 'text-orange-700 bg-orange-50 rounded-lg px-2 py-1' : 'text-green-700'}`}>
+                  {avisoTemp(form.temperatura) || '✔ Dentro da faixa esperada.'}
+                </p>
               )}
             </div>
 

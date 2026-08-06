@@ -65,11 +65,11 @@ export default function Layout({ title, children, actions }) {
             <div className="flex items-center gap-1.5">
               <BotaoFeedback />
               {pode(sessao, permissoes, 'verAuditoria') && (
-                <Link to="/auditoria" aria-label="Histórico de mudanças" title="Histórico de mudanças"
+                <Link to="/auditoria" aria-label="Trilha de auditoria — quem mexeu em quê" title="Trilha de auditoria — quem mexeu em quê"
                   className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
                              focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
                   <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><Icon name="historico" size={17} /></span>
-                  <span className="text-[8px] leading-none font-semibold text-white/70">Histórico</span>
+                  <span className="text-[8px] leading-none font-semibold text-white/70">Auditoria</span>
                 </Link>
               )}
               <button onClick={sair} aria-label={`${nomeExibicao} — sair`} title={`${nomeExibicao} — sair`}

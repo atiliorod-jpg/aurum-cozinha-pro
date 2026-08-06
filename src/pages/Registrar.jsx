@@ -38,6 +38,7 @@ const SECOES = [
     acoes: [
       { to: '/etiquetas', emoji: '🏷️', titulo: 'Etiquetas', recurso: 'etiquetas', desc: 'Imprimir etiquetas do estoque ou avulsas' },
       { to: '/validades', emoji: '⏰', titulo: 'Validades', desc: 'O que vence hoje, em 3 dias, ou já venceu' },
+      { to: '/historico', emoji: '📋', titulo: 'Histórico geral', desc: 'Tudo que foi registrado, de todas as telas, num lugar só' },
     ],
   },
   {

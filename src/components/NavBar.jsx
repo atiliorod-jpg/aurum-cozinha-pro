@@ -8,7 +8,10 @@ import Icon from './Icons';
 const NAV = [
   { to: '/',              icon: 'inicio',    label: 'Início' },
   { to: '/registrar',     icon: 'registrar', label: 'Registrar' },
-  { to: '/historico',     icon: 'historico', label: 'Histórico' },
+  // "O que vence hoje" é a pergunta mais repetida de uma cozinha — merece a
+  // barra, não um card dentro de Registrar. O histórico geral saiu daqui: cada
+  // tela já tem a aba "📋 Histórico" dela, e ele continua no hub Registrar.
+  { to: '/validades',     icon: 'etiqueta',  label: 'Validades' },
   { to: '/relatorio',     icon: 'relatorio', label: 'Relatório', cap: 'verRelatorio' },
   { to: '/configuracoes', icon: 'config',    label: 'Config.',   cap: 'config' },
 ];
