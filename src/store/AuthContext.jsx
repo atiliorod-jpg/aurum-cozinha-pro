@@ -76,6 +76,10 @@ export function AuthProvider({ children }) {
       setSessao({
         usuarioId:        userId,
         email,
+        // Acesso revogado pela gerência. O banco também barra (migração 18
+        // fez meu_restaurante_id() ignorar quem está inativo), mas sem isto
+        // a pessoa entrava numa tela vazia sem entender o porquê.
+        desativado:       perfil.ativo === false,
         nome:             perfil.nome,
         cargo:            perfil.cargo,
         restauranteId:    perfil.restaurante_id,

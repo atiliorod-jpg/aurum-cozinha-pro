@@ -15,7 +15,7 @@ const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
 export default function Layout({ title, children, actions }) {
   const { sessao, logout } = useAuth();
-  const { pendencias, online, prefs, modulo } = useApp();
+  const { pendencias, online, modulo, permissoes } = useApp();
   const mod = moduloPorId(modulo);
   const [trocandoModulo, setTrocandoModulo] = useState(false);
   const { confirm } = useUI();
@@ -64,7 +64,7 @@ export default function Layout({ title, children, actions }) {
           {sessao && (
             <div className="flex items-center gap-1.5">
               <BotaoFeedback />
-              {pode(sessao, prefs?.permissoes, 'verAuditoria') && (
+              {pode(sessao, permissoes, 'verAuditoria') && (
                 <Link to="/auditoria" aria-label="Histórico de mudanças" title="Histórico de mudanças"
                   className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
                              focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">

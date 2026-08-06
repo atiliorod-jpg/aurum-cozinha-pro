@@ -9,12 +9,11 @@ import { pode } from '../utils/permissoes';
 
 export default function Historico() {
   const {
-    produtos, compras, entradas, saidas, aparas, desperdicio, locais, prefs,
+    produtos, compras, entradas, saidas, aparas, desperdicio, locais,
     removeCompra, removeEntrada, removeSaida, removeApara, removeDesperdicio,
-    restaurarRegistro,
-  } = useApp();
+    restaurarRegistro, permissoes } = useApp();
   const { sessao } = useAuth();
-  const podeRemover = pode(sessao, prefs?.permissoes, 'removerRegistros');
+  const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   const { toast, confirm, abrirEtiquetas } = useUI();
   const destNome = (v) => v === 'producao' ? '🍲 Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [filtro, setFiltro] = useState('todas');

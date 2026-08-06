@@ -1007,3 +1007,27 @@ describe('módulos — regressões da auditoria', () => {
     });
   });
 });
+
+describe('mediaDiariaSaidas — média por PRODUTO, não do restaurante', () => {
+  it('produto novo não é diluído pelo histórico da casa', () => {
+    // Regressão: a casa tem 60 dias de uso e cadastra "Camarão", que vende
+    // 10/dia por 3 dias. Antes o divisor era o histórico do restaurante (15),
+    // dando média 2/dia — previsão de ruptura 5× otimista e mín/máx baixo.
+    const ref = '2026-06-30';
+    const saidas = [];
+    for (let i = 0; i < 60; i++) saidas.push({ data: addDias(ref, -i), itens: [{ produtoId: 'antigo', quantidade: 1 }] });
+    for (let i = 0; i < 3; i++) saidas.push({ data: addDias(ref, -i), itens: [{ produtoId: 'novo', quantidade: 10 }] });
+    const m = mediaDiariaSaidas(saidas, ref);
+    expect(m.novo).toBeCloseTo(10, 5);
+    expect(m.antigo).toBeCloseTo(1, 5);
+  });
+
+  it('item com menos de 3 dias de saída fica de fora (pouca base)', () => {
+    const ref = '2026-06-30';
+    const saidas = [
+      { data: ref, itens: [{ produtoId: 'estreante', quantidade: 8 }] },
+      { data: addDias(ref, -1), itens: [{ produtoId: 'estreante', quantidade: 8 }] },
+    ];
+    expect(mediaDiariaSaidas(saidas, ref).estreante).toBeUndefined();
+  });
+});

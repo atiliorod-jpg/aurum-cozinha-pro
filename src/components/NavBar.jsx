@@ -14,7 +14,7 @@ const NAV = [
 ];
 
 export default function NavBar() {
-  const { produtos, estoque, producoes, prefs } = useApp();
+  const { produtos, estoque, producoes, permissoes } = useApp();
   const { sessao } = useAuth();
   const alertas = produtos.filter(p => {
     const s = statusEstoque(estoque[p.id] ?? 0, p.min, p.max);
@@ -28,8 +28,8 @@ export default function NavBar() {
 
   const itens = NAV.filter(n => {
     if (!n.cap) return true;
-    if (n.cap === 'config') return podeAbrirConfig(sessao, prefs?.permissoes);
-    return pode(sessao, prefs?.permissoes, n.cap);
+    if (n.cap === 'config') return podeAbrirConfig(sessao, permissoes);
+    return pode(sessao, permissoes, n.cap);
   });
 
   return (

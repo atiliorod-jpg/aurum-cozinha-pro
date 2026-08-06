@@ -4,7 +4,7 @@
 //  Modelo: a DIRETORIA (quem cria o restaurante já entra assim) e o
 //  super-admin SEMPRE podem tudo. Para "cozinha" e "gerência", a diretoria
 //  liga/desliga capacidades numa matriz em Config → Acessos. O resultado
-//  fica em prefs.permissoes (sincroniza pela nuvem, como as demais prefs).
+//  fica em permissoes (sincroniza pela nuvem, como as demais prefs).
 //
 //  IMPORTANTE (honestidade de segurança): isto é uma trava de INTERFACE —
 //  organiza a equipe e evita acidentes num time pequeno e de confiança.
@@ -29,7 +29,7 @@ export const CAPACIDADES = [
 ];
 
 // Padrão por cargo — reproduz EXATAMENTE o modelo hierárquico anterior
-// (cozinha operacional; gerência com gestão). Se prefs.permissoes não trouxer
+// (cozinha operacional; gerência com gestão). Se permissoes não trouxer
 // uma chave, cai aqui — então bancos/contas antigas não mudam de comportamento.
 export const PERMISSOES_PADRAO = {
   cozinha: {

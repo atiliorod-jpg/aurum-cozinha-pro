@@ -1,15 +1,21 @@
 import { useState, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+import { pode } from '../utils/permissoes';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
 import LeitorQR from '../components/LeitorQR';
 import { lerLoteIdDoQR } from '../utils/etiquetas';
 
 export default function Inventario() {
-  const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref, etiquetasImpressas } = useApp();
+  const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref, etiquetasImpressas, permissoes } = useApp();
   const { toast, confirm } = useUI();
+  const { sessao } = useAuth();
+  // Mesma trava do Histórico: sem isto o cozinheiro não via 'Remover' lá, mas
+  // via aqui — a permissão existia numa porta e faltava nas outras quatro.
+  const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [contagem, setContagem] = useState({});
@@ -218,6 +224,7 @@ export default function Inventario() {
                     {fmtData(sessao.data)} {sessao.hora && `• ${sessao.hora}`} {sessao.responsavel && `• ${sessao.responsavel}`}
                   </div>
                 </div>
+                {podeRemover && (
                 <button onClick={async () => {
                   const ok = await confirm({ titulo: 'Remover contagem', mensagem: `Remover todos os ${sessao.itens.length} ajustes desta contagem?`, perigo: true, confirmar: 'Remover' });
                   if (ok) {
@@ -226,6 +233,7 @@ export default function Inventario() {
                   }
                 }} aria-label="Remover esta contagem"
                   className="text-red-500 text-lg font-semibold ml-2 min-w-11 min-h-11 flex items-center justify-center flex-shrink-0">×</button>
+                )}
               </div>
               {sessao.itens.map(aj => {
                 const p = produtos.find(x => x.id === aj.produtoId);

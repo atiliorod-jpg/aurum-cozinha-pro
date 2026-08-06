@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+import { pode } from '../utils/permissoes';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
@@ -10,8 +12,12 @@ import { calcLotes } from '../utils/lotes';
 
 
 export default function Saidas() {
-  const { produtos, addSaida, saidas, removeSaida, restaurarRegistro, estoque, entradas, desperdicio, categorias, locais, prefs, setPref } = useApp();
+  const { produtos, addSaida, saidas, removeSaida, restaurarRegistro, estoque, entradas, desperdicio, categorias, locais, prefs, setPref, permissoes } = useApp();
   const { toast, confirm } = useUI();
+  const { sessao } = useAuth();
+  // Mesma trava do Histórico: sem isto o cozinheiro não via 'Remover' lá, mas
+  // via aqui — a permissão existia numa porta e faltava nas outras quatro.
+  const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   // rótulo do destino (inclui a saída interna de produção)
   const rotuloDestino = (v) => v === 'producao' ? '🍲 Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [data, setData] = useState(hoje());
@@ -277,6 +283,7 @@ export default function Saidas() {
                     <div className="text-xs font-semibold text-polo-navy">{rotuloDestino(s.destino)}</div>
                     {s.responsavel && <div className="text-xs text-gray-500">Por: {s.responsavel}</div>}
                   </div>
+                  {podeRemover && (
                   <button onClick={async () => {
                       const ok = await confirm({ titulo: 'Remover saída', mensagem: 'Remover esta saída? O estoque será recalculado.', perigo: true, confirmar: 'Remover' });
                       if (ok) {
@@ -287,6 +294,7 @@ export default function Saidas() {
                     className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">
                     Remover
                   </button>
+                  )}
                 </div>
                 {s.itens.map(item => {
                   const p = produtos.find(x => x.id === item.produtoId);

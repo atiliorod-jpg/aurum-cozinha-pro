@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+import { pode } from '../utils/permissoes';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { hoje, fmtData, fmtHora } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
@@ -9,8 +11,12 @@ import { validarDataRegistro, addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
 
 export default function Entradas() {
-  const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo } = useApp();
+  const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo, permissoes } = useApp();
   const { toast, confirm, abrirEtiquetas } = useUI();
+  const { sessao } = useAuth();
+  // Mesma trava do Histórico: sem isto o cozinheiro não via 'Remover' lá, mas
+  // via aqui — a permissão existia numa porta e faltava nas outras quatro.
+  const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [obs, setObs] = useState('');
@@ -268,6 +274,7 @@ export default function Entradas() {
                   <div className="font-semibold text-sm">{fmtData(e.data)} {e.hora && `• ${e.hora}`}</div>
                   {e.responsavel && <div className="text-xs text-gray-500">Por: {e.responsavel}</div>}
                 </div>
+                {podeRemover && (
                 <button onClick={async () => {
                     const ok = await confirm({ titulo: 'Remover entrada', mensagem: 'Remover esta entrada? O estoque será recalculado.', perigo: true, confirmar: 'Remover' });
                     if (ok) {
@@ -278,6 +285,7 @@ export default function Entradas() {
                   className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">
                   Remover
                 </button>
+                )}
               </div>
               {e.itens.map(item => {
                 const p = produtos.find(x => x.id === item.produtoId);

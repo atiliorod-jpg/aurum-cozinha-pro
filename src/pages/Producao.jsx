@@ -11,9 +11,9 @@ import { planejarProducao } from '../utils/producao';
 import { pode } from '../utils/permissoes';
 
 export default function Producao() {
-  const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref } = useApp();
+  const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref, permissoes } = useApp();
   const { sessao } = useAuth();
-  const podeCriarFicha = pode(sessao, prefs?.permissoes, 'gerenciarProdutos');
+  const podeCriarFicha = pode(sessao, permissoes, 'gerenciarProdutos');
   const { toast, confirm, abrirEtiquetas } = useUI();
 
   const [searchParams] = useSearchParams();

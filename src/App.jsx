@@ -101,10 +101,10 @@ function Rotas() {
     try { return !!localStorage.getItem('pe::modulo'); } catch { return true; }
   });
   const { toast } = useUI();
-  const { prefs, modulo } = useApp();
+  const { modulo, permissoes } = useApp();
   // Capacidade configurável (matriz de permissões da diretoria) — diretoria e
-  // super-admin sempre podem; cozinha/gerência seguem prefs.permissoes.
-  const can = (cap) => pode(sessao, prefs?.permissoes, cap);
+  // super-admin sempre podem; cozinha/gerência seguem permissoes.
+  const can = (cap) => pode(sessao, permissoes, cap);
 
   // Boas-vindas (flag gravada no cadastro/aceite de convite, antes da sessão montar)
   useEffect(() => {
@@ -140,6 +140,24 @@ function Rotas() {
     );
   }
   if (!sessao) return <Login />;
+
+  // Acesso revogado: some do app com explicação, em vez de deixar a pessoa
+  // navegando numa conta que o banco recusa em toda operação.
+  if (sessao.desativado) {
+    return (
+      <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="text-4xl">🔒</p>
+        <p className="text-polo-gold font-bold text-lg">Acesso desativado</p>
+        <p className="text-white/80 text-sm max-w-xs">
+          O seu acesso a este restaurante foi desativado pela gerência. Fale com a diretoria
+          se precisar voltar a usar o sistema.
+        </p>
+        <button onClick={logout} className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
+          Sair
+        </button>
+      </div>
+    );
+  }
 
   // Conta autenticada mas sem perfil/cargo (cadastro interrompido).
   // Super-admin é exceção: acessa o painel mesmo sem restaurante próprio.
@@ -224,7 +242,7 @@ function Rotas() {
       <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
       <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
-      <Route path="/configuracoes" element={podeAbrirConfig(sessao, prefs?.permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
+      <Route path="/configuracoes" element={podeAbrirConfig(sessao, permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
       </Routes>
       </Suspense>

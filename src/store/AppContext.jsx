@@ -36,6 +36,10 @@ const CAT = {
   // TODOS a cada abertura do app — milhares de etiquetas ali dentro deixariam
   // o start lento no tablet. Aqui o histórico é podado (ver podarEtiquetas).
   etiquetasImpressas: [],
+  // Matriz de permissões da equipe. Chave PRÓPRIA (não dentro de prefs) porque
+  // a migração 18 só deixa a DIRETORIA gravar `permissoes` — dentro de prefs
+  // qualquer membro reescrevia a matriz que o restringia.
+  permissoes: {},
   prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
 
@@ -93,6 +97,7 @@ export function AppProvider({ children }) {
   const [listaManual, setListaManualRaw] = useState(CAT.listaManual);
   const [etiquetasAvulsas, setEtiquetasAvulsasRaw] = useState(CAT.etiquetasAvulsas);
   const [etiquetasImpressas, setEtiquetasImpressasRaw] = useState(CAT.etiquetasImpressas);
+  const [permissoes, setPermissoesRaw] = useState(CAT.permissoes);
   const [prefs,       setPrefsRaw]       = useState(CAT.prefs);
   const [compras,     setComprasRaw]     = useState([]);
   const [entradas,    setEntradasRaw]    = useState([]);
@@ -184,10 +189,15 @@ export function AppProvider({ children }) {
       return next;
     });
     if (!nuvemDe(r)) return;
-    const row = { id: reg.id, restaurante_id: r, tipo: 'auditoria', ts: reg.ts, dados: semIdTs(reg), deleted: false };
-    supabase.from('registros').insert(row).then(({ error }) => {
-      if (error) outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
-    });
+    // A trilha é gravada por RPC (migração 18): o `usuario`/`cargo` da linha
+    // definitiva vem do BANCO, não daqui. Antes a linha era montada no
+    // navegador e dava para forjar uma entrada assinada pela diretoria — e,
+    // como a policy proíbe apagar auditoria, ninguém conseguia removê-la.
+    // O objeto local acima continua valendo só para a tela responder na hora.
+    supabase.rpc('registrar_auditoria', { p_acao: acao, p_detalhe: detalhe || null })
+      .then(({ error }) => {
+        if (error) outboxAdd(r, { kind: 'auditoria', op: 'rpc', payload: { acao, detalhe: detalhe || null } });
+      });
   }, []);
 
   // ── Catálogos (documentos JSONB, 1 linha por lista) ────────
@@ -243,6 +253,7 @@ export function AppProvider({ children }) {
   const setListaManual = useCallback((v) => persistCatalogo('listaManual', setListaManualRaw, v), [persistCatalogo]);
   const setEtiquetasAvulsas = useCallback((v) => persistCatalogo('etiquetasAvulsas', setEtiquetasAvulsasRaw, v), [persistCatalogo]);
   const setEtiquetasImpressas = useCallback((v) => persistCatalogo('etiquetasImpressas', setEtiquetasImpressasRaw, v), [persistCatalogo]);
+  const setPermissoes = useCallback((v) => persistCatalogo('permissoes', setPermissoesRaw, v), [persistCatalogo]);
 
   const setPref = useCallback((chave, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -493,6 +504,7 @@ export function AppProvider({ children }) {
     setListaManualRaw(cacheGet(rid, k('listaManual'), P.listaManual));
     setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), P.etiquetasAvulsas));
     setEtiquetasImpressasRaw(cacheGet(rid, k('etiquetasImpressas'), P.etiquetasImpressas));
+    setPermissoesRaw(cacheGet(rid, 'permissoes', {}));
     // prefs = restaurante (nuvem) + aparelho (local), mescladas. NÃO é por
     // módulo: etiqueta, estabelecimento e responsável valem para a conta toda.
     setPrefsRaw({ ...cacheGet(rid, 'prefs', P.prefs), ...cacheGet(rid, '_prefs_device', {}) });
@@ -541,6 +553,10 @@ export function AppProvider({ children }) {
               error = eRpc;
             }
           }
+          else if (item.kind === 'auditoria' && item.op === 'rpc')
+            ({ error } = await supabase.rpc('registrar_auditoria', {
+              p_acao: item.payload?.acao, p_detalhe: item.payload?.detalhe ?? null,
+            }));
           else if (item.kind === 'clearAll')
             ({ error } = await supabase.from('registros').update({ deleted: true }).eq('restaurante_id', rid).neq('tipo', 'auditoria'));
           // sucesso → sai da fila; falha → conta a tentativa (vira morto no limite)
@@ -593,6 +609,13 @@ export function AppProvider({ children }) {
         aplicaCat(k('listaManual'), setListaManualRaw, P.listaManual);
         aplicaCat(k('etiquetasAvulsas'), setEtiquetasAvulsasRaw, P.etiquetasAvulsas);
         aplicaCat(k('etiquetasImpressas'), setEtiquetasImpressasRaw, P.etiquetasImpressas);
+        // Compatibilidade: contas antigas têm a matriz dentro de prefs. Lê de lá
+        // enquanto a chave nova não existir — sem exigir migração de dados.
+        if (mapa['permissoes'] !== undefined) {
+          setPermissoesRaw(mapa['permissoes']); cacheSet(rid, 'permissoes', mapa['permissoes']);
+        } else if (mapa['prefs']?.permissoes) {
+          setPermissoesRaw(mapa['prefs'].permissoes); cacheSet(rid, 'permissoes', mapa['prefs'].permissoes);
+        }
         // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
         if (!docsPendentes.has('prefs')) {
           const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
@@ -664,6 +687,7 @@ export function AppProvider({ children }) {
       produtos: setProdutosRaw, categorias: setCategoriasRaw,
       destinos: setDestinosRaw, fichas: setFichasRaw, producoes: setProducoesRaw, locais: setLocaisRaw, listaManual: setListaManualRaw,
       etiquetasAvulsas: setEtiquetasAvulsasRaw, etiquetasImpressas: setEtiquetasImpressasRaw,
+      permissoes: setPermissoesRaw,
     };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
@@ -840,6 +864,7 @@ export function AppProvider({ children }) {
       listaManual, setListaManual,
       etiquetasAvulsas, setEtiquetasAvulsas,
       etiquetasImpressas, setEtiquetasImpressas,
+      permissoes, setPermissoes,
       destinos, setDestinos,
       categorias, setCategorias,
       auditoria, logAudit,

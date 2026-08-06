@@ -59,9 +59,9 @@ const SECOES = [
 ];
 
 export default function Registrar() {
-  const { prefs, modulo } = useApp();
+  const { modulo, permissoes } = useApp();
   const { sessao } = useAuth();
-  const podeAcao = (a) => !a.cap || pode(sessao, prefs?.permissoes, a.cap);
+  const podeAcao = (a) => !a.cap || pode(sessao, permissoes, a.cap);
   // esconde o que não existe no módulo aberto (o seco não tem receita nem apara)
   const noModulo = (a) => !a.recurso || temRecurso(modulo, a.recurso);
   const texto = (a) => (modulo !== MODULO_PADRAO && a.descSeco) ? a.descSeco : a.desc;

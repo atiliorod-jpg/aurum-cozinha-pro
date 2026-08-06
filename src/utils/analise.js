@@ -10,19 +10,31 @@ const DIA_MS = 86400000;
  */
 export function mediaDiariaSaidas(saidas, ref = hoje(), janelaDias = 15) {
   if (!saidas.length) return {};
-  const primeira = saidas.reduce((m, s) => (s.data < m ? s.data : m), saidas[0].data);
-  const diasObservados = Math.min(janelaDias, Math.round((new Date(ref) - new Date(primeira)) / DIA_MS) + 1);
-  if (diasObservados < 3) return {};
   const inicio = new Date(new Date(ref).getTime() - (janelaDias - 1) * DIA_MS).toISOString().slice(0, 10);
+
+  // Total E primeira saída POR PRODUTO. Dividir todo mundo pelo histórico do
+  // restaurante diluía item novo: numa casa com 60 dias de uso, um produto que
+  // vendeu 10/dia por 3 dias virava média 2/dia — e daí saía previsão de
+  // ruptura errada, sugestão de mín/máx baixa e, com o auto-mín/máx ligado, o
+  // app sobrescrevia sozinho o valor correto que o dono tinha cadastrado.
   const tot = {};
+  const desde = {};
   saidas.forEach(s => {
-    if (s.data < inicio || s.data > ref) return;
+    if (!s.data || s.data < inicio || s.data > ref) return;
     (s.itens || []).forEach(it => {
-      tot[it.produtoId] = (tot[it.produtoId] || 0) + num(it.quantidade);
+      const q = num(it.quantidade);
+      if (!q) return;
+      tot[it.produtoId] = (tot[it.produtoId] || 0) + q;
+      if (!desde[it.produtoId] || s.data < desde[it.produtoId]) desde[it.produtoId] = s.data;
     });
   });
+
   const m = {};
-  Object.entries(tot).forEach(([id, t]) => { m[id] = t / diasObservados; });
+  Object.entries(tot).forEach(([id, t]) => {
+    const dias = Math.min(janelaDias, Math.round((new Date(ref) - new Date(desde[id])) / DIA_MS) + 1);
+    if (dias < 3) return; // pouco histórico DAQUELE item — não arrisca uma média
+    m[id] = t / dias;
+  });
   return m;
 }
 

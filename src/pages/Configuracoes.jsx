@@ -938,7 +938,7 @@ export default function Configuracoes() {
   const { produtos, setProdutos, saidas, limparTudo, resetarProdutos, exportarBackup, importarBackup,
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref,
-          compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo } = useApp();
+          compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo, permissoes } = useApp();
   const { usuarios, sessao, criarConvite, alterarCargo, convites, carregarConvites, revogarConvite,
           desativarUsuario, reativarUsuario } = useAuth();
   const { toast, confirm } = useUI();
@@ -946,15 +946,15 @@ export default function Configuracoes() {
 
   // Capacidades da sessão atual (matriz de permissões). Diretoria/super-admin = tudo.
   const subgruposExistentes = [...new Set(produtos.map(p => (p.subgrupo || '').trim()).filter(Boolean))].sort();
-  const podeProdutos = pode(sessao, prefs?.permissoes, 'gerenciarProdutos');
-  const podeSistema  = pode(sessao, prefs?.permissoes, 'configurarSistema');
-  const podeInventario = pode(sessao, prefs?.permissoes, 'inventario');
-  const podeAuditoria  = pode(sessao, prefs?.permissoes, 'verAuditoria');
+  const podeProdutos = pode(sessao, permissoes, 'gerenciarProdutos');
+  const podeSistema  = pode(sessao, permissoes, 'configurarSistema');
+  const podeInventario = pode(sessao, permissoes, 'inventario');
+  const podeAuditoria  = pode(sessao, permissoes, 'verAuditoria');
   const eDiretoria = sessao?.eSuperAdmin || sessao?.cargo === 'diretoria';
   // Só gerência+ mexe em acessos (convites/cargos); a matriz de permissões é só diretoria.
   const podeAcessos = eDiretoria || sessao?.cargo === 'gerencia';
   // Matriz de permissões efetiva (padrão + o que a diretoria ajustou)
-  const permMatriz = permissoesEfetivas(prefs?.permissoes);
+  const permMatriz = permissoesEfetivas(permissoes);
   const togglePermissao = (cargo, cap, valor) => {
     const nova = { ...permMatriz, [cargo]: { ...permMatriz[cargo], [cap]: valor } };
     setPref('permissoes', nova);

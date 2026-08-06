@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+import { pode } from '../utils/permissoes';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import OrigemCorrecao from '../components/OrigemCorrecao';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
-import { hoje, fmtData, fmtHora } from '../utils/formatters';
+import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
 
 const TURNOS = ['Manhã', 'Tarde', 'Noite'];
@@ -20,8 +22,12 @@ const COR_MOTIVO = {
 };
 
 export default function AparasPerdas() {
-  const { compras, aparas, addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, restaurarRegistro, destinos, produtos, prefs, setPref } = useApp();
+  const { compras, aparas, addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, restaurarRegistro, destinos, produtos, estoque, prefs, setPref, permissoes } = useApp();
   const { toast, confirm } = useUI();
+  const { sessao } = useAuth();
+  // Mesma trava do Histórico: sem isto o cozinheiro não via 'Remover' lá, mas
+  // via aqui — a permissão existia numa porta e faltava nas outras quatro.
+  const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   const [tipo, setTipo] = useState('apara'); // 'apara' | 'perda'
   const [tab, setTab] = useState('novo');
 
@@ -107,6 +113,22 @@ export default function AparasPerdas() {
     let qtdPerda = parseFloat(formPerda.quantidade);
     let unidPerda = formPerda.unidade;
     if (unidPerda === 'g') { qtdPerda = qtdPerda / 1000; unidPerda = 'kg'; }
+    // Perda de ESTOQUE abate igual a uma saída, então precisa da mesma trava:
+    // digitar 10 no lugar de 1,0 kg levava o estoque a negativo em silêncio,
+    // com toast verde de sucesso, e só aparecia no inventário da semana seguinte.
+    if (formPerda.origem === 'estoque' && formPerda.produtoId) {
+      const prod = produtos.find(p => p.id === formPerda.produtoId);
+      const atual = estoque[formPerda.produtoId] ?? 0;
+      if (qtdPerda > atual) {
+        const ok = await confirm({
+          titulo: 'Estoque insuficiente',
+          mensagem: `${prod?.nome || 'Este item'} tem ${fmtNum(atual)} ${prod?.unidade || ''} e você está baixando ${fmtNum(qtdPerda)}. O estoque ficará negativo. Confirma?`,
+          perigo: true,
+          confirmar: 'Registrar assim mesmo',
+        });
+        if (!ok) { setSalvando(false); return; }
+      }
+    }
     setTimeout(() => setSalvando(false), 800);
     addDesperdicio({ ...formPerda, hora: fmtHora(), quantidade: qtdPerda, unidade: unidPerda });
     if (formPerda.responsavel) setPref('responsavel', formPerda.responsavel);
@@ -403,11 +425,13 @@ export default function AparasPerdas() {
                       )}
                     </div>
                   </div>
+                  {podeRemover && (
                   <button onClick={() => removerRegistro(r)}
                     aria-label={`Remover ${ehApara ? 'apara' : 'perda'} ${r.item}`}
                     className="text-red-500 text-xs font-semibold min-w-11 min-h-11 flex items-center justify-center rounded hover:bg-red-50 ml-2">
                     Remover
                   </button>
+                  )}
                 </div>
               </div>
             );
