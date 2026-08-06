@@ -106,13 +106,31 @@ export function statusEtiqueta(etq, hojeISO) {
  * Etiquetas velhas não podem crescer para sempre no catálogo. Mantém as que
  * ainda importam: tudo que não foi encerrado, mais o histórico recente.
  */
+export const MAX_ETIQUETAS_GUARDADAS = 4000;
+
 export function podarEtiquetas(lista = [], hojeISO, diasHistorico = 120) {
-  const limite = new Date(new Date(hojeISO).getTime() - diasHistorico * 86400000).toISOString().slice(0, 10);
-  return lista.filter(e => {
+  const menos = (dias) => new Date(new Date(hojeISO).getTime() - dias * 86400000).toISOString().slice(0, 10);
+  const limiteHistorico = menos(diasHistorico);
+  const limiteVencida = menos(30);
+
+  const mantidas = lista.filter(e => {
     const st = statusEtiqueta(e, hojeISO);
-    if (st === 'valida' || st === 'vencida') return true; // ainda pode estar na prateleira
-    return (e.impressoEm || '') >= limite;
+    // ainda pode estar na prateleira → fica
+    if (st === 'valida') return true;
+    // vencida NÃO fica para sempre: 30 dias depois do vencimento aquele pote
+    // certamente já saiu. Sem este corte nada era podado de verdade — o
+    // catálogo crescia sem limite e acabaria estourando a cota do localStorage.
+    if (st === 'vencida') return (e.validade || '') >= limiteVencida;
+    // encerrada (consumida/descartada) → só o histórico recente
+    return (e.impressoEm || '') >= limiteHistorico;
   });
+
+  // Rede de segurança: mesmo com as regras acima, um volume anormal não pode
+  // inchar o documento. Mantém as mais recentes.
+  if (mantidas.length <= MAX_ETIQUETAS_GUARDADAS) return mantidas;
+  return [...mantidas]
+    .sort((a, b) => (b.impressoEm || '').localeCompare(a.impressoEm || ''))
+    .slice(0, MAX_ETIQUETAS_GUARDADAS);
 }
 
 // Acento vira 2 bytes no QR (UTF-8) e empurra a versão do código para cima.

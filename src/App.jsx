@@ -196,7 +196,10 @@ function Rotas() {
         </Link>
       )}
       <Suspense fallback={<Splash texto="Abrindo…" />}>
-      <Routes>
+      {/* key={modulo}: trocar de estoque REMONTA as páginas. Sem isto o estado
+          local sobrevive — a contagem digitada na Produção continuava na tela
+          do Seco e podia ser salva com produtos que não existem lá. */}
+      <Routes key={modulo}>
       <Route path="/" element={
         sessao?.eSuperAdmin && !sessao.restauranteId && !impersonando
           ? <Navigate to="/admin" replace />

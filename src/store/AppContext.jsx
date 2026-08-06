@@ -138,6 +138,12 @@ export function AppProvider({ children }) {
   // No módulo padrão os dois devolvem o valor original — é o que mantém os
   // dados de quem já usa o app exatamente onde sempre estiveram.
   const k = useCallback((chave) => chaveModulo(moduloRef.current, chave), []);
+  // Tipos que pertencem AO MÓDULO ABERTO. "Apagar todos os registros" e a
+  // restauração de backup usavam só restaurante_id e varriam os outros
+  // estoques junto — quem limpasse o Seco levava a Produção inteira.
+  const tiposDoModulo = useCallback(
+    () => ['compra', 'entrada', 'saida', 'apara', 'perda', 'ajuste'].map(x => tipoModulo(moduloRef.current, x)),
+    []);
   // kc() = chave de CATÁLOGO. A finalização não cadastra produto: ela lê o
   // catálogo da produção, senão o mesmo semiacabado teria ids diferentes dos
   // dois lados e a ponte nunca casaria.
@@ -338,17 +344,20 @@ export function AppProvider({ children }) {
     setRaw(prev => {
       if (prev.some(x => x.id === registro.id)) return prev;
       const next = [...prev, registro].sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      cacheSet(r, key, next);
+      cacheSet(r, k(key), next);
       return next;
     });
     if (nuvemDe(r)) {
-      const row = { id: registro.id, restaurante_id: r, tipo, ts: registro.ts, dados: semIdTs(registro), deleted: false };
+      // o "desfazer" tem que devolver o registro AO MÓDULO DE ONDE SAIU: sem o
+      // t(), apagar uma entrada no Estoque Seco e desfazer ressuscitava ela
+      // dentro da Cozinha de Produção, inflando o estoque errado.
+      const row = { id: registro.id, restaurante_id: r, tipo: t(tipo), ts: registro.ts, dados: semIdTs(registro), deleted: false };
       supabase.from('registros').upsert(row).then(({ error }) => {
         if (error) outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
       });
     }
     logAudit(`restaurou ${rotulo} (desfazer)`, RESUMOS[rotulo]?.(registro) || '');
-  }, [logAudit, MAPA_RESTAURO, RESUMOS]);
+  }, [logAudit, MAPA_RESTAURO, RESUMOS, k, t]);
 
   // ── Pendências de sincronização (badge offline) ───────────
   useEffect(() => {
@@ -438,7 +447,7 @@ export function AppProvider({ children }) {
       // sem sessão: volta aos valores padrão
       setProdutosRaw(CAT.produtos); setCategoriasRaw(CAT.categorias);
       setPessoasRaw(CAT.pessoas); setDestinosRaw(CAT.destinos);
-      setFichasRaw(CAT.fichas); setProducoesRaw(CAT.producoes); setLocaisRaw(CAT.locais); setListaManualRaw(CAT.listaManual); setEtiquetasAvulsasRaw(CAT.etiquetasAvulsas); setPrefsRaw(CAT.prefs);
+      setFichasRaw(CAT.fichas); setProducoesRaw(CAT.producoes); setLocaisRaw(CAT.locais); setListaManualRaw(CAT.listaManual); setEtiquetasAvulsasRaw(CAT.etiquetasAvulsas); setEtiquetasImpressasRaw(CAT.etiquetasImpressas); setPrefsRaw(CAT.prefs);
       setComprasRaw([]); setEntradasRaw([]); setSaidasRaw([]);
       setAparasRaw([]); setDesperdicioRaw([]); setAjustesRaw([]); setAuditoriaRaw([]); setRecebimentosRaw([]);
       return;
@@ -459,6 +468,7 @@ export function AppProvider({ children }) {
       setLocaisRaw(cacheGet(rid, 'locais', c.locais));
       setListaManualRaw(cacheGet(rid, 'listaManual', c.listaManual));
       setEtiquetasAvulsasRaw(cacheGet(rid, 'etiquetasAvulsas', c.etiquetasAvulsas));
+      setEtiquetasImpressasRaw(cacheGet(rid, 'etiquetasImpressas', []));
       setPrefsRaw(cacheGet(rid, 'prefs', c.prefs));
       setComprasRaw(cacheGet(rid, 'compras', g.compras));
       setEntradasRaw(cacheGet(rid, 'entradas', g.entradas));
@@ -723,7 +733,7 @@ export function AppProvider({ children }) {
     [['compras', setComprasRaw], ['entradas', setEntradasRaw], ['saidas', setSaidasRaw],
      ['aparas', setAparasRaw], ['desperdicio', setDesperdicioRaw], ['ajustes', setAjustesRaw]]
       .forEach(([key, setRaw]) => { setRaw([]); cacheSet(r, key, []); });
-    if (nuvemDe(r)) supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).neq('tipo', 'auditoria')
+    if (nuvemDe(r)) supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).in('tipo', tiposDoModulo())
       .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: {} }); });
     logAudit('apagou todos os registros', 'compras, entradas, saídas, aparas, perdas e contagens');
   }, [logAudit]);
@@ -787,7 +797,7 @@ export function AppProvider({ children }) {
     // próxima hidratação (o upsert sozinho não os remove). Auditoria fica de
     // fora: é imutável no banco (insert-only) e registra a própria restauração.
     if (nuvemDe(r)) {
-      supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).neq('tipo', 'auditoria')
+      supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).in('tipo', tiposDoModulo())
         .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: {} }); });
     }
     const reg = (key, setRaw, tipo, arr, sobeNuvem = true) => {

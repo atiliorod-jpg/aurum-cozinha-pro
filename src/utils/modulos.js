@@ -56,12 +56,14 @@ export const RECURSOS_MODULO = {
   producao: {
     compras: true, entradas: true, saidas: true, producao: true,
     aparas: true, inventario: true, etiquetas: true, receitas: true, listaCompras: true,
+    fecharTurno: false, perdas: true,
     // câmara fria: o item entra congelado OU resfriado, e cada um tem prazo próprio
     armazenamento: true,
   },
   seco: {
     compras: true, entradas: true, saidas: true, producao: false,
     aparas: false, inventario: true, etiquetas: true, receitas: false, listaCompras: true,
+    fecharTurno: false, perdas: true,
     // despensa é temperatura ambiente: não existe "congelado/resfriado" aqui, e
     // a validade é UM prazo de prateleira só (o do fabricante).
     armazenamento: false,
@@ -79,8 +81,12 @@ export const RECURSOS_MODULO = {
   },
 };
 
+// ESTRITO de propósito: só liga o que está declarado `true`. A versão anterior
+// usava `!== false`, então um recurso ausente (ou um nome digitado errado)
+// ligava a tela sozinho — foi assim que "Fechar turno", que só existe na
+// finalização, apareceu na Produção e no Estoque Seco.
 export const temRecurso = (modulo, recurso) =>
-  (RECURSOS_MODULO[modulo] || RECURSOS_MODULO[MODULO_PADRAO])[recurso] !== false;
+  (RECURSOS_MODULO[modulo] || RECURSOS_MODULO[MODULO_PADRAO])[recurso] === true;
 
 /**
  * Chave de catálogo/cache com namespace do módulo.

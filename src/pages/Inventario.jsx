@@ -31,11 +31,26 @@ export default function Inventario() {
     if (!loteId) { toast('Esse QR não é de uma etiqueta do app.', 'aviso'); return; }
     const etq = (etiquetasImpressas || []).find(e => e.id === loteId);
     if (!etq) { toast('Etiqueta não encontrada neste estoque.', 'aviso'); return; }
+    // Cada POTE conta uma vez. Sem isto, passar a câmera duas vezes no mesmo
+    // pote (comum quando não se vê o toast) contava em dobro — e a contagem
+    // física vira a nova base do estoque.
+    if (lidos.some(l => l.loteId === loteId)) { toast(`"${etq.nome}" já foi contado.`, 'aviso'); return; }
     if (!etq.produtoId) { toast(`"${etq.nome}" é etiqueta avulsa — não entra na contagem.`, 'aviso'); return; }
-    setContagem(prev => ({ ...prev, [etq.produtoId]: String((parseFloat(prev[etq.produtoId]) || 0) + 1) }));
-    setLidos(prev => [{ loteId, nome: etq.nome, validade: etq.validade }, ...prev].slice(0, 8));
+    const prod = produtos.find(p => p.id === etq.produtoId);
+    // Quanto cada etiqueta SOMA depende da unidade do produto. Somar sempre 1
+    // corrompia o estoque de quem vende por peso: 5 potes de 2 kg viravam
+    // "5 kg" em vez de 10 kg — e a contagem vira a nova base do estoque.
+    const passo = prod?.unidade === 'unid'
+      ? 1
+      : parseFloat(String(etq.medida || '').replace(',', '.').match(/[\d.]+/)?.[0] || '');
+    if (!passo || passo <= 0) {
+      toast(`"${etq.nome}" é por ${prod?.unidade || 'peso'} e a etiqueta não tem a medida — digite a quantidade na lista.`, 'aviso', { duracao: 5000 });
+      return;
+    }
+    setContagem(prev => ({ ...prev, [etq.produtoId]: String((parseFloat(prev[etq.produtoId]) || 0) + passo) }));
+    setLidos(prev => [{ loteId, nome: etq.nome, validade: etq.validade }, ...prev]);
     toast(`+1 ${etq.nome}`, 'sucesso', { duracao: 1200 });
-  }, [etiquetasImpressas, toast]);
+  }, [etiquetasImpressas, produtos, lidos, toast]);
 
   const itensContados = Object.entries(contagem).filter(([, v]) => v !== '' && v != null && !isNaN(parseFloat(v)));
 
@@ -114,7 +129,7 @@ export default function Inventario() {
               <div className="min-w-0">
                 <p className="text-sm font-bold text-polo-navy">📷 Contar escaneando</p>
                 <p className="text-[11px] text-gray-500">
-                  Passe a câmera no QR de cada pote — cada etiqueta lida soma 1. Dá para misturar com a digitação.
+                  Passe a câmera no QR de cada pote. Produto por unidade soma 1; por peso/volume soma a medida da etiqueta. Dá para misturar com a digitação.
                 </p>
               </div>
               <button onClick={() => setLendo(v => !v)}
@@ -129,8 +144,8 @@ export default function Inventario() {
             )}
             {lidos.length > 0 && (
               <ul className="mt-3 space-y-1">
-                {lidos.map((l, i) => (
-                  <li key={`${l.loteId}_${i}`} className="text-[11px] text-gray-600 flex justify-between gap-2">
+                {lidos.slice(0, 8).map((l) => (
+                  <li key={l.loteId} className="text-[11px] text-gray-600 flex justify-between gap-2">
                     <span className="truncate">✓ {l.nome}</span>
                     <span className="text-gray-400 flex-shrink-0">
                       {l.validade ? `val. ${fmtData(l.validade)}` : 'sem validade'} · {l.loteId}

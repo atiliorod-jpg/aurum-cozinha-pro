@@ -20,12 +20,13 @@ alter table registros drop constraint if exists registros_tipo_check;
 alter table registros add constraint registros_tipo_check
   check (
     tipo in ('compra','entrada','saida','apara','perda','ajuste','auditoria')
-    or tipo ~ '^(seco):(compra|entrada|saida|apara|perda|ajuste)$'
+    or tipo ~ '^(seco|finalizacao):(compra|entrada|saida|apara|perda|ajuste)$'
   );
 
 -- Conferência rápida (deve devolver 't' nas duas linhas):
 --   select 'entrada'      ~ '^(compra|entrada|saida|apara|perda|ajuste|auditoria)$' as producao_ok;
---   select 'seco:entrada' ~ '^(seco):(compra|entrada|saida|apara|perda|ajuste)$'    as seco_ok;
+--   select 'seco:entrada'        ~ '^(seco|finalizacao):(compra|entrada|saida|apara|perda|ajuste)$' as seco_ok;
+--   select 'finalizacao:ajuste' ~ '^(seco|finalizacao):(compra|entrada|saida|apara|perda|ajuste)$' as final_ok;
 
 -- =====================================================================
 --  Nada muda em `documentos`: a coluna `chave` já é texto livre e o

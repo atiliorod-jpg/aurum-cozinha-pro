@@ -5,11 +5,11 @@ import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem, nomesCasam } from '../analise';
 import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
-import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, lerLoteIdDoQR, statusEtiqueta, podarEtiquetas } from '../etiquetas';
+import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, lerLoteIdDoQR, statusEtiqueta, podarEtiquetas, MAX_ETIQUETAS_GUARDADAS } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
-import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal } from '../modulos';
+import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
@@ -958,12 +958,52 @@ describe('ciclo de vida da etiqueta', () => {
 
   it('poda mantém o que ainda pode estar na prateleira', () => {
     const lista = [
-      { id: 'a', validade: '2026-09-01', impressoEm: '2026-01-01' },                       // válida, antiga: FICA
-      { id: 'b', validade: '2026-08-01', impressoEm: '2026-01-01' },                       // vencida: FICA (pode estar lá)
-      { id: 'c', status: 'consumida', impressoEm: '2026-08-01' },                          // encerrada recente: FICA
-      { id: 'd', status: 'consumida', impressoEm: '2025-01-01' },                          // encerrada antiga: SAI
+      { id: 'a', validade: '2026-09-01', impressoEm: '2026-01-01' },   // válida, antiga: FICA
+      { id: 'b', validade: '2026-08-01', impressoEm: '2026-01-01' },   // venceu há 4 dias: FICA
+      { id: 'c', status: 'consumida', impressoEm: '2026-08-01' },      // encerrada recente: FICA
+      { id: 'd', status: 'consumida', impressoEm: '2025-01-01' },      // encerrada antiga: SAI
     ];
     const ids = podarEtiquetas(lista, hj).map(e => e.id);
     expect(ids).toEqual(['a', 'b', 'c']);
+  });
+
+  it('vencida velha SAI — senão o catálogo cresce para sempre', () => {
+    // Regressão: a 1ª versão devolvia true para toda vencida, então nada era
+    // podado de fato e o documento crescia sem limite até estourar a cota do
+    // localStorage (que falha em silêncio e derruba o modo offline inteiro).
+    const lista = [
+      { id: 'recem', validade: '2026-07-20', impressoEm: '2026-07-01' }, // venceu há 16d: FICA
+      { id: 'velha', validade: '2026-01-10', impressoEm: '2026-01-01' }, // venceu há 7 meses: SAI
+    ];
+    expect(podarEtiquetas(lista, hj).map(e => e.id)).toEqual(['recem']);
+  });
+
+  it('teto de segurança limita o total guardado', () => {
+    const muitas = Array.from({ length: MAX_ETIQUETAS_GUARDADAS + 500 }, (_, i) => ({
+      id: `e${i}`, validade: '2026-12-01', impressoEm: '2026-08-01',
+    }));
+    expect(podarEtiquetas(muitas, hj).length).toBe(MAX_ETIQUETAS_GUARDADAS);
+  });
+});
+
+describe('módulos — regressões da auditoria', () => {
+  it('recurso não declarado NÃO liga a tela sozinho', () => {
+    // Regressão: com `!== false`, 'fecharTurno' (só da finalização) aparecia na
+    // Produção e no Seco, levando a uma tela que dizia "nada recebido" para sempre.
+    expect(temRecurso('producao', 'fecharTurno')).toBe(false);
+    expect(temRecurso('seco', 'fecharTurno')).toBe(false);
+    expect(temRecurso('finalizacao', 'fecharTurno')).toBe(true);
+    // nome inexistente/errado também não pode ligar nada
+    expect(temRecurso('producao', 'recursoQueNaoExiste')).toBe(false);
+  });
+
+  it('todo módulo declara todos os recursos usados (sem default implícito)', () => {
+    const chaves = new Set();
+    Object.values(RECURSOS_MODULO).forEach(r => Object.keys(r).forEach(c => chaves.add(c)));
+    Object.entries(RECURSOS_MODULO).forEach(([mod, r]) => {
+      chaves.forEach(c => {
+        expect(typeof r[c], `módulo "${mod}" não declara o recurso "${c}"`).toBe('boolean');
+      });
+    });
   });
 });
