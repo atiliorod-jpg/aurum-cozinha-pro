@@ -938,7 +938,7 @@ export default function Configuracoes() {
   const { produtos, setProdutos, saidas, limparTudo, resetarProdutos, exportarBackup, importarBackup,
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref,
-          compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo, permissoes } = useApp();
+          compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo, permissoes, setPermissoes } = useApp();
   const { usuarios, sessao, criarConvite, alterarCargo, convites, carregarConvites, revogarConvite,
           desativarUsuario, reativarUsuario } = useAuth();
   const { toast, confirm } = useUI();
@@ -957,7 +957,10 @@ export default function Configuracoes() {
   const permMatriz = permissoesEfetivas(permissoes);
   const togglePermissao = (cargo, cap, valor) => {
     const nova = { ...permMatriz, [cargo]: { ...permMatriz[cargo], [cap]: valor } };
-    setPref('permissoes', nova);
+    // setPermissoes (chave própria, só diretoria grava) — NÃO setPref: dentro de
+    // `prefs` qualquer membro reescreve a matriz que o restringe, e a trava da
+    // migração 18 (que filtra por chave) nunca seria acionada.
+    setPermissoes(nova);
     logAudit('ajustou permissões', `${cargo}: ${cap} ${valor ? 'liberado' : 'bloqueado'}`);
   };
 

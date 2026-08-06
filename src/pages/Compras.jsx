@@ -162,11 +162,14 @@ export default function Compras() {
     }
     const v = validarDataRegistro(form.data);
     if (!v.ok) { toast('Não é possível registrar compra em data futura.', 'erro'); return; }
+    // A trava sobe ANTES do await, igual às outras telas de registro: com o
+    // diálogo aberto, `salvando` já precisa estar ligado — senão o segundo
+    // toque abre outro diálogo e grava a compra duas vezes.
+    setSalvando(true);
     if (v.confirmar) {
       const ok = await confirm({ titulo: 'Registro antigo', mensagem: `Esta compra é de ${v.dias} dias atrás (${fmtData(form.data)}). Confirma a data?`, confirmar: 'Sim, registrar' });
-      if (!ok) return;
+      if (!ok) { setSalvando(false); return; }
     }
-    setSalvando(true);
     setTimeout(() => setSalvando(false), 800);
     // Vincula ao produto do catálogo quando o nome digitado é IGUAL (o match por
     // id é exato e blinda o FC/fornecedor contra ambiguidade de texto livre)

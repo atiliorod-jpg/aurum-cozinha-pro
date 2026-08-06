@@ -228,9 +228,12 @@ function Rotas() {
       <Route path="/compras" element={<Compras />} />
       <Route path="/entradas" element={<Entradas />} />
       <Route path="/saidas" element={<Saidas />} />
-      {/* produção e aparas não existem no estoque seco — rota redireciona */}
+      {/* Produção não existe fora da cozinha de produção. Já a tela de
+          Apara/Perda abre em qualquer módulo que registre PERDA — sem ela, o
+          que estraga no seco/finalização não tinha onde ser lançado e virava
+          "consumo" no fechamento de turno. */}
       <Route path="/producao" element={temRecurso(modulo, 'producao') ? <Producao /> : <Navigate to="/registrar" replace />} />
-      <Route path="/aparas" element={temRecurso(modulo, 'aparas') ? <AparasPerdas /> : <Navigate to="/registrar" replace />} />
+      <Route path="/aparas" element={temRecurso(modulo, 'perdas') ? <AparasPerdas /> : <Navigate to="/registrar" replace />} />
       <Route path="/etiquetas" element={<Etiquetas />} />
       <Route path="/validades" element={<Validades />} />
       {/* fechamento de turno só existe na Cozinha de Finalização */}

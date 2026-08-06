@@ -236,9 +236,18 @@ export function AppProvider({ children }) {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     setRaw(valor);
     const r = ridRef.current;
-    // catálogos compartilhados (produtos/categorias/fichas) vão pela chave do
-    // MÓDULO DE CATÁLOGO; o resto é do próprio módulo
-    const chave = ['produtos', 'categorias', 'fichas'].includes(chaveBase) ? kc(chaveBase) : k(chaveBase);
+    // Três escopos diferentes:
+    //  • GLOBAIS  → chave crua. A equipe e a matriz de permissões valem para a
+    //    CONTA inteira. Namespacear 'permissoes' era grave: 'seco::permissoes'
+    //    escapa do filtro da policy (que olha a chave) e qualquer membro
+    //    conseguia reescrever a matriz por ali.
+    //  • COMPARTILHADOS → chave do módulo de CATÁLOGO (finalização lê o da produção)
+    //  • resto → chave do próprio módulo
+    const GLOBAIS = ['pessoas', 'permissoes'];
+    const COMPARTILHADOS = ['produtos', 'categorias', 'fichas'];
+    const chave = GLOBAIS.includes(chaveBase) ? chaveBase
+      : COMPARTILHADOS.includes(chaveBase) ? kc(chaveBase)
+      : k(chaveBase);
     cacheSet(r, chave, valor);
     if (!nuvemDe(r)) return;
     salvarDocNuvem(r, chave, valor, (dadosSrv) => { setRaw(dadosSrv); cacheSet(r, chave, dadosSrv); });
@@ -558,7 +567,13 @@ export function AppProvider({ children }) {
               p_acao: item.payload?.acao, p_detalhe: item.payload?.detalhe ?? null,
             }));
           else if (item.kind === 'clearAll')
-            ({ error } = await supabase.from('registros').update({ deleted: true }).eq('restaurante_id', rid).neq('tipo', 'auditoria'));
+            // Os tipos vão no PAYLOAD: o replay acontece depois, possivelmente
+            // com outro módulo aberto. Sem isso, "apagar tudo" feito offline no
+            // Seco voltava e varria a Produção inteira ao reconectar — o mesmo
+            // bug que a correção do limparTudo fechou pelo caminho online.
+            ({ error } = await supabase.from('registros').update({ deleted: true })
+              .eq('restaurante_id', rid)
+              .in('tipo', item.payload?.tipos?.length ? item.payload.tipos : ['__nenhum__']));
           // sucesso → sai da fila; falha → conta a tentativa (vira morto no limite)
           if (error) falhados.set(item._uid, registrarFalha({ ...item, _ultimoErro: error.message || 'erro' }));
           else sincronizados.add(item._uid);
@@ -756,9 +771,9 @@ export function AppProvider({ children }) {
     const r = ridRef.current;
     [['compras', setComprasRaw], ['entradas', setEntradasRaw], ['saidas', setSaidasRaw],
      ['aparas', setAparasRaw], ['desperdicio', setDesperdicioRaw], ['ajustes', setAjustesRaw]]
-      .forEach(([key, setRaw]) => { setRaw([]); cacheSet(r, key, []); });
+      .forEach(([key, setRaw]) => { setRaw([]); cacheSet(r, k(key), []); });
     if (nuvemDe(r)) supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).in('tipo', tiposDoModulo())
-      .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: {} }); });
+      .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: { tipos: tiposDoModulo() } }); });
     logAudit('apagou todos os registros', 'compras, entradas, saídas, aparas, perdas e contagens');
   }, [logAudit]);
 
@@ -822,7 +837,7 @@ export function AppProvider({ children }) {
     // fora: é imutável no banco (insert-only) e registra a própria restauração.
     if (nuvemDe(r)) {
       supabase.from('registros').update({ deleted: true }).eq('restaurante_id', r).in('tipo', tiposDoModulo())
-        .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: {} }); });
+        .then(({ error }) => { if (error) outboxAdd(r, { kind: 'clearAll', op: 'clearAll', payload: { tipos: tiposDoModulo() } }); });
     }
     const reg = (key, setRaw, tipo, arr, sobeNuvem = true) => {
       if (!arr) return;

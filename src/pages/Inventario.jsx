@@ -40,7 +40,16 @@ export default function Inventario() {
     // Cada POTE conta uma vez. Sem isto, passar a câmera duas vezes no mesmo
     // pote (comum quando não se vê o toast) contava em dobro — e a contagem
     // física vira a nova base do estoque.
-    if (lidos.some(l => l.loteId === loteId)) { toast(`"${etq.nome}" já foi contado.`, 'aviso'); return; }
+    // A checagem de duplicado usa o UPDATER do setLidos, não a lista do
+    // closure: com `lidos` nas dependências, cada leitura recriava aoLerQR, o
+    // LeitorQR desmontava o stream e a câmera reabria — e o mesmo QR ainda
+    // enquadrado disparava de novo, cuspindo "já foi contado" após cada acerto.
+    let repetido = false;
+    setLidos(prev => {
+      if (prev.some(l => l.loteId === loteId)) { repetido = true; return prev; }
+      return [{ loteId, nome: etq.nome, validade: etq.validade }, ...prev];
+    });
+    if (repetido) { toast(`"${etq.nome}" já foi contado.`, 'aviso'); return; }
     if (!etq.produtoId) { toast(`"${etq.nome}" é etiqueta avulsa — não entra na contagem.`, 'aviso'); return; }
     const prod = produtos.find(p => p.id === etq.produtoId);
     // Quanto cada etiqueta SOMA depende da unidade do produto. Somar sempre 1
@@ -54,9 +63,8 @@ export default function Inventario() {
       return;
     }
     setContagem(prev => ({ ...prev, [etq.produtoId]: String((parseFloat(prev[etq.produtoId]) || 0) + passo) }));
-    setLidos(prev => [{ loteId, nome: etq.nome, validade: etq.validade }, ...prev]);
     toast(`+1 ${etq.nome}`, 'sucesso', { duracao: 1200 });
-  }, [etiquetasImpressas, produtos, lidos, toast]);
+  }, [etiquetasImpressas, produtos, toast]);
 
   const itensContados = Object.entries(contagem).filter(([, v]) => v !== '' && v != null && !isNaN(parseFloat(v)));
 

@@ -79,6 +79,17 @@ const PATHS = {
       <path d="M12 7v5l4 2" />
     </>
   ),
+  // relógio com alerta — usado pela aba Validades. Sem este desenho a aba
+  // aparecia VAZIA na barra: numa cozinha a pessoa mira pela forma, não pelo
+  // texto de 11px, e era justo a aba nova que ficava sem referência visual.
+  etiqueta: (
+    <>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l2.5 2" />
+      <path d="M5 3 2.5 5.5" />
+      <path d="m19 3 2.5 2.5" />
+    </>
+  ),
 };
 
 export default function Icon({ name, size = 20, strokeWidth = 2, className = '' }) {

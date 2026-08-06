@@ -29,7 +29,8 @@ const SECOES = [
     acoes: [
       { to: '/saidas',  emoji: '📤', titulo: 'Saída',         recurso: 'saidas', desc: 'Envio para a cozinha principal / outras unidades (transferência interna)',
         descSeco: 'Requisição: o que saiu do seco para as cozinhas' },
-      { to: '/aparas',  emoji: '✂️', titulo: 'Apara / Perda', recurso: 'aparas', desc: 'Aproveitamento e descarte' },
+      { to: '/aparas',  emoji: '✂️', titulo: 'Apara / Perda', recurso: 'perdas', desc: 'Aproveitamento e descarte',
+        descSeco: 'Registrar o que estragou, quebrou ou venceu' },
     ],
   },
   {

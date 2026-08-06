@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+import { temRecurso } from '../utils/modulos';
 import { pode } from '../utils/permissoes';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import OrigemCorrecao from '../components/OrigemCorrecao';
@@ -22,13 +23,16 @@ const COR_MOTIVO = {
 };
 
 export default function AparasPerdas() {
-  const { compras, aparas, addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, restaurarRegistro, destinos, produtos, estoque, prefs, setPref, permissoes } = useApp();
+  const { compras, aparas, addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, restaurarRegistro, destinos, produtos, estoque, prefs, setPref, permissoes, modulo } = useApp();
   const { toast, confirm } = useUI();
   const { sessao } = useAuth();
   // Mesma trava do Histórico: sem isto o cozinheiro não via 'Remover' lá, mas
   // via aqui — a permissão existia numa porta e faltava nas outras quatro.
   const podeRemover = pode(sessao, permissoes, 'removerRegistros');
-  const [tipo, setTipo] = useState('apara'); // 'apara' | 'perda'
+  // Módulo sem apara (seco/finalização) abre direto em PERDA e nem mostra o
+  // seletor — apara é sobra de limpeza/porcionamento, que só existe na produção.
+  const temApara = temRecurso(modulo, 'aparas');
+  const [tipo, setTipo] = useState(temApara ? 'apara' : 'perda'); // 'apara' | 'perda'
   const [tab, setTab] = useState('novo');
 
   const [formApara, setFormApara] = useState({
@@ -174,7 +178,8 @@ export default function AparasPerdas() {
       </div>
       {tab === 'novo' ? (
         <div className="space-y-4">
-          {/* Tipo: Apara ou Perda */}
+          {/* Tipo: Apara ou Perda — módulo sem apara já abre em Perda */}
+          {temApara && (
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => setTipo('apara')}
               className={`py-3 px-3 rounded-xl text-sm font-bold border-2 transition-colors
@@ -189,6 +194,7 @@ export default function AparasPerdas() {
               <span className="block text-[11px] font-normal opacity-90">vai para o lixo</span>
             </button>
           </div>
+          )}
 
           {tipo === 'apara' ? (
             <>
