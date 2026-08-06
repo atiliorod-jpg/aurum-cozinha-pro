@@ -1,12 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
+import LeitorQR from '../components/LeitorQR';
+import { lerLoteIdDoQR } from '../utils/etiquetas';
 
 export default function Inventario() {
-  const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref } = useApp();
+  const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref, etiquetasImpressas } = useApp();
   const { toast, confirm } = useUI();
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
@@ -18,6 +20,22 @@ export default function Inventario() {
   const setCont = (id, val) => {
     setContagem(prev => ({ ...prev, [id]: val }));
   };
+
+  // ── Contagem por leitura de QR ──────────────────────────────
+  // Cada etiqueta lida SOMA 1 ao produto dela. É o ganho real: em vez de
+  // procurar o item na lista e digitar, a pessoa passa a câmera nos potes.
+  const [lendo, setLendo] = useState(false);
+  const [lidos, setLidos] = useState([]); // feedback do que já entrou
+  const aoLerQR = useCallback((texto) => {
+    const loteId = lerLoteIdDoQR(texto);
+    if (!loteId) { toast('Esse QR não é de uma etiqueta do app.', 'aviso'); return; }
+    const etq = (etiquetasImpressas || []).find(e => e.id === loteId);
+    if (!etq) { toast('Etiqueta não encontrada neste estoque.', 'aviso'); return; }
+    if (!etq.produtoId) { toast(`"${etq.nome}" é etiqueta avulsa — não entra na contagem.`, 'aviso'); return; }
+    setContagem(prev => ({ ...prev, [etq.produtoId]: String((parseFloat(prev[etq.produtoId]) || 0) + 1) }));
+    setLidos(prev => [{ loteId, nome: etq.nome, validade: etq.validade }, ...prev].slice(0, 8));
+    toast(`+1 ${etq.nome}`, 'sucesso', { duracao: 1200 });
+  }, [etiquetasImpressas, toast]);
 
   const itensContados = Object.entries(contagem).filter(([, v]) => v !== '' && v != null && !isNaN(parseFloat(v)));
 
@@ -88,6 +106,39 @@ export default function Inventario() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+          </div>
+
+          {/* Contagem por câmera: cada etiqueta lida soma 1 ao produto dela */}
+          <div className="bg-white rounded-xl p-4">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-polo-navy">📷 Contar escaneando</p>
+                <p className="text-[11px] text-gray-500">
+                  Passe a câmera no QR de cada pote — cada etiqueta lida soma 1. Dá para misturar com a digitação.
+                </p>
+              </div>
+              <button onClick={() => setLendo(v => !v)}
+                className={`text-xs font-bold px-3 py-2 rounded-lg flex-shrink-0 ${lendo ? 'bg-gray-100 text-gray-600' : 'bg-polo-navy text-polo-gold'}`}>
+                {lendo ? 'Parar' : 'Escanear'}
+              </button>
+            </div>
+            {lendo && (
+              <div className="mt-3">
+                <LeitorQR onLer={aoLerQR} onFechar={() => setLendo(false)} />
+              </div>
+            )}
+            {lidos.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {lidos.map((l, i) => (
+                  <li key={`${l.loteId}_${i}`} className="text-[11px] text-gray-600 flex justify-between gap-2">
+                    <span className="truncate">✓ {l.nome}</span>
+                    <span className="text-gray-400 flex-shrink-0">
+                      {l.validade ? `val. ${fmtData(l.validade)}` : 'sem validade'} · {l.loteId}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">

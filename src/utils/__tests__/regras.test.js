@@ -5,7 +5,7 @@ import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem, nomesCasam } from '../analise';
 import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
-import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES } from '../etiquetas';
+import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, lerLoteIdDoQR, statusEtiqueta, podarEtiquetas } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
@@ -364,8 +364,10 @@ describe('etiquetas — montagem dos campos', () => {
     expect(qr).toContain('Prod: Molho misto');
     expect(qr).toContain('Manip: 10/06/2026');
     expect(qr).toContain('Val: 14/06/2026');
-    expect(qr).toContain('Rest: Polo');
-    expect(qr.split('\n').length).toBe(5); // só as linhas com valor entram
+    // 'Rest:' saiu do QR para abrir espaço ao id de lote — o nome do
+    // restaurante continua impresso em destaque na etiqueta impressa.
+    expect(qr).not.toContain('Rest:');
+    expect(qr.split('\n').length).toBe(4); // só as linhas com valor entram
   });
 
   it('QR do pior caso ainda imprime legível numa térmica de 203 DPI', async () => {
@@ -890,5 +892,78 @@ describe('fechamento de turno da Finalização', () => {
     const c = consumoDoTurno(t.linhas, {}); // ninguém digitou nada = sobrou 0
     expect(c[0].consumo).toBe(20);
     expect(c[0].inconsistente).toBe(false);
+  });
+});
+
+describe('etiqueta com id de lote (leitura por QR)', () => {
+  it('id de lote entra no QR e volta na leitura', () => {
+    const campos = montarCamposEtiqueta({
+      nome: 'Molho da casa', dataFabricacao: '2026-08-05', diasValidade: 5,
+      responsavel: 'Joana', loteId: 'k3f9x2',
+    });
+    const qr = montarPayloadQR(campos);
+    expect(qr).toContain('L: k3f9x2');
+    expect(lerLoteIdDoQR(qr)).toBe('k3f9x2');
+  });
+
+  it('QR sem id de lote (etiqueta antiga) não quebra a leitura', () => {
+    const qr = montarPayloadQR(montarCamposEtiqueta({ nome: 'Molho', dataFabricacao: '2026-08-05', diasValidade: 5 }));
+    expect(lerLoteIdDoQR(qr)).toBeNull();
+  });
+
+  it('texto de QR alheio não é confundido com etiqueta nossa', () => {
+    expect(lerLoteIdDoQR('https://exemplo.com')).toBeNull();
+    expect(lerLoteIdDoQR('')).toBeNull();
+  });
+
+  it('ids de lote não repetem nem em lote grande', () => {
+    // Regressão: a 1ª versão colidia (371 únicos em 400) e a leitura contaria
+    // o pote errado. 2000 é bem acima de qualquer impressão real.
+    const ids = Array.from({ length: 2000 }, () => gerarLoteId());
+    expect(new Set(ids).size).toBe(2000);
+  });
+
+  it('COM id de lote o QR continua na versão 6 (limite de legibilidade)', async () => {
+    // O id só pôde entrar porque o nome do restaurante saiu. Este teste trava
+    // isso: se alguém devolver o Rest: ao payload, o QR passa de 41 módulos e
+    // volta a não escanear na térmica.
+    const { default: QRCode } = await import('qrcode');
+    const campos = montarCamposEtiqueta({
+      nome: 'EMPANADO DE FILÉ MIGNON PORCIONADO (PORÇÃO)',
+      dataFabricacao: '2026-08-05', diasValidade: 90, hora: '10:52',
+      responsavel: 'Joana da Silva Sobrinho', restauranteNome: 'Restaurante Muito Longo Ltda',
+      loteId: 'k3f9x2',
+    });
+    const qr = montarPayloadQR(campos);
+    expect(qr).not.toContain('Rest:');
+    expect(qr.length).toBeLessThanOrEqual(QR_MAX_CARACTERES);
+    const { version, modules } = QRCode.create(qr, { errorCorrectionLevel: 'M' });
+    expect(version).toBeLessThanOrEqual(6);
+    expect((22 / modules.size) * (203 / 25.4)).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe('ciclo de vida da etiqueta', () => {
+  const hj = '2026-08-05';
+  it('vencida é derivada da data, não precisa ser gravada', () => {
+    expect(statusEtiqueta({ validade: '2026-08-01' }, hj)).toBe('vencida');
+    expect(statusEtiqueta({ validade: '2026-08-10' }, hj)).toBe('valida');
+    expect(statusEtiqueta({ validade: null }, hj)).toBe('valida');
+  });
+
+  it('consumida/descartada têm prioridade sobre o vencimento', () => {
+    expect(statusEtiqueta({ validade: '2026-08-01', status: 'consumida' }, hj)).toBe('consumida');
+    expect(statusEtiqueta({ validade: '2026-08-01', status: 'descartada' }, hj)).toBe('descartada');
+  });
+
+  it('poda mantém o que ainda pode estar na prateleira', () => {
+    const lista = [
+      { id: 'a', validade: '2026-09-01', impressoEm: '2026-01-01' },                       // válida, antiga: FICA
+      { id: 'b', validade: '2026-08-01', impressoEm: '2026-01-01' },                       // vencida: FICA (pode estar lá)
+      { id: 'c', status: 'consumida', impressoEm: '2026-08-01' },                          // encerrada recente: FICA
+      { id: 'd', status: 'consumida', impressoEm: '2025-01-01' },                          // encerrada antiga: SAI
+    ];
+    const ids = podarEtiquetas(lista, hj).map(e => e.id);
+    expect(ids).toEqual(['a', 'b', 'c']);
   });
 });

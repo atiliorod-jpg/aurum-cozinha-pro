@@ -4,7 +4,7 @@ import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import ResponsavelSelect from './ResponsavelSelect';
-import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta } from '../utils/etiquetas';
+import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas } from '../utils/etiquetas';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 
@@ -103,7 +103,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao } = useAuth();
-  const { prefs, produtos, modulo } = useApp();
+  const { prefs, produtos, modulo, etiquetasImpressas, setEtiquetasImpressas } = useApp();
   // despensa não tem congelado/resfriado: a etiqueta do seco não pergunta isso
   const comArmazenamento = temRecurso(modulo, 'armazenamento');
   const config = configEtiqueta(prefs);
@@ -144,7 +144,13 @@ export default function EtiquetaPrint() {
         };
         // guarda data/armazenamento originais: se o usuário mudar qualquer um no
         // modal, a validade pré-calculada (do registro real) deixa de valer
-        return { ...resolvido, _dataOriginal: resolvido.dataFabricacao, _armazOriginal: resolvido.armazenamento };
+        const n = Math.min(Math.max(0, parseInt(resolvido.quantidade) || 0), 200);
+        return {
+          ...resolvido,
+          _lotes: Array.from({ length: n }, () => gerarLoteId()),
+          _dataOriginal: resolvido.dataFabricacao,
+          _armazOriginal: resolvido.armazenamento,
+        };
       }));
       setHoraImpressao(fmtHora());
       setResponsavel(etiquetaState[0]?.responsavel || prefs.responsavel || '');
@@ -172,7 +178,7 @@ export default function EtiquetaPrint() {
   // Campos calculados de cada item (validade reage à data/armazenamento editados).
   // Prazo em dias: avulsas trazem `diasValidade` fixo; itens do catálogo trazem
   // `diasCongelado`/`diasResfriado` e o prazo acompanha o armazenamento escolhido.
-  const camposDe = (item) => {
+  const camposDe = (item, loteId = null) => {
     const dias = item.diasValidade != null ? item.diasValidade
       // sem câmara fria (despensa): o prazo de prateleira é único e fica em
       // diasCongelado. Sem esta linha a etiqueta do seco saía SEM validade.
@@ -196,11 +202,18 @@ export default function EtiquetaPrint() {
       marca: item.marca,
       sif: item.sif,
       hora: horaImpressao,
+      loteId,
     });
   };
 
+  // Id de lote POR CÓPIA física. Vive DENTRO do item (`_lotes`), criado nos
+  // manipuladores de evento — nunca durante o render. Precisa ser estável: se
+  // mudasse a cada tecla, o QR seria regerado sem parar e a etiqueta que sai na
+  // impressora teria um id diferente do registrado no catálogo.
+  const loteDaCopia = (item, copia) => item._lotes?.[copia] || '';
+
   // Payload do QR de cada item — é também a chave do cache de QR
-  const payloadDe = (item) => montarPayloadQR(camposDe(item));
+  const payloadDe = (item, loteId) => montarPayloadQR(camposDe(item, loteId));
 
   // Gera os QR codes quando ligado (async — toDataURL é Promise).
   // Só gera o que ainda não está em cache: editar um item de um lote não
@@ -209,7 +222,11 @@ export default function EtiquetaPrint() {
     if (!config.incluirQR || !itens.length) return;
     let ativo = true;
     (async () => {
-      const pendentes = [...new Set(itens.map(payloadDe))].filter(p => !qrs[p]);
+      const todos = [];
+      itens.forEach((it) => {
+        for (let c = 0; c < limitarCopias(it.quantidade); c++) todos.push(payloadDe(it, loteDaCopia(it, c)));
+      });
+      const pendentes = [...new Set(todos)].filter(p => !qrs[p]);
       if (!pendentes.length) return;
       const novos = {};
       for (const payload of pendentes) {
@@ -238,19 +255,65 @@ export default function EtiquetaPrint() {
 
   if (!etiquetaState) return null;
 
-  const setItem = (idx, patch) => setItens(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  // Mantém um id por cópia: crescer a quantidade cria ids novos; diminuir
+  // corta os do fim, sem mexer nos que já estavam (o QR deles não muda).
+  const comLotes = (it) => {
+    const n = limitarCopias(it.quantidade);
+    const atuais = it._lotes || [];
+    if (atuais.length === n) return it;
+    const novos = atuais.slice(0, n);
+    while (novos.length < n) novos.push(gerarLoteId());
+    return { ...it, _lotes: novos };
+  };
+
+  const setItem = (idx, patch) => setItens(prev => prev.map((it, i) => i === idx ? comLotes({ ...it, ...patch }) : it));
   // Stepper com update funcional: toques rápidos seguidos não podem ler closure velha
   const mudarQtd = (idx, delta) => setItens(prev => prev.map((it, i) =>
-    i === idx ? { ...it, quantidade: limitarCopias((parseInt(it.quantidade) || 0) + delta) } : it));
+    i === idx ? comLotes({ ...it, quantidade: limitarCopias((parseInt(it.quantidade) || 0) + delta) }) : it));
   const totalEtiquetas = itens.reduce((s, i) => s + (parseInt(i.quantidade) || 0), 0);
   // QR ligado: segura o Imprimir até TODOS os QRs dos itens a imprimir ficarem
   // prontos (toDataURL é assíncrono — sem isso a etiqueta podia sair sem QR)
   // Checa pelo CONTEÚDO: se a data/armazenamento acabou de mudar, o QR daquele
   // conteúdo ainda não existe e o Imprimir fica travado até ele ficar pronto —
   // nunca sai etiqueta com texto novo e QR velho.
-  const qrPendente = config.incluirQR &&
-    itens.some(it => (parseInt(it.quantidade) || 0) > 0 && !qrs[payloadDe(it)]);
+  const qrPendente = config.incluirQR && itens.some(it => {
+    const n = limitarCopias(it.quantidade);
+    for (let c = 0; c < n; c++) if (!qrs[payloadDe(it, loteDaCopia(it, c))]) return true;
+    return false;
+  });
   const inputCls = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs';
+
+  // Ao imprimir, cada cópia vira uma ETIQUETA FÍSICA registrada: é o que
+  // permite depois contar por leitura de QR e saber o que ainda está na
+  // prateleira. Sem isto o id no código seria só enfeite.
+  const imprimir = () => {
+    const hojeISO = hoje();
+    const novas = [];
+    itens.forEach(item => {
+      const n = limitarCopias(item.quantidade);
+      if (!n) return;
+      const c = camposDe(item);
+      for (let i = 0; i < n; i++) {
+        const loteId = loteDaCopia(item, i);
+        if (!loteId) continue;
+        novas.push({
+          id: loteId,
+          produtoId: item.produtoId || null,
+          nome: c.nome,
+          medida: c.medida || '',
+          validade: c.validade || null,
+          fabricacao: c.dataFabricacao || null,
+          responsavel: c.responsavel || '',
+          impressoEm: hojeISO,
+          status: 'valida',
+        });
+      }
+    });
+    if (novas.length) {
+      setEtiquetasImpressas(podarEtiquetas([...etiquetasImpressas, ...novas], hojeISO));
+    }
+    window.print();
+  };
 
   return (
     <>
@@ -346,7 +409,7 @@ export default function EtiquetaPrint() {
           <div className="flex gap-3">
             <button onClick={fecharEtiquetas}
               className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Agora não</button>
-            <button onClick={() => window.print()} disabled={totalEtiquetas === 0 || qrPendente}
+            <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente}
               className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
               {qrPendente ? '⏳ Gerando QR…' : `🖨️ Imprimir ${totalEtiquetas > 0 ? `${totalEtiquetas} etiqueta(s)` : ''}`}
             </button>
@@ -360,10 +423,13 @@ export default function EtiquetaPrint() {
       {/* Área que realmente imprime: invisível na tela, visível só no print (CSS em index.css) */}
       <div className="etiqueta-print-area" aria-hidden="true">
         {itens.flatMap((item, idx) =>
-          Array.from({ length: limitarCopias(item.quantidade) }, (_, c) => (
-            <EtiquetaLabel key={`${idx}_${c}`} campos={camposDe(item)} config={config}
-              qr={qrs[payloadDe(item)]} estabelecimento={estabelecimento} />
-          ))
+          Array.from({ length: limitarCopias(item.quantidade) }, (_, c) => {
+            const lote = loteDaCopia(item, c);
+            return (
+              <EtiquetaLabel key={`${idx}_${c}`} campos={camposDe(item, lote)} config={config}
+                qr={qrs[payloadDe(item, lote)]} estabelecimento={estabelecimento} />
+            );
+          })
         )}
       </div>
     </>

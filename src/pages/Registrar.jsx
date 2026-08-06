@@ -37,6 +37,7 @@ const SECOES = [
     desc: 'Etiquetas de validade para os potes e embalagens',
     acoes: [
       { to: '/etiquetas', emoji: '🏷️', titulo: 'Etiquetas', recurso: 'etiquetas', desc: 'Imprimir etiquetas do estoque ou avulsas' },
+      { to: '/validades', emoji: '⏰', titulo: 'Validades', desc: 'O que vence hoje, em 3 dias, ou já venceu' },
     ],
   },
   {

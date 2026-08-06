@@ -31,6 +31,11 @@ const CAT = {
   // Etiquetas avulsas: itens FORA do estoque que a cozinha etiqueta mesmo assim
   // (ex.: "Leite aberto"). Cada item: { id, nome, tipoData: 'fabricacao'|'abertura', diasValidade }
   etiquetasAvulsas: [],
+  // Etiquetas FÍSICAS já impressas (uma por pote), com id de lote e status.
+  // Fica em catálogo (não em registros) porque os registros são carregados
+  // TODOS a cada abertura do app — milhares de etiquetas ali dentro deixariam
+  // o start lento no tablet. Aqui o histórico é podado (ver podarEtiquetas).
+  etiquetasImpressas: [],
   prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
 
@@ -87,6 +92,7 @@ export function AppProvider({ children }) {
   const [locais,      setLocaisRaw]      = useState(CAT.locais);
   const [listaManual, setListaManualRaw] = useState(CAT.listaManual);
   const [etiquetasAvulsas, setEtiquetasAvulsasRaw] = useState(CAT.etiquetasAvulsas);
+  const [etiquetasImpressas, setEtiquetasImpressasRaw] = useState(CAT.etiquetasImpressas);
   const [prefs,       setPrefsRaw]       = useState(CAT.prefs);
   const [compras,     setComprasRaw]     = useState([]);
   const [entradas,    setEntradasRaw]    = useState([]);
@@ -230,6 +236,7 @@ export function AppProvider({ children }) {
   const setLocais     = useCallback((v) => persistCatalogo('locais',     setLocaisRaw,     v), [persistCatalogo]);
   const setListaManual = useCallback((v) => persistCatalogo('listaManual', setListaManualRaw, v), [persistCatalogo]);
   const setEtiquetasAvulsas = useCallback((v) => persistCatalogo('etiquetasAvulsas', setEtiquetasAvulsasRaw, v), [persistCatalogo]);
+  const setEtiquetasImpressas = useCallback((v) => persistCatalogo('etiquetasImpressas', setEtiquetasImpressasRaw, v), [persistCatalogo]);
 
   const setPref = useCallback((chave, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -475,6 +482,7 @@ export function AppProvider({ children }) {
     setLocaisRaw(cacheGet(rid, k('locais'), P.locais));
     setListaManualRaw(cacheGet(rid, k('listaManual'), P.listaManual));
     setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), P.etiquetasAvulsas));
+    setEtiquetasImpressasRaw(cacheGet(rid, k('etiquetasImpressas'), P.etiquetasImpressas));
     // prefs = restaurante (nuvem) + aparelho (local), mescladas. NÃO é por
     // módulo: etiqueta, estabelecimento e responsável valem para a conta toda.
     setPrefsRaw({ ...cacheGet(rid, 'prefs', P.prefs), ...cacheGet(rid, '_prefs_device', {}) });
@@ -574,6 +582,7 @@ export function AppProvider({ children }) {
         aplicaCat(k('locais'), setLocaisRaw, P.locais);
         aplicaCat(k('listaManual'), setListaManualRaw, P.listaManual);
         aplicaCat(k('etiquetasAvulsas'), setEtiquetasAvulsasRaw, P.etiquetasAvulsas);
+        aplicaCat(k('etiquetasImpressas'), setEtiquetasImpressasRaw, P.etiquetasImpressas);
         // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
         if (!docsPendentes.has('prefs')) {
           const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
@@ -644,7 +653,7 @@ export function AppProvider({ children }) {
     const setterDoc = {
       produtos: setProdutosRaw, categorias: setCategoriasRaw,
       destinos: setDestinosRaw, fichas: setFichasRaw, producoes: setProducoesRaw, locais: setLocaisRaw, listaManual: setListaManualRaw,
-      etiquetasAvulsas: setEtiquetasAvulsasRaw,
+      etiquetasAvulsas: setEtiquetasAvulsasRaw, etiquetasImpressas: setEtiquetasImpressasRaw,
     };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
@@ -820,6 +829,7 @@ export function AppProvider({ children }) {
       locais, setLocais,
       listaManual, setListaManual,
       etiquetasAvulsas, setEtiquetasAvulsas,
+      etiquetasImpressas, setEtiquetasImpressas,
       destinos, setDestinos,
       categorias, setCategorias,
       auditoria, logAudit,

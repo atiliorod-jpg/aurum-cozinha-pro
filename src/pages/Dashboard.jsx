@@ -18,6 +18,7 @@ export default function Dashboard() {
   const { toast } = useUI();
   const navigate = useNavigate();
   const [catAtiva, setCatAtiva] = useState('TODOS');
+  const [subAtivo, setSubAtivo] = useState('TODOS');
   const [verSugestoes, setVerSugestoes] = useState(false);
   const [expandido, setExpandido] = useState(null); // produtoId com lotes abertos
   const dataHoje = hoje();
@@ -80,9 +81,19 @@ export default function Dashboard() {
   );
 
   const produtosAtivos = produtos.filter(p => p.ativo);
+  // subgrupos disponíveis dentro da categoria escolhida
+  const subgruposDaCategoria = useMemo(() => {
+    const base = catAtiva === 'TODOS' ? produtosAtivos : produtosAtivos.filter(p => p.categoria === catAtiva);
+    const sgs = [...new Set(base.map(p => (p.subgrupo || '').trim()).filter(Boolean))].sort();
+    return sgs.length ? ['TODOS', ...sgs] : [];
+  }, [produtosAtivos, catAtiva]);
+
   const produtosFiltrados = catAtiva === 'TODOS'
     ? produtosAtivos
     : produtosAtivos.filter(p => p.categoria === catAtiva);
+  const produtosVisiveis = subAtivo === 'TODOS' || !subgruposDaCategoria.length
+    ? produtosFiltrados
+    : produtosFiltrados.filter(p => (p.subgrupo || '').trim() === subAtivo);
 
   const totais = {
     total: produtosAtivos.length,
@@ -291,10 +302,25 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Subgrupos: só aparecem quando a categoria escolhida tem mais de um.
+          Categoria grande (PROTEÍNAS com 30 itens) fica navegável sem virar
+          uma lista infinita; quem não usa subgrupo não vê nada mudar. */}
+      {subgruposDaCategoria.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 mb-3 scrollbar-hide">
+          {subgruposDaCategoria.map(sg => (
+            <button key={sg} onClick={() => setSubAtivo(sg)}
+              className={`whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors flex-shrink-0
+                ${subAtivo === sg ? 'bg-polo-gold text-polo-navy' : 'bg-white text-gray-500 border border-gray-200'}`}>
+              {sg === 'TODOS' ? 'Todos os subgrupos' : sg}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Cards de produtos */}
       <div className="space-y-2">
         {categorias.filter(c => catAtiva === 'TODOS' || c === catAtiva).map(cat => {
-          const prods = produtosFiltrados.filter(p => p.categoria === cat);
+          const prods = produtosVisiveis.filter(p => p.categoria === cat);
           if (!prods.length) return null;
           return (
             <div key={cat}>

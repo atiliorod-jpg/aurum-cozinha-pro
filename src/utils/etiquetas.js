@@ -49,6 +49,7 @@ export function montarCamposEtiqueta({
   marca = '',
   sif = '',
   hora = '',
+  loteId = null,
 }) {
   let dias = parseFloat(diasValidade) || 0;
   if (!dias && produto && armazenamento) {
@@ -78,7 +79,40 @@ export function montarCamposEtiqueta({
     restauranteNome: restauranteNome || '',
     responsavel: responsavel || '',
     hora: hora || '',
+    loteId: loteId || null,
   };
+}
+
+// ── Ciclo de vida da etiqueta impressa ────────────────────────
+// Enquanto a etiqueta não é contada nem descartada ela está VÁLIDA; passou da
+// data, VENCIDA; contada numa conferência, ainda em uso; consumida/descartada,
+// encerrada. É isso que permite responder "este pote ainda está na prateleira?".
+export const STATUS_ETIQUETA = {
+  valida: { label: 'Válida', cor: 'text-green-700 bg-green-100' },
+  vencida: { label: 'Vencida', cor: 'text-red-700 bg-red-100' },
+  consumida: { label: 'Consumida', cor: 'text-gray-600 bg-gray-100' },
+  descartada: { label: 'Descartada', cor: 'text-orange-700 bg-orange-100' },
+};
+
+/** Status efetivo: o vencimento é derivado da data, não precisa ser gravado. */
+export function statusEtiqueta(etq, hojeISO) {
+  if (!etq) return 'valida';
+  if (etq.status === 'consumida' || etq.status === 'descartada') return etq.status;
+  if (etq.validade && etq.validade < hojeISO) return 'vencida';
+  return 'valida';
+}
+
+/**
+ * Etiquetas velhas não podem crescer para sempre no catálogo. Mantém as que
+ * ainda importam: tudo que não foi encerrado, mais o histórico recente.
+ */
+export function podarEtiquetas(lista = [], hojeISO, diasHistorico = 120) {
+  const limite = new Date(new Date(hojeISO).getTime() - diasHistorico * 86400000).toISOString().slice(0, 10);
+  return lista.filter(e => {
+    const st = statusEtiqueta(e, hojeISO);
+    if (st === 'valida' || st === 'vencida') return true; // ainda pode estar na prateleira
+    return (e.impressoEm || '') >= limite;
+  });
 }
 
 // Acento vira 2 bytes no QR (UTF-8) e empurra a versão do código para cima.
@@ -108,15 +142,44 @@ const corta = (s, n) => { const t = semAcento(s).trim(); return t.length > n ? `
  */
 export const QR_MAX_CARACTERES = 106;
 
+/**
+ * ID curto e único da ETIQUETA FÍSICA (o lote daquele pote).
+ * Cada cópia impressa ganha o seu — é o que permite contar apontando a câmera
+ * e saber exatamente qual pote foi contado, não só "quantos".
+ *
+ * ⚠️ Duas etiquetas com o mesmo id fariam a leitura contar o pote errado, então
+ * o id NÃO pode depender só de sorte. A primeira versão usava 4 do relógio + 2
+ * aleatórios e colidia de verdade: 400 ids geraram só 371 distintos (2 chars
+ * base36 = 1296 combinações; o paradoxo do aniversário come isso rapidinho).
+ * Agora: relógio + CONTADOR (garante unicidade dentro do aparelho, que é onde
+ * as cópias de um lote nascem) + aleatório (separa aparelhos diferentes).
+ */
+let seqLote = 0;
+export const gerarLoteId = () => {
+  const t = Date.now().toString(36).slice(-4);
+  const c = (seqLote = (seqLote + 1) % 1296).toString(36).padStart(2, '0');
+  const r = Math.random().toString(36).slice(2, 4).padEnd(2, '0');
+  return `${t}${c}${r}`.toLowerCase();
+};
+
 export function montarPayloadQR(campos) {
-  // Os limites abaixo somam, no PIOR caso, exatamente QR_MAX_CARACTERES:
-  // rótulos (30) + duas datas (20) + 4 quebras de linha + 26 + 12 + 14 = 106.
+  // Orçamento apertado de propósito — ver o bloco acima sobre pontos/módulo.
+  // O nome do RESTAURANTE saiu daqui quando o id de lote entrou: ele já aparece
+  // em destaque na etiqueta impressa, e quem escaneia está dentro da própria
+  // cozinha. Trocar 22 caracteres de redundância pelo id foi o que manteve o
+  // código na versão 6 (41 módulos, 4,3 pontos/módulo).
   const linhas = [
     `Prod: ${corta(campos.nome, 26)}`,
     campos.dataFabricacao ? `${campos.rotuloData === 'ABERTURA' ? 'Abert' : 'Manip'}: ${fmtData(campos.dataFabricacao)}` : null,
     campos.validade ? `Val: ${fmtData(campos.validade)}` : null,
     campos.responsavel ? `Resp: ${corta(campos.responsavel, 12)}` : null,
-    campos.restauranteNome ? `Rest: ${corta(campos.restauranteNome, 14)}` : null,
+    campos.loteId ? `L: ${campos.loteId}` : null,
   ];
   return linhas.filter(Boolean).join('\n');
+}
+
+/** Lê de volta o id de lote de um QR escaneado. */
+export function lerLoteIdDoQR(texto) {
+  const m = String(texto || '').match(/^L:\s*([a-z0-9]{4,12})$/im);
+  return m ? m[1].toLowerCase() : null;
 }

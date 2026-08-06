@@ -537,7 +537,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
   );
 }
 
-function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comArmazenamento = true }) {
+function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comArmazenamento = true, subgruposExistentes = [] }) {
   const [form, setForm] = useState(() => produto
     ? {
         ...produto,
@@ -746,6 +746,22 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
           )}
         </div>
 
+        <div>
+          <label htmlFor="mp-subgrupo" className="block text-xs font-semibold text-gray-600 mb-1">
+            Subgrupo (opcional)
+          </label>
+          <input id="mp-subgrupo" type="text" list="lista-subgrupos" value={form.subgrupo || ''}
+            onChange={e => set('subgrupo', e.target.value)}
+            placeholder="Ex.: Bovinos, Aves, Molhos base…"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          <datalist id="lista-subgrupos">
+            {subgruposExistentes.map(sg => <option key={sg} value={sg} />)}
+          </datalist>
+          <p className="text-[10px] text-gray-400 mt-1">
+            Divide uma categoria grande em partes (PROTEÍNAS → Bovinos, Aves, Peixes). Deixe vazio se não precisar.
+          </p>
+        </div>
+
         <p className="text-[10px] text-gray-400 -mt-1">
           🎯 O fator de correção (rendimento) deste item é configurado em <strong>Sistema → Rendimento por ingrediente</strong>.
         </p>
@@ -929,6 +945,7 @@ export default function Configuracoes() {
   const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
 
   // Capacidades da sessão atual (matriz de permissões). Diretoria/super-admin = tudo.
+  const subgruposExistentes = [...new Set(produtos.map(p => (p.subgrupo || '').trim()).filter(Boolean))].sort();
   const podeProdutos = pode(sessao, prefs?.permissoes, 'gerenciarProdutos');
   const podeSistema  = pode(sessao, prefs?.permissoes, 'configurarSistema');
   const podeInventario = pode(sessao, prefs?.permissoes, 'inventario');
@@ -2058,7 +2075,7 @@ ${linkConvite(conviteGerado.token)}
       </>}
 
       {(editando || criando) && (
-        <ModalProduto comArmazenamento={temRecurso(modulo, 'armazenamento')}
+        <ModalProduto comArmazenamento={temRecurso(modulo, 'armazenamento')} subgruposExistentes={subgruposExistentes}
           produto={editando}
           sugestao={editando ? sugestoes[editando.id] : null}
           categorias={categorias}

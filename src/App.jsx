@@ -28,6 +28,7 @@ import Auditoria from './pages/Auditoria';
 import Pagamento from './pages/Pagamento';
 import Etiquetas from './pages/Etiquetas';
 import FecharTurno from './pages/FecharTurno';
+import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 const Relatorio = lazy(() => import('./pages/Relatorio'));
@@ -210,6 +211,7 @@ function Rotas() {
       <Route path="/producao" element={temRecurso(modulo, 'producao') ? <Producao /> : <Navigate to="/registrar" replace />} />
       <Route path="/aparas" element={temRecurso(modulo, 'aparas') ? <AparasPerdas /> : <Navigate to="/registrar" replace />} />
       <Route path="/etiquetas" element={<Etiquetas />} />
+      <Route path="/validades" element={<Validades />} />
       {/* fechamento de turno só existe na Cozinha de Finalização */}
       <Route path="/fechar-turno" element={temRecurso(modulo, 'fecharTurno') ? <FecharTurno /> : <Navigate to="/" replace />} />
       <Route path="/novidades" element={<Novidades />} />
