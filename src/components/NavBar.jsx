@@ -3,21 +3,30 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { statusEstoque } from '../utils/calculos';
 import { pode, podeAbrirConfig } from '../utils/permissoes';
+import { temRecurso } from '../utils/modulos';
 import Icon from './Icons';
 
 const NAV = [
   { to: '/',              icon: 'inicio',    label: 'Início' },
   { to: '/registrar',     icon: 'registrar', label: 'Registrar' },
+  // Fechar Turno é a AÇÃO CENTRAL da Finalização e estava enterrada na última
+  // seção do hub Registrar, enquanto a barra mostrava Relatório — que lá é
+  // quase vazio. Aparece só onde o recurso existe, então Produção e Seco não
+  // ganham um botão que não faz nada.
+  { to: '/fechar-turno',  icon: 'registrar', label: 'Fechar turno', recurso: 'fecharTurno' },
   // "O que vence hoje" é a pergunta mais repetida de uma cozinha — merece a
   // barra, não um card dentro de Registrar. O histórico geral saiu daqui: cada
   // tela já tem a aba "📋 Histórico" dela, e ele continua no hub Registrar.
   { to: '/validades',     icon: 'etiqueta',  label: 'Validades' },
-  { to: '/relatorio',     icon: 'relatorio', label: 'Relatório', cap: 'verRelatorio' },
+  // Relatório sai da barra na Finalização para o Fechar Turno caber sem
+  // apertar 6 itens num tablet — lá ele é quase vazio e continua alcançável
+  // pelo menu.
+  { to: '/relatorio',     icon: 'relatorio', label: 'Relatório', cap: 'verRelatorio', semRecurso: 'fecharTurno' },
   { to: '/configuracoes', icon: 'config',    label: 'Config.',   cap: 'config' },
 ];
 
 export default function NavBar() {
-  const { produtos, estoque, producoes, permissoes } = useApp();
+  const { produtos, estoque, producoes, permissoes, modulo } = useApp();
   const { sessao } = useAuth();
   const alertas = produtos.filter(p => {
     const s = statusEstoque(estoque[p.id] ?? 0, p.min, p.max);
@@ -30,6 +39,10 @@ export default function NavBar() {
   }).length;
 
   const itens = NAV.filter(n => {
+    // recurso do módulo primeiro: não adianta ter permissão para uma tela que
+    // não existe no estoque aberto
+    if (n.recurso && !temRecurso(modulo, n.recurso)) return false;
+    if (n.semRecurso && temRecurso(modulo, n.semRecurso)) return false;
     if (!n.cap) return true;
     if (n.cap === 'config') return podeAbrirConfig(sessao, permissoes);
     return pode(sessao, permissoes, n.cap);
