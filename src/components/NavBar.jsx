@@ -32,11 +32,18 @@ const NAV = [
 // Barra da ADMINISTRAÇÃO. Só destinos de dentro da própria área — nenhum
 // leva para um estoque. É o que impede a pessoa de entrar na Administração e
 // ser jogada numa cozinha ao tocar num botão.
+// Barra da ADMINISTRAÇÃO. Só o INÍCIO e a volta para a operação.
+//
+// ⚠️ Relatórios, Financeiro e Config saíram daqui: eles já são cartões do
+// Início, e ter o mesmo destino nos dois lugares é botão repetido — o próprio
+// defeito que já corrigimos em "Validades" (barra + card) e na Administração
+// (seletor + barra). Um destino, um caminho.
+//
+// A Administração tem oito destinos; espalhar quatro deles numa barra e os oito
+// no Início é ruído, não atalho.
 const NAV_ADMIN = [
-  { to: '/administracao', icon: 'inicio',    label: 'Início' },
-  { to: '/relatorio',     icon: 'relatorio', label: 'Relatórios', cap: 'verRelatorio' },
-  { to: '/financeiro',    icon: 'config',    label: 'Financeiro', cap: 'verFinanceiro' },
-  { to: '/configuracoes', icon: 'config',    label: 'Config.',    cap: 'config' },
+  { to: '/administracao', icon: 'inicio', label: 'Início' },
+  { to: '/',              icon: 'registrar', label: 'Voltar ao estoque' },
 ];
 
 export default function NavBar({ area = 'estoque' }) {

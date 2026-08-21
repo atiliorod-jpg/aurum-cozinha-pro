@@ -5,6 +5,7 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { pode } from '../utils/permissoes';
 import { precoDaCompra } from '../utils/financeiro';
+import { temRecurso } from '../utils/modulos';
 import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import AutocompleteInput from '../components/AutocompleteInput';
@@ -25,7 +26,7 @@ const avisoTemp = (v) => {
 
 export default function Compras() {
   const { sessao } = useAuth();
-  const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref, precos, setPrecos, permissoes } = useApp();
+  const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref, precos, setPrecos, permissoes, modulo } = useApp();
   const { toast, confirm } = useUI();
   const location = useLocation();
   const [form, setForm] = useState({
@@ -558,8 +559,14 @@ export default function Compras() {
             </div>
 
             {/* Temperatura de recebimento: exigência de boas práticas (RDC 216) e
-                a primeira coisa que um fiscal pergunta. Opcional para não travar
-                quem recebe item seco/descartável. */}
+                a primeira coisa que um fiscal pergunta.
+
+                ⚠️ SÓ onde existe câmara fria. No Estoque Seco isso não faz
+                sentido: arroz, enlatado e descartável chegam em temperatura
+                ambiente, e pedir a temperatura ali é campo que a pessoa aprende
+                a ignorar — o que estraga o hábito de preencher onde importa.
+                O recurso `armazenamento` é exatamente o que separa os dois. */}
+            {temRecurso(modulo, 'armazenamento') && (
             <div>
               <label htmlFor="cmp-temp" className="block text-xs font-semibold text-gray-600 mb-1">
                 🌡️ Temperatura no recebimento (°C) — opcional
@@ -574,6 +581,7 @@ export default function Compras() {
                 </p>
               )}
             </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>

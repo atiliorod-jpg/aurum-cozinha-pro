@@ -513,9 +513,13 @@ export function AppProvider({ children }) {
   }, [rid]);
 
   // ── Estoque (calculado uma vez, partilhado por todos os componentes) ─
+  // ⚠️ `recebimentos` PRECISA entrar. A Cozinha de Finalização não tem tela de
+  // entrada: tudo o que chega nela vem da Produção, como recebimento. Sem esta
+  // lista o estoque dela ficava sempre ZERADO — a bancada recebia 20 porções e
+  // a tela mostrava 0, o que também derrubava alertas e mín/máx.
   const estoque = useMemo(
-    () => calcEstoquePuro({ produtos, entradas, saidas, ajustes, desperdicio }),
-    [produtos, entradas, saidas, ajustes, desperdicio]
+    () => calcEstoquePuro({ produtos, entradas: [...entradas, ...recebimentos], saidas, ajustes, desperdicio }),
+    [produtos, entradas, recebimentos, saidas, ajustes, desperdicio]
   );
 
   // Migração única: copia gramatura/coccao de fichas para os produtos correspondentes

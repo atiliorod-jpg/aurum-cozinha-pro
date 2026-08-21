@@ -22,10 +22,28 @@ export function calcEstoquePuro({ produtos, entradas, saidas, ajustes, desperdic
     baseTs[p.id] = 0;
   });
 
-  [...ajustes].sort((a, b) => ordemTs(a) - ordemTs(b)).forEach(aj => {
-    if (estoque[aj.produtoId] !== undefined) {
-      estoque[aj.produtoId] = parseFloat(aj.quantidade) || 0;
-      baseTs[aj.produtoId] = ordemTs(aj);
+  // ⚠️ DUAS FORMAS de contagem convivem, e ignorar uma delas some com o número:
+  //   • Inventário (Produção/Seco): um ajuste POR PRODUTO, com produtoId e
+  //     quantidade na raiz.
+  //   • Fechamento de turno (Finalização): UM ajuste com vários itens[], onde
+  //     `quantidade` é a SOBRA contada na bancada.
+  // A versão anterior só lia a forma da raiz. Para o fechamento de turno,
+  // `aj.produtoId` era undefined, a condição falhava e a contagem inteira era
+  // descartada EM SILÊNCIO — a bancada contava a sobra e o estoque continuava
+  // mostrando tudo o que havia recebido, sem nunca abater o consumo.
+  const contagens = [];
+  (ajustes || []).forEach(aj => {
+    const t = ordemTs(aj);
+    if (Array.isArray(aj.itens) && aj.itens.length) {
+      aj.itens.forEach(i => contagens.push({ produtoId: i.produtoId, quantidade: i.quantidade, t }));
+    } else if (aj.produtoId) {
+      contagens.push({ produtoId: aj.produtoId, quantidade: aj.quantidade, t });
+    }
+  });
+  contagens.sort((a, b) => a.t - b.t).forEach(c => {
+    if (estoque[c.produtoId] !== undefined) {
+      estoque[c.produtoId] = parseFloat(c.quantidade) || 0;
+      baseTs[c.produtoId] = c.t;
     }
   });
 

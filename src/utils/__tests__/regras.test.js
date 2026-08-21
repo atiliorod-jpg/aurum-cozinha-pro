@@ -1749,3 +1749,48 @@ describe('visao de um estoque sem trocar o que esta aberto', () => {
     expect(inst.produtos[0].min).toBe(20);
   });
 });
+
+// Dois defeitos que faziam o numero da Cozinha de Finalizacao dar errado — o
+// dono relatou "o consumo e o que sobra esta dando errado" e os dois estavam
+// silenciosos: nenhum erro, so numero torto.
+describe('estoque da Finalizacao — recebimento e fechamento de turno', () => {
+  const produtos = [{ id: 'empanado', nome: 'Empanado', unidade: 'unid', estoqueInicial: 0 }];
+  const recebimento = { id: 'r1', ts: 100, itens: [{ produtoId: 'empanado', quantidade: 20 }] };
+
+  it('o FECHAMENTO DE TURNO vale como contagem, mesmo gravando em itens[]', () => {
+    // A contagem do inventario tem produtoId na RAIZ; a do fechamento vem em
+    // itens[]. Lendo so a forma da raiz, aj.produtoId era undefined e a
+    // contagem inteira era descartada em silencio: a bancada contava 5 de sobra
+    // e o estoque continuava mostrando os 20 recebidos.
+    const fechamento = { id: 'f1', ts: 200, itens: [{ produtoId: 'empanado', quantidade: 5, consumo: 15 }] };
+    const r = calcEstoquePuro({ produtos, entradas: [recebimento], saidas: [], ajustes: [fechamento], desperdicio: [] });
+    expect(r.empanado).toBe(5);
+  });
+
+  it('a contagem por PRODUTO (inventario) continua funcionando', () => {
+    const inv = { id: 'i1', ts: 200, produtoId: 'empanado', quantidade: 7 };
+    const r = calcEstoquePuro({ produtos, entradas: [recebimento], saidas: [], ajustes: [inv], desperdicio: [] });
+    expect(r.empanado).toBe(7);
+  });
+
+  it('as duas formas convivem: vale a contagem MAIS RECENTE', () => {
+    const inv =        { id: 'i1', ts: 200, produtoId: 'empanado', quantidade: 7 };
+    const fechamento = { id: 'f1', ts: 300, itens: [{ produtoId: 'empanado', quantidade: 3 }] };
+    const r = calcEstoquePuro({ produtos, entradas: [recebimento], saidas: [], ajustes: [inv, fechamento], desperdicio: [] });
+    expect(r.empanado).toBe(3);
+  });
+
+  it('entrada DEPOIS da contagem volta a somar; antes dela, nao', () => {
+    const fechamento = { id: 'f1', ts: 200, itens: [{ produtoId: 'empanado', quantidade: 5 }] };
+    const depois = { id: 'r2', ts: 300, itens: [{ produtoId: 'empanado', quantidade: 4 }] };
+    const r = calcEstoquePuro({ produtos, entradas: [recebimento, depois], saidas: [], ajustes: [fechamento], desperdicio: [] });
+    expect(r.empanado).toBe(9);   // 5 contados + 4 que chegaram depois
+  });
+
+  it('ajuste de produto inexistente nao quebra nem cria item fantasma', () => {
+    const lixo = { id: 'x', ts: 200, itens: [{ produtoId: 'nao_existe', quantidade: 99 }] };
+    const r = calcEstoquePuro({ produtos, entradas: [recebimento], saidas: [], ajustes: [lixo], desperdicio: [] });
+    expect(r.empanado).toBe(20);
+    expect(r.nao_existe).toBeUndefined();
+  });
+});

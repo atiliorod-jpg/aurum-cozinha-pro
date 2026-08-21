@@ -86,9 +86,9 @@ export default function Administracao() {
           </Link>
         ))}
 
-        <Link to="/" className="block text-center text-xs font-semibold text-polo-navy pt-3 pb-1">
-          ← Voltar para o estoque
-        </Link>
+        {/* A volta para a operação vive na BARRA, não aqui: repetir o mesmo
+            destino nos dois lugares é o botão repetido que já corrigimos em
+            Validades. */}
       </div>
     </Layout>
   );
