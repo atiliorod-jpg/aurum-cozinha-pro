@@ -24,7 +24,10 @@ const SERVICE = env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!URL_BASE || !ANON) { console.error('Faltam VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY em .env.local'); process.exit(1); }
 
-const TABELAS = ['admin_notas', 'convites', 'documentos', 'perfis', 'registros', 'restaurantes', 'sessoes'];
+// `feedback` estava de fora: não passava pelo teste de isolamento anônimo (o
+// que importa — é texto que o cliente escreveu) e ainda aparecia na lista de
+// "tabelas expostas que o código não usa", como se fosse resíduo.
+const TABELAS = ['admin_notas', 'convites', 'documentos', 'feedback', 'perfis', 'registros', 'restaurantes', 'sessoes'];
 const RPCS = [
   'aceitar_convite', 'alterar_cargo', 'ativar_assinatura', 'avisar_pagamento',
   'convite_valido', 'criar_restaurante', 'definir_bloqueio', 'definir_max_usuarios',
