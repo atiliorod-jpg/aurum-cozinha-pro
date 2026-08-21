@@ -29,8 +29,12 @@ const SECOES = [
     acoes: [
       { to: '/saidas',  emoji: '📤', titulo: 'Saída',         recurso: 'saidas', desc: 'Envio para a cozinha principal / outras unidades (transferência interna)',
         descSeco: 'Requisição: o que saiu do seco para as cozinhas' },
+      // Só a Produção tem apara (aproveitamento de corte). No Seco e na
+      // Finalização o card é de PERDA pura — "Apara" e a tesoura prometiam
+      // uma tela de aproveitamento que não existe ali. A tela em si já abria
+      // certa (AparasPerdas abre em Perda); era só o rótulo que mentia.
       { to: '/aparas',  emoji: '✂️', titulo: 'Apara / Perda', recurso: 'perdas', desc: 'Aproveitamento e descarte',
-        descSeco: 'Registrar o que estragou, quebrou ou venceu' },
+        semApara: { emoji: '🗑️', titulo: 'Perda', desc: 'Registrar o que estragou, quebrou ou venceu' } },
     ],
   },
   {
@@ -38,8 +42,20 @@ const SECOES = [
     desc: 'Etiquetas de validade para os potes e embalagens',
     acoes: [
       { to: '/etiquetas', emoji: '🏷️', titulo: 'Etiquetas', recurso: 'etiquetas', desc: 'Imprimir etiquetas do estoque ou avulsas' },
-      { to: '/validades', emoji: '⏰', titulo: 'Validades', desc: 'O que vence hoje, em 3 dias, ou já venceu' },
-      { to: '/historico', emoji: '📋', titulo: 'Histórico geral', desc: 'Tudo que foi registrado, de todas as telas, num lugar só' },
+      // "Validades" saiu daqui: é item PERMANENTE da barra inferior, e ter o
+      // mesmo destino em dois lugares fazia parecer que eram telas diferentes.
+    ],
+  },
+  {
+    label: 'Consulta',
+    desc: 'O que já foi lançado',
+    acoes: [
+      // O nome antigo era "Histórico geral — tudo que foi registrado, de todas
+      // as telas". Mentia sobre o escopo: a tela filtra pelo MÓDULO aberto, e
+      // quem procurava um lançamento de outro estoque não achava e concluía que
+      // o app tinha perdido. Quem é global de verdade é a Auditoria.
+      { to: '/historico', emoji: '📋', titulo: 'Movimentações deste estoque',
+        desc: 'Tudo que foi lançado neste estoque, das várias telas, num lugar só' },
     ],
   },
   {
@@ -66,9 +82,12 @@ export default function Registrar() {
   const podeAcao = (a) => !a.cap || pode(sessao, permissoes, a.cap);
   // esconde o que não existe no módulo aberto (o seco não tem receita nem apara)
   const noModulo = (a) => !a.recurso || temRecurso(modulo, a.recurso);
+  // Variante do card quando o módulo não tem apara — título, emoji e descrição
+  // trocam juntos, senão sobra tesoura com texto de perda.
+  const comVariante = (a) => (a.semApara && !temRecurso(modulo, 'aparas')) ? { ...a, ...a.semApara } : a;
   const texto = (a) => (modulo !== MODULO_PADRAO && a.descSeco) ? a.descSeco : a.desc;
   const secoes = SECOES
-    .map(s => ({ ...s, acoes: s.acoes.filter(a => podeAcao(a) && noModulo(a)) }))
+    .map(s => ({ ...s, acoes: s.acoes.filter(a => podeAcao(a) && noModulo(a)).map(comVariante) }))
     .filter(s => s.acoes.length > 0);
 
   return (

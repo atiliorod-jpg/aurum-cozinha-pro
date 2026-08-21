@@ -9,8 +9,8 @@ import { pode } from '../utils/permissoes';
 
 export default function Historico() {
   const {
-    produtos, compras, entradas, saidas, aparas, desperdicio, locais,
-    removeCompra, removeEntrada, removeSaida, removeApara, removeDesperdicio,
+    produtos, compras, entradas, saidas, aparas, desperdicio, ajustes, recebimentos, locais,
+    removeCompra, removeEntrada, removeSaida, removeApara, removeDesperdicio, removeAjuste,
     restaurarRegistro, permissoes } = useApp();
   const { sessao } = useAuth();
   const podeRemover = pode(sessao, permissoes, 'removerRegistros');
@@ -56,17 +56,38 @@ export default function Historico() {
     ...desperdicio.map(r => ({ id: r.id, grupo: 'correcoes', icon: '🗑️', cor: 'text-gray-600', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} (${r.motivoOutro || r.motivo}${r.origem === 'estoque' ? ' · baixa' : ''})`,
       remover: () => { removeDesperdicio(r.id); return { tipo: 'perda', reg: r }; } })),
+    // Contagem física faltava aqui — e é o lançamento que MAIS muda o saldo
+    // (sobrepõe o calculado). Quem procurava "por que o estoque mudou" não
+    // encontrava a resposta na tela que promete mostrar tudo.
+    ...ajustes.map(r => ({ id: r.id, grupo: 'correcoes', icon: '📐', cor: 'text-indigo-600', r,
+      resumo: `contagem física: ${nome(r.produtoId)} → ${fmtNum(r.quantidade)}`,
+      remover: () => { removeAjuste(r.id); return { tipo: 'ajuste', reg: r }; } })),
+    // Recebimento da Produção. Sem isto o Histórico da Finalização ficava
+    // quase vazio, justamente onde receber é quase tudo o que acontece.
+    // NÃO tem `remover`: a linha pertence à saída da Produção — apagar aqui
+    // apagaria o lançamento do outro estoque pelas costas de quem o fez.
+    ...recebimentos.map(r => ({ id: r.id, grupo: 'recebimentos', icon: '📦', cor: 'text-emerald-600', r,
+      resumo: `recebido da produção: ${itensTxt(r)}` })),
   ];
 
+  // Trocar de estoque pode fazer o grupo filtrado deixar de existir (ex.: sair
+  // da Finalização com "Recebidos" ativo). Sem isto a tela ficava vazia e o
+  // chip correspondente já não estava lá para desmarcar.
+  const filtroAtivo = (filtro === 'todas' || eventos.some(e => e.grupo === filtro)) ? filtro : 'todas';
   const filtrados = eventos
-    .filter(e => filtro === 'todas' || e.grupo === filtro)
+    .filter(e => filtroAtivo === 'todas' || e.grupo === filtroAtivo)
     .filter(e => !busca || `${e.resumo} ${e.r.responsavel || ''}`.toLowerCase().includes(busca.toLowerCase()))
     .sort((a, b) => (b.r.ts || 0) - (a.r.ts || 0));
 
-  const CHIPS = [
+  // Chip só aparece quando existe evento daquele grupo — senão a Finalização
+  // mostraria "Compras" e "Produção" vazios, e a Produção mostraria
+  // "Recebidos", que nunca tem nada.
+  const TODOS_CHIPS = [
     ['todas', 'Tudo'], ['entradas', '📥 Entradas'], ['saidas', '📤 Saídas'],
+    ['recebimentos', '📦 Recebidos'],
     ['producao', '🍲 Produção'], ['compras', '🛒 Compras'], ['correcoes', '✂️ Correções'],
   ];
+  const CHIPS = TODOS_CHIPS.filter(([v]) => v === 'todas' || eventos.some(e => e.grupo === v));
 
   // Reimprimir etiquetas de uma entrada/produção antiga (dados reais do registro)
   const reimprimirEtiquetas = (ev) => {
@@ -116,7 +137,7 @@ export default function Historico() {
         {CHIPS.map(([v, l]) => (
           <button key={v} onClick={() => setFiltro(v)}
             className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
-              ${filtro === v ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              ${filtroAtivo === v ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
             {l}
           </button>
         ))}
@@ -139,7 +160,7 @@ export default function Historico() {
               <button onClick={() => reimprimirEtiquetas(ev)} aria-label="Reimprimir etiquetas deste registro"
                 className="text-polo-navy text-xs font-semibold px-2 py-1 rounded hover:bg-polo-beige flex-shrink-0">🏷️</button>
             )}
-            {podeRemover && (
+            {podeRemover && ev.remover && (
               <button onClick={() => handleRemover(ev)}
                 className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50 flex-shrink-0">Remover</button>
             )}

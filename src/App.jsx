@@ -225,9 +225,15 @@ function Rotas() {
       } />
       <Route path="/registrar" element={<Registrar />} />
       <Route path="/historico" element={<Historico />} />
-      <Route path="/compras" element={<Compras />} />
-      <Route path="/entradas" element={<Entradas />} />
-      <Route path="/saidas" element={<Saidas />} />
+      {/* Estas três estavam declaradas em RECURSOS_MODULO mas o gate nunca era
+          aplicado: por URL direta abriam na Finalização, que não compra, não dá
+          entrada avulsa e não faz saída (ela recebe da Produção e fecha turno).
+          Vale escrever o motivo porque o defeito era invisível pela navegação —
+          o hub Registrar já escondia os cards, então só aparecia por link
+          antigo, favorito ou histórico do navegador. */}
+      <Route path="/compras" element={temRecurso(modulo, 'compras') ? <Compras /> : <Navigate to="/registrar" replace />} />
+      <Route path="/entradas" element={temRecurso(modulo, 'entradas') ? <Entradas /> : <Navigate to="/registrar" replace />} />
+      <Route path="/saidas" element={temRecurso(modulo, 'saidas') ? <Saidas /> : <Navigate to="/registrar" replace />} />
       {/* Produção não existe fora da cozinha de produção. Já a tela de
           Apara/Perda abre em qualquer módulo que registre PERDA — sem ela, o
           que estraga no seco/finalização não tinha onde ser lançado e virava
@@ -251,6 +257,11 @@ function Rotas() {
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={podeAbrirConfig(sessao, permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
+      {/* Sem isto, qualquer URL desconhecida renderizava TELA BRANCA — nenhuma
+          rota casava e nada era desenhado. Acontece com link antigo, favorito
+          de uma rota que mudou de nome, ou erro de digitação. Cai no Início,
+          que sempre existe em todos os módulos. */}
+      <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </Suspense>
       <AvisoVencimento />

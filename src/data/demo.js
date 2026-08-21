@@ -8,6 +8,8 @@
 
 import { hoje } from '../utils/formatters';
 import { addDias } from '../utils/datas';
+import { SECO_BASE, SECO_CATEGORIAS } from './seco';
+import { MODULO_PADRAO } from '../utils/modulos';
 
 const d = (n) => addDias(hoje(), -n); // n dias atrás
 const ts = (n, h = 10) => Date.now() - n * 86400000 - (24 - h) * 3600000;
@@ -17,7 +19,23 @@ const P = (id, nome, categoria, unidade, extra = {}) => ({
   estoqueInicial: 0, min: 0, max: 0, valCongelado: 0, valResfriado: 0, ...extra,
 });
 
-export function gerarDemoSeed() {
+/**
+ * Seed da demonstração POR MÓDULO.
+ *
+ * Antes esta função ignorava o módulo e devolvia sempre o estoque da produção,
+ * e o ramo demo do AppContext gravava em chaves CRUAS ('produtos', 'compras')
+ * sem passar por k()/kc(). Duas consequências: o Estoque Seco da demo exibia
+ * picanha e filé mignon — que não são mantimento nenhum — e o que o visitante
+ * lançava "no Seco" reaparecia na "Produção", porque os três módulos dividiam
+ * a mesma chave de cache.
+ */
+export function gerarDemoSeed(modulo = MODULO_PADRAO) {
+  if (modulo === 'seco') return seedSeco();
+  if (modulo === 'finalizacao') return seedFinalizacao();
+  return seedProducao();
+}
+
+function seedProducao() {
   const produtos = [
     // O estoque da casa é em PORÇÕES/UNIDADES (já porcionadas). A matéria-prima
     // a granel (filé cru, queijo, batata) fica em kg — é a exceção.
@@ -108,5 +126,104 @@ export function gerarDemoSeed() {
       prefs: { responsavel: 'Maria', turno: 'Manhã', destino: 'cozinha', guia: true },
     },
     registros: { compras, entradas, saidas, aparas, desperdicio, ajustes: [], auditoria: [] },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  ESTOQUE SECO — mantimento, não proteína.
+//  Reusa SECO_BASE (o catálogo real do módulo) em vez de inventar itens:
+//  o visitante vê exatamente o que veria numa conta nova.
+//  Sem apara: no seco não existe aproveitamento de corte, só perda.
+// ─────────────────────────────────────────────────────────────────────
+function seedSeco() {
+  const entrada = (n, itens) => ({
+    id: `demoSeco_e${n}_${itens[0].produtoId}`, ts: ts(n), data: d(n), hora: '08:40',
+    responsavel: 'Maria', itens,
+  });
+  const saida = (n, itens, destino = 'cozinha') => ({
+    id: `demoSeco_s${n}_${itens[0].produtoId}`, ts: ts(n, 15), data: d(n), hora: '15:00',
+    responsavel: 'João', destino, itens,
+  });
+
+  return {
+    catalogos: {
+      produtos: SECO_BASE,
+      categorias: SECO_CATEGORIAS,
+      pessoas: ['Maria', 'João'],
+      // No seco a saída é REQUISIÇÃO: quem pediu o mantimento.
+      locais: [{ id: 'cozinha', nome: 'Cozinha principal' }, { id: 'salao', nome: 'Salão / Bar' }],
+      producoes: [],
+      destinos: [{ cod: 'OUT', label: 'Outro' }],
+      fichas: [], listaManual: [],
+      etiquetasAvulsas: [],
+      prefs: { responsavel: 'Maria', turno: 'Manhã', destino: 'cozinha', guia: true },
+    },
+    registros: {
+      compras: [
+        { id: 'demoSeco_c1', ts: ts(7, 8), data: d(7), hora: '08:10', item: 'Arroz tipo 1 (5kg)', quantidade: 12, unidade: 'unid', fornecedor: 'Atacado São José', responsavel: 'Maria', produtoId: 'seco_arroz' },
+        { id: 'demoSeco_c2', ts: ts(7, 8), data: d(7), hora: '08:15', item: 'Óleo de soja (900ml)', quantidade: 24, unidade: 'unid', fornecedor: 'Atacado São José', responsavel: 'Maria', produtoId: 'seco_oleo' },
+      ],
+      entradas: [
+        entrada(7, [{ produtoId: 'seco_arroz', quantidade: 12 }, { produtoId: 'seco_oleo', quantidade: 24 }]),
+        entrada(5, [{ produtoId: 'seco_feijao', quantidade: 20 }, { produtoId: 'seco_extrato', quantidade: 30 }]),
+        entrada(3, [{ produtoId: 'seco_marmita', quantidade: 400 }, { produtoId: 'seco_sal', quantidade: 6 }]),
+      ],
+      saidas: [
+        saida(4, [{ produtoId: 'seco_arroz', quantidade: 3 }, { produtoId: 'seco_feijao', quantidade: 5 }]),
+        saida(2, [{ produtoId: 'seco_oleo', quantidade: 6 }, { produtoId: 'seco_extrato', quantidade: 8 }]),
+        saida(0, [{ produtoId: 'seco_marmita', quantidade: 120 }], 'salao'),
+      ],
+      aparas: [],
+      desperdicio: [
+        { id: 'demoSeco_p1', ts: ts(1, 16), data: d(1), hora: '16:20', turno: 'Tarde', item: 'Extrato de tomate (340g)', quantidade: 2, unidade: 'unid', motivo: 'V', origem: 'estoque', produtoId: 'seco_extrato', responsavel: 'João' },
+      ],
+      ajustes: [
+        { id: 'demoSeco_aj1', ts: ts(1, 18), data: d(1), hora: '18:00', responsavel: 'Maria', produtoId: 'seco_feijao', quantidade: 14, inventarioId: 'demoSeco_inv1' },
+      ],
+      auditoria: [],
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+//  COZINHA DE FINALIZAÇÃO — não compra nem porciona: RECEBE da produção
+//  e fecha o turno contando a sobra. O catálogo é o da produção (mesmos
+//  ids dos dois lados), como catalogoDe() define.
+//  Os `recebimentos` são derivados das saídas da produção com destino
+//  'finalizacao' — o ramo demo não passa pela ponte, então já entregamos
+//  as saídas com esse destino para a tela ter o que mostrar.
+// ─────────────────────────────────────────────────────────────────────
+function seedFinalizacao() {
+  const base = seedProducao();
+  const recebe = (n, itens) => ({
+    id: `demoFin_r${n}_${itens[0].produtoId}`, ts: ts(n, 9), data: d(n), hora: '09:10',
+    responsavel: 'Maria', destino: 'finalizacao', itens,
+  });
+
+  return {
+    catalogos: {
+      ...base.catalogos,
+      producoes: [],            // não porciona aqui
+      fichas: [],
+      listaManual: [],
+      prefs: { responsavel: 'João', turno: 'Noite', destino: '', guia: true },
+    },
+    registros: {
+      compras: [], entradas: [], saidas: [], aparas: [],
+      // o que estragou na bancada durante o serviço
+      desperdicio: [
+        { id: 'demoFin_p1', ts: ts(1, 22), data: d(1), hora: '22:10', turno: 'Noite', item: 'Molho de Tomate da Casa', quantidade: 1.5, unidade: 'L', motivo: 'V', origem: 'estoque', produtoId: 'molho', responsavel: 'João' },
+      ],
+      // contagem da sobra no fim do turno
+      ajustes: [
+        { id: 'demoFin_aj1', ts: ts(1, 23), data: d(1), hora: '23:30', responsavel: 'João', produtoId: 'empanado', quantidade: 9, inventarioId: 'demoFin_turno1' },
+      ],
+      auditoria: [],
+      recebimentos: [
+        recebe(2, [{ produtoId: 'empanado', quantidade: 20 }, { produtoId: 'molho', quantidade: 6 }]),
+        recebe(1, [{ produtoId: 'picanha', quantidade: 12 }, { produtoId: 'frango', quantidade: 10 }]),
+        recebe(0, [{ produtoId: 'empanado', quantidade: 15 }]),
+      ],
+    },
   };
 }

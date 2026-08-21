@@ -485,26 +485,33 @@ export function AppProvider({ children }) {
     // rede, realtime nem fila offline. O rascunho do visitante fica no cache
     // pe::demo::* (apagado no logout pelo AuthContext).
     if (rid === 'demo') {
-      const seed = gerarDemoSeed();
+      // Seed DO MÓDULO ABERTO, e cache pelas MESMAS chaves do app real
+      // (k()/kc()). Antes eram chaves cruas — 'produtos', 'compras' — então o
+      // Estoque Seco da demo mostrava picanha e filé mignon, e o que o
+      // visitante lançava "no Seco" reaparecia na "Produção", porque os três
+      // módulos gravavam no mesmo lugar. kc() mantém a Finalização lendo o
+      // catálogo da Produção, que é o comportamento correto.
+      const seed = gerarDemoSeed(modulo);
       const c = seed.catalogos, g = seed.registros;
-      setProdutosRaw(cacheGet(rid, 'produtos', c.produtos));
-      setCategoriasRaw(cacheGet(rid, 'categorias', c.categorias));
-      setPessoasRaw(cacheGet(rid, 'pessoas', c.pessoas));
-      setDestinosRaw(cacheGet(rid, 'destinos', c.destinos));
-      setFichasRaw(cacheGet(rid, 'fichas', c.fichas));
-      setProducoesRaw(cacheGet(rid, 'producoes', c.producoes));
-      setLocaisRaw(cacheGet(rid, 'locais', c.locais));
-      setListaManualRaw(cacheGet(rid, 'listaManual', c.listaManual));
-      setEtiquetasAvulsasRaw(cacheGet(rid, 'etiquetasAvulsas', c.etiquetasAvulsas));
-      setEtiquetasImpressasRaw(cacheGet(rid, 'etiquetasImpressas', []));
-      setPrefsRaw(cacheGet(rid, 'prefs', c.prefs));
-      setComprasRaw(cacheGet(rid, 'compras', g.compras));
-      setEntradasRaw(cacheGet(rid, 'entradas', g.entradas));
-      setSaidasRaw(cacheGet(rid, 'saidas', g.saidas));
-      setAparasRaw(cacheGet(rid, 'aparas', g.aparas));
-      setDesperdicioRaw(cacheGet(rid, 'desperdicio', g.desperdicio));
-      setAjustesRaw(cacheGet(rid, 'ajustes', g.ajustes));
-      setAuditoriaRaw(cacheGet(rid, 'auditoria', g.auditoria));
+      setProdutosRaw(cacheGet(rid, kc('produtos'), c.produtos));
+      setCategoriasRaw(cacheGet(rid, kc('categorias'), c.categorias));
+      setPessoasRaw(cacheGet(rid, 'pessoas', c.pessoas)); // equipe é da conta
+      setDestinosRaw(cacheGet(rid, k('destinos'), c.destinos));
+      setFichasRaw(cacheGet(rid, kc('fichas'), c.fichas));
+      setProducoesRaw(cacheGet(rid, k('producoes'), c.producoes));
+      setLocaisRaw(cacheGet(rid, k('locais'), c.locais));
+      setListaManualRaw(cacheGet(rid, k('listaManual'), c.listaManual));
+      setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), c.etiquetasAvulsas));
+      setEtiquetasImpressasRaw(cacheGet(rid, k('etiquetasImpressas'), []));
+      setPrefsRaw(cacheGet(rid, 'prefs', c.prefs)); // prefs é da conta, não do módulo
+      setComprasRaw(cacheGet(rid, k('compras'), g.compras));
+      setEntradasRaw(cacheGet(rid, k('entradas'), g.entradas));
+      setSaidasRaw(cacheGet(rid, k('saidas'), g.saidas));
+      setAparasRaw(cacheGet(rid, k('aparas'), g.aparas));
+      setDesperdicioRaw(cacheGet(rid, k('desperdicio'), g.desperdicio));
+      setAjustesRaw(cacheGet(rid, k('ajustes'), g.ajustes));
+      setRecebimentosRaw(cacheGet(rid, k('recebimentos'), g.recebimentos || []));
+      setAuditoriaRaw(cacheGet(rid, 'auditoria', g.auditoria)); // auditoria é da conta
       return;
     }
     let ativo = true;

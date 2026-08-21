@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -222,10 +222,18 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Lotes vencendo — usar primeiro (FEFO) */}
+      {/* Lotes vencendo — usar primeiro (FEFO)
+          É um ATALHO, não só um aviso: antes o alerta mostrava o problema e
+          terminava ali, obrigando a pessoa a achar Validades por conta própria
+          no meio do serviço. */}
       {vencendo.length > 0 && (
-        <div className="bg-orange-50 border border-orange-300 rounded-xl p-3 mb-4">
-          <p className="text-xs font-bold text-orange-700 mb-2">⏰ Usar primeiro — lotes vencendo</p>
+        <Link to="/validades"
+          className="block bg-orange-50 border border-orange-300 rounded-xl p-3 mb-4 active:scale-[0.99] transition-transform
+                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-orange-700">⏰ Usar primeiro — lotes vencendo</p>
+            <span className="text-[11px] font-bold text-orange-700">ver todas →</span>
+          </div>
           <div className="space-y-1">
             {vencendo.map(({ p, lote, dias }, i) => (
               <div key={`${p.id}-${i}`} className="flex justify-between items-center text-xs">
@@ -236,7 +244,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </Link>
       )}
 
       {/* Sugestão de mín/máx pela média de saídas */}
