@@ -1,4 +1,4 @@
-# Aurum Cozinha Pro — continuação (escrito em 05/08/2026)
+# Aurum Cozinha Pro — continuação (reescrito em 21/08/2026)
 
 Cole este arquivo inteiro na primeira mensagem da nova conversa.
 
@@ -17,62 +17,48 @@ franco quando algo está errado — inclusive quando o erro foi seu.
 
 ---
 
-## ⛔ PRIMEIRA COISA A FAZER: o Supabase está pausado
+## ✅ O que mudou desde o prompt anterior
 
-O projeto Supabase (plano free) **pausou por inatividade** e o DNS do subdomínio
-sumiu. Sintoma: `Could not resolve host: <projeto>.supabase.co`. Sem isso, o app
-abre mas nenhum login funciona.
+O prompt antigo dizia "Supabase pausado, duas migrations pendentes". **Nada
+disso vale mais.** O banco está no ar e as migrações 17 a 22 foram aplicadas.
 
-**Só o Atílio consegue restaurar** — exige o painel:
-https://supabase.com/dashboard → projeto → **Restore project** (leva alguns minutos).
-
-Você **não** consegue: a `service_role` do `.env.local` manipula dados, não o
-ciclo de vida do projeto; o CLI do Supabase exige um personal access token.
-
-Confirme antes de qualquer coisa:
+Confira antes de qualquer coisa:
 ```bash
-node scripts/auditar-supabase.mjs
+node scripts/checar-migracoes.mjs   # pergunta ao BANCO, não lê os .sql
 ```
-Esse script aborta com mensagem clara se a REST não responder. Ele foi escrito
-justamente porque, com o projeto fora, um teste ingênuo lê "tudo bloqueado" como
-"tudo seguro" — servidor morto não é servidor seguro.
+
+### Você consegue rodar migração sozinho
+
+Existe `SUPABASE_ACCESS_TOKEN` (Personal Access Token) no `.env.local`, e o
+executor usa a Management API:
+```bash
+node scripts/rodar-migracao.mjs 23        # roda; para no primeiro erro
+node scripts/rodar-migracao.mjs --lista
+node scripts/rodar-migracao.mjs 23 --dry  # só imprime o SQL
+```
+Há uma regra de permissão em `.claude/settings.local.json` liberando esses dois
+scripts. **Não peça ao Atílio para colar SQL no SQL Editor.**
 
 ---
 
-## ⛔ SEGUNDA COISA: duas migrations pendentes
+## ⛔ A falha de segurança que estava aberta (corrigida, mas leia)
 
-`src/lib/migration17_modulos.sql` e `src/lib/migration18_autorizacao.sql`
-**ainda NÃO foram rodadas**. O Atílio precisa colar cada uma no SQL Editor do
-Supabase (nesta ordem) e clicar Run.
+`sou_super_admin()` era `auth.jwt() ->> 'email' = '...'`. Sem login não existe
+claim de e-mail → `NULL = '...'` → **NULL**, e `not NULL` também é NULL. No
+plpgsql `if NULL then` **não entra no ramo**, então `if not sou_super_admin()
+then raise` nunca disparava. **Nove funções** dependiam dela.
 
-**Sem a 17:** Estoque Seco e Cozinha de Finalização gravam no aparelho mas
-**nada sobe** — o `CHECK` de `registros.tipo` recusa `seco:*`/`finalizacao:*` e o
-item fica preso na fila offline (o app mostra sucesso; a falha é silenciosa).
+Explorado ao vivo: `feedback_todos` vazava feedback real sem login, e
+`ativar_assinatura` passava da trava (com um id real, qualquer anônimo se daria
+400 dias de assinatura grátis).
 
-**Sem a 18:** três falhas de autorização reais continuam abertas —
-(a) funcionário desativado continua entrando e gravando;
-(b) cozinheiro reescreve a própria matriz de permissões;
-(c) trilha de auditoria é forjável e indelével.
+**A lição vale para todo código novo:** em SQL, trava que devolve NULL não trava.
+Use `coalesce(...)` antes de comparar e `is distinct from` no lugar de `<>`.
+Corrigido na migração 19.
 
-Conferência depois de rodar:
-```sql
--- a 17 pegou? (as três colunas devem vir true)
-select 'entrada' ~ '^(compra|entrada|saida|apara|perda|ajuste|auditoria)$' as producao_ok,
-       'seco:entrada' ~ '^(seco|finalizacao):(compra|entrada|saida|apara|perda|ajuste)$' as seco_ok,
-       'finalizacao:ajuste' ~ '^(seco|finalizacao):(compra|entrada|saida|apara|perda|ajuste)$' as final_ok;
-
--- a 18 pegou? nenhuma policy _v10 ou _v7 pode sobrar nessas duas tabelas
-select policyname, cmd from pg_policies
- where tablename in ('documentos','registros') order by tablename, policyname;
-```
-Se a 18 falhar com erro de `gen_random_bytes`, rode antes:
-`create extension if not exists pgcrypto;`
-
-Depois que rodarem, **valide de verdade** com:
-```bash
-node scripts/e2e-restaurante-real.mjs   # cria conta, opera um turno, testa isolamento
-node scripts/pentest-limpar.mjs         # apaga as contas de teste (SEMPRE rodar depois)
-```
+Por que passou meses despercebido: com a tabela vazia, a auditoria lia
+"200 mas vazio" como "filtrou por dentro" e marcava ✅. **Tabela vazia não é RPC
+segura.**
 
 ---
 
@@ -80,201 +66,204 @@ node scripts/pentest-limpar.mjs         # apaga as contas de teste (SEMPRE rodar
 
 PWA offline-first para cozinha, usado em **tablet**. React 19 + Vite 8 +
 Tailwind 3. Backend Supabase (Postgres + RLS + Auth + Realtime). Deploy
-automático no GitHub Pages via GitHub Actions a cada push na `main`.
+automático no GitHub Pages a cada push na `main`.
 
-**Modelo de negócio:** R$149/mês, 7 dias de teste grátis, pagamento por **Pix**
-com ativação manual pelo super-admin (o Stripe existe no código mas está
-inerte e foi adiado). Super-admin = `atiliopinpolho@gmail.com`.
+**Modelo:** R$149/mês, 7 dias grátis, pagamento por **Pix** com ativação manual
+pelo super-admin (`atiliopinpolho@gmail.com`). O Stripe existe no código mas
+está inerte.
 
-**⚠️ O app ainda NÃO tem uso real.** "Polo Beer" é conta de exemplo. Isso importa
-para priorizar: não vale otimizar para escala nem construir mais módulos antes
-de uma cozinha de verdade rodar um mês no primeiro.
-
-### Arquitetura que você precisa entender antes de mexer
-
-**Offline-first:** tudo grava primeiro em `localStorage` (`pe::<rid>::<chave>`) e
-sobe depois. O que falha vai para uma fila (`outbox`); erros definitivos
-(constraint, FK, coluna inexistente) morrem na primeira tentativa em vez de
-gastar 8 retries em silêncio. **Consequência prática: a tela mostra sucesso mesmo
-quando o servidor recusou.** Isso já escondeu bugs graves — sempre confira o
-console/rede ao testar, não só o toast verde.
-
-**Multi-módulo (multi-cozinha).** Três estoques separados dentro da MESMA conta:
-| id | nome | o que faz |
-|---|---|---|
-| `producao` | Cozinha de Produção | porcionamento, receitas, aparas (é o app original) |
-| `finalizacao` | Cozinha de Finalização | recebe da produção, fecha turno contando a sobra |
-| `seco` | Estoque Seco | mantimentos: grãos, enlatados, descartáveis, limpeza |
-
-A separação é feita por **namespace de chave/tipo**, sem coluna nova no banco:
-- documentos: `seco::produtos` (o módulo padrão `producao` mantém a chave antiga)
-- registros: `tipo = 'seco:entrada'` (padrão continua `'entrada'`)
-
-Essa regra do "padrão mantém a chave antiga" é o que evitou migração de dados.
-**Não quebre isso.** Ver `src/utils/modulos.js`.
-
-O `useApp()` devolve os dados **do módulo ativo**, então as telas herdadas
-funcionam nos três sem alteração. O que muda por módulo está em
-`RECURSOS_MODULO` — e `temRecurso()` é **estrito** (só liga o que está declarado
-`true`), porque a versão permissiva fazia telas aparecerem onde não deviam.
-Há um teste que exige que todo módulo declare todos os recursos.
-
-⚠️ **Módulo NÃO é fronteira de segurança.** O cliente baixa todos os registros do
-restaurante e filtra em memória. É organização de tela. Se um dia for vender
-"cada equipe só vê o seu módulo", precisa de coluna `modulo` no RLS.
-
-**Etiquetas com QR.** Cada cópia impressa ganha um `loteId` único, registrado em
-`etiquetasImpressas`, e o QR permite contar estoque com a câmera
-(`BarcodeDetector`, Chrome/Android). O QR tem um **orçamento de caracteres
-apertado** (`QR_MAX_CARACTERES = 106`): numa térmica de 203 DPI cada módulo do
-código precisa de ~4 pontos para sair legível, e texto a mais empurra a versão do
-QR para cima até o leitor parar de pegar. Há teste travando isso. Se for
-acrescentar campo ao QR, meça antes.
+**⚠️ O app ainda NÃO tem uso real.** "Polo Beer" é conta de exemplo. Não vale
+otimizar para escala nem construir mais módulos antes de uma cozinha de verdade
+rodar um mês no primeiro.
 
 ---
 
-## Onde paramos (sessão de 05/08/2026)
+## Arquitetura — o que você precisa entender antes de mexer
 
-Última sessão foi longa: Fase 1 e 2 do multi-cozinha, recursos inspirados no
-concorrente **Suflex**, e três rodadas de auditoria com agentes especializados.
+### Offline-first, e o modo de falha que domina esta base
+Tudo grava primeiro em `localStorage` (`pe::<rid>::<chave>`) e sobe depois.
+**A tela mostra sucesso mesmo quando o servidor recusou.** Isso já escondeu
+vários bugs graves — sempre confira console e rede, nunca só o toast verde.
 
-**Commits (mais recente primeiro):**
+Desde 21/08, erro **definitivo** (violação de constraint) não vai mais para a
+fila: o lançamento otimista é desfeito e a tela avisa. Erro de rede continua
+enfileirando normalmente.
+
+### Estoques (antes "módulos")
+Três TIPOS, e a conta pode ter **várias instâncias** de cada:
+
+| tipo | o que faz |
+|---|---|
+| `producao` | porcionamento, receitas, aparas (é o app original) |
+| `finalizacao` | recebe da produção, fecha turno contando a sobra |
+| `seco` | mantimentos: grãos, enlatados, descartáveis, limpeza |
+
+**Instância:** `seco#x7k2` — tipo + `#` + 4 caracteres.
+- Usa **`#` e não `:`** porque `lerTipo` corta no primeiro `:`
+- A instância **RAIZ** mantém o id de sempre (`seco`, `producao`) → **nenhum
+  dado precisa ser convertido**. Não quebre essa regra.
+- `moduloValido` valida por **FORMATO**, nunca consultando o registro. Se
+  dependesse do registro, arquivar uma instância faria `lerTipo` cair no
+  fallback e **despejar o estoque daquele restaurante dentro da Produção**.
+
+**Catálogo compartilhado, saldo e mín/máx próprios** (decisão do dono):
+- catálogo: `catalogoDe(id)` → por TIPO. Todo Seco lê `seco::produtos`
+- saldo: sai de graça, os lançamentos levam a instância no `tipo`
+- mín/máx: documento `metas` por instância, sobreposto ao catálogo
+
+`setProdutos` é o **ponto único** da separação catálogo × metas. Todas as telas
+chamam com a lista inteira, como sempre — se cada uma soubesse da separação,
+bastava uma esquecer para gravar o mínimo de um restaurante por cima do outro.
+
+### Áreas: operação × administração
+São **duas áreas separadas**, e isso foi corrigido a duro custo:
+- `Layout` recebe `area="estoque"` (padrão) ou `area="admin"`
+- na Administração **não** aparece a barra de operação nem o seletor de estoque
+- **nenhum botão da Administração troca o estoque aberto.** Relatório e
+  Financeiro têm um seletor próprio ("MOSTRANDO") que muda o que se OLHA
+- `visoesPorEstoque` monta a visão de qualquer estoque a partir dos dados já
+  baixados — custo zero de rede
+
+⚠️ "Administração" **não** é um valor de `modulo`. Se fosse, toda chave viraria
+`admin::produtos` e o banco recusaria em silêncio.
+
+### Financeiro travado no BANCO
+`verFinanceiro` é a única capacidade que é barreira dura: a policy de SELECT
+chama `pode_ver_financeiro()` e a linha `precos` **não sai do servidor** para
+quem não tem. Por isso preço mora na chave própria `precos`, nunca dentro de
+`produtos` — o catálogo a cozinha precisa ver.
+
+O custo entra pela tela de **Compras** (campo visível só a quem tem a
+permissão), e o valor **não** é gravado na compra: `registros` é lido por todo
+mundo. Vale a **última compra**.
+
+`perda_em_reais(de, ate)` é um agregado do servidor: devolve só o TOTAL, nunca
+a quebra por item — "queijo: R$ 120" + "2 kg de queijo" revelaria o custo.
+⚠️ A conversão de unidade existe em **dois lugares** (JS e SQL). O
+`pentest-financeiro.mjs` compara os dois; se divergirem, ele falha.
+
+### Etiquetas com QR
+Cada cópia impressa ganha um `loteId` único. O QR tem **orçamento apertado**
+(`QR_MAX_CARACTERES = 106`) — numa térmica de 203 DPI cada módulo precisa de
+~4 pontos. Há teste travando isso; se acrescentar campo, meça antes.
+
+O nome impresso vem do **estoque** (opcional) com queda para o da conta.
+
+---
+
+## Onde paramos (21/08/2026)
+
+Sessão longa. Segurança, Fases 0 a 4 completas.
+
 ```
-c3776ea  Auditoria final: corrige a migracao 18 (que nem rodava) + 6 defeitos
-d1a5d44  Organizacao inspirada na Suflex: Validades na barra + temperatura no recebimento
-47cb4a0  Fecha as falhas de autorizacao da auditoria (migracao 18)
-6cdb09f  Auditoria por agentes: corrige 9 defeitos
-f7d9a69  Fecha o ciclo da etiqueta: id de lote, leitura por camera, validades, subgrupos
-fd6dff1  Fase 2: Cozinha de Finalizacao
-ff1ec50  Multi-modulo Fase 1: seletor de estoque + Estoque Seco
+1442552  Fecha a Fase 4: balanco consolidado, etiqueta por estoque, erro que nao mente
+e92e75a  Administracao vira area de verdade + min/max por estoque (Fase 3)
+8b02c3c  Multi-instancia funcionando: criar estoques, saldo separado, catalogo comum
+3c8c183  Base para multi-instancia + Admin fora da barra
+2feac0e  Financeiro: tela de custos na Administracao + captura do custo na compra
+f8e7149  Perda em R$ para a equipe, sem entregar o custo de cada insumo
+6d6ab65  Fase 2: financeiro travado NO BANCO, antes de existir tela de preco
+b869dde  Fase 2: Administracao unificada como 4a opcao do seletor
+48d59e2  SEGURANCA: logout de conta real nao apagava NADA do cache
+416add3  Fase 1: cada estoque passa a dizer a verdade sobre o que ele e
+d6ddec1  SEGURANCA: a trava de super-admin nunca travou (NULL nao e FALSE)
 ```
 
-**Estado:** 108 testes passando, lint 0, build ok, deploy verde.
-Banco de produção limpo (contas de teste apagadas).
-
-**Lição da última sessão, que vale repetir:** a migration 18 que eu escrevi
-**não rodava** (`returns void` conflitando com `returns boolean` da migration 11
-→ erro 42P13 → rollback do script inteiro) e, mesmo se rodasse, **não fecharia
-nada** (policies permissivas do Postgres somam por **OR**; criar a nova sem
-derrubar a antiga não trava). Um agente descobriu isso **testando ao vivo contra
-o banco**, não lendo os arquivos. Auditoria que só lê `.sql` não é confiável.
+**Estado:** 201 testes, lint 0 erros, build ok, deploy verde, e2e 48/48,
+pentest financeiro 18/18, auditoria 26/26, banco de produção limpo.
 
 ---
 
 ## Achados registrados e NÃO corrigidos
 
-Ordem sugerida. Nada aqui está em andamento — escolha com o Atílio.
+Ordem sugerida. **Escolha com o Atílio antes de implementar.**
 
 ### Segurança / dados
-1. **Drift entre repositório e banco.** `alterar_cargo` rodando em produção é
-   mais antiga que o arquivo do repo — falta a trava anti-autopromoção.
-   Levante o que realmente está lá antes de confiar em qualquer `.sql`:
+1. **Drift entre repositório e banco.** `alterar_cargo` em produção pode ser
+   mais antiga que o arquivo do repo. Levante o que está lá:
    `select prosrc from pg_proc where proname = 'alterar_cargo';`
-   `select tgname, tgenabled from pg_trigger where tgrelid = 'perfis'::regclass;`
-2. **Convites legados de 8 caracteres** (32 bits) ainda pendentes são varríveis
-   por força bruta, e `convite_valido` está aberto ao `anon` sem rate limit:
+2. **Convites legados de 8 caracteres** (32 bits) são varríveis por força bruta:
    `update convites set expira_em = now() where length(token) = 8 and usado = false;`
-3. **Webhook Stripe desbloqueia conta suspensa.** `ativarAssinatura` grava
-   `bloqueado: false` sem checar por que estava bloqueada; e não confere
-   `payment_status` (boleto emite `completed` sem pagamento). Está inerte hoje.
-4. **`importarBackup` aplica `prefs` sem whitelist** — um backup adulterado
-   reescreve permissões e libera acesso do suporte.
-5. **Cache local não é limpo no logout** — em tablet compartilhado, o próximo
-   usuário lê histórico e custos pelo DevTools. Pior no modo suporte: dados do
-   cliente ficam no aparelho do super-admin.
-6. **Auditoria forjável localmente via importação de backup** (não toca o banco,
-   mas o print do tablet mostra a versão falsificada).
-7. **`registrar_auditoria` sem rate limit** e sem checar plano vencido — e a
-   linha é indelével por design.
+3. **`importarBackup` aplica `prefs` sem whitelist** — backup adulterado
+   reescreve permissões.
+4. **`exportarBackup` não carimba de qual estoque veio**, e `importarBackup`
+   aplica no aberto. Com várias instâncias, restaurar no lugar errado
+   sobrescreve dado bom.
+5. **Webhook Stripe desbloqueia conta suspensa** (inerte hoje).
+6. **`registrar_auditoria` sem rate limit.**
 
 ### Lógica / integridade
-8. **Ponte Produção→Finalização não funciona em tempo real.** Só na hidratação:
-   o tablet da finalização não vê o que chegou até recarregar.
-9. **Destino "Cozinha de Finalização" não existe em contas já criadas** — o
-   local fixo só é semeado quando o documento `locais` não existe. Precisa de
-   merge na hidratação, não semeadura.
-10. **`Inventario` acessível na Finalização** por Configurações (gated só por
-    permissão, não por `temRecurso`) — a contagem salva ali corrompe o cálculo
-    do fechamento de turno.
-11. **Auditoria duplicada:** o registro otimista local tem id diferente do que o
-    banco gera, então nunca casa no merge e a tela mostra tudo em dobro.
-12. **`calcSugestoesMinMax` propaga NaN** quando uma saída não tem `data` — com
-    auto-mín/máx ligado, grava NaN no catálogo e o produto some da lista de compras.
-13. **Realtime de catálogo compartilhado não chega na Finalização** (usa
-    `modulo` onde deveria usar `catalogoDe(modulo)`).
-14. **`resetarProdutos` devolve o catálogo da produção mesmo no Seco.**
+7. **`pe::modulo` é do aparelho.** Já cai para a raiz quando o id não serve
+   (`moduloUtilizavel`), mas **não avisa na tela** — a troca parece bug.
+8. **Realtime é por restaurante**: todo tablet recebe toda linha de toda
+   instância e filtra em memória. Com N instâncias, multiplica CPU e bateria.
+9. **O cliente baixa TODOS os registros** e filtra no cliente. O índice
+   `idx_registros_rest_deleted_tipo_ts` já existe; falta usar `.in('tipo', ...)`.
+10. **`prefs` é da conta inteira** — `diasMin`, `diasMax`, `autoMinMax` valem
+    para todos os estoques. Só o nome do estabelecimento foi separado.
 
 ### UX de cozinha (tablet)
-15. **Recebimento partido em duas telas** — Compras não entra no estoque; é
-     preciso redigitar tudo em Entradas. É o maior ganho de fluxo disponível, e
-     é literalmente o produto "Essencial" da Suflex.
-16. **Trabalho longo evapora sem aviso** — 25 min de contagem somem num toque
-     acidental. Falta rascunho em `localStorage` e confirmação ao sair.
-17. **Botão principal no topo em 3 telas e no rodapé em 3**, e desabilitado sem
-     dizer o que falta (em Aparas/Perdas são 4 condições invisíveis).
-18. **Popup "O que há de novo" empilha** com o modal de etiqueta na primeira
-     ação de uma conta nova.
-19. **Banner do fluxo do turno** ocupa ~4 linhas em todas as telas, mesmo em 2/2.
-20. **Alvos de toque < 44px** em Remover, reimprimir e nos steppers de etiqueta.
-21. **Aba "Receitas" morta** em Seco/Finalização: o botão aparece e não faz nada.
-22. **Alertas do Início são becos sem saída** — "lotes vencendo", "risco de
-     faltar" e "estoque negativo" não navegam para lugar nenhum.
-23. **Inventário sem "Todos" e sem busca** (todas as outras listas têm).
+11. **Recebimento partido em duas telas** — Compras não entra no estoque; é
+    preciso redigitar em Entradas. É o maior ganho de fluxo disponível.
+12. **Trabalho longo evapora sem aviso** — 25 min de contagem somem num toque.
+    Falta rascunho e confirmação ao sair.
+13. **Botão principal no topo em 3 telas e no rodapé em 3**, e desabilitado sem
+    dizer o que falta.
+14. **Alertas do Início são becos sem saída** — "risco de faltar" e "estoque
+    negativo" não navegam (o de validade já virou atalho).
+15. **Inventário sem "Todos" e sem busca.**
+16. **Alvos de toque < 44px** em Remover, reimprimir e nos steppers.
 
-### O que copiar da Suflex (pesquisa já feita)
-A Suflex organiza por **etapa do fluxo**: Recebimento → Validades → Produção →
-Contagem → Relatórios. Planos: Essencial (recebimento+validades+etiquetagem),
-Avançado (+produção), Diamante (+contagem e "controlados"), Business (multiunidade).
-- **"Controlados"** é o recurso premium mais barato de construir aqui: já existe
-  `loteId`, QR, FEFO e leitura por câmera. Falta uma flag `controlado` no produto
-  que exija lote na saída e ganhe bloco próprio no relatório.
-- Renomear telas pela etapa do fluxo, não pelo verbo do banco.
+### O que copiar da Suflex
+"Controlados" é o recurso premium mais barato de construir: já existe `loteId`,
+QR, FEFO e leitura por câmera. Falta uma flag `controlado` no produto que exija
+lote na saída.
 
-### Pendências antigas do Atílio (não são código)
-- Sentry (ele achou que era pago; tem plano free — decisão dele)
+### Pendências do Atílio (não são código)
+- Sentry (tem plano free — decisão dele)
 - Instalar o APK no tablet físico (`GUIA_APK_TABLET.md`)
-- Stripe em modo live (adiado; hoje é Pix)
-- Confirmação de e-mail no cadastro (parou esperando ele verificar remetente no
-  Brevo/Resend)
-- Impressora térmica **Tomate MDK-022** + etiqueta BOPP: ele não comprou ainda.
-  Aceita TSPL, mas navegador não escreve em USB/Bluetooth — precisaria de ponte
-  (QZ Tray no PC, print service no Android) ou Web Bluetooth. Hoje imprime pelo
-  diálogo do navegador, que funciona.
+- Confirmação de e-mail no cadastro (parou esperando verificar remetente)
+- Impressora térmica **Tomate MDK-022** — não comprou. Navegador não escreve em
+  USB/Bluetooth; hoje imprime pelo diálogo do navegador, que funciona.
 
 ---
 
 ## Como trabalhar neste projeto
 
-**Comandos:**
 ```bash
-npx vitest run      # 108 testes
-npx eslint .        # tem que dar 0
+npx vitest run                        # 201 testes
+npx eslint .                          # 0 ERROS (2 warnings pré-existentes)
 npx vite build
-node scripts/audit-check.mjs        # gate de vulnerabilidade do CI
-node scripts/auditar-supabase.mjs   # estrutura + isolamento do banco
-node scripts/e2e-restaurante-real.mjs  # E2E via API
-node scripts/pentest-limpar.mjs     # apagar contas de teste
+node scripts/audit-check.mjs          # gate de vulnerabilidade do CI
+node scripts/checar-migracoes.mjs     # o banco tem as migrações?
+node scripts/rodar-migracao.mjs N     # aplica migração
+node scripts/auditar-supabase.mjs     # estrutura + isolamento
+node scripts/e2e-restaurante-real.mjs # E2E via API
+node scripts/pentest-financeiro.mjs   # trava do financeiro + cross-check SQL×JS
+node scripts/pentest-limpar.mjs       # SEMPRE depois dos pentests
 ```
 
-**Servidor de preview:** use a ferramenta do Browser pane (`preview_start` com
-`{"name":"polo-estoque"}`), nunca `npm run dev` pelo Bash.
+**Preview:** use o Browser pane (`preview_start` com `{"name":"polo-estoque"}`),
+nunca `npm run dev` pelo Bash.
 
-**Antes de commitar:** testes + lint + build. O CI roda os três e o deploy
-quebra se algum falhar.
+**Antes de commitar:** testes + lint + build + **audit-check**. O CI roda os
+quatro. (Já quebrou o deploy por esquecer o audit-check.)
 
-**Convenções deste projeto:**
-- Comentários e mensagens de commit em **português**.
-- Comentário explica **por quê**, não o quê. Quando corrigir bug, o comentário
-  registra o que quebrava — isso já evitou várias regressões aqui.
-- Conta de teste: e-mail `pentest.*@example.invalid`, restaurante `Pentest ...`.
-  **Sempre** rodar `pentest-limpar.mjs` depois: o banco é de produção.
-- Nunca force `npm audit fix --force`. O gate aceita exceções documentadas em
-  `scripts/audit-check.mjs`, e exceção obsoleta deve ser removida.
+**Convenções:**
+- Comentários e commits em **português**
+- Comentário explica **por quê**. Ao corrigir bug, registre o que quebrava
+- Conta de teste: `pentest.*@example.invalid`. **Sempre** rodar
+  `pentest-limpar.mjs` depois — o banco é de produção
+- Nunca `npm audit fix --force`
 
-**O que o Atílio espera de você:**
-- Provar, não afirmar. Ele valoriza verificação real (decodificar o QR gerado,
-  medir pontos/módulo, simular a corrida do outbox) em vez de "deve funcionar".
-- Perguntar antes de aplicar o que não for bug óbvio.
-- Dizer com todas as letras quando um trabalho seu estava errado. Já aconteceu
-  várias vezes nesta base e foi assim que os bugs graves apareceram.
-- Não inflar resultado: se um teste não cobriu algo, diga que não cobriu.
+**O que o Atílio espera:**
+- **Perguntar antes de aplicar** desenho de funcionalidade. Bug óbvio e
+  segurança pode corrigir direto. Mesmo quando ele delega, apresente o que
+  pretende construir antes de construir
+- **Commitar sempre**, sem perguntar. Push é decisão dele
+- **Não fazer picotado.** Ele reclamou disso: quando pedir uma mudança
+  estrutural, faça inteira
+- **Design limpo, sem repetição de botão.** Um destino, um caminho
+- Provar, não afirmar. Verificação real no navegador e contra o banco
+- Dizer com todas as letras quando um trabalho seu estava errado
+- Não inflar resultado: se um teste não cobriu algo, diga que não cobriu
