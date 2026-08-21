@@ -33,7 +33,13 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.ativo is distinct from old.ativo then
+  -- O GUC é setado por desativar_usuario/reativar_usuario logo antes do UPDATE.
+  -- Sem esta conferência o trigger recusa TAMBÉM as RPCs oficiais e a função
+  -- "desativar acesso" para de existir. Ele é local à transação, e cada
+  -- requisição do PostgREST é a sua própria transação, então não dá para um
+  -- cliente pré-setar o GUC e depois mandar o PATCH em outra requisição.
+  if new.ativo is distinct from old.ativo
+     and coalesce(current_setting('aurum.muda_ativo', true), '') <> '1' then
     raise exception 'Ativação/desativação só pela função do sistema.';
   end if;
   return new;
@@ -282,3 +288,33 @@ create policy "doc_super_upd_v18" on documentos for update
 --    select policyname, cmd from pg_policies
 --     where tablename in ('documentos','registros') order by tablename, policyname;
 -- =====================================================================
+
+-- ---------------------------------------------------------------------
+-- 4) TRAVA DE CONFERÊNCIA — a migração precisa falhar alto, não em silêncio
+--
+--    Os `drop policy if exists` acima miram nomes fixos (_v10, _v7). Se o
+--    banco tiver drift e alguma policy antiga se chamar outra coisa, o drop
+--    não acha nada, não reclama, e a policy velha — PERMISSIVA, ou seja,
+--    somada por OR — continua aprovando o que as novas recusam. Foi assim
+--    que a primeira versão desta migração "rodou" sem fechar nada.
+--
+--    Depois desta migração, TODA policy de INSERT/UPDATE em documentos e
+--    registros tem que ser uma _v18. Se sobrar qualquer outra, aborta e a
+--    transação inteira volta atrás — melhor não aplicar do que aplicar pela
+--    metade e achar que está seguro.
+-- ---------------------------------------------------------------------
+do $$
+declare v_sobrou text;
+begin
+  select string_agg(tablename || '.' || policyname || ' (' || cmd || ')', ', ' order by tablename, policyname)
+    into v_sobrou
+    from pg_policies
+   where schemaname = 'public'
+     and tablename in ('documentos', 'registros')
+     and cmd in ('INSERT', 'UPDATE', 'ALL')
+     and policyname not like '%\_v18';
+
+  if v_sobrou is not null then
+    raise exception 'Policy antiga sobreviveu e anula esta migração (OR de policies permissivas): %', v_sobrou;
+  end if;
+end $$;
