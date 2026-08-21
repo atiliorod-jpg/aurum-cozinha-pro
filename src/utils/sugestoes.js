@@ -29,12 +29,24 @@ const arredondar = (v, unidade) =>
  * Retorna { [produtoId]: { min, max, mediaDiaria, dias } } apenas para
  * produtos com saídas registradas e histórico suficiente.
  */
-export function calcSugestoesMinMax(produtos, saidas, ref = hoje(), diasMin = DIAS_MIN, diasMax = DIAS_MAX, porDiaSemana = false) {
-  if (!saidas.length) return {};
+// Uma saída sem `data` válida envenenava a conta inteira e o estrago era
+// silencioso: `primeira` virava undefined, diffDias devolvia NaN, e a guarda
+// `diasObservados < MIN_DIAS_DADOS` NÃO segurava (comparação com NaN é sempre
+// false), então a função seguia e devolvia min/max NaN. Com o auto-mín/máx
+// ligado isso era gravado no catálogo — e como `NaN !== NaN`, o efeito
+// entendia "mudou" toda vez e o produto sumia da lista de compras.
+// Pior: o filtro de janela (`s.data < inicioJanela`) também é false para
+// undefined, então a saída sem data ainda era somada ao consumo, fora de
+// qualquer janela.
+const dataValida = (s) => typeof s?.data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.data);
 
-  const primeira = saidas.reduce((m, s) => (s.data < m ? s.data : m), saidas[0].data);
+export function calcSugestoesMinMax(produtos, saidas, ref = hoje(), diasMin = DIAS_MIN, diasMax = DIAS_MAX, porDiaSemana = false) {
+  const validas = (saidas || []).filter(dataValida);
+  if (!validas.length) return {};
+
+  const primeira = validas.reduce((m, s) => (s.data < m ? s.data : m), validas[0].data);
   const diasObservados = Math.min(JANELA_DIAS, diffDias(primeira, ref) + 1);
-  if (diasObservados < MIN_DIAS_DADOS) return {};
+  if (!Number.isFinite(diasObservados) || diasObservados < MIN_DIAS_DADOS) return {};
 
   const inicioJanela = new Date(new Date(ref).getTime() - (JANELA_DIAS - 1) * DIA_MS)
     .toISOString().slice(0, 10);
@@ -51,7 +63,7 @@ export function calcSugestoesMinMax(produtos, saidas, ref = hoje(), diasMin = DI
     }
   }
 
-  saidas.forEach(s => {
+  validas.forEach(s => {
     if (s.data < inicioJanela || s.data > ref) return;
     const wd = porDiaSemana ? weekdayOf(s.data) : 0;
     (s.itens || []).forEach(it => {

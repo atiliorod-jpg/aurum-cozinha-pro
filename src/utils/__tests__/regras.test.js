@@ -9,7 +9,8 @@ import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, 
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
-import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO } from '../modulos';
+import { conciliarAuditoria } from '../auditoria';
+import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
@@ -134,6 +135,35 @@ describe('calcSugestoesMinMax — mín 3 dias / máx 6 dias', () => {
     const sazonal = calcSugestoesMinMax(produtos, saidas, ref, 3, 6, true);
     // próximos 3 dias = sáb+dom+seg → muito acima da média lisa
     expect(sazonal.charque.min).toBeGreaterThan(plano.charque.min);
+  });
+
+  // Regressão: saída sem `data` devolvia min/max NaN. Como NaN nunca é igual a
+  // NaN, o auto-mín/máx gravava o catálogo em todo ciclo e o produto sumia da
+  // lista de compras. As guardas de janela e de histórico não seguravam porque
+  // toda comparação com NaN/undefined é false.
+  it('saída sem data não contamina a sugestão com NaN', () => {
+    const comLixo = [...saidasEm(30, '2026-06-10'), { itens: [{ produtoId: 'charque', quantidade: 999 }] }];
+    const sug = calcSugestoesMinMax(produtos, comLixo, '2026-06-10');
+    expect(Number.isFinite(sug.charque.min)).toBe(true);
+    expect(Number.isFinite(sug.charque.max)).toBe(true);
+    // e o 999 fora de qualquer janela não pode entrar na média
+    expect(sug.charque.min).toBe(30);
+    expect(sug.charque.max).toBe(60);
+  });
+
+  it('a saída sem data era a primeira da lista: ainda assim não sugere NaN', () => {
+    // este é o caso que quebrava de verdade — `primeira` saía undefined
+    const soLixo = [{ itens: [{ produtoId: 'charque', quantidade: 999 }] }];
+    expect(calcSugestoesMinMax(produtos, soLixo, '2026-06-10')).toEqual({});
+
+    const lixoPrimeiro = [{ itens: [{ produtoId: 'charque', quantidade: 999 }] }, ...saidasEm(30, '2026-06-10')];
+    const sug = calcSugestoesMinMax(produtos, lixoPrimeiro, '2026-06-10');
+    expect(sug.charque.min).toBe(30);
+  });
+
+  it('data em formato inválido também é descartada', () => {
+    const ruim = [...saidasEm(30, '2026-06-10'), { data: '10/06/2026', itens: [{ produtoId: 'charque', quantidade: 999 }] }];
+    expect(calcSugestoesMinMax(produtos, ruim, '2026-06-10').charque.min).toBe(30);
   });
 });
 
@@ -746,6 +776,48 @@ describe('módulos — namespacing sem migração', () => {
     expect(lerTipo('xpto:entrada')).toEqual({ modulo: MODULO_PADRAO, tipo: 'xpto:entrada' });
   });
 
+  // Regressão: o destino fixo "Cozinha de Finalização" só era semeado quando o
+  // documento `locais` NÃO existia. Toda conta criada antes dele já tinha o
+  // documento salvo, então o destino nunca aparecia e a ponte entre as duas
+  // cozinhas ficava inalcançável pela tela.
+  describe('mesclarFixos — repõe o destino fixo em conta já criada', () => {
+    const PADRAO = [{ id: 'finalizacao', nome: 'Cozinha de Finalização', fixo: true }, { id: 'salao', nome: 'Salão' }];
+
+    it('acrescenta o fixo que falta sem mexer no que o restaurante criou', () => {
+      const salvos = [{ id: 'salao', nome: 'Salão' }, { id: 'delivery', nome: 'Delivery' }];
+      const r = mesclarFixos(salvos, PADRAO);
+      expect(r.map(x => x.id)).toEqual(['salao', 'delivery', 'finalizacao']);
+      expect(r.find(x => x.id === 'finalizacao').fixo).toBe(true);
+    });
+
+    it('preserva o nome se o restaurante renomeou o destino fixo', () => {
+      const salvos = [{ id: 'finalizacao', nome: 'Praça quente' }];
+      expect(mesclarFixos(salvos, PADRAO)[0].nome).toBe('Praça quente');
+    });
+
+    it('remarca como fixo o item que perdeu a marca (senão a tela deixa remover)', () => {
+      const salvos = [{ id: 'finalizacao', nome: 'Cozinha de Finalização' }];
+      expect(mesclarFixos(salvos, PADRAO)[0].fixo).toBe(true);
+    });
+
+    it('nada a repor devolve a MESMA referência — senão a hidratação grava a cada abertura', () => {
+      const salvos = [{ id: 'finalizacao', nome: 'Cozinha de Finalização', fixo: true }, { id: 'salao', nome: 'Salão' }];
+      expect(mesclarFixos(salvos, PADRAO)).toBe(salvos);
+    });
+
+    it('aguenta lista ausente ou corrompida', () => {
+      expect(mesclarFixos(undefined, PADRAO).map(x => x.id)).toEqual(['finalizacao']);
+      expect(mesclarFixos(null, PADRAO)).toHaveLength(1);
+    });
+  });
+
+  it('a finalização lê o catálogo da produção (mesmo id dos dois lados)', () => {
+    // se isto mudar, a ponte entre as cozinhas para de casar os produtos
+    expect(catalogoDe('finalizacao')).toBe(MODULO_PADRAO);
+    expect(chaveModulo(catalogoDe('finalizacao'), 'produtos')).toBe('produtos');
+    expect(chaveModulo(catalogoDe('seco'), 'produtos')).toBe('seco::produtos');
+  });
+
   it('ida e volta: gravar e ler devolve o mesmo módulo', () => {
     for (const mod of ['producao', 'seco']) {
       for (const tipo of ['entrada', 'saida', 'ajuste']) {
@@ -1029,5 +1101,47 @@ describe('mediaDiariaSaidas — média por PRODUTO, não do restaurante', () => 
       { data: addDias(ref, -1), itens: [{ produtoId: 'estreante', quantidade: 8 }] },
     ];
     expect(mediaDiariaSaidas(saidas, ref).estreante).toBeUndefined();
+  });
+});
+
+// Regressão: a linha otimista da auditoria (id gerado no aparelho) nunca casava
+// com a definitiva (id gerado pelo banco na RPC da migração 18), então cada ação
+// aparecia duas vezes — e o merge duplicado era gravado no cache, sobrevivendo
+// ao recarregar.
+describe('conciliarAuditoria — otimista local x definitiva do banco', () => {
+  const L = (acao, ts, detalhe = '') => ({ id: `${ts}_abcd`, ts, acao, detalhe });
+  const S = (acao, ts, detalhe = '') => ({ id: 'a1b2c3d4e5f60718', ts, acao, detalhe });
+
+  it('descarta a local que já chegou do banco', () => {
+    const servidor = [S('registrou entrada', 1000)];
+    const locais = [L('registrou entrada', 1200)];
+    expect(conciliarAuditoria(servidor, locais)).toEqual([]);
+  });
+
+  it('mantém a local que ainda não subiu (fila offline)', () => {
+    const servidor = [S('registrou entrada', 1000)];
+    const locais = [L('registrou saída', 1200)];
+    expect(conciliarAuditoria(servidor, locais)).toHaveLength(1);
+  });
+
+  it('detalhe diferente não é a mesma linha', () => {
+    const servidor = [S('registrou perda', 1000, 'Filé 2kg')];
+    expect(conciliarAuditoria(servidor, [L('registrou perda', 1000, 'Charque 5kg')])).toHaveLength(1);
+  });
+
+  it('casa 1 para 1: duas ações idênticas de verdade continuam aparecendo duas vezes', () => {
+    const servidor = [S('registrou entrada', 1000)];
+    const locais = [L('registrou entrada', 1000), L('registrou entrada', 1050)];
+    expect(conciliarAuditoria(servidor, locais)).toHaveLength(1);
+  });
+
+  it('fora da janela de tempo não casa (ação repetida dias depois é outra linha)', () => {
+    const servidor = [S('registrou entrada', 1000)];
+    expect(conciliarAuditoria(servidor, [L('registrou entrada', 1000 + 5 * 60000)])).toHaveLength(1);
+  });
+
+  it('listas vazias ou ausentes não quebram', () => {
+    expect(conciliarAuditoria([], [L('x', 1)])).toHaveLength(1);
+    expect(conciliarAuditoria(undefined, undefined)).toEqual([]);
   });
 });

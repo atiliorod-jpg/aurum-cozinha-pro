@@ -3,12 +3,13 @@ import { PRODUTOS_BASE, PESSOAS_BASE, DESTINOS_APARA, CATEGORIAS_BASE } from '..
 import { FICHAS_BASE } from '../data/fichas';
 import { gerarDemoSeed } from '../data/demo';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
+import { conciliarAuditoria } from '../utils/auditoria';
 import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
 import { registrarFalha, ressuscitar } from '../utils/outbox';
-import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, DESTINO_FINALIZACAO } from '../utils/modulos';
+import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, DESTINO_FINALIZACAO } from '../utils/modulos';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -450,7 +451,14 @@ export function AppProvider({ children }) {
       let mudou = false;
       const next = prods.map(p => {
         const s = sug[p.id];
-        if (s && (p.min !== s.min || p.max !== s.max)) { mudou = true; return { ...p, min: s.min, max: s.max }; }
+        // `Number.isFinite` não é paranoia: com min/max NaN a comparação
+        // `p.min !== s.min` é SEMPRE verdadeira (NaN nunca é igual a NaN), então
+        // o efeito gravava o catálogo a cada ciclo sem nunca convergir, e o
+        // produto com NaN sumia da lista de compras. A raiz está corrigida em
+        // calcSugestoesMinMax; isto impede que qualquer nova fonte de NaN
+        // chegue ao catálogo de novo.
+        if (!s || !Number.isFinite(s.min) || !Number.isFinite(s.max)) return p;
+        if (p.min !== s.min || p.max !== s.max) { mudou = true; return { ...p, min: s.min, max: s.max }; }
         return p;
       });
       if (mudou) setProdutos(next);
@@ -509,7 +517,7 @@ export function AppProvider({ children }) {
     setDestinosRaw(cacheGet(rid, k('destinos'), P.destinos));
     setFichasRaw(cacheGet(rid, kc('fichas'), P.fichas));
     setProducoesRaw(cacheGet(rid, k('producoes'), P.producoes));
-    setLocaisRaw(cacheGet(rid, k('locais'), P.locais));
+    setLocaisRaw(mesclarFixos(cacheGet(rid, k('locais'), P.locais), P.locais));
     setListaManualRaw(cacheGet(rid, k('listaManual'), P.listaManual));
     setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), P.etiquetasAvulsas));
     setEtiquetasImpressasRaw(cacheGet(rid, k('etiquetasImpressas'), P.etiquetasImpressas));
@@ -604,9 +612,23 @@ export function AppProvider({ children }) {
         const mapa = {};
         versoesRef.current = {}; // recomeça o controle de versão para este restaurante
         (docs || []).forEach(d => { mapa[d.chave] = d.dados; versoesRef.current[d.chave] = d.versao || 0; });
-        const aplicaCat = (chave, setRaw, def) => {
+        // `reparar` conserta um catálogo que JÁ existe na nuvem. Era o buraco do
+        // destino fixo: a semeadura só roda quando o documento não existe, então
+        // conta antiga nunca ganhava a "Cozinha de Finalização" e a ponte entre
+        // as cozinhas ficava inalcançável pela tela. O conserto sobe para a
+        // nuvem, senão valeria só neste aparelho e o outro tablet seguiria sem.
+        const aplicaCat = (chave, setRaw, def, reparar) => {
           if (docsPendentes.has(chave)) return; // alteração local não sincronizada → não rebaixa
-          if (mapa[chave] !== undefined) { setRaw(mapa[chave]); cacheSet(rid, chave, mapa[chave]); }
+          if (mapa[chave] !== undefined) {
+            const vindo = mapa[chave];
+            const corrigido = reparar ? reparar(vindo) : vindo;
+            setRaw(corrigido); cacheSet(rid, chave, corrigido);
+            // mesclarFixos devolve a MESMA referência quando não muda nada, então
+            // isto grava uma vez só — não a cada abertura do app.
+            if (corrigido !== vindo && !soLeituraRef.current) {
+              salvarDocNuvem(rid, chave, corrigido, (dadosSrv) => { setRaw(dadosSrv); cacheSet(rid, chave, dadosSrv); });
+            }
+          }
           else { // catálogo ainda não existe na nuvem → semeia (versionado)
             setRaw(def); cacheSet(rid, chave, def);
             if (soLeituraRef.current) return; // modo suporte: não escreve na conta do cliente
@@ -620,7 +642,7 @@ export function AppProvider({ children }) {
         aplicaCat(k('destinos'), setDestinosRaw, P.destinos);
         aplicaCat(kc('fichas'), setFichasRaw, P.fichas);
         aplicaCat(k('producoes'), setProducoesRaw, P.producoes);
-        aplicaCat(k('locais'), setLocaisRaw, P.locais);
+        aplicaCat(k('locais'), setLocaisRaw, P.locais, (d) => mesclarFixos(d, P.locais));
         aplicaCat(k('listaManual'), setListaManualRaw, P.listaManual);
         aplicaCat(k('etiquetasAvulsas'), setEtiquetasAvulsasRaw, P.etiquetasAvulsas);
         aplicaCat(k('etiquetasImpressas'), setEtiquetasImpressasRaw, P.etiquetasImpressas);
@@ -670,7 +692,12 @@ export function AppProvider({ children }) {
           const arr = (porTipo[tipo] || []).sort((a, b) => (a.ts || 0) - (b.ts || 0));
           setRaw(prev => {
             const fetchedIds = new Set(arr.map(x => x.id));
-            const localOnly = prev.filter(x => !fetchedIds.has(x.id));
+            let localOnly = prev.filter(x => !fetchedIds.has(x.id));
+            // Auditoria é o único tipo cujo id DEFINITIVO nasce no banco (a RPC
+            // da migração 18 gera o dela), então a linha otimista deste aparelho
+            // jamais casava por id e a tela mostrava tudo em dobro — inclusive
+            // depois de recarregar, porque o merge duplicado ia para o cache.
+            if (tipo === 'auditoria') localOnly = conciliarAuditoria(arr, localOnly);
             const merged = localOnly.length
               ? [...arr, ...localOnly].sort((a, b) => (a.ts || 0) - (b.ts || 0))
               : arr;
@@ -698,25 +725,66 @@ export function AppProvider({ children }) {
       perda: [setDesperdicioRaw, 'desperdicio'], ajuste: [setAjustesRaw, 'ajustes'],
       auditoria: [setAuditoriaRaw, 'auditoria'],
     };
+    // Mapa da CHAVE COMPLETA (já namespaceada) para o setter, montado com as
+    // MESMAS funções k()/kc() da hidratação. Antes o handler deduzia o
+    // namespace na mão, comparando o prefixo com `modulo` — e isso ignorava
+    // que produtos/categorias/fichas moram na chave do módulo de CATÁLOGO.
+    // Na Finalização, que lê o catálogo da Produção (chave SEM prefixo), todo
+    // update de produto vindo de outro tablet caía como "doc de outro módulo"
+    // e era descartado. Derivar do mesmo lugar impede os dois caminhos de
+    // divergirem de novo.
     const setterDoc = {
-      produtos: setProdutosRaw, categorias: setCategoriasRaw,
-      destinos: setDestinosRaw, fichas: setFichasRaw, producoes: setProducoesRaw, locais: setLocaisRaw, listaManual: setListaManualRaw,
-      etiquetasAvulsas: setEtiquetasAvulsasRaw, etiquetasImpressas: setEtiquetasImpressasRaw,
-      permissoes: setPermissoesRaw,
+      [kc('produtos')]:   setProdutosRaw,
+      [kc('categorias')]: setCategoriasRaw,
+      [kc('fichas')]:     setFichasRaw,
+      [k('destinos')]:    setDestinosRaw,
+      [k('producoes')]:   setProducoesRaw,
+      [k('locais')]:      setLocaisRaw,
+      [k('listaManual')]: setListaManualRaw,
+      [k('etiquetasAvulsas')]:   setEtiquetasAvulsasRaw,
+      [k('etiquetasImpressas')]: setEtiquetasImpressasRaw,
+      permissoes: setPermissoesRaw, // matriz da equipe: do restaurante, sem namespace
     };
+    const reparoDoc = { [k('locais')]: (d) => mesclarFixos(d, P.locais) };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
       // outro aparelho gravou: só entra se for do MÓDULO que está aberto aqui
       const { modulo: mod, tipo } = lerTipo(row.tipo);
+
+      // PONTE PRODUÇÃO → FINALIZAÇÃO. A saída da produção com destino "Cozinha
+      // de Finalização" É o recebimento do outro lado — é dado de OUTRO módulo
+      // que precisa entrar aqui. A hidratação já tratava isso; o tempo real
+      // não, e caía no filtro de módulo logo abaixo. Resultado: o tablet da
+      // finalização só via o que tinha chegado depois de recarregar o app, no
+      // meio do serviço, que é exatamente quando ninguém recarrega nada.
+      if (modulo === 'finalizacao' && mod === MODULO_PADRAO && tipo === 'saida') {
+        const reg = linhaParaRegistro(row);
+        const chaveReceb = k('recebimentos');
+        setRecebimentosRaw(prev => {
+          const semEle = prev.filter(x => x.id !== row.id);
+          // Some da lista se foi apagado OU se o destino foi corrigido para
+          // outro lugar — senão a finalização contaria uma entrega cancelada.
+          const sai = row.deleted || reg.destino !== DESTINO_FINALIZACAO;
+          const next = sai ? semEle : [...semEle, reg].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+          cacheSet(rid, chaveReceb, next);
+          return next;
+        });
+        return;
+      }
+
       if (!ehTipoGlobal(tipo) && mod !== modulo) return;
       const alvo = setterReg[tipo];
       if (!alvo) return;
       const [setRaw, keyBase] = alvo;
       const key = keyBase === 'auditoria' ? keyBase : k(keyBase);
+      const linha = linhaParaRegistro(row);
       setRaw(prev => {
-        const semEle = prev.filter(x => x.id !== row.id);
+        let semEle = prev.filter(x => x.id !== row.id);
+        // mesma armadilha da hidratação: a linha definitiva da auditoria chega
+        // com o id do banco e não anula a otimista que este aparelho criou.
+        if (keyBase === 'auditoria') semEle = conciliarAuditoria([linha], semEle);
         if (row.deleted) { cacheSet(rid, key, semEle); return semEle; }
-        const next = [...semEle, linhaParaRegistro(row)].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        const next = [...semEle, linha].sort((a, b) => (a.ts || 0) - (b.ts || 0));
         cacheSet(rid, key, next);
         return next;
       });
@@ -732,16 +800,17 @@ export function AppProvider({ children }) {
         return;
       }
       if (row.chave === 'pessoas') { setPessoasRaw(row.dados); cacheSet(rid, 'pessoas', row.dados); return; }
-      // demais chaves vêm namespaceadas ('seco::produtos'): ignora doc de outro módulo
+      // A chave já vem namespaceada ('seco::produtos'). O mapa acima só contém
+      // as chaves que ESTE módulo lê, então doc de outro módulo simplesmente
+      // não casa — sem precisar reimplementar a regra de namespace aqui.
       const bruta = String(row.chave || '');
-      const chaveBase = bruta.includes('::')
-        ? (bruta.startsWith(`${modulo}::`) ? bruta.slice(modulo.length + 2) : null)
-        : (modulo === MODULO_PADRAO ? bruta : null);
-      if (!chaveBase) return;
-      const setRaw = setterDoc[chaveBase];
+      const setRaw = Object.prototype.hasOwnProperty.call(setterDoc, bruta) ? setterDoc[bruta] : null;
       if (!setRaw) return;
-      setRaw(row.dados);
-      cacheSet(rid, bruta, row.dados);
+      // mesmo reparo da hidratação: se o outro tablet gravar `locais` sem o
+      // destino fixo, este aparelho não pode perdê-lo por realtime.
+      const dados = reparoDoc[bruta] ? reparoDoc[bruta](row.dados) : row.dados;
+      setRaw(dados);
+      cacheSet(rid, bruta, dados);
     };
     const canal = supabase.channel(`rt-${rid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'registros', filter: `restaurante_id=eq.${rid}` },
@@ -777,7 +846,16 @@ export function AppProvider({ children }) {
     logAudit('apagou todos os registros', 'compras, entradas, saídas, aparas, perdas e contagens');
   }, [logAudit]);
 
-  const resetarProdutos = useCallback(() => setProdutos(PRODUTOS_BASE), [setProdutos]);
+  // "Restaurar produtos ao padrão" precisa devolver o padrão DO MÓDULO ABERTO.
+  // Antes mandava PRODUTOS_BASE sempre: no Estoque Seco, restaurar substituía
+  // grãos e descartáveis por filé e molho da produção — e, como a chave de
+  // catálogo do seco é outra, o estrago era gravado direto por cima do
+  // catálogo do seco. catalogoDe() mantém a finalização lendo o da produção,
+  // que é o comportamento correto (ela não tem catálogo próprio).
+  const resetarProdutos = useCallback(
+    () => setProdutos(catalogosPadrao(catalogoDe(moduloRef.current)).produtos),
+    [setProdutos],
+  );
 
   const exportarBackup = useCallback(() => {
     const d = dadosRef.current;

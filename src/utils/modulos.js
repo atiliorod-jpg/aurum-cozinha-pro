@@ -44,6 +44,39 @@ export const catalogoDe = (modulo) => modulo === 'finalizacao' ? 'producao' : mo
 // É o gatilho da entrada automática do outro lado.
 export const DESTINO_FINALIZACAO = 'finalizacao';
 
+/**
+ * Garante que os itens FIXOS do padrão existam na lista salva.
+ *
+ * O semeador de catálogo só roda quando o documento AINDA NÃO EXISTE na nuvem.
+ * Toda conta criada antes da Cozinha de Finalização já tinha um documento
+ * `locais` salvo, então o destino fixo nunca era acrescentado: a ponte entre as
+ * duas cozinhas existia no código e era inalcançável pela tela — não havia como
+ * escolher o destino que dispara o recebimento do outro lado.
+ *
+ * Preserva o que o restaurante editou (inclusive se renomeou o destino fixo);
+ * só repõe o que está faltando e reforça a marca `fixo`, que é o que impede a
+ * tela de Configurações de oferecer o botão de remover.
+ *
+ * Devolve a MESMA referência quando nada muda — sem isso a hidratação
+ * gravaria o documento a cada abertura do app.
+ */
+export function mesclarFixos(salvos, padrao) {
+  const lista = Array.isArray(salvos) ? salvos : [];
+  const fixos = (padrao || []).filter(x => x && x.fixo);
+  if (!fixos.length) return lista;
+
+  let mudou = false;
+  const saida = lista.map(item => {
+    const f = fixos.find(y => y.id === item?.id);
+    if (f && !item.fixo) { mudou = true; return { ...item, fixo: true }; }
+    return item;
+  });
+  fixos.forEach(f => {
+    if (!lista.some(item => item?.id === f.id)) { saida.push({ ...f }); mudou = true; }
+  });
+  return mudou ? saida : lista;
+}
+
 export const moduloPorId = (id) => MODULOS.find(m => m.id === id) || MODULOS[0];
 export const moduloValido = (id) => MODULOS.some(m => m.id === id);
 

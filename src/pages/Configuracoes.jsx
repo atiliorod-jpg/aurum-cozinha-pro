@@ -948,7 +948,10 @@ export default function Configuracoes() {
   const subgruposExistentes = [...new Set(produtos.map(p => (p.subgrupo || '').trim()).filter(Boolean))].sort();
   const podeProdutos = pode(sessao, permissoes, 'gerenciarProdutos');
   const podeSistema  = pode(sessao, permissoes, 'configurarSistema');
-  const podeInventario = pode(sessao, permissoes, 'inventario');
+  // Permissão E recurso do módulo: na Finalização não existe contagem física
+  // (o número do fechamento sai de Fechar Turno), e o atalho daqui era a única
+  // porta que ainda levava lá — a contagem gravada corrompia a sobra do turno.
+  const podeInventario = pode(sessao, permissoes, 'inventario') && temRecurso(modulo, 'inventario');
   const podeAuditoria  = pode(sessao, permissoes, 'verAuditoria');
   const eDiretoria = sessao?.eSuperAdmin || sessao?.cargo === 'diretoria';
   // Só gerência+ mexe em acessos (convites/cargos); a matriz de permissões é só diretoria.
@@ -1112,10 +1115,20 @@ ${linkConvite(conviteGerado.token)}
   const [secao, setSecao] = useState('produtos'); // produtos | receitas | acessos | sistema
   // Abas visíveis dependem da função; secaoAtiva garante que uma aba escolhida
   // some (permissão retirada) caia numa aba permitida em vez de tela vazia.
-  const abasDisponiveis = [
-    ['produtos', podeProdutos], ['receitas', podeProdutos && temRecurso(modulo, 'receitas')],
-    ['acessos', podeAcessos], ['sistema', podeSistema],
-  ].filter(([, ok]) => ok).map(([v]) => v);
+  // FONTE ÚNICA das abas: rótulo e condição juntos. Antes a lista de botões era
+  // escrita de novo lá embaixo, e as duas divergiram — a de baixo esquecia o
+  // `temRecurso`, então "Receitas" aparecia no Seco e na Finalização, que não
+  // têm receita. Clicar nela não fazia nada: a aba não estava em
+  // abasDisponiveis, o secaoAtiva caía de volta em "Produtos" e o botão ficava
+  // ali, morto, dando a entender que a tela estava quebrada.
+  const ABAS = [
+    ['produtos', '📦 Produtos', podeProdutos],
+    ['receitas', '🍽️ Receitas', podeProdutos && temRecurso(modulo, 'receitas')],
+    ['acessos',  '👤 Acessos',  podeAcessos],
+    ['sistema',  '🛠️ Sistema',  podeSistema],
+  ];
+  const abasVisiveis = ABAS.filter(([, , ok]) => ok);
+  const abasDisponiveis = abasVisiveis.map(([v]) => v);
   const secaoAtiva = abasDisponiveis.includes(secao) ? secao : (abasDisponiveis[0] || 'produtos');
   // Carrega os convites pendentes ao abrir a aba "Acessos"
   useEffect(() => { if (secaoAtiva === 'acessos') carregarConvites(); }, [secaoAtiva, carregarConvites]);
@@ -1374,12 +1387,7 @@ ${linkConvite(conviteGerado.token)}
     >
       {/* Seções — abas conforme as permissões da função */}
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[
-          ['produtos', '📦 Produtos', podeProdutos],
-          ['receitas', '🍽️ Receitas', podeProdutos],
-          ['acessos', '👤 Acessos', podeAcessos],
-          ['sistema', '🛠️ Sistema', podeSistema],
-        ].filter(([, , ok]) => ok).map(([v, l]) => (
+        {abasVisiveis.map(([v, l]) => (
           <button key={v} onClick={() => setSecao(v)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors
               ${secaoAtiva === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>

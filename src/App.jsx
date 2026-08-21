@@ -241,7 +241,11 @@ function Rotas() {
       <Route path="/novidades" element={<Novidades />} />
       <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
       <Route path="/fichas" element={<Navigate to="/compras" replace />} />
-      <Route path="/inventario" element={can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
+      {/* Contagem física NÃO existe na Finalização: lá o número de fechamento
+          vem de Fechar Turno. Antes esta rota olhava só a permissão, então
+          bastava o atalho de Configurações para gravar um ajuste que entrava
+          no cálculo do turno e corrompia a sobra apurada. */}
+      <Route path="/inventario" element={temRecurso(modulo, 'inventario') && can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
       <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
       <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
