@@ -6,10 +6,17 @@
 //  liga/desliga capacidades numa matriz em Config → Acessos. O resultado
 //  fica em permissoes (sincroniza pela nuvem, como as demais prefs).
 //
-//  IMPORTANTE (honestidade de segurança): isto é uma trava de INTERFACE —
-//  organiza a equipe e evita acidentes num time pequeno e de confiança.
-//  NÃO é barreira dura: o que precisa ser inviolável (criar convite, trocar
-//  cargo, painel admin) é enforçado por cargo no banco (RLS/RPC).
+//  IMPORTANTE (honestidade de segurança): isto é, em geral, uma trava de
+//  INTERFACE — organiza a equipe e evita acidentes num time pequeno e de
+//  confiança. NÃO é barreira dura: o que precisa ser inviolável (criar
+//  convite, trocar cargo, painel admin) é enforçado por cargo no banco.
+//
+//  EXCEÇÃO — `verFinanceiro` é barreira DURA (migração 20). A linha `precos`
+//  não sai do servidor para quem não tem a capacidade: a policy de SELECT
+//  chama pode_ver_financeiro(), que lê ESTA MESMA matriz. Custo de insumo é
+//  margem, fornecedor e negociação — esconder no React não esconderia nada,
+//  bastaria o DevTools. Por isso o preço mora na chave própria `precos`, e
+//  não dentro de `produtos`: o catálogo a cozinha precisa ver.
 // =====================================================================
 
 // Capacidades que a diretoria pode conceder/retirar. `grupo` só organiza a UI.
@@ -26,6 +33,9 @@ export const CAPACIDADES = [
     desc: 'Criar/alterar itens do estoque, fichas e rendimento.' },
   { id: 'configurarSistema', grupo: 'Gestão',   label: 'Configurar o sistema',
     desc: 'Destinos de saída, etiquetas, mín/máx automático e demais ajustes.' },
+  { id: 'verFinanceiro',     grupo: 'Financeiro', label: 'Ver custos e preços',
+    desc: 'Custo de insumo, margem e precificação. Diferente das outras: o banco NÃO entrega esses dados a quem não tem esta permissão.',
+    duro: true },
 ];
 
 // Padrão por cargo — reproduz EXATAMENTE o modelo hierárquico anterior
@@ -37,10 +47,15 @@ export const PERMISSOES_PADRAO = {
     // pode liberar para a cozinha na matriz de permissões (Config → Acessos).
     removerRegistros: false, inventario: false, verRelatorio: false,
     verAuditoria: false, gerenciarProdutos: false, configurarSistema: false,
+    // quem opera o estoque não vê custo por padrão — decisão do dono
+    verFinanceiro: false,
   },
   gerencia: {
     removerRegistros: true, inventario: true, verRelatorio: true,
     verAuditoria: true, gerenciarProdutos: true, configurarSistema: true,
+    // nem a gerência: financeiro é liberado item a item pela diretoria, porque
+    // é o único dado aqui cuja exposição não tem volta (margem e fornecedor)
+    verFinanceiro: false,
   },
 };
 
