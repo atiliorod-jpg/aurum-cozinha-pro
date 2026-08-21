@@ -34,7 +34,10 @@ export const CAPACIDADES = [
   { id: 'configurarSistema', grupo: 'Gestão',   label: 'Configurar o sistema',
     desc: 'Destinos de saída, etiquetas, mín/máx automático e demais ajustes.' },
   { id: 'verFinanceiro',     grupo: 'Financeiro', label: 'Ver custos e preços',
-    desc: 'Custo de insumo, margem e precificação. Diferente das outras: o banco NÃO entrega esses dados a quem não tem esta permissão.',
+    desc: 'Custo de insumo, valor do estoque e curva ABC. Diferente das outras: o banco NÃO entrega esses dados a quem não tem esta permissão.',
+    duro: true },
+  { id: 'verPerdaEmReais',   grupo: 'Financeiro', label: 'Ver quanto a perda custou (só o total)',
+    desc: 'Mostra "R$ 340 no lixo este mês" para a equipe, sem abrir a tabela de custos. O servidor calcula e devolve só o total — a quebra por item revelaria o custo de cada insumo.',
     duro: true },
 ];
 
@@ -49,6 +52,9 @@ export const PERMISSOES_PADRAO = {
     verAuditoria: false, gerenciarProdutos: false, configurarSistema: false,
     // quem opera o estoque não vê custo por padrão — decisão do dono
     verFinanceiro: false,
+    // desligado por padrão, mas é o que a diretoria costuma querer ligar: ver o
+    // custo do desperdício muda comportamento de equipe sem abrir a planilha
+    verPerdaEmReais: false,
   },
   gerencia: {
     removerRegistros: true, inventario: true, verRelatorio: true,
@@ -56,6 +62,7 @@ export const PERMISSOES_PADRAO = {
     // nem a gerência: financeiro é liberado item a item pela diretoria, porque
     // é o único dado aqui cuja exposição não tem volta (margem e fornecedor)
     verFinanceiro: false,
+    verPerdaEmReais: false,
   },
 };
 
