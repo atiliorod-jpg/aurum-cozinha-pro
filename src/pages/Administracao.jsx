@@ -97,6 +97,13 @@ export default function Administracao() {
           </Secao>
         )}
 
+        {can('verFinanceiro') && (
+          <Secao titulo="Financeiro" desc="Quanto há parado, quanto saiu e quanto foi para o lixo">
+            <Cartao emoji="💰" titulo="Custos e valor do estoque" to="/financeiro"
+              desc="Valor parado, curva ABC, consumo e perdas em R$" />
+          </Secao>
+        )}
+
         <Secao titulo="Conta e equipe" desc="Vale para todos os estoques ao mesmo tempo">
           {can('verAuditoria') && (
             <Cartao emoji="🕵️" titulo="Histórico de mudanças" to="/auditoria"

@@ -35,6 +35,7 @@ const Relatorio = lazy(() => import('./pages/Relatorio'));
 const Configuracoes = lazy(() => import('./pages/Configuracoes'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Administracao = lazy(() => import('./pages/Administracao'));
+const Financeiro = lazy(() => import('./pages/Financeiro'));
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -260,6 +261,9 @@ function Rotas() {
           MESMA que a barra inferior e o seletor usam, para não divergirem. */}
       <Route path="/administracao" element={
         podeAbrirAdministracao(sessao, permissoes) ? <Administracao /> : <Navigate to="/" replace />} />
+      {/* A rota existe para quem tem a capacidade; a própria tela explica o
+          bloqueio para quem chega sem ela (o servidor já não manda os custos). */}
+      <Route path="/financeiro" element={can('verFinanceiro') ? <Financeiro /> : <Navigate to="/administracao" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={podeAbrirConfig(sessao, permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />

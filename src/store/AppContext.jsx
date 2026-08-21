@@ -41,6 +41,12 @@ const CAT = {
   // a migração 18 só deixa a DIRETORIA gravar `permissoes` — dentro de prefs
   // qualquer membro reescrevia a matriz que o restringia.
   permissoes: {},
+  // Tabela de custos: { <produtoId>: { custo, unidade, em, fornecedor } }.
+  // Chave PRÓPRIA e da conta (sem namespace de módulo), protegida pela
+  // migração 20 — quem não tem `verFinanceiro` simplesmente NÃO RECEBE esta
+  // linha do servidor. Por isso o padrão é {} e nunca uma exceção: para essa
+  // pessoa o app funciona igual, só sem número de dinheiro.
+  precos: {},
   prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
 
@@ -99,6 +105,7 @@ export function AppProvider({ children }) {
   const [etiquetasAvulsas, setEtiquetasAvulsasRaw] = useState(CAT.etiquetasAvulsas);
   const [etiquetasImpressas, setEtiquetasImpressasRaw] = useState(CAT.etiquetasImpressas);
   const [permissoes, setPermissoesRaw] = useState(CAT.permissoes);
+  const [precos,      setPrecosRaw]      = useState(CAT.precos);
   const [prefs,       setPrefsRaw]       = useState(CAT.prefs);
   const [compras,     setComprasRaw]     = useState([]);
   const [entradas,    setEntradasRaw]    = useState([]);
@@ -244,7 +251,7 @@ export function AppProvider({ children }) {
     //    conseguia reescrever a matriz por ali.
     //  • COMPARTILHADOS → chave do módulo de CATÁLOGO (finalização lê o da produção)
     //  • resto → chave do próprio módulo
-    const GLOBAIS = ['pessoas', 'permissoes'];
+    const GLOBAIS = ['pessoas', 'permissoes', 'precos'];
     const COMPARTILHADOS = ['produtos', 'categorias', 'fichas'];
     const chave = GLOBAIS.includes(chaveBase) ? chaveBase
       : COMPARTILHADOS.includes(chaveBase) ? kc(chaveBase)
@@ -264,6 +271,7 @@ export function AppProvider({ children }) {
   const setEtiquetasAvulsas = useCallback((v) => persistCatalogo('etiquetasAvulsas', setEtiquetasAvulsasRaw, v), [persistCatalogo]);
   const setEtiquetasImpressas = useCallback((v) => persistCatalogo('etiquetasImpressas', setEtiquetasImpressasRaw, v), [persistCatalogo]);
   const setPermissoes = useCallback((v) => persistCatalogo('permissoes', setPermissoesRaw, v), [persistCatalogo]);
+  const setPrecos = useCallback((v) => persistCatalogo('precos', setPrecosRaw, v), [persistCatalogo]);
 
   const setPref = useCallback((chave, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -529,6 +537,7 @@ export function AppProvider({ children }) {
     setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), P.etiquetasAvulsas));
     setEtiquetasImpressasRaw(cacheGet(rid, k('etiquetasImpressas'), P.etiquetasImpressas));
     setPermissoesRaw(cacheGet(rid, 'permissoes', {}));
+    setPrecosRaw(cacheGet(rid, 'precos', {}));
     // prefs = restaurante (nuvem) + aparelho (local), mescladas. NÃO é por
     // módulo: etiqueta, estabelecimento e responsável valem para a conta toda.
     setPrefsRaw({ ...cacheGet(rid, 'prefs', P.prefs), ...cacheGet(rid, '_prefs_device', {}) });
@@ -655,6 +664,17 @@ export function AppProvider({ children }) {
         aplicaCat(k('etiquetasImpressas'), setEtiquetasImpressasRaw, P.etiquetasImpressas);
         // Compatibilidade: contas antigas têm a matriz dentro de prefs. Lê de lá
         // enquanto a chave nova não existir — sem exigir migração de dados.
+        // `precos` pode simplesmente NÃO VIR: a policy da migração 20 não
+        // entrega a linha a quem não tem `verFinanceiro`. Ausência aqui é o
+        // comportamento esperado, não erro — por isso não semeia nem avisa.
+        // ⚠️ E zera o que houver em cache: se a permissão foi retirada, manter
+        // o custo antigo no aparelho seria contornar a trava por teimosia do
+        // cache local.
+        if (mapa['precos'] !== undefined) {
+          setPrecosRaw(mapa['precos']); cacheSet(rid, 'precos', mapa['precos']);
+        } else {
+          setPrecosRaw({}); cacheSet(rid, 'precos', {});
+        }
         if (mapa['permissoes'] !== undefined) {
           setPermissoesRaw(mapa['permissoes']); cacheSet(rid, 'permissoes', mapa['permissoes']);
         } else if (mapa['prefs']?.permissoes) {
@@ -751,6 +771,7 @@ export function AppProvider({ children }) {
       [k('etiquetasAvulsas')]:   setEtiquetasAvulsasRaw,
       [k('etiquetasImpressas')]: setEtiquetasImpressasRaw,
       permissoes: setPermissoesRaw, // matriz da equipe: do restaurante, sem namespace
+      precos: setPrecosRaw,          // tabela de custos: idem, e só chega a quem pode
     };
     const reparoDoc = { [k('locais')]: (d) => mesclarFixos(d, P.locais) };
     const aplicaRegistroRT = (row) => {
@@ -965,6 +986,7 @@ export function AppProvider({ children }) {
       etiquetasAvulsas, setEtiquetasAvulsas,
       etiquetasImpressas, setEtiquetasImpressas,
       permissoes, setPermissoes,
+      precos, setPrecos,
       destinos, setDestinos,
       categorias, setCategorias,
       auditoria, logAudit,

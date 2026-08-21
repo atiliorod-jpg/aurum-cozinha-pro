@@ -2,6 +2,9 @@ import { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
+import { pode } from '../utils/permissoes';
+import { precoDaCompra } from '../utils/financeiro';
 import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import AutocompleteInput from '../components/AutocompleteInput';
@@ -21,11 +24,12 @@ const avisoTemp = (v) => {
 };
 
 export default function Compras() {
-  const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref } = useApp();
+  const { sessao } = useAuth();
+  const { compras, addCompra, fichas, estoque, produtos, aparas, desperdicio, listaManual, setListaManual, producoes, prefs, setPref, precos, setPrecos, permissoes } = useApp();
   const { toast, confirm } = useUI();
   const location = useLocation();
   const [form, setForm] = useState({
-    data: hoje(), fornecedor: '', item: '', quantidade: '', unidade: 'kg', responsavel: prefs.responsavel || '', temperatura: '',
+    data: hoje(), fornecedor: '', item: '', quantidade: '', unidade: 'kg', responsavel: prefs.responsavel || '', temperatura: '', valorTotal: '',
   });
   const [tab, setTab] = useState(location.state?.tab === 'lista' ? 'lista' : 'novo'); // novo | lista
   const [fornecedorAuto, setFornecedorAuto] = useState(false);
@@ -153,6 +157,17 @@ export default function Compras() {
     return { fc, preparacoes, prodNome: prod?.nome || item };
   }, [form.item, produtos, fichas, compras, aparas, desperdicio]);
 
+  // Só quem tem a capacidade vê e grava custo. O campo some para os demais —
+  // e mesmo que aparecesse, o banco recusaria a escrita em `precos`.
+  const podeCusto = pode(sessao, permissoes, 'verFinanceiro');
+
+  // Prévia do custo unitário enquanto digita: confere de imediato se o valor
+  // foi digitado no campo certo (total da nota, não preço por quilo).
+  const custoPrevisto = (() => {
+    const q = parseFloat(form.quantidade), v = parseFloat(form.valorTotal);
+    return Number.isFinite(q) && q > 0 && Number.isFinite(v) && v > 0 ? v / q : null;
+  })();
+
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
   const handleSalvar = async () => {
     if (salvando) return; // toque repetido — já registrando
@@ -174,10 +189,31 @@ export default function Compras() {
     // Vincula ao produto do catálogo quando o nome digitado é IGUAL (o match por
     // id é exato e blinda o FC/fornecedor contra ambiguidade de texto livre)
     const prodExato = produtos.find(p => p.ativo && (p.nome || '').trim().toLowerCase() === form.item.trim().toLowerCase());
-    addCompra({ ...form, ...(prodExato ? { produtoId: prodExato.id } : {}), hora: fmtHora(), quantidade: parseFloat(form.quantidade) });
+
+    // ⚠️ `valorTotal` é retirado ANTES de gravar a compra. A compra vive em
+    // `registros`, que TODO MUNDO do restaurante enxerga — deixar o valor ali
+    // entregaria o custo dos insumos para a cozinha inteira e anularia a trava
+    // da migração 20. O valor vai só para o documento `precos`, que o servidor
+    // não entrega a quem não tem `verFinanceiro`.
+    const { valorTotal, ...compraSemValor } = form;
+    const compra = { ...compraSemValor, ...(prodExato ? { produtoId: prodExato.id } : {}), hora: fmtHora(), quantidade: parseFloat(form.quantidade) };
+    addCompra(compra);
+
+    // Custo unitário = valor pago ÷ quantidade, na unidade em que foi comprado.
+    // "Última compra manda" (decisão do dono): sobrescreve o anterior.
+    if (podeCusto) {
+      const novoPreco = precoDaCompra({ ...compra, valorTotal });
+      if (novoPreco) setPrecos({ ...(precos || {}), [compra.produtoId]: novoPreco });
+      else if (String(valorTotal || '').trim() && !prodExato) {
+        // Avisa em vez de descartar em silêncio: sem produto vinculado não há
+        // a quem atribuir o custo, e a pessoa digitou o valor achando que valia.
+        toast('Compra registrada, mas o valor não virou custo: o item não está no catálogo com este nome exato.', 'aviso', { duracao: 7000 });
+      }
+    }
+
     if (form.responsavel) setPref('responsavel', form.responsavel);
-    setForm(prev => ({ ...prev, item: '', quantidade: '', fornecedor: '' }));
-    toast('Compra registrada!', 'sucesso');
+    setForm(prev => ({ ...prev, item: '', quantidade: '', fornecedor: '', valorTotal: '' }));
+    if (!(podeCusto && String(form.valorTotal || '').trim() && !prodExato)) toast('Compra registrada!', 'sucesso');
   };
 
   return (
@@ -556,6 +592,26 @@ export default function Compras() {
                 </select>
               </div>
             </div>
+
+            {podeCusto && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                  Valor pago (opcional)
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">R$</span>
+                  <input type="number" inputMode="decimal" min="0" step="0.01"
+                    value={form.valorTotal} onChange={e => set('valorTotal', e.target.value)}
+                    placeholder="total da nota deste item"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                  {custoPrevisto != null
+                    ? `Fica ${custoPrevisto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por ${form.unidade}. Atualiza o custo do item.`
+                    : 'Vira o custo do item, usado no Financeiro. Não aparece para quem não tem acesso a custos.'}
+                </p>
+              </div>
+            )}
 
             <ResponsavelSelect value={form.responsavel} onChange={v => set('responsavel', v)} />
           </div>
