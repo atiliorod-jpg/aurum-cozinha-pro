@@ -31,6 +31,28 @@ export default function Admin() {
   const [diasCustom,   setDiasCustom]   = useState({}); // rid -> string
   const [notasLocal,   setNotasLocal]   = useState({}); // rid -> string
   const [feedbacks,    setFeedbacks]    = useState([]);
+  // Erro do feedback é SEPARADO do erro dos restaurantes: são duas consultas
+  // independentes, e juntar os dois fazia a falha de uma sumir com a outra.
+  const [erroFeedback, setErroFeedback] = useState(null);
+  const [carregandoFeedback, setCarregandoFeedback] = useState(true);
+
+  // Consulta PRÓPRIA. Antes ela morava no fim de carregar(), depois de um
+  // `return` que dispara quando a lista de restaurantes falha — então qualquer
+  // problema em restaurantes levava o feedback junto, sem relação nenhuma
+  // entre as duas coisas. E o `error` da RPC era descartado: falha virava
+  // lista vazia, sem toast, sem log, indistinguível de "não há feedback".
+  const carregarFeedback = useCallback(async () => {
+    setCarregandoFeedback(true);
+    setErroFeedback(null);
+    const { data, error } = await supabase.rpc('feedback_todos');
+    if (error) {
+      setErroFeedback(error.message || 'Falha ao carregar o feedback');
+      setFeedbacks([]);
+    } else {
+      setFeedbacks(data || []);
+    }
+    setCarregandoFeedback(false);
+  }, []);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -100,9 +122,6 @@ export default function Admin() {
     }
     setNotasLocal(Object.fromEntries(rests.map(r => [r.id, notas[r.id] || ''])));
 
-    // Feedback dos clientes (bug/sugestão) — só existe pós-migração 15
-    const { data: fbs } = await supabase.rpc('feedback_todos');
-    setFeedbacks(fbs || []);
     setCarregando(false);
   }, []);
 
@@ -110,7 +129,8 @@ export default function Admin() {
     if (!sessao?.eSuperAdmin) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount com flag de loading (padrão legítimo)
     carregar();
-  }, [sessao, carregar]);
+    carregarFeedback(); // independente: uma falhar não pode apagar a outra
+  }, [sessao, carregar, carregarFeedback]);
 
   // ── Ações comerciais ────────────────────────────────────────────
   const liberarDias = async (r, dias) => {
@@ -205,15 +225,50 @@ export default function Admin() {
           </div>
         )}
 
-        {/* Feedback dos clientes (bug/sugestão) */}
-        {feedbacks.length > 0 && (() => {
+        {/* Feedback dos clientes (bug/sugestão)
+            SEMPRE renderizado. Antes era `feedbacks.length > 0 && ...`: lista
+            vazia e RPC quebrada produziam a MESMA tela (o bloco sumia inteiro),
+            então não havia como distinguir "ninguém mandou nada" de "a consulta
+            falhou". Agora cada situação tem o seu texto. */}
+        {(() => {
           const abertos = feedbacks.filter(f => f.status !== 'resolvido').length;
+          // `open` também quando só há resolvidos: senão o bloco aparece fechado
+          // e parece vazio para quem já respondeu tudo.
           return (
-            <details className="bg-white border border-gray-100 rounded-xl overflow-hidden" open={abertos > 0}>
+            <details className="bg-white border border-gray-100 rounded-xl overflow-hidden" open={abertos > 0 || !!erroFeedback}>
               <summary className="cursor-pointer px-4 py-3 flex items-center justify-between">
                 <span className="text-sm font-bold text-polo-navy">📨 Feedback dos clientes</span>
-                {abertos > 0 && <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{abertos} novo(s)</span>}
+                {erroFeedback
+                  ? <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">erro</span>
+                  : abertos > 0
+                    ? <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{abertos} novo(s)</span>
+                    : <span className="text-[10px] font-semibold text-gray-400">{feedbacks.length || 'nenhum'}</span>}
               </summary>
+
+              {carregandoFeedback && (
+                <p className="px-4 py-3 text-xs text-gray-400 animate-pulse">Carregando feedback…</p>
+              )}
+
+              {!carregandoFeedback && erroFeedback && (
+                <div className="px-4 py-3 bg-red-50 border-t border-red-100">
+                  <p className="text-xs font-bold text-red-700">Não consegui carregar o feedback</p>
+                  <p className="text-[11px] text-red-600 mt-0.5">{erroFeedback}</p>
+                  <p className="text-[11px] text-red-600 mt-1">
+                    Se a mensagem falar em função inexistente, falta rodar a migração 15 no Supabase.
+                  </p>
+                  <button onClick={carregarFeedback}
+                    className="mt-2 text-[11px] font-bold text-red-700 border border-red-200 rounded-lg px-2.5 py-1">
+                    Tentar de novo
+                  </button>
+                </div>
+              )}
+
+              {!carregandoFeedback && !erroFeedback && feedbacks.length === 0 && (
+                <p className="px-4 py-3 text-xs text-gray-500 border-t border-gray-50">
+                  Nenhum cliente enviou feedback ainda. O botão fica no rodapé do app deles.
+                </p>
+              )}
+
               <div className="divide-y divide-gray-50">
                 {feedbacks.map(fb => {
                   const d = fb.dados || {};

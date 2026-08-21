@@ -47,7 +47,10 @@ export default function BotaoFeedback() {
     if (vazio) { toast('Escreva pelo menos um campo antes de enviar.', 'aviso'); return; }
 
     // Na demonstração não há restaurante real para vincular — envio simulado.
-    if (sessao?.demo) { toast('Na demonstração o envio é só de exemplo 🙂', 'sucesso'); limpar(); setAberto(false); return; }
+    // Sai como AVISO, não como sucesso: um toast verde depois de a pessoa
+    // escrever tudo é lido como "enviado", e o feedback nunca existiu. O
+    // banner dentro do formulário avisa antes de digitar.
+    if (sessao?.demo) { toast('Demonstração: nada foi enviado de verdade.', 'aviso'); limpar(); setAberto(false); return; }
 
     setEnviando(true);
     const contexto = `${sessao?.cargo || '?'} · ${navegador}`;
@@ -79,6 +82,16 @@ export default function BotaoFeedback() {
               <h2 className="font-bold text-polo-navy">Falar com a equipe Aurum</h2>
               <button onClick={() => setAberto(false)} aria-label="Fechar" className="text-gray-400 text-xl leading-none">✕</button>
             </div>
+
+            {sessao?.demo && (
+              <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p className="text-xs font-bold text-amber-800">Você está na demonstração</p>
+                <p className="text-[11px] text-amber-700 mt-0.5">
+                  Aqui o envio é só de exemplo — nada chega à equipe. Para falar com a gente de
+                  verdade, entre na sua conta e use este mesmo botão.
+                </p>
+              </div>
+            )}
 
             {/* Tipo */}
             <div className="flex gap-2 mb-3">
