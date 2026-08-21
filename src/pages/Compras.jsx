@@ -30,7 +30,7 @@ export default function Compras() {
   const { toast, confirm } = useUI();
   const location = useLocation();
   const [form, setForm] = useState({
-    data: hoje(), fornecedor: '', item: '', quantidade: '', unidade: 'kg', responsavel: prefs.responsavel || '', temperatura: '', valorTotal: '',
+    data: hoje(), fornecedor: '', item: '', quantidade: '', unidade: 'kg', responsavel: prefs.responsavel || '', temperatura: '', valorTotal: '', validade: '',
   });
   const [tab, setTab] = useState(location.state?.tab === 'lista' ? 'lista' : 'novo'); // novo | lista
   const [fornecedorAuto, setFornecedorAuto] = useState(false);
@@ -213,7 +213,7 @@ export default function Compras() {
     }
 
     if (form.responsavel) setPref('responsavel', form.responsavel);
-    setForm(prev => ({ ...prev, item: '', quantidade: '', fornecedor: '', valorTotal: '' }));
+    setForm(prev => ({ ...prev, item: '', quantidade: '', fornecedor: '', valorTotal: '' })); // validade fica: a entrega costuma ter o mesmo lote
     if (!(podeCusto && String(form.valorTotal || '').trim() && !prodExato)) toast('Compra registrada!', 'sucesso');
   };
 
@@ -600,6 +600,28 @@ export default function Compras() {
                 </select>
               </div>
             </div>
+
+            {/* VALIDADE DO PRODUTOR — a data impressa na embalagem.
+                Antes o sistema CALCULAVA a validade do mantimento somando um
+                prazo do cadastro à data de entrada. Isso inventa número: cada
+                lote sai da fábrica com uma data diferente, e o que vale é a que
+                está no pacote. Uma data só por entrega, porque o lote é o mesmo.
+                Opcional de propósito — quem não preencher fica sem alerta de
+                vencimento, e essa é uma escolha legítima de quem lança. */}
+            {temRecurso(modulo, 'validadeDoProdutor') && (
+              <div>
+                <label htmlFor="cmp-val" className="block text-xs font-semibold text-gray-600 mb-1">
+                  📅 Validade impressa na embalagem (opcional)
+                </label>
+                <input id="cmp-val" type="date" value={form.validade}
+                  onChange={e => set('validade', e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                  Vale para tudo o que veio nesta entrega. Sem ela o item entra no estoque
+                  normalmente, só não aparece nos alertas de vencimento.
+                </p>
+              </div>
+            )}
 
             {podeCusto && (
               <div>

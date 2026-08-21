@@ -14,7 +14,7 @@ import CalculadoraProducao from '../components/CalculadoraProducao';
 import { temRecurso } from '../utils/modulos';
 
 export default function Dashboard() {
-  const { produtos, setProdutos, saidas, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs, modulo } = useApp();
+  const { produtos, setProdutos, saidas, saidasParaConsumo, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs, modulo } = useApp();
   const { toast } = useUI();
   const navigate = useNavigate();
   const [catAtiva, setCatAtiva] = useState('TODOS');
@@ -24,7 +24,8 @@ export default function Dashboard() {
   const dataHoje = hoje();
 
   // Sugestões de mín/máx pela média de saídas (escondidas se o modo automático estiver ligado)
-  const sugestoes = useMemo(() => calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana), [produtos, saidas, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana]);
+  // mesma fonte de consumo do resto da tela: funciona nas três áreas
+  const sugestoes = useMemo(() => calcSugestoesMinMax(produtos, saidasParaConsumo, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana), [produtos, saidasParaConsumo, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana]);
   const divergentes = useMemo(
     () => (prefs.autoMinMax ? [] : produtosDivergentes(produtos, sugestoes)),
     [produtos, sugestoes, prefs.autoMinMax]
@@ -40,7 +41,11 @@ export default function Dashboard() {
   const prodIncompletas = useMemo(() => producoesIncompletas(entradas, saidas), [entradas, saidas]);
 
   // Previsão de ruptura (ritmo dos últimos 14 dias) e lista de compras
-  const medias = useMemo(() => mediaDiariaSaidas(saidas), [saidas]);
+  // `saidasParaConsumo`: na Cozinha de Finalização isto é o consumo apurado no
+  // fechamento de turno, não a lista de saídas (que lá não existe). Com isso a
+  // média diária, a previsão de ruptura e a sugestão de mín/máx passam a
+  // funcionar nas TRÊS áreas, com uma conta só.
+  const medias = useMemo(() => mediaDiariaSaidas(saidasParaConsumo), [saidasParaConsumo]);
   const emRisco = useMemo(
     () => previsaoRuptura(produtos, estoque, medias).filter(x => x.dias <= 3),
     [produtos, estoque, medias]
@@ -387,6 +392,19 @@ export default function Dashboard() {
                       <div className="flex justify-between text-xs text-gray-500 mt-0.5">
                         <span>Mín: {p.min} {p.unidade}</span>
                         <span>Máx: {p.max} {p.unidade}</span>
+                      </div>
+                    )}
+                    {/* Consumo médio por dia — a pergunta que a cozinha faz antes
+                        de pedir reposição ("dura quanto?"). Só aparece com
+                        histórico suficiente: mediaDiariaSaidas exige 3+ dias
+                        DAQUELE item, para não arriscar uma média com dois
+                        lançamentos e sugerir compra errada. */}
+                    {medias[p.id] > 0 && (
+                      <div className="flex justify-between text-[11px] text-gray-400 mt-0.5">
+                        <span>Consumo: {fmtNum(Math.round(medias[p.id] * 10) / 10)} {p.unidade}/dia</span>
+                        {medias[p.id] > 0 && atual > 0 && (
+                          <span>dura ~{Math.floor(atual / medias[p.id])} dia(s)</span>
+                        )}
                       </div>
                     )}
                     {aberto && lotesProduto.length > 0 && (

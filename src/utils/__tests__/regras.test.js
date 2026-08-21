@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calcEstoquePuro } from '../estoque';
+import { consumoComoSaidas } from '../turno';
+import { comprasQueEntram } from '../visaoEstoque';
 import { calcLotes, lotesVencendo } from '../lotes';
 import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
@@ -834,10 +836,31 @@ describe('módulos — namespacing sem migração', () => {
     expect(temRecurso('seco', 'receitas')).toBe(false);
     expect(temRecurso('seco', 'producao')).toBe(false);
     expect(temRecurso('seco', 'aparas')).toBe(false);
-    expect(temRecurso('seco', 'entradas')).toBe(true);
     expect(temRecurso('seco', 'inventario')).toBe(true);
     expect(temRecurso('producao', 'receitas')).toBe(true);
     expect(temRecurso('producao', 'aparas')).toBe(true);
+  });
+
+  // No seco a COMPRA JA E A ENTRADA: você compra 12 pacotes de arroz e eles SAO
+  // o item do estoque. Ter duas telas para o mesmo ato fazia a pessoa registrar
+  // a compra e o saldo nao mexer. Na Producao seguem separadas, porque la sao
+  // atos diferentes (compra o cru, porciona depois).
+  it('no seco a compra dá entrada; na produção não', () => {
+    expect(temRecurso('seco', 'compraEntraNoEstoque')).toBe(true);
+    expect(temRecurso('seco', 'entradas')).toBe(false);
+    expect(temRecurso('producao', 'compraEntraNoEstoque')).toBe(false);
+    expect(temRecurso('producao', 'entradas')).toBe(true);
+  });
+
+  it('seco usa a validade DO PRODUTOR, não um prazo calculado', () => {
+    expect(temRecurso('seco', 'validadeDoProdutor')).toBe(true);
+    expect(temRecurso('producao', 'validadeDoProdutor')).toBe(false);
+  });
+
+  it('seco não gera etiqueta: o mantimento chega lacrado e já etiquetado', () => {
+    expect(temRecurso('seco', 'etiquetas')).toBe(false);
+    expect(temRecurso('producao', 'etiquetas')).toBe(true);
+    expect(temRecurso('finalizacao', 'etiquetas')).toBe(true);
   });
 
   it('a auditoria fica fora do namespace (é do restaurante, não do módulo)', () => {
@@ -1404,7 +1427,7 @@ describe('instancias — varios estoques do mesmo tipo', () => {
 
   it('recursos vem do TIPO: instancia nova herda tudo sem configurar', () => {
     expect(temRecurso('seco#x7k2', 'receitas')).toBe(false);
-    expect(temRecurso('seco#x7k2', 'entradas')).toBe(true);
+    expect(temRecurso('seco#x7k2', 'entradas')).toBe(false);   // no seco a compra ja da entrada
     expect(temRecurso('finalizacao#b3nq', 'fecharTurno')).toBe(true);
     expect(temRecurso('finalizacao#b3nq', 'compras')).toBe(false);
   });
@@ -1792,5 +1815,96 @@ describe('estoque da Finalizacao — recebimento e fechamento de turno', () => {
     const r = calcEstoquePuro({ produtos, entradas: [recebimento], saidas: [], ajustes: [lixo], desperdicio: [] });
     expect(r.empanado).toBe(20);
     expect(r.nao_existe).toBeUndefined();
+  });
+});
+
+// A Cozinha de Finalizacao nao tem tela de saida: o consumo dela nasce do
+// fechamento de turno. Converter para o formato de saida e o que permite
+// reaproveitar media diaria, previsao de ruptura e sugestao de min/max sem
+// duplicar nenhuma dessas contas — que e onde duas implementacoes da mesma
+// regra comecam a divergir.
+describe('consumo da Finalizacao vira saida (para media e min/max)', () => {
+  it('converte o consumo apurado de cada fechamento', () => {
+    const fech = [{ id: 'f1', ts: 1, data: '2026-08-20', itens: [
+      { produtoId: 'empanado', quantidade: 5, consumo: 15 },
+      { produtoId: 'molho', quantidade: 2, consumo: 4 },
+    ] }];
+    const r = consumoComoSaidas(fech);
+    expect(r).toHaveLength(1);
+    expect(r[0].data).toBe('2026-08-20');
+    expect(r[0].itens).toEqual([
+      { produtoId: 'empanado', quantidade: 15 },
+      { produtoId: 'molho', quantidade: 4 },
+    ]);
+  });
+
+  it('DESCARTA consumo negativo — sobrou mais do que entrou', () => {
+    // acontece com recebimento nao registrado ou contagem anterior baixa;
+    // somar isso puxaria a media para baixo e o app sugeriria minimo menor do
+    // que a casa precisa
+    const fech = [{ id: 'f1', data: '2026-08-20', itens: [
+      { produtoId: 'a', quantidade: 9, consumo: -3 },
+      { produtoId: 'b', quantidade: 1, consumo: 6 },
+    ] }];
+    const r = consumoComoSaidas(fech);
+    expect(r[0].itens).toEqual([{ produtoId: 'b', quantidade: 6 }]);
+  });
+
+  it('fechamento sem consumo nenhum nao vira saida vazia', () => {
+    const fech = [{ id: 'f1', data: '2026-08-20', itens: [{ produtoId: 'a', quantidade: 5, consumo: 0 }] }];
+    expect(consumoComoSaidas(fech)).toEqual([]);
+  });
+
+  it('lista vazia ou malformada nao quebra', () => {
+    expect(consumoComoSaidas([])).toEqual([]);
+    expect(consumoComoSaidas(undefined)).toEqual([]);
+    expect(consumoComoSaidas([{ id: 'x' }, null])).toEqual([]);
+  });
+});
+
+// No Estoque Seco a COMPRA JA E A ENTRADA: voce compra 12 pacotes de arroz e
+// eles SAO o item do estoque. O dono testou e o saldo nao mexia.
+describe('compra que da entrada (so no Estoque Seco)', () => {
+  const compra = { id: 'c1', ts: 10, data: '2026-08-21', produtoId: 'seco_arroz', quantidade: 12, validade: '2027-06-30' };
+
+  it('no seco a compra vira entrada, com a validade do produtor', () => {
+    const r = comprasQueEntram('seco', [compra]);
+    expect(r).toHaveLength(1);
+    expect(r[0].itens).toEqual([{ produtoId: 'seco_arroz', quantidade: 12, validade: '2027-06-30' }]);
+  });
+
+  it('vale tambem para INSTANCIA de seco', () => {
+    expect(comprasQueEntram('seco#x7k2', [compra])).toHaveLength(1);
+  });
+
+  it('na PRODUCAO nao entra — la a compra e do cru e quem entra e a porcao', () => {
+    // somar as duas contaria o mesmo insumo duas vezes
+    expect(comprasQueEntram('producao', [compra])).toEqual([]);
+    expect(comprasQueEntram('finalizacao', [compra])).toEqual([]);
+  });
+
+  it('compra SEM produto vinculado nao entra — nao ha a quem somar', () => {
+    expect(comprasQueEntram('seco', [{ id: 'c2', quantidade: 5, item: 'texto livre' }])).toEqual([]);
+  });
+
+  it('quantidade zero ou negativa nao vira entrada', () => {
+    expect(comprasQueEntram('seco', [{ ...compra, quantidade: 0 }])).toEqual([]);
+    expect(comprasQueEntram('seco', [{ ...compra, quantidade: -3 }])).toEqual([]);
+  });
+
+  it('sem validade digitada, entra normalmente e so nao alerta vencimento', () => {
+    const semVal = comprasQueEntram('seco', [{ ...compra, validade: '' }]);
+    expect(semVal[0].itens[0].validade).toBeUndefined();
+    expect(semVal[0].itens[0].quantidade).toBe(12);
+  });
+
+  it('a compra somada de fato aparece no saldo do seco', () => {
+    const produtos = [{ id: 'seco_arroz', nome: 'Arroz', unidade: 'unid', estoqueInicial: 0 }];
+    const r = calcEstoquePuro({
+      produtos,
+      entradas: comprasQueEntram('seco', [compra]),
+      saidas: [], ajustes: [], desperdicio: [],
+    });
+    expect(r.seco_arroz).toBe(12);
   });
 });

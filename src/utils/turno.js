@@ -92,3 +92,33 @@ export function consumoDoTurno(linhas = [], sobras = {}) {
 /** Só as linhas que valem gravar no fechamento (evita poluir com zeros). */
 export const linhasParaGravar = (linhas) =>
   linhas.filter(l => l.disponivel > 0 || l.sobra > 0);
+
+/**
+ * Consumo por produto a partir dos FECHAMENTOS DE TURNO, no formato de saídas.
+ *
+ * A Cozinha de Finalização não tem tela de saída: ninguém registra prato a
+ * prato. O consumo dela nasce da diferença entre o que estava disponível e a
+ * sobra contada — e fica gravado em `itens[].consumo` de cada fechamento.
+ *
+ * Converter para o formato de saída (`{ data, itens: [{produtoId, quantidade}] }`)
+ * é o que permite reaproveitar `mediaDiariaSaidas`, `previsaoRuptura` e
+ * `calcSugestoesMinMax` sem duplicar nenhuma dessas contas — que é justamente
+ * onde duas implementações da mesma regra começam a divergir.
+ *
+ * Consumo negativo é DESCARTADO: significa que sobrou mais do que entrou
+ * (recebimento não registrado ou contagem anterior baixa). Somar isso puxaria a
+ * média para baixo e o app sugeriria mínimo menor do que a casa precisa.
+ */
+export function consumoComoSaidas(fechamentos = []) {
+  return (fechamentos || [])
+    .filter(f => f && Array.isArray(f.itens))
+    .map(f => ({
+      id: f.id,
+      ts: f.ts,
+      data: f.data,
+      itens: f.itens
+        .filter(i => i && i.produtoId && num(i.consumo) > 0)
+        .map(i => ({ produtoId: i.produtoId, quantidade: num(i.consumo) })),
+    }))
+    .filter(f => f.itens.length > 0);
+}

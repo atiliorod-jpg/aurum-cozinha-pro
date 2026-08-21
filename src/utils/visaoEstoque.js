@@ -10,7 +10,7 @@
 // da conta numa query só e joga fora o que não é do módulo ativo. Aqui a gente
 // aproveita o que já está na mão. É a mesma base do balanço consolidado.
 
-import { lerTipo, ehTipoGlobal, chaveModulo, catalogoDe, tipoBase, MODULO_PADRAO } from './modulos';
+import { lerTipo, ehTipoGlobal, chaveModulo, catalogoDe, tipoBase, temRecurso, MODULO_PADRAO } from './modulos';
 import { calcEstoquePuro } from './estoque';
 
 const PARA_LISTA = {
@@ -56,6 +56,34 @@ export function fatiarPorEstoque(linhas, idsDosEstoques, linhaParaRegistro) {
   return porEstoque;
 }
 
+
+/**
+ * Compras que CONTAM como entrada de estoque.
+ *
+ * Só nos estoques marcados com `compraEntraNoEstoque` (hoje o Seco). A compra é
+ * gravada com `produtoId`/`quantidade` na raiz; aqui vira o formato de entrada
+ * (itens[]) para o cálculo não precisar de um caminho especial.
+ *
+ * Compra SEM produto vinculado não entra: não há a quem somar, e inventar um
+ * item pelo nome digitado criaria saldo fantasma.
+ */
+export function comprasQueEntram(idEstoque, compras) {
+  if (!temRecurso(idEstoque, 'compraEntraNoEstoque')) return [];
+  return (compras || [])
+    .filter(c => c && c.produtoId && Number(c.quantidade) > 0)
+    .map(c => ({
+      id: c.id,
+      ts: c.ts,
+      data: c.data,
+      itens: [{
+        produtoId: c.produtoId,
+        quantidade: Number(c.quantidade),
+        // validade DO PRODUTOR, digitada na compra (a impressa na embalagem)
+        ...(c.validade ? { validade: c.validade } : {}),
+      }],
+    }));
+}
+
 /**
  * Visão completa de um estoque: catálogo, saldo e listas.
  *
@@ -73,7 +101,11 @@ export function visaoDoEstoque({ id, docs, registrosFatiados, padroes, aplicarMe
   const regs = registrosFatiados?.[id] || vazio();
   const estoque = calcEstoquePuro({
     produtos,
-    entradas: [...regs.entradas, ...regs.recebimentos],
+    // No Estoque Seco a COMPRA já é a entrada — o mantimento comprado É o item
+    // do estoque, sem porcionamento no meio. Na Produção não: lá a compra é do
+    // insumo cru e quem entra é a porção produzida, então somar as duas contaria
+    // o mesmo insumo duas vezes.
+    entradas: [...regs.entradas, ...regs.recebimentos, ...comprasQueEntram(id, regs.compras)],
     saidas: regs.saidas,
     ajustes: regs.ajustes,
     desperdicio: regs.desperdicio,

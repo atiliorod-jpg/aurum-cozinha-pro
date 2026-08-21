@@ -157,25 +157,38 @@ export const moduloValido = (id) => MODULOS.some(m => m.id === id) || ehIdInstan
  */
 export const RECURSOS_MODULO = {
   producao: {
-    compras: true, entradas: true, saidas: true, producao: true,
+    compras: true, entradas: true, compraEntraNoEstoque: false, validadeDoProdutor: false,
+    saidas: true, producao: true,
     aparas: true, inventario: true, etiquetas: true, receitas: true, listaCompras: true,
     fecharTurno: false, perdas: true,
     // câmara fria: o item entra congelado OU resfriado, e cada um tem prazo próprio
     armazenamento: true,
   },
   seco: {
-    compras: true, entradas: true, saidas: true, producao: false,
-    aparas: false, inventario: true, etiquetas: true, receitas: false, listaCompras: true,
+    // ⚠️ No seco a COMPRA JÁ É A ENTRADA. Você compra 12 pacotes de arroz e eles
+    // SÃO o item do estoque — não existe porcionamento no meio. Ter duas telas
+    // para o mesmo ato fazia a pessoa registrar a compra e o saldo não mexer.
+    // Na Produção continuam separadas, porque lá são atos diferentes de verdade
+    // (compra o filé cru, porciona depois, e é a porção que entra).
+    compras: true, entradas: false, compraEntraNoEstoque: true,
+    saidas: true, producao: false,
+    aparas: false, inventario: true, receitas: false, listaCompras: true,
     fecharTurno: false, perdas: true,
+    // Etiqueta não: o mantimento chega LACRADO e já etiquetado pelo fabricante.
+    // Etiquetar o que já tem etiqueta é trabalho sem retorno. A tela de
+    // Validades continua, lendo a data impressa que foi digitada na entrada.
+    etiquetas: false,
     // despensa é temperatura ambiente: não existe "congelado/resfriado" aqui, e
-    // a validade é UM prazo de prateleira só (o do fabricante).
+    // a validade é a DO PRODUTOR, digitada na entrada — não um prazo calculado.
     armazenamento: false,
+    validadeDoProdutor: true,
   },
   finalizacao: {
     // Não compra de fornecedor nem porciona: só RECEBE da produção. A entrada é
     // automática (a saída da produção para cá), por isso `entradas` fica off —
     // não existe tela de "dar entrada" aqui.
-    compras: false, entradas: false, saidas: false, producao: false,
+    compras: false, entradas: false, compraEntraNoEstoque: false, validadeDoProdutor: false,
+    saidas: false, producao: false,
     aparas: false, receitas: false, listaCompras: false,
     // Durante o serviço ninguém registra prato a prato. O controle é: recebe
     // automático + conta a sobra no fim do turno + registra o que estragou.

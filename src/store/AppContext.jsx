@@ -3,6 +3,7 @@ import { PRODUTOS_BASE, PESSOAS_BASE, DESTINOS_APARA, CATEGORIAS_BASE } from '..
 import { FICHAS_BASE } from '../data/fichas';
 import { gerarDemoSeed } from '../data/demo';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
+import { consumoComoSaidas } from '../utils/turno';
 import { conciliarAuditoria } from '../utils/auditoria';
 import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
@@ -11,7 +12,7 @@ import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outbo
 import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
-import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque } from '../utils/visaoEstoque';
+import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -512,14 +513,31 @@ export function AppProvider({ children }) {
     outboxSet(rid, outboxGet(rid).filter(i => !i._morto));
   }, [rid]);
 
+  // ── Consumo, para quem não tem tela de saída ───────────────
+  //
+  // A Cozinha de Finalização não registra prato a prato: o consumo dela nasce da
+  // diferença entre o disponível e a sobra contada no fechamento de turno.
+  // Convertido para o formato de saída, ele alimenta média diária, previsão de
+  // ruptura e sugestão de mín/máx SEM duplicar nenhuma dessas contas — e é o que
+  // destrava o auto-mín/máx, que estava desligado lá por falta de `saidas`.
+  const saidasParaConsumo = useMemo(
+    () => (temRecurso(moduloEfetivo, 'saidas') ? saidas : consumoComoSaidas(ajustes)),
+    [moduloEfetivo, saidas, ajustes],
+  );
+
   // ── Estoque (calculado uma vez, partilhado por todos os componentes) ─
   // ⚠️ `recebimentos` PRECISA entrar. A Cozinha de Finalização não tem tela de
   // entrada: tudo o que chega nela vem da Produção, como recebimento. Sem esta
   // lista o estoque dela ficava sempre ZERADO — a bancada recebia 20 porções e
   // a tela mostrava 0, o que também derrubava alertas e mín/máx.
   const estoque = useMemo(
-    () => calcEstoquePuro({ produtos, entradas: [...entradas, ...recebimentos], saidas, ajustes, desperdicio }),
-    [produtos, entradas, recebimentos, saidas, ajustes, desperdicio]
+    () => calcEstoquePuro({
+      produtos,
+      // `comprasQueEntram` só devolve algo onde a compra É a entrada (Seco).
+      entradas: [...entradas, ...recebimentos, ...comprasQueEntram(moduloEfetivo, compras)],
+      saidas, ajustes, desperdicio,
+    }),
+    [produtos, entradas, recebimentos, compras, moduloEfetivo, saidas, ajustes, desperdicio]
   );
 
   // Migração única: copia gramatura/coccao de fichas para os produtos correspondentes
@@ -546,18 +564,18 @@ export function AppProvider({ children }) {
   // O ref é atualizado em efeito (não durante o render) e o recálculo é debounced para
   // evitar tempestade de writes entre tablets quando uma saída chega via realtime.
   const produtosAutoRef = useRef(null);
+  const saidasRef = useRef([]);
   useEffect(() => { produtosAutoRef.current = produtos; }, [produtos]);
+  useEffect(() => { saidasRef.current = saidasParaConsumo; }, [saidasParaConsumo]);
   useEffect(() => {
     if (!prefs.autoMinMax) return;
-    // ⚠️ Sem saídas registradas não há ritmo de consumo para inferir. Na
-    // Finalização o consumo sai do FECHAMENTO DE TURNO, não de `saidas` — então
-    // calcSugestoesMinMax devolveria min=0/max=0 e o efeito apagaria as metas
-    // da bancada sozinho, no meio do serviço, sem a tela ter como avisar.
-    if (!temRecurso(moduloRef.current, 'saidas')) return;
     const t = setTimeout(() => {
       const prods = produtosAutoRef.current;
       if (!prods) return;
-      const sug = calcSugestoesMinMax(prods, saidas, undefined, prefs.diasMin || DIAS_MIN, prefs.diasMax || DIAS_MAX, prefs.minMaxPorDiaSemana);
+      // `saidasParaConsumo`: na Finalização isto é o consumo apurado no
+      // fechamento de turno. Com lista vazia calcSugestoesMinMax devolve {} e
+      // nada é gravado — a trava que existia aqui deixou de ser necessária.
+      const sug = calcSugestoesMinMax(prods, saidasRef.current, undefined, prefs.diasMin || DIAS_MIN, prefs.diasMax || DIAS_MAX, prefs.minMaxPorDiaSemana);
       let mudou = false;
       const next = prods.map(p => {
         const s = sug[p.id];
@@ -574,7 +592,7 @@ export function AppProvider({ children }) {
       if (mudou) setProdutos(next);
     }, 1500);
     return () => clearTimeout(t);
-  }, [saidas, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana, setProdutos]);
+  }, [saidasParaConsumo, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana, setProdutos]);
 
   // ── Hidratação (cache → rede) + tempo real + offline ───────
   // O setState síncrono neste efeito é o coração do offline-first: o cache
@@ -1190,7 +1208,7 @@ export function AppProvider({ children }) {
       permissoes, setPermissoes,
       precos, setPrecos,
       estoques, estoqueAtual, estoquesDoc, setEstoquesDoc, visoesPorEstoque,
-      metas, setMetas,
+      metas, setMetas, saidasParaConsumo,
       destinos, setDestinos,
       categorias, setCategorias,
       auditoria, logAudit,

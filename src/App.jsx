@@ -244,7 +244,10 @@ function Rotas() {
           "consumo" no fechamento de turno. */}
       <Route path="/producao" element={temRecurso(modulo, 'producao') ? <Producao /> : <Navigate to="/registrar" replace />} />
       <Route path="/aparas" element={temRecurso(modulo, 'perdas') ? <AparasPerdas /> : <Navigate to="/registrar" replace />} />
-      <Route path="/etiquetas" element={<Etiquetas />} />
+      {/* Etiquetas não existem no Estoque Seco: o mantimento chega LACRADO e
+          já etiquetado pelo fabricante. A rota não tinha gate nenhum, então
+          abria por URL direta mesmo com o card escondido. */}
+      <Route path="/etiquetas" element={temRecurso(modulo, 'etiquetas') ? <Etiquetas /> : <Navigate to="/registrar" replace />} />
       <Route path="/validades" element={<Validades />} />
       {/* fechamento de turno só existe na Cozinha de Finalização */}
       <Route path="/fechar-turno" element={temRecurso(modulo, 'fecharTurno') ? <FecharTurno /> : <Navigate to="/" replace />} />
