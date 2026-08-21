@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth, CARGOS, nivelDoCargo } from '../store/AuthContext';
@@ -17,6 +17,11 @@ import { temRecurso } from '../utils/modulos';
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
 // a conversão para número acontece só no salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
+
+// Abas válidas. Usado tanto pelo deep link (?secao=) quanto pela queda para
+// 'produtos' quando a query traz lixo — sem isto um ?secao=xpto deixaria a
+// tela sem nenhuma aba ativa.
+const ABAS_VALIDAS = ['produtos', 'receitas', 'acessos', 'sistema'];
 
 // Fecha o modal com a tecla Escape (acessibilidade — WCAG 2.1.2)
 function useEscClose(onFechar) {
@@ -1112,7 +1117,21 @@ ${linkConvite(conviteGerado.token)}
   const [criando, setCriando] = useState(false);
   const [busca, setBusca] = useState('');
   const [novaPessoa, setNovaPessoa] = useState('');
-  const [secao, setSecao] = useState('produtos'); // produtos | receitas | acessos | sistema
+  // A aba pode vir por query (?secao=acessos): é assim que a Administração manda
+  // direto para o assunto em vez de largar a pessoa em "Produtos" para procurar.
+  //
+  // ⚠️ Ler só no useState NÃO basta. O inicializador roda uma vez, no primeiro
+  // mount — e vir do hub é navegação do lado do cliente, que não remonta a tela.
+  // Resultado: o primeiro deep link funcionava e todos os seguintes iam para a
+  // aba errada, em silêncio. Por isso o efeito abaixo observa a query.
+  const abaDaUrl = new URLSearchParams(useLocation().search).get('secao');
+  const [secao, setSecao] = useState(
+    ABAS_VALIDAS.includes(abaDaUrl) ? abaDaUrl : 'produtos',
+  );
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincronizar com a URL é o propósito
+    if (ABAS_VALIDAS.includes(abaDaUrl)) setSecao(abaDaUrl);
+  }, [abaDaUrl]);
   // Abas visíveis dependem da função; secaoAtiva garante que uma aba escolhida
   // some (permissão retirada) caia numa aba permitida em vez de tela vazia.
   // FONTE ÚNICA das abas: rótulo e condição juntos. Antes a lista de botões era

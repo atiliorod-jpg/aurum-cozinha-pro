@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import NavBar from './NavBar';
-import Icon from './Icons';
 import GuideTour from './GuideTour';
 import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
@@ -9,13 +7,12 @@ import { useApp } from '../store/AppContext';
 import { moduloPorId } from '../utils/modulos';
 import SeletorModulo from './SeletorModulo';
 import { useUI } from '../store/UIContext';
-import { pode } from '../utils/permissoes';
 
 const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
 export default function Layout({ title, children, actions }) {
   const { sessao, logout } = useAuth();
-  const { pendencias, online, modulo, permissoes } = useApp();
+  const { pendencias, online, modulo } = useApp();
   const mod = moduloPorId(modulo);
   const [trocandoModulo, setTrocandoModulo] = useState(false);
   const { confirm } = useUI();
@@ -82,14 +79,11 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           {sessao && (
             <div className="flex items-center gap-1.5">
               <BotaoFeedback />
-              {pode(sessao, permissoes, 'verAuditoria') && (
-                <Link to="/auditoria" aria-label="Trilha de auditoria — quem mexeu em quê" title="Trilha de auditoria — quem mexeu em quê"
-                  className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
-                             focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
-                  <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><Icon name="historico" size={17} /></span>
-                  <span className="text-[8px] leading-none font-semibold text-white/70">Auditoria</span>
-                </Link>
-              )}
+              {/* A Auditoria saiu daqui: virou cartão dentro de Administração,
+                  junto do resto que é da CONTA (equipe, assinatura, relatórios).
+                  No cabeçalho ela competia por espaço com o seletor de estoque e
+                  o status de sincronização num tablet, e ninguém consulta trilha
+                  de auditoria no meio do serviço — é gesto de gestão. */}
               <button onClick={sair} aria-label={`${nomeExibicao} — sair`} title={`${nomeExibicao} — sair`}
                 className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform
                            focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">

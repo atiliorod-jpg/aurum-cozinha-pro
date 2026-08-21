@@ -1,5 +1,8 @@
+import { Link } from 'react-router-dom';
 import { MODULOS } from '../utils/modulos';
 import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
+import { pode } from '../utils/permissoes';
 
 /**
  * Escolha de qual estoque abrir. Aparece como tela cheia no primeiro acesso do
@@ -8,9 +11,19 @@ import { useApp } from '../store/AppContext';
  * A escolha fica no aparelho: quem só trabalha no seco já abre no seco.
  */
 export default function SeletorModulo({ comoTela = false, aoEscolher }) {
-  const { modulo, setModulo } = useApp();
+  const { modulo, setModulo, permissoes } = useApp();
+  const { sessao } = useAuth();
 
   const escolher = (id) => { setModulo(id); aoEscolher?.(id); };
+
+  // Administração aparece junto dos estoques porque é onde a pessoa procura,
+  // mas ⚠️ NÃO é um estoque: ela NAVEGA, não chama setModulo. Se virasse um
+  // valor de `modulo`, toda chave passaria a ser 'admin::produtos' e todo tipo
+  // 'admin:entrada' — recusados pelo CHECK do banco, em silêncio, com o item
+  // presto na fila offline. É o mesmo buraco que segurou o Estoque Seco antes
+  // da migração 17.
+  const podeAdmin = !!sessao && (sessao.eSuperAdmin || sessao.cargo === 'diretoria'
+    || sessao.cargo === 'gerencia' || pode(sessao, permissoes, 'verRelatorio'));
 
   const lista = (
     <div className="space-y-3">
@@ -32,6 +45,22 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
           </button>
         );
       })}
+
+      {podeAdmin && (
+        <Link to="/administracao" onClick={() => aoEscolher?.('administracao')}
+          className="w-full text-left rounded-2xl p-4 border-2 border-dashed border-polo-navy/25 bg-white
+                     flex items-start gap-3 active:scale-[0.99] transition-transform
+                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+          <span className="text-3xl flex-shrink-0" aria-hidden="true">⚙️</span>
+          <span className="min-w-0">
+            <span className="block font-bold text-polo-navy">Administração</span>
+            <span className="block text-xs text-gray-500 mt-0.5">
+              Relatórios de qualquer estoque, histórico de mudanças, equipe e assinatura.
+              Não é um estoque — não muda o que está aberto.
+            </span>
+          </span>
+        </Link>
+      )}
     </div>
   );
 

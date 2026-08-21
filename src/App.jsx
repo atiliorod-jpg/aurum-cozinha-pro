@@ -34,6 +34,7 @@ import Novidades from './pages/Novidades';
 const Relatorio = lazy(() => import('./pages/Relatorio'));
 const Configuracoes = lazy(() => import('./pages/Configuracoes'));
 const Admin = lazy(() => import('./pages/Admin'));
+const Administracao = lazy(() => import('./pages/Administracao'));
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -254,6 +255,11 @@ function Rotas() {
       <Route path="/inventario" element={temRecurso(modulo, 'inventario') && can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
       <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
       <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
+      {/* Administração é SEÇÃO, não estoque: tem rota própria e não mexe no
+          módulo aberto. Gerência+ (ou quem tem relatório) entra. */}
+      <Route path="/administracao" element={
+        sessao?.eSuperAdmin || sessao?.cargo === 'diretoria' || sessao?.cargo === 'gerencia' || can('verRelatorio')
+          ? <Administracao /> : <Navigate to="/" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={podeAbrirConfig(sessao, permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
