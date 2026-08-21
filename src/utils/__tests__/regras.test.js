@@ -10,6 +10,7 @@ import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
 import { conciliarAuditoria } from '../auditoria';
+import { custoUnitario, valorDoEstoque, curvaABC, custoDosRegistros, precoDaCompra } from '../financeiro';
 import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe } from '../modulos';
 import { isoLocal } from '../formatters';
@@ -1204,5 +1205,149 @@ describe('limparCacheLocal — logout não pode deixar dado no aparelho', () => 
     semir('pe::rest_a::_outbox', [{ _uid: '1' }, { _uid: '2', _morto: true }]);
     semir('pe::rest_b::_outbox', [{ _uid: '3' }]);
     expect(pendenciasNaoSincronizadas()).toBe(2); // 2 vivos; o morto não conta
+  });
+});
+
+// O risco numero um de um relatorio financeiro e dar um numero ERRADO com cara
+// de certo — ninguem desconfia de um total. A armadilha aqui e a unidade: a
+// compra e na unidade do fornecedor (kg de picanha) e o estoque na unidade de
+// uso (porcao). Estes testes travam a conversao e, principalmente, travam o
+// comportamento de RECUSAR quando nao da para converter.
+describe('financeiro — custo por unidade', () => {
+  const P = (extra) => ({ id: 'x', nome: 'X', unidade: 'kg', ativo: true, ...extra });
+
+  it('mesma unidade: usa o custo direto', () => {
+    expect(custoUnitario(P({ unidade: 'kg' }), { custo: 78.9, unidade: 'kg' })).toBe(78.9);
+  });
+
+  it('comprado em kg, estocado por peca: converte pelo peso da peca', () => {
+    const r = custoUnitario(P({ unidade: 'unid', pesoUnidade: 180 }), { custo: 60, unidade: 'kg' });
+    expect(r).toBeCloseTo(10.8, 5);
+  });
+
+  it('comprado por peca, estocado em kg: converte no sentido inverso', () => {
+    const r = custoUnitario(P({ unidade: 'kg', pesoUnidade: 500 }), { custo: 12, unidade: 'unid' });
+    expect(r).toBeCloseTo(24, 5);
+  });
+
+  it('RECUSA converter sem o peso da peca — melhor sem numero que com numero errado', () => {
+    expect(custoUnitario(P({ unidade: 'unid', pesoUnidade: 0 }), { custo: 60, unidade: 'kg' })).toBeNull();
+  });
+
+  it('RECUSA litro x quilo: exigiria densidade, que o app nao guarda', () => {
+    expect(custoUnitario(P({ unidade: 'L' }), { custo: 8, unidade: 'kg' })).toBeNull();
+  });
+
+  it('custo ausente, zero ou negativo nao vira valor', () => {
+    expect(custoUnitario(P(), null)).toBeNull();
+    expect(custoUnitario(P(), { custo: 0, unidade: 'kg' })).toBeNull();
+    expect(custoUnitario(P(), { custo: -5, unidade: 'kg' })).toBeNull();
+  });
+});
+
+describe('financeiro — valor do estoque', () => {
+  const produtos = [
+    { id: 'file', nome: 'File', categoria: 'PROTEINAS', unidade: 'kg', ativo: true },
+    { id: 'queijo', nome: 'Queijo', categoria: 'FRIOS', unidade: 'kg', ativo: true },
+    { id: 'oleo', nome: 'Oleo', categoria: 'SECOS', unidade: 'L', ativo: true },
+  ];
+  const estoque = { file: 10, queijo: 4, oleo: 6 };
+  const precos = { file: { custo: 80, unidade: 'kg' }, queijo: { custo: 40, unidade: 'kg' } };
+
+  it('soma so o que da para calcular', () => {
+    const r = valorDoEstoque(produtos, estoque, precos);
+    expect(r.total).toBe(960);
+    expect(r.porCategoria['PROTEINAS']).toBe(800);
+    expect(r.porCategoria['FRIOS']).toBe(160);
+  });
+
+  it('DENUNCIA o que ficou de fora — total que esconde item mente por omissao', () => {
+    const r = valorDoEstoque(produtos, estoque, precos);
+    expect(r.semCusto.map(i => i.id)).toEqual(['oleo']);
+  });
+
+  it('item zerado sem preco nao vira ruido na lista de pendencias', () => {
+    const r = valorDoEstoque(produtos, { file: 10, queijo: 4, oleo: 0 }, precos);
+    expect(r.semCusto).toEqual([]);
+  });
+
+  it('produto inativo fica de fora', () => {
+    const r = valorDoEstoque(
+      [...produtos, { id: 'z', nome: 'Z', unidade: 'kg', ativo: false }],
+      { ...estoque, z: 100 },
+      { ...precos, z: { custo: 10, unidade: 'kg' } });
+    expect(r.itens.some(i => i.id === 'z')).toBe(false);
+  });
+
+  it('lista sai ordenada do mais caro para o mais barato', () => {
+    const r = valorDoEstoque(produtos, estoque, precos);
+    expect(r.itens.map(i => i.id)).toEqual(['file', 'queijo']);
+  });
+});
+
+describe('financeiro — curva ABC', () => {
+  it('classifica pelo acumulado: quem CRUZA a fronteira ainda e da classe de baixo', () => {
+    const r = curvaABC([{ id: 'a', valor: 85 }, { id: 'b', valor: 10 }, { id: 'c', valor: 5 }]);
+    expect(r.find(i => i.id === 'a').classe).toBe('A');
+    expect(r.find(i => i.id === 'b').classe).toBe('B');
+    expect(r.find(i => i.id === 'c').classe).toBe('C');
+  });
+
+  it('percentual acumulado fecha em 100', () => {
+    const r = curvaABC([{ id: 'a', valor: 50 }, { id: 'b', valor: 30 }, { id: 'c', valor: 20 }]);
+    expect(r[r.length - 1].pctAcumulado).toBe(100);
+  });
+
+  it('lista vazia ou sem valor nao quebra', () => {
+    expect(curvaABC([])).toEqual([]);
+    expect(curvaABC([{ id: 'a', valor: 0 }])).toEqual([]);
+  });
+});
+
+describe('financeiro — custo do que saiu e do que estragou', () => {
+  const produtos = [{ id: 'file', nome: 'File', unidade: 'kg', ativo: true }];
+  const precos = { file: { custo: 80, unidade: 'kg' } };
+
+  it('soma lancamento com lista de itens (saida/producao)', () => {
+    const r = custoDosRegistros([{ data: '2026-08-10', itens: [{ produtoId: 'file', quantidade: 2 }] }], produtos, precos);
+    expect(r.total).toBe(160);
+  });
+
+  it('soma lancamento com produtoId na raiz (perda/apara)', () => {
+    const r = custoDosRegistros([{ data: '2026-08-10', produtoId: 'file', quantidade: 1.5 }], produtos, precos);
+    expect(r.total).toBe(120);
+  });
+
+  it('respeita a janela de datas', () => {
+    const regs = [
+      { data: '2026-08-01', produtoId: 'file', quantidade: 1 },
+      { data: '2026-08-20', produtoId: 'file', quantidade: 1 },
+    ];
+    expect(custoDosRegistros(regs, produtos, precos, { de: '2026-08-10' }).total).toBe(80);
+  });
+
+  it('conta quantos ficaram sem custo em vez de somar zero em silencio', () => {
+    const r = custoDosRegistros([{ produtoId: 'desconhecido', quantidade: 3 }], produtos, precos);
+    expect(r.total).toBe(0);
+    expect(r.semCusto).toBe(1);
+  });
+});
+
+describe('financeiro — preco vindo da compra (ultima compra manda)', () => {
+  it('divide o valor pago pela quantidade e guarda de quando e', () => {
+    const r = precoDaCompra({ produtoId: 'file', quantidade: 20, valorTotal: 1578, unidade: 'kg', data: '2026-08-21', fornecedor: 'Bom Corte' });
+    expect(r.custo).toBe(78.9);
+    expect(r.unidade).toBe('kg');
+    expect(r.em).toBe('2026-08-21');
+    expect(r.fornecedor).toBe('Bom Corte');
+  });
+
+  it('compra sem produto vinculado nao gera preco (nao da para saber de quem e)', () => {
+    expect(precoDaCompra({ quantidade: 20, valorTotal: 1578 })).toBeNull();
+  });
+
+  it('sem valor ou com quantidade zero nao gera preco', () => {
+    expect(precoDaCompra({ produtoId: 'file', quantidade: 20 })).toBeNull();
+    expect(precoDaCompra({ produtoId: 'file', quantidade: 0, valorTotal: 100 })).toBeNull();
   });
 });
