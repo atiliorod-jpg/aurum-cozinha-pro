@@ -37,6 +37,7 @@ const Admin = lazy(() => import('./pages/Admin'));
 const Administracao = lazy(() => import('./pages/Administracao'));
 const Financeiro = lazy(() => import('./pages/Financeiro'));
 const Estoques = lazy(() => import('./pages/Estoques'));
+const Balanco = lazy(() => import('./pages/Balanco'));
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -269,6 +270,7 @@ function Rotas() {
           tela explica o bloqueio, e a migração 22 recusa a escrita de quem não
           for diretoria (não é trava de tela). */}
       <Route path="/estoques" element={podeAbrirAdministracao(sessao, permissoes) ? <Estoques /> : <Navigate to="/" replace />} />
+      <Route path="/balanco" element={can('verRelatorio') ? <Balanco /> : <Navigate to="/administracao" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={podeAbrirConfig(sessao, permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />

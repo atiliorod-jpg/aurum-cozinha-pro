@@ -173,3 +173,52 @@ export function separarMetas(catalogoAtual, novaLista, metasAtuais) {
     metas: metasMudou ? metas : null,
   };
 }
+
+/**
+ * BALANÇO CONSOLIDADO — soma os estoques do MESMO TIPO.
+ *
+ * Só funciona porque o catálogo é compartilhado por tipo: somar por `produtoId`
+ * exige que o id seja o mesmo dos dois lados. A decisão de compartilhar o
+ * cadastro é literalmente o que torna esta tela possível.
+ *
+ * ⚠️ NÃO consolida entre tipos diferentes. "Queijo" na Produção e "Queijo" no
+ * Seco são ids distintos, e casar por NOME é chute que produz número errado com
+ * cara de certo — o pior defeito possível num balanço, porque ninguém desconfia
+ * de um total. Se um dia for preciso, pede um campo de equivalência no catálogo,
+ * com curadoria manual.
+ *
+ * Arquivado ENTRA na soma: o estoque saiu do seletor, mas o que está lá dentro
+ * continua sendo mercadoria da casa. Some da tela só quem quiser esconder.
+ */
+export function balancoConsolidado(estoques, visoes) {
+  const familias = [];
+
+  const tipos = [...new Set((estoques || []).map(e => e.tipo))];
+  for (const tipo of tipos) {
+    const doTipo = (estoques || []).filter(e => e.tipo === tipo);
+    if (doTipo.length < 2) continue;   // um estoque só não é consolidação
+
+    const porProduto = {};
+    doTipo.forEach(e => {
+      const v = visoes?.[e.id];
+      if (!v) return;
+      (v.produtos || []).forEach(p => {
+        if (!p || p.ativo === false) return;
+        const qtd = Number(v.estoque?.[p.id]) || 0;
+        if (!porProduto[p.id]) {
+          porProduto[p.id] = { id: p.id, nome: p.nome, unidade: p.unidade, total: 0, porEstoque: {} };
+        }
+        porProduto[p.id].porEstoque[e.id] = qtd;
+        porProduto[p.id].total += qtd;
+      });
+    });
+
+    const itens = Object.values(porProduto)
+      .filter(i => i.total !== 0 || Object.values(i.porEstoque).some(q => q !== 0))
+      .sort((a, b) => b.total - a.total);
+
+    familias.push({ tipo, estoques: doTipo, itens });
+  }
+
+  return familias;
+}

@@ -36,6 +36,10 @@ export default function Administracao() {
       to: '/financeiro', emoji: '💰', titulo: 'Custos e valor do estoque',
       desc: 'Valor parado, curva ABC, consumo e perdas em R$',
     },
+    can('verRelatorio') && {
+      to: '/balanco', emoji: '🧮', titulo: 'Balanço da conta',
+      desc: 'Soma dos estoques do mesmo tipo, item a item',
+    },
     can('verAuditoria') && {
       to: '/auditoria', emoji: '🕵️', titulo: 'Histórico de mudanças',
       desc: 'Quem mexeu em quê, no sistema inteiro',

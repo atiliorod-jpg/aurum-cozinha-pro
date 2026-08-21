@@ -8,8 +8,8 @@ import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
-import { registrarFalha, ressuscitar } from '../utils/outbox';
-import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso } from '../utils/modulos';
+import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
+import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque } from '../utils/visaoEstoque';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
@@ -83,6 +83,14 @@ const soAparelho = (p) => { const o = {}; PREFS_APARELHO.forEach(k => { if (p[k]
 // Avisa a UI quando uma escrita do usuário é barrada pelo modo suporte (somente
 // leitura), para não exibir um "sucesso" enganoso ao super-admin (AUR-SUP-002).
 const avisaBloqueioLeitura = () => { try { window.dispatchEvent(new Event('escrita-bloqueada')); } catch { /* sem window (SSR/teste) */ } };
+
+// O servidor recusou em DEFINITIVO e o lançamento foi desfeito. A UI escuta e
+// mostra — este app tem histórico de mostrar sucesso quando o banco recusou, e
+// esse é o evento que quebra o silêncio.
+const avisaErroDefinitivo = (msg) => {
+  try { window.dispatchEvent(new CustomEvent('registro-recusado', { detail: msg })); }
+  catch { /* sem window (SSR/teste) */ }
+};
 
 // Modo demonstração: rid 'demo' NUNCA fala com o Supabase — tudo fica só no
 // cache local do navegador (apagado ao sair). Retorna o rid quando é de nuvem.
@@ -385,7 +393,26 @@ export function AppProvider({ children }) {
       // tipo com o módulo embutido ('seco:entrada') — é o que separa os estoques
       const row = { id: novo.id, restaurante_id: r, tipo: t(tipo), ts: novo.ts, dados: semIdTs(novo), deleted: false };
       supabase.from('registros').insert(row).then(({ error }) => {
-        if (error) outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
+        if (!error) return;
+        // ⚠️ ERRO DEFINITIVO NÃO VAI PARA A FILA. Violação de constraint (tipo
+        // de estoque que o banco não conhece, coluna inexistente) NUNCA passa
+        // numa nova tentativa — enfileirar só adia a má notícia enquanto a tela
+        // já mostrou o toast verde. Foi assim que o Estoque Seco passou semanas
+        // gravando só no tablet: o app dizia "salvo", o banco recusava, e o item
+        // ficava preso na fila em silêncio.
+        //
+        // Aqui a gente DESFAZ o lançamento otimista e conta o que houve. Mentir
+        // sobre sucesso é pior que dar erro.
+        if (ehErroDefinitivo(error.message)) {
+          setRaw(prev => {
+            const next = prev.filter(x => x.id !== novo.id);
+            cacheSet(r, k(key), next);
+            return next;
+          });
+          avisaErroDefinitivo(error.message);
+          return;
+        }
+        outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
       });
     }
     logAudit(`registrou ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(novo) || '');
@@ -571,8 +598,14 @@ export function AppProvider({ children }) {
       // módulos gravavam no mesmo lugar. kc() mantém a Finalização lendo o
       // catálogo da Produção, que é o comportamento correto.
       const seed = gerarDemoSeed(tipoBase(moduloEfetivo));
-      const c = seed.catalogos, g = seed.registros;
+      const c = seed.catalogos;
+      // O seed de movimentos vale só para a instância RAIZ. Uma instância criada
+      // pelo visitante tem que começar VAZIA — herdar as entradas e saídas de
+      // exemplo da raiz faria dois estoques distintos mostrarem o mesmo
+      // movimento, que é justamente o contrário do que a tela quer ensinar.
+      const g = ehIdInstancia(moduloEfetivo) ? {} : seed.registros;
       setProdutosRaw(cacheGet(rid, kc('produtos'), c.produtos));
+      setMetasRaw(cacheGet(rid, k('metas'), {}));   // mín/máx desta instância
       setCategoriasRaw(cacheGet(rid, kc('categorias'), c.categorias));
       setPessoasRaw(cacheGet(rid, 'pessoas', c.pessoas)); // equipe é da conta
       setDestinosRaw(cacheGet(rid, k('destinos'), c.destinos));
@@ -583,20 +616,49 @@ export function AppProvider({ children }) {
       setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), c.etiquetasAvulsas));
       setEtiquetasImpressasRaw(cacheGet(rid, k('etiquetasImpressas'), []));
       setPrefsRaw(cacheGet(rid, 'prefs', c.prefs)); // prefs é da conta, não do módulo
-      setComprasRaw(cacheGet(rid, k('compras'), g.compras));
-      setEntradasRaw(cacheGet(rid, k('entradas'), g.entradas));
-      setSaidasRaw(cacheGet(rid, k('saidas'), g.saidas));
-      setAparasRaw(cacheGet(rid, k('aparas'), g.aparas));
-      setDesperdicioRaw(cacheGet(rid, k('desperdicio'), g.desperdicio));
-      setAjustesRaw(cacheGet(rid, k('ajustes'), g.ajustes));
+      setComprasRaw(cacheGet(rid, k('compras'), g.compras || []));
+      setEntradasRaw(cacheGet(rid, k('entradas'), g.entradas || []));
+      setSaidasRaw(cacheGet(rid, k('saidas'), g.saidas || []));
+      setAparasRaw(cacheGet(rid, k('aparas'), g.aparas || []));
+      setDesperdicioRaw(cacheGet(rid, k('desperdicio'), g.desperdicio || []));
+      setAjustesRaw(cacheGet(rid, k('ajustes'), g.ajustes || []));
       setRecebimentosRaw(cacheGet(rid, k('recebimentos'), g.recebimentos || []));
-      setAuditoriaRaw(cacheGet(rid, 'auditoria', g.auditoria)); // auditoria é da conta
+      setAuditoriaRaw(cacheGet(rid, 'auditoria', g.auditoria || [])); // auditoria é da conta
       // Documentos da CONTA que o ramo demo também precisa ler do cache, senão
       // o visitante cria um estoque e ele desaparece no recarregar — a queda
       // para a raiz funciona (a proteção está certa), mas parece bug.
       setEstoquesDocRaw(cacheGet(rid, 'estoques', {}));
       setPermissoesRaw(cacheGet(rid, 'permissoes', {}));
       setPrecosRaw(cacheGet(rid, 'precos', {}));
+
+      // A demo não passa pela rede, então não existe "bruto" vindo do servidor —
+      // e sem ele o Balanço e os seletores de visão da Administração ficariam
+      // vazios justamente onde o visitante explora o app. Aqui os brutos são
+      // MONTADOS a partir do cache de cada estoque, no mesmo formato que a
+      // hidratação real produz.
+      const LISTA_PARA_TIPO = {
+        compras: 'compra', entradas: 'entrada', saidas: 'saida',
+        aparas: 'apara', desperdicio: 'perda', ajustes: 'ajuste',
+      };
+      const regsDemo = [];
+      const docsDemo = {};
+      // pelo REF, não pelo estado: `estoques` é um array novo a cada mudança e
+      // colocá-lo nas deps deste efeito já causou laço infinito de render uma
+      // vez (o efeito grava estado que muda o array que dispara o efeito).
+      estoquesRef.current.forEach(e => {
+        Object.entries(LISTA_PARA_TIPO).forEach(([lista, tipo]) => {
+          cacheGet(rid, chaveModulo(e.id, lista), []).forEach(reg => {
+            const { id, ts, ...dados } = reg;
+            regsDemo.push({ id, ts, tipo: tipoModulo(e.id, tipo), dados, deleted: false });
+          });
+        });
+        // catálogo e metas, nas mesmas chaves que visaoDoEstoque procura
+        const cCat = chaveModulo(catalogoDe(e.id), 'produtos');
+        if (!docsDemo[cCat]) docsDemo[cCat] = cacheGet(rid, cCat, catalogosPadrao(tipoBase(e.id)).produtos);
+        const cMetas = chaveModulo(e.id, 'metas');
+        docsDemo[cMetas] = cacheGet(rid, cMetas, {});
+      });
+      setBrutos({ registros: regsDemo, docs: docsDemo });
       return;
     }
     let ativo = true;

@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
+import { estabelecimentoDe } from '../utils/instancias';
 import ResponsavelSelect from './ResponsavelSelect';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas } from '../utils/etiquetas';
 import { hoje, fmtHora } from '../utils/formatters';
@@ -103,7 +104,13 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao } = useAuth();
-  const { prefs, produtos, modulo, etiquetasImpressas, setEtiquetasImpressas } = useApp();
+  const { prefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas } = useApp();
+  // ⚠️ Nome que SAI IMPRESSO no pote. Com dois restaurantes na mesma conta, o
+  // nome da conta sairia na etiqueta dos dois — erro visível na frente do
+  // cliente, e o pote ainda circula. O nome do ESTOQUE manda quando o dono
+  // preencheu; senão cai no da conta, que é o caso de quem tem uma casa só e
+  // não precisa configurar nada.
+  const nomeImpresso = estabelecimentoDe(estoqueAtual, sessao?.restauranteNome);
   // despensa não tem congelado/resfriado: a etiqueta do seco não pergunta isso
   const comArmazenamento = temRecurso(modulo, 'armazenamento');
   const config = configEtiqueta(prefs);
@@ -192,7 +199,7 @@ export default function EtiquetaPrint() {
       dataFabricacao: item.dataFabricacao,
       tipoData: item.tipoData,
       armazenamento: item.armazenamento,
-      restauranteNome: sessao?.restauranteNome || '',
+      restauranteNome: nomeImpresso,
       responsavel,
       // validade pronta (de registro real) só vale enquanto data/armazenamento não mudarem
       validade: naoEditado ? item.validade : null,

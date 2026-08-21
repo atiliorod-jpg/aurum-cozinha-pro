@@ -72,6 +72,29 @@ export function UIProvider({ children }) {
     return () => window.removeEventListener('escrita-bloqueada', handler);
   }, [toast]);
 
+  // O servidor recusou o lançamento EM DEFINITIVO e ele foi desfeito.
+  //
+  // Este é o aviso que quebra o silêncio mais caro deste app: até aqui um erro
+  // permanente (tipo de estoque que o banco não conhece, coluna inexistente) ia
+  // para a fila offline e retentava 8 vezes, enquanto a tela já tinha mostrado o
+  // toast verde. Foi assim que o Estoque Seco passou semanas gravando só no
+  // tablet. Duração longa e tom de erro de propósito: é para ser lido.
+  useEffect(() => {
+    const handler = (e) => {
+      const detalhe = String(e?.detail || '');
+      const ehTipo = /violates check constraint/i.test(detalhe);
+      toast(
+        ehTipo
+          ? 'Este estoque ainda não foi habilitado no servidor. O lançamento NÃO foi salvo — avise o administrador.'
+          : 'O servidor recusou este lançamento e ele não foi salvo. Confira os dados e tente de novo.',
+        'erro',
+        { duracao: 10000 },
+      );
+    };
+    window.addEventListener('registro-recusado', handler);
+    return () => window.removeEventListener('registro-recusado', handler);
+  }, [toast]);
+
   // Conflito de catálogo (migração 8): outro aparelho gravou primeiro — a tela
   // foi recarregada com a versão vigente em vez de sobrescrever o outro.
   useEffect(() => {
