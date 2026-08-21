@@ -5,18 +5,16 @@
 import { execSync } from 'node:child_process';
 
 const IGNORAR_GHSA = new Set([
-  // react-router, "RSC Mode CSRF Bypass": o próprio aviso oficial diz "This
-  // only affects your application if you are using the unstable RSC APIs".
-  // Este app é 100% client-side (BrowserRouter puro, sem servidor, sem RSC)
-  // — não se aplica. Não existe versão 7.x corrigida ainda (patch é 8.3.0+,
-  // ainda não lançado); a "correção" do npm seria REBAIXAR pra 7.11.0, mais
-  // arriscado que manter e documentar. Revisitar quando 8.3.0+ (ou um
-  // backport 7.x) sair. (18/07/2026)
-  'GHSA-qwww-vcr4-c8h2',
   // (removida em 05/08/2026) GHSA-mh99-v99m-4gvg, brace-expansion: saiu um
   // patch de verdade e o `npm audit fix` resolveu, então a exceção deixou de
   // existir. Exceção obsoleta é pior que exceção nenhuma — ela continuaria
   // aceitando o aviso em silêncio se ele voltasse.
+  //
+  // (removida em 21/08/2026) GHSA-qwww-vcr4-c8h2, react-router "RSC Mode CSRF
+  // Bypass": a exceção previa "revisitar quando sair 8.3.0+ ou um backport
+  // 7.x". O backport saiu — estamos em react-router 7.18.2 e o advisory não é
+  // mais reportado. Mesma regra de sempre: exceção que não protege mais nada
+  // sai, senão volta a aceitar o aviso em silêncio se ele reaparecer.
 ]);
 
 let saida;
