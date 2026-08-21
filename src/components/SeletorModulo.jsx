@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { MODULOS } from '../utils/modulos';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { pode } from '../utils/permissoes';
+import { podeAbrirAdministracao } from '../utils/permissoes';
 
 /**
  * Escolha de qual estoque abrir. Aparece como tela cheia no primeiro acesso do
@@ -20,10 +20,9 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
   // mas ⚠️ NÃO é um estoque: ela NAVEGA, não chama setModulo. Se virasse um
   // valor de `modulo`, toda chave passaria a ser 'admin::produtos' e todo tipo
   // 'admin:entrada' — recusados pelo CHECK do banco, em silêncio, com o item
-  // presto na fila offline. É o mesmo buraco que segurou o Estoque Seco antes
+  // preso na fila offline. É o mesmo buraco que segurou o Estoque Seco antes
   // da migração 17.
-  const podeAdmin = !!sessao && (sessao.eSuperAdmin || sessao.cargo === 'diretoria'
-    || sessao.cargo === 'gerencia' || pode(sessao, permissoes, 'verRelatorio'));
+  const podeAdmin = podeAbrirAdministracao(sessao, permissoes);
 
   const lista = (
     <div className="space-y-3">

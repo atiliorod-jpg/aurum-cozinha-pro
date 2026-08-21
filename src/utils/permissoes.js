@@ -89,3 +89,19 @@ export function permissoesEfetivas(permissoes) {
   }
   return out;
 }
+
+/**
+ * Consegue abrir a ADMINISTRAÇÃO?
+ *
+ * Existe como função (e não repetida em cada lugar) porque a regra é usada em
+ * TRÊS pontos: a rota em App.jsx, o item da barra inferior e o cartão do
+ * seletor de estoque. Quando essas cópias divergem, o botão aparece e leva a um
+ * redirect — que foi exatamente como a aba "Receitas" ficou morta no Seco.
+ */
+export function podeAbrirAdministracao(sessao, permissoes) {
+  if (!sessao) return false;
+  if (sessao.eSuperAdmin || sessao.cargo === 'diretoria' || sessao.cargo === 'gerencia') return true;
+  // cozinha só entra se a diretoria tiver liberado alguma capacidade de gestão
+  return ['verRelatorio', 'verAuditoria', 'gerenciarProdutos', 'configurarSistema', 'verFinanceiro']
+    .some(c => pode(sessao, permissoes, c));
+}

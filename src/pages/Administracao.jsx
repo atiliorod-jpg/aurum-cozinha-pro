@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { pode } from '../utils/permissoes';
-import { MODULOS } from '../utils/modulos';
+import { MODULOS, temRecurso } from '../utils/modulos';
 
 /**
  * Hub de ADMINISTRAÇÃO — o que é da CONTA, não de um estoque.
@@ -62,9 +62,12 @@ export default function Administracao() {
   const { permissoes } = useApp();
   const can = (cap) => pode(sessao, permissoes, cap);
 
-  const abrirRelatorio = (id) => {
-    if (id !== modulo) setModulo(id);   // troca o estoque e leva junto
-    navigate('/relatorio');
+  // Troca o estoque e leva junto. É o mesmo gesto para relatório e para
+  // configuração de operação: você diz DE QUAL estoque, não precisa lembrar de
+  // trocar antes e depois voltar.
+  const abrirNoEstoque = (id, rota) => {
+    if (id !== modulo) setModulo(id);
+    navigate(rota);
   };
 
   return (
@@ -77,7 +80,19 @@ export default function Administracao() {
               <Cartao key={m.id} emoji={m.icone}
                 titulo={`Relatório · ${m.label}`}
                 desc={m.id === modulo ? 'estoque aberto agora' : 'abre este estoque e mostra o relatório'}
-                onClick={() => abrirRelatorio(m.id)} />
+                onClick={() => abrirNoEstoque(m.id, '/relatorio')} />
+            ))}
+          </Secao>
+        )}
+
+        {can('gerenciarProdutos') && (
+          <Secao titulo="Cadastros de cada estoque"
+            desc="Produtos, receitas e destinos de saída — o cartão já abre o estoque certo">
+            {MODULOS.map(m => (
+              <Cartao key={m.id} emoji={m.icone}
+                titulo={`Cadastros · ${m.label}`}
+                desc={temRecurso(m.id, 'receitas') ? 'produtos, receitas e destinos' : 'produtos e destinos'}
+                onClick={() => abrirNoEstoque(m.id, '/configuracoes?secao=produtos')} />
             ))}
           </Secao>
         )}
@@ -98,8 +113,8 @@ export default function Administracao() {
         </Secao>
 
         <p className="text-[11px] text-gray-400 px-1 leading-relaxed">
-          O que é de operação do estoque — produtos, receitas e destinos de saída — fica
-          em Config., dentro de cada estoque, junto de quem usa.
+          Relatórios e configurações moram só aqui. A barra de baixo fica com o que a
+          cozinha usa durante o serviço — registrar, validades e fechar turno.
         </p>
       </div>
     </Layout>

@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './store/AuthContext';
 import { statusAssinatura } from './utils/assinatura';
 import SeletorModulo from './components/SeletorModulo';
 import { temRecurso } from './utils/modulos';
-import { pode, podeAbrirConfig } from './utils/permissoes';
+import { pode, podeAbrirConfig, podeAbrirAdministracao } from './utils/permissoes';
 import { AppProvider, useApp } from './store/AppContext';
 import { UIProvider, useUI } from './store/UIContext';
 import { fmtData, isoLocal } from './utils/formatters';
@@ -256,10 +256,10 @@ function Rotas() {
       <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
       <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
       {/* Administração é SEÇÃO, não estoque: tem rota própria e não mexe no
-          módulo aberto. Gerência+ (ou quem tem relatório) entra. */}
+          módulo aberto. A regra de acesso vem de podeAbrirAdministracao — a
+          MESMA que a barra inferior e o seletor usam, para não divergirem. */}
       <Route path="/administracao" element={
-        sessao?.eSuperAdmin || sessao?.cargo === 'diretoria' || sessao?.cargo === 'gerencia' || can('verRelatorio')
-          ? <Administracao /> : <Navigate to="/" replace />} />
+        podeAbrirAdministracao(sessao, permissoes) ? <Administracao /> : <Navigate to="/" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={podeAbrirConfig(sessao, permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />

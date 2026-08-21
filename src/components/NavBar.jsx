@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { statusEstoque } from '../utils/calculos';
-import { pode, podeAbrirConfig } from '../utils/permissoes';
+import { pode, podeAbrirAdministracao } from '../utils/permissoes';
 import { temRecurso } from '../utils/modulos';
 import Icon from './Icons';
 
@@ -18,11 +18,15 @@ const NAV = [
   // barra, não um card dentro de Registrar. O histórico geral saiu daqui: cada
   // tela já tem a aba "📋 Histórico" dela, e ele continua no hub Registrar.
   { to: '/validades',     icon: 'etiqueta',  label: 'Validades' },
-  // Relatório sai da barra na Finalização para o Fechar Turno caber sem
-  // apertar 6 itens num tablet — lá ele é quase vazio e continua alcançável
-  // pelo menu.
-  { to: '/relatorio',     icon: 'relatorio', label: 'Relatório', cap: 'verRelatorio', semRecurso: 'fecharTurno' },
-  { to: '/configuracoes', icon: 'config',    label: 'Config.',   cap: 'config' },
+  // Relatório e Configurações SAÍRAM da barra: agora moram só na Administração.
+  // O motivo é de escopo — os dois são gesto de GESTÃO, não de operação, e
+  // ocupavam dois dos cinco lugares da barra num tablet que a cozinha usa de
+  // mão suja. Quem opera precisa de Início, Registrar, Validades e (na
+  // finalização) Fechar turno; o resto é do dono.
+  //
+  // A Administração entra no lugar deles, para gerência+ chegar lá com um
+  // toque em vez de abrir o seletor de estoque.
+  { to: '/administracao', icon: 'config',    label: 'Admin.',    cap: 'administracao' },
 ];
 
 export default function NavBar() {
@@ -44,7 +48,9 @@ export default function NavBar() {
     if (n.recurso && !temRecurso(modulo, n.recurso)) return false;
     if (n.semRecurso && temRecurso(modulo, n.semRecurso)) return false;
     if (!n.cap) return true;
-    if (n.cap === 'config') return podeAbrirConfig(sessao, permissoes);
+    // MESMA regra da rota /administracao em App.jsx. Se as duas divergirem, o
+    // botão leva a um redirect — foi assim que a aba "Receitas" ficou morta.
+    if (n.cap === 'administracao') return podeAbrirAdministracao(sessao, permissoes);
     return pode(sessao, permissoes, n.cap);
   });
 
