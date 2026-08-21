@@ -36,6 +36,7 @@ const Configuracoes = lazy(() => import('./pages/Configuracoes'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Administracao = lazy(() => import('./pages/Administracao'));
 const Financeiro = lazy(() => import('./pages/Financeiro'));
+const Estoques = lazy(() => import('./pages/Estoques'));
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -264,6 +265,10 @@ function Rotas() {
       {/* A rota existe para quem tem a capacidade; a própria tela explica o
           bloqueio para quem chega sem ela (o servidor já não manda os custos). */}
       <Route path="/financeiro" element={can('verFinanceiro') ? <Financeiro /> : <Navigate to="/administracao" replace />} />
+      {/* Criar/renomear/arquivar estoque muda o que TODA a equipe enxerga — a
+          tela explica o bloqueio, e a migração 22 recusa a escrita de quem não
+          for diretoria (não é trava de tela). */}
+      <Route path="/estoques" element={podeAbrirAdministracao(sessao, permissoes) ? <Estoques /> : <Navigate to="/" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={podeAbrirConfig(sessao, permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />

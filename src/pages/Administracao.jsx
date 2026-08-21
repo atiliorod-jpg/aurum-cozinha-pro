@@ -109,6 +109,10 @@ export default function Administracao() {
             <Cartao emoji="🕵️" titulo="Histórico de mudanças" to="/auditoria"
               desc="Quem mexeu em quê, no sistema inteiro — não só neste estoque" />
           )}
+          {sessao?.cargo === 'diretoria' || sessao?.eSuperAdmin ? (
+            <Cartao emoji="🏢" titulo="Estoques da conta" to="/estoques"
+              desc="Criar, renomear e arquivar estoques — e o nome que sai na etiqueta de cada um" />
+          ) : null}
           <Cartao emoji="👤" titulo="Equipe e acessos" to="/configuracoes?secao=acessos"
             desc="Convites, cargos e o que cada função pode fazer" />
           <Cartao emoji="🛠️" titulo="Sistema e backup" to="/configuracoes?secao=sistema"

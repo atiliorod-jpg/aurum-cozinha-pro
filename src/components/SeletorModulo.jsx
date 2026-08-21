@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { MODULOS } from '../utils/modulos';
+import { estoquesAtivos } from '../utils/instancias';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { podeAbrirAdministracao } from '../utils/permissoes';
@@ -11,7 +11,7 @@ import { podeAbrirAdministracao } from '../utils/permissoes';
  * A escolha fica no aparelho: quem só trabalha no seco já abre no seco.
  */
 export default function SeletorModulo({ comoTela = false, aoEscolher }) {
-  const { modulo, setModulo, permissoes } = useApp();
+  const { modulo, setModulo, permissoes, estoques } = useApp();
   const { sessao } = useAuth();
 
   const escolher = (id) => { setModulo(id); aoEscolher?.(id); };
@@ -24,22 +24,30 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
   // da migração 17.
   const podeAdmin = podeAbrirAdministracao(sessao, permissoes);
 
+  // Só os ativos: estoque arquivado sai do seletor, mas os lançamentos dele
+  // continuam no histórico e no balanço.
+  const visiveis = estoquesAtivos(estoques);
+
   const lista = (
     <div className="space-y-3">
-      {MODULOS.map(m => {
-        const ativo = m.id === modulo;
+      {visiveis.map(e => {
+        const ativo = e.id === modulo;
         return (
-          <button key={m.id} onClick={() => escolher(m.id)}
+          <button key={e.id} onClick={() => escolher(e.id)}
             aria-current={ativo ? 'true' : undefined}
             className={`w-full text-left rounded-2xl p-4 border-2 transition-colors flex items-start gap-3
               ${ativo ? 'border-polo-gold bg-polo-beige' : 'border-gray-200 bg-white'}`}>
-            <span className="text-3xl flex-shrink-0" aria-hidden="true">{m.icone}</span>
+            <span className="text-3xl flex-shrink-0" aria-hidden="true">{e.icone}</span>
             <span className="min-w-0">
               <span className="block font-bold text-polo-navy">
-                {m.label}
+                {e.nome}
                 {ativo && <span className="ml-2 text-[10px] font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">aberto</span>}
               </span>
-              <span className="block text-xs text-gray-500 mt-0.5">{m.descricao}</span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                {/* O estabelecimento manda quando existe: com dois restaurantes
+                    na conta, "Estoque Seco" sozinho não diz de qual casa é. */}
+                {e.estabelecimento || e.descricao}
+              </span>
             </span>
           </button>
         );

@@ -9,7 +9,8 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
 import { registrarFalha, ressuscitar } from '../utils/outbox';
-import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, DESTINO_FINALIZACAO } from '../utils/modulos';
+import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase } from '../utils/modulos';
+import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -47,6 +48,10 @@ const CAT = {
   // linha do servidor. Por isso o padrão é {} e nunca uma exceção: para essa
   // pessoa o app funciona igual, só sem número de dinheiro.
   precos: {},
+  // Registro dos estoques criados pelo dono. As TRÊS raízes não entram aqui:
+  // são sintetizadas na leitura, então conta que nunca criou instância não tem
+  // documento nenhum e não há o que migrar. Só a diretoria grava (migração 22).
+  estoques: {},
   prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
 
@@ -106,6 +111,7 @@ export function AppProvider({ children }) {
   const [etiquetasImpressas, setEtiquetasImpressasRaw] = useState(CAT.etiquetasImpressas);
   const [permissoes, setPermissoesRaw] = useState(CAT.permissoes);
   const [precos,      setPrecosRaw]      = useState(CAT.precos);
+  const [estoquesDoc, setEstoquesDocRaw] = useState(CAT.estoques);
   const [prefs,       setPrefsRaw]       = useState(CAT.prefs);
   const [compras,     setComprasRaw]     = useState([]);
   const [entradas,    setEntradasRaw]    = useState([]);
@@ -141,7 +147,31 @@ export function AppProvider({ children }) {
       return moduloValido(salvo) ? salvo : MODULO_PADRAO;
     } catch { return MODULO_PADRAO; }
   });
-  const moduloRef = useRef(modulo); moduloRef.current = modulo;
+  // Lista completa dos estoques: as três raízes (sintetizadas) + as instâncias
+  // que o dono criou. Derivada, nunca gravada — ver utils/instancias.js.
+  const estoques = useMemo(() => listarEstoques(estoquesDoc), [estoquesDoc]);
+
+  // ⚠️ O id do estoque aberto fica no APARELHO. Um tablet levado para outra
+  // unidade abriria o estoque de lá; e um id ARQUIVADO continuaria passando na
+  // validação de formato, deixando a pessoa operar um estoque que ninguém mais
+  // vê. Aqui ele é corrigido para a raiz do tipo — a tela avisa (ver Layout).
+  const moduloEfetivo = useMemo(() => moduloUtilizavel(estoques, modulo), [estoques, modulo]);
+  const estoqueAtual = useMemo(() => acharEstoque(estoques, moduloEfetivo), [estoques, moduloEfetivo]);
+
+  // ⚠️ NÃO colocar `estoques` nas deps do efeito de hidratação. Ele é um array
+  // NOVO a cada mudança de `estoquesDoc`, e o próprio efeito grava esse estado
+  // (o ramo demo lê do cache, que devolve objeto novo toda vez) — cada volta
+  // gerava um objeto novo e disparava a próxima: laço infinito de render, que
+  // no tablet trava o app. A chave abaixo é uma STRING e só muda quando algo
+  // que o efeito realmente usa muda: quais finalizações existem e como se
+  // chamam (é o que vira destino de saída).
+  const chaveDestinos = useMemo(
+    () => estoques.filter(e => e.tipo === 'finalizacao' && !e.arquivado).map(e => `${e.id}:${e.nome}`).join('|'),
+    [estoques],
+  );
+  const estoquesRef = useRef(estoques); estoquesRef.current = estoques;
+
+  const moduloRef = useRef(moduloEfetivo); moduloRef.current = moduloEfetivo;
   const setModulo = useCallback((id) => {
     if (!moduloValido(id)) return;
     try { localStorage.setItem('pe::modulo', id); } catch { /* storage indisponível */ }
@@ -251,7 +281,7 @@ export function AppProvider({ children }) {
     //    conseguia reescrever a matriz por ali.
     //  • COMPARTILHADOS → chave do módulo de CATÁLOGO (finalização lê o da produção)
     //  • resto → chave do próprio módulo
-    const GLOBAIS = ['pessoas', 'permissoes', 'precos'];
+    const GLOBAIS = ['pessoas', 'permissoes', 'precos', 'estoques'];
     const COMPARTILHADOS = ['produtos', 'categorias', 'fichas'];
     const chave = GLOBAIS.includes(chaveBase) ? chaveBase
       : COMPARTILHADOS.includes(chaveBase) ? kc(chaveBase)
@@ -272,6 +302,7 @@ export function AppProvider({ children }) {
   const setEtiquetasImpressas = useCallback((v) => persistCatalogo('etiquetasImpressas', setEtiquetasImpressasRaw, v), [persistCatalogo]);
   const setPermissoes = useCallback((v) => persistCatalogo('permissoes', setPermissoesRaw, v), [persistCatalogo]);
   const setPrecos = useCallback((v) => persistCatalogo('precos', setPrecosRaw, v), [persistCatalogo]);
+  const setEstoquesDoc = useCallback((v) => persistCatalogo('estoques', setEstoquesDocRaw, v), [persistCatalogo]);
 
   const setPref = useCallback((chave, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -499,7 +530,7 @@ export function AppProvider({ children }) {
       // visitante lançava "no Seco" reaparecia na "Produção", porque os três
       // módulos gravavam no mesmo lugar. kc() mantém a Finalização lendo o
       // catálogo da Produção, que é o comportamento correto.
-      const seed = gerarDemoSeed(modulo);
+      const seed = gerarDemoSeed(tipoBase(moduloEfetivo));
       const c = seed.catalogos, g = seed.registros;
       setProdutosRaw(cacheGet(rid, kc('produtos'), c.produtos));
       setCategoriasRaw(cacheGet(rid, kc('categorias'), c.categorias));
@@ -520,24 +551,36 @@ export function AppProvider({ children }) {
       setAjustesRaw(cacheGet(rid, k('ajustes'), g.ajustes));
       setRecebimentosRaw(cacheGet(rid, k('recebimentos'), g.recebimentos || []));
       setAuditoriaRaw(cacheGet(rid, 'auditoria', g.auditoria)); // auditoria é da conta
+      // Documentos da CONTA que o ramo demo também precisa ler do cache, senão
+      // o visitante cria um estoque e ele desaparece no recarregar — a queda
+      // para a raiz funciona (a proteção está certa), mas parece bug.
+      setEstoquesDocRaw(cacheGet(rid, 'estoques', {}));
+      setPermissoesRaw(cacheGet(rid, 'permissoes', {}));
+      setPrecosRaw(cacheGet(rid, 'precos', {}));
       return;
     }
     let ativo = true;
 
     // 1) cache instantâneo (funciona offline) — tudo pela chave do MÓDULO ativo
-    const P = catalogosPadrao(tipoBase(modulo));
+    const P = catalogosPadrao(tipoBase(moduloEfetivo));
     setProdutosRaw(cacheGet(rid, kc('produtos'), P.produtos));
     setCategoriasRaw(cacheGet(rid, kc('categorias'), P.categorias));
     setPessoasRaw(cacheGet(rid, 'pessoas', P.pessoas)); // equipe é do restaurante, não do módulo
     setDestinosRaw(cacheGet(rid, k('destinos'), P.destinos));
     setFichasRaw(cacheGet(rid, kc('fichas'), P.fichas));
     setProducoesRaw(cacheGet(rid, k('producoes'), P.producoes));
-    setLocaisRaw(mesclarFixos(cacheGet(rid, k('locais'), P.locais), P.locais));
+    // Os destinos FIXOS vêm do registro de estoques, não do CAT: uma
+    // finalização criada hoje precisa virar destino também nas contas que já
+    // têm o documento `locais` gravado (o semeador só roda quando ele não
+    // existe). É o mesmo buraco que mesclarFixos foi criada para tapar.
+    const LOC = locaisPadrao(P.locais, estoquesRef.current, moduloEfetivo);
+    setLocaisRaw(mesclarFixos(cacheGet(rid, k('locais'), LOC), LOC));
     setListaManualRaw(cacheGet(rid, k('listaManual'), P.listaManual));
     setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), P.etiquetasAvulsas));
     setEtiquetasImpressasRaw(cacheGet(rid, k('etiquetasImpressas'), P.etiquetasImpressas));
     setPermissoesRaw(cacheGet(rid, 'permissoes', {}));
     setPrecosRaw(cacheGet(rid, 'precos', {}));
+    setEstoquesDocRaw(cacheGet(rid, 'estoques', {}));
     // prefs = restaurante (nuvem) + aparelho (local), mescladas. NÃO é por
     // módulo: etiqueta, estabelecimento e responsável valem para a conta toda.
     setPrefsRaw({ ...cacheGet(rid, 'prefs', P.prefs), ...cacheGet(rid, '_prefs_device', {}) });
@@ -658,7 +701,7 @@ export function AppProvider({ children }) {
         aplicaCat(k('destinos'), setDestinosRaw, P.destinos);
         aplicaCat(kc('fichas'), setFichasRaw, P.fichas);
         aplicaCat(k('producoes'), setProducoesRaw, P.producoes);
-        aplicaCat(k('locais'), setLocaisRaw, P.locais, (d) => mesclarFixos(d, P.locais));
+        aplicaCat(k('locais'), setLocaisRaw, LOC, (d) => mesclarFixos(d, LOC));
         aplicaCat(k('listaManual'), setListaManualRaw, P.listaManual);
         aplicaCat(k('etiquetasAvulsas'), setEtiquetasAvulsasRaw, P.etiquetasAvulsas);
         aplicaCat(k('etiquetasImpressas'), setEtiquetasImpressasRaw, P.etiquetasImpressas);
@@ -674,6 +717,9 @@ export function AppProvider({ children }) {
           setPrecosRaw(mapa['precos']); cacheSet(rid, 'precos', mapa['precos']);
         } else {
           setPrecosRaw({}); cacheSet(rid, 'precos', {});
+        }
+        if (mapa['estoques'] !== undefined) {
+          setEstoquesDocRaw(mapa['estoques']); cacheSet(rid, 'estoques', mapa['estoques']);
         }
         if (mapa['permissoes'] !== undefined) {
           setPermissoesRaw(mapa['permissoes']); cacheSet(rid, 'permissoes', mapa['permissoes']);
@@ -705,14 +751,20 @@ export function AppProvider({ children }) {
           // segundo registro. Fonte única: se a produção corrigir ou apagar a
           // saída, o recebimento acompanha sozinho — não existe cópia para
           // dessincronizar.
-          if (modulo === 'finalizacao' && mod === MODULO_PADRAO && tipo === 'saida') {
+          // PONTE PRODUÇÃO → FINALIZAÇÃO, agora com N finalizações.
+          // A comparação é contra a INSTÂNCIA ABERTA, não contra a constante:
+          // se fosse contra 'finalizacao', TODA finalização veria a entrega
+          // destinada às outras — a cozinha do Restaurante Y contaria como sua
+          // a comida enviada para o X. Para a raiz o resultado é idêntico ao de
+          // antes, porque as saídas antigas têm destino:'finalizacao'.
+          if (tipoBase(moduloEfetivo) === 'finalizacao' && tipoBase(mod) === MODULO_PADRAO && tipo === 'saida') {
             const reg = linhaParaRegistro(r);
-            if (reg.destino === DESTINO_FINALIZACAO) {
+            if (reg.destino === moduloEfetivo) {
               (porTipo.recebimento = porTipo.recebimento || []).push(reg);
             }
             return;
           }
-          if (!ehTipoGlobal(tipo) && mod !== modulo) return; // outro módulo
+          if (!ehTipoGlobal(tipo) && mod !== moduloEfetivo) return; // outro estoque
           (porTipo[tipo] = porTipo[tipo] || []).push(linhaParaRegistro(r));
         });
         const aplicaReg = (tipo, setRaw, key) => {
@@ -772,8 +824,9 @@ export function AppProvider({ children }) {
       [k('etiquetasImpressas')]: setEtiquetasImpressasRaw,
       permissoes: setPermissoesRaw, // matriz da equipe: do restaurante, sem namespace
       precos: setPrecosRaw,          // tabela de custos: idem, e só chega a quem pode
+      estoques: setEstoquesDocRaw,   // registro dos estoques da conta
     };
-    const reparoDoc = { [k('locais')]: (d) => mesclarFixos(d, P.locais) };
+    const reparoDoc = { [k('locais')]: (d) => mesclarFixos(d, LOC) };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
       // outro aparelho gravou: só entra se for do MÓDULO que está aberto aqui
@@ -785,14 +838,15 @@ export function AppProvider({ children }) {
       // não, e caía no filtro de módulo logo abaixo. Resultado: o tablet da
       // finalização só via o que tinha chegado depois de recarregar o app, no
       // meio do serviço, que é exatamente quando ninguém recarrega nada.
-      if (modulo === 'finalizacao' && mod === MODULO_PADRAO && tipo === 'saida') {
+      if (tipoBase(moduloEfetivo) === 'finalizacao' && tipoBase(mod) === MODULO_PADRAO && tipo === 'saida') {
         const reg = linhaParaRegistro(row);
         const chaveReceb = k('recebimentos');
         setRecebimentosRaw(prev => {
           const semEle = prev.filter(x => x.id !== row.id);
-          // Some da lista se foi apagado OU se o destino foi corrigido para
-          // outro lugar — senão a finalização contaria uma entrega cancelada.
-          const sai = row.deleted || reg.destino !== DESTINO_FINALIZACAO;
+          // Some da lista se foi apagado, se o destino foi corrigido para outro
+          // lugar, OU se foi redirecionado para OUTRA finalização — senão esta
+          // cozinha contaria uma entrega que é de outra casa.
+          const sai = row.deleted || reg.destino !== moduloEfetivo;
           const next = sai ? semEle : [...semEle, reg].sort((a, b) => (a.ts || 0) - (b.ts || 0));
           cacheSet(rid, chaveReceb, next);
           return next;
@@ -800,7 +854,7 @@ export function AppProvider({ children }) {
         return;
       }
 
-      if (!ehTipoGlobal(tipo) && mod !== modulo) return;
+      if (!ehTipoGlobal(tipo) && mod !== moduloEfetivo) return;
       const alvo = setterReg[tipo];
       if (!alvo) return;
       const [setRaw, keyBase] = alvo;
@@ -858,8 +912,10 @@ export function AppProvider({ children }) {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('forcar-sync', onOnline);
     };
-    // `modulo` nas deps: trocar de estoque re-hidrata tudo daquele módulo
-  }, [rid, salvarDocNuvem, modulo, k, kc]);
+    // `moduloEfetivo` nas deps: trocar de estoque re-hidrata tudo daquele
+    // estoque. É o EFETIVO, não o do localStorage: um id arquivado precisa
+    // hidratar a raiz, não continuar carregando o estoque escondido.
+  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Administração de dados ─────────────────────────────────
@@ -987,12 +1043,13 @@ export function AppProvider({ children }) {
       etiquetasImpressas, setEtiquetasImpressas,
       permissoes, setPermissoes,
       precos, setPrecos,
+      estoques, estoqueAtual, estoquesDoc, setEstoquesDoc,
       destinos, setDestinos,
       categorias, setCategorias,
       auditoria, logAudit,
       restaurarRegistro,
       prefs, setPref,
-      modulo, setModulo, recebimentos,
+      modulo: moduloEfetivo, setModulo, recebimentos,
       estoque,
       limparTudo, resetarProdutos,
       exportarBackup, importarBackup,

@@ -4,7 +4,6 @@ import GuideTour from './GuideTour';
 import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
-import { moduloPorId } from '../utils/modulos';
 import SeletorModulo from './SeletorModulo';
 import { useUI } from '../store/UIContext';
 
@@ -12,8 +11,14 @@ const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
 export default function Layout({ title, children, actions }) {
   const { sessao, logout } = useAuth();
-  const { pendencias, online, modulo } = useApp();
-  const mod = moduloPorId(modulo);
+  const { pendencias, online, estoqueAtual } = useApp();
+  // Nome do ESTOQUE aberto — pode ser uma instância com nome próprio, não só o
+  // rótulo do tipo. Com dois restaurantes na conta, "Estoque Seco" sozinho não
+  // diz de qual casa é, e o cabeçalho é onde a pessoa confere antes de lançar.
+  const mod = {
+    icone: estoqueAtual?.icone || '📦',
+    label: estoqueAtual?.nome || 'Estoque',
+  };
   const [trocandoModulo, setTrocandoModulo] = useState(false);
   const { confirm } = useUI();
 

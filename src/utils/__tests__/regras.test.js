@@ -11,6 +11,7 @@ import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_
 import { statusEstoque } from '../calculos';
 import { conciliarAuditoria } from '../auditoria';
 import { custoUnitario, valorDoEstoque, curvaABC, custoDosRegistros, precoDaCompra } from '../financeiro';
+import { listarEstoques, estoquesAtivos, acharEstoque, estabelecimentoDe, salvarEstoque, moduloUtilizavel } from '../instancias';
 import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
 import { isoLocal } from '../formatters';
@@ -1461,5 +1462,141 @@ describe('instancias — varios estoques do mesmo tipo', () => {
         expect(lerTipo(tipoModulo(mod, tipo))).toEqual({ modulo: mod, tipo });
       }
     }
+  });
+});
+
+describe('registro de estoques — os tres de sempre + os que o dono criar', () => {
+  it('sem documento nenhum, devolve exatamente os tres originais', () => {
+    // conta que nunca criou instancia nao pode ter nada para migrar
+    const l = listarEstoques(undefined);
+    expect(l.map(e => e.id)).toEqual(['producao', 'finalizacao', 'seco']);
+    expect(l.every(e => e.raiz)).toBe(true);
+    expect(l[0].nome).toBe('Cozinha de Producao'.replace('Producao', 'Produção'));
+  });
+
+  it('agrupa cada instancia logo abaixo da raiz do tipo dela', () => {
+    const doc = { itens: [
+      { id: 'seco#x7k2', nome: 'Seco do X', criadoEm: 2 },
+      { id: 'seco#b9dd', nome: 'Seco do Y', criadoEm: 1 },
+      { id: 'finalizacao#b3nq', nome: 'Final do Y', criadoEm: 3 },
+    ] };
+    const l = listarEstoques(doc);
+    expect(l.map(e => e.id)).toEqual([
+      'producao',
+      'finalizacao', 'finalizacao#b3nq',
+      'seco', 'seco#b9dd', 'seco#x7k2',   // ordem de criacao dentro do tipo
+    ]);
+  });
+
+  it('ignora id invalido no documento em vez de criar estoque fantasma', () => {
+    const l = listarEstoques({ itens: [{ id: 'xpto#zzzz' }, { id: 'seco#XX11' }, null] });
+    expect(l.map(e => e.id)).toEqual(['producao', 'finalizacao', 'seco']);
+  });
+
+  it('a RAIZ nunca fica arquivada, mesmo se o documento disser que sim', () => {
+    // ela e o destino de queda quando uma instancia some, e onde moram os dados
+    // de quem usa o app desde antes das instancias
+    const l = listarEstoques({ itens: [{ id: 'seco', arquivado: true }] });
+    expect(l.find(e => e.id === 'seco').arquivado).toBe(false);
+  });
+
+  it('instancia sem nome ganha um rotulo legivel em vez de ficar em branco', () => {
+    const l = listarEstoques({ itens: [{ id: 'seco#x7k2' }] });
+    expect(l.find(e => e.id === 'seco#x7k2').nome).toBe('Estoque Seco (x7k2)');
+  });
+
+  it('arquivado sai do seletor mas continua na lista completa', () => {
+    const l = listarEstoques({ itens: [{ id: 'seco#x7k2', nome: 'X', arquivado: true }] });
+    expect(l.some(e => e.id === 'seco#x7k2')).toBe(true);
+    expect(estoquesAtivos(l).some(e => e.id === 'seco#x7k2')).toBe(false);
+  });
+});
+
+// A etiqueta e IMPRESSA e vai para o pote: sair com o nome do outro restaurante
+// e erro visivel na frente do cliente.
+describe('nome do estabelecimento na etiqueta — opcional, com queda', () => {
+  it('usa o nome do ESTOQUE quando o dono preencheu', () => {
+    expect(estabelecimentoDe({ estabelecimento: 'Restaurante Y' }, 'Conta Matriz')).toBe('Restaurante Y');
+  });
+
+  it('cai para o nome da CONTA quando o estoque nao tem — quem tem uma casa so nao preenche nada', () => {
+    expect(estabelecimentoDe({ estabelecimento: '' }, 'Restaurante X')).toBe('Restaurante X');
+    expect(estabelecimentoDe({}, 'Restaurante X')).toBe('Restaurante X');
+    expect(estabelecimentoDe(null, 'Restaurante X')).toBe('Restaurante X');
+  });
+
+  it('espaco em branco nao conta como nome preenchido', () => {
+    expect(estabelecimentoDe({ estabelecimento: '   ' }, 'Restaurante X')).toBe('Restaurante X');
+  });
+
+  it('sem nenhum dos dois, devolve vazio em vez de "undefined" impresso', () => {
+    expect(estabelecimentoDe({}, '')).toBe('');
+    expect(estabelecimentoDe(undefined, undefined)).toBe('');
+  });
+});
+
+describe('salvarEstoque — cria, renomeia e arquiva', () => {
+  it('cria a instancia nova preservando as que ja existiam', () => {
+    const doc = { itens: [{ id: 'seco#x7k2', nome: 'X' }] };
+    const d2 = salvarEstoque(doc, { id: 'seco#b9dd', nome: 'Y', criadoEm: 7 });
+    expect(d2.itens.map(i => i.id).sort()).toEqual(['seco#b9dd', 'seco#x7k2']);
+  });
+
+  it('renomear NAO mexe no id — senao todo lancamento gravado ficaria orfao', () => {
+    const doc = salvarEstoque({ itens: [{ id: 'seco#x7k2', nome: 'Antigo', criadoEm: 5 }] },
+                              { id: 'seco#x7k2', nome: 'Novo' });
+    const i = doc.itens[0];
+    expect(i.id).toBe('seco#x7k2');
+    expect(i.nome).toBe('Novo');
+    expect(i.criadoEm).toBe(5);   // data de criacao preservada
+  });
+
+  it('arquivar mantem a linha no documento (o historico precisa dela)', () => {
+    const doc = salvarEstoque({ itens: [{ id: 'seco#x7k2', nome: 'X' }] },
+                              { id: 'seco#x7k2', arquivado: true });
+    expect(doc.itens[0].arquivado).toBe(true);
+    expect(doc.itens[0].nome).toBe('X');
+  });
+
+  it('personalizar a RAIZ grava; limpar a personalizacao tira a linha do documento', () => {
+    const comNome = salvarEstoque({}, { id: 'seco', estabelecimento: 'Restaurante X' });
+    expect(comNome.itens).toHaveLength(1);
+    const semNome = salvarEstoque(comNome, { id: 'seco', estabelecimento: '', nome: '' });
+    expect(semNome.itens).toHaveLength(0);   // volta ao padrao do codigo
+  });
+});
+
+// O id do estoque aberto fica no APARELHO, nao na conta.
+describe('moduloUtilizavel — tablet que abre um estoque que nao existe mais', () => {
+  const lista = listarEstoques({ itens: [
+    { id: 'seco#x7k2', nome: 'X' },
+    { id: 'seco#morto', nome: 'Antigo', arquivado: true },
+  ] });
+
+  it('estoque valido continua valendo', () => {
+    expect(moduloUtilizavel(lista, 'seco#x7k2')).toBe('seco#x7k2');
+  });
+
+  it('ARQUIVADO cai na raiz do tipo — senao a pessoa opera um estoque que ninguem ve', () => {
+    expect(moduloUtilizavel(lista, 'seco#morto')).toBe('seco');
+  });
+
+  it('id que nao existe no registro cai na raiz do tipo', () => {
+    // acontece com tablet levado de uma unidade para outra
+    expect(moduloUtilizavel(lista, 'seco#nada')).toBe('seco');
+  });
+
+  it('raiz sempre serve', () => {
+    expect(moduloUtilizavel(lista, 'producao')).toBe('producao');
+  });
+});
+
+describe('acharEstoque — nunca devolve nada', () => {
+  const lista = listarEstoques({ itens: [{ id: 'seco#x7k2', nome: 'X' }] });
+  it('acha pelo id', () => {
+    expect(acharEstoque(lista, 'seco#x7k2').nome).toBe('X');
+  });
+  it('id desconhecido cai na raiz do tipo em vez de devolver undefined', () => {
+    expect(acharEstoque(lista, 'seco#nada').id).toBe('seco');
   });
 });
