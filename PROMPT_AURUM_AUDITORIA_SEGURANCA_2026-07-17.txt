@@ -1,0 +1,431 @@
+================================================================================
+PROMPT UNIFICADO — Aurum Cozinha Pro
+Auditoria de segurança + hardening (pós-Admin rico / migration9)
+Data do prompt: 17/07/2026
+Cole este documento INTEIRO em outra IA (implementação).
+Não reescreva o app do zero. Não invente features fora deste documento.
+Idioma do código e da UI: português (pt-BR).
+================================================================================
+
+Origem desta rodada:
+- Bloco de notas AURUM_BLOCO_NOTAS_AUDITORIA_E_ACESSOS.txt (comercial/acessos)
+- Pacote JÁ implementado no commit 8946ecb (Admin rico, VIP 3–5, bloqueio,
+  convites UX, onboarding 7 dias, migration9) — NÃO refazer
+- Reauditoria completa 17/07/2026 (código + testes + lint + build + visão de
+  atacante sobre RLS/RPC/client)
+- Avaliação da IA implementadora do bloco de notas: CONFERIDA e aceita no que
+  recusou (T1.5 cego, finally vs setTimeout, parmegiana nos Termos, impersonate
+  sem auth, Sentry sem DSN)
+
+================================================================================
+CONTEXTO DO PROJETO
+================================================================================
+
+- Pasta local: C:\Users\atili\Downloads\Code\polo-estoque
+- Produto: Aurum Cozinha Pro (pasta polo-estoque — NÃO renomear)
+- Stack: React 19 + Vite + Tailwind 3 + Supabase (Auth + RLS multi-tenant +
+  Realtime) + PWA offline-first
+- Deploy: push main → GitHub Actions (test → lint → audit high → build) → Pages
+- Produção: https://atiliorod-jpg.github.io/aurum-cozinha-pro/
+- Base path: /aurum-cozinha-pro/
+- Super-admin (hardcoded): atiliopinpolho@gmail.com — NÃO mudar sem combinar
+- Plano: R$149/mês · teste 7 dias (created_at + 7) · ativação manual via Admin
+- Limite usuários: DEFAULT 3 · VIP 4 ou 5 só via super-admin (decisão dono)
+
+Docs no repo (consulta, não reescrever do zero):
+- README.md, PROMPT_NOVA_CONVERSA.md
+- src/lib/migration2.sql … migration9_admin_convites.sql
+- SUPABASE_SETUP.sql, schema.sql (legado — NÃO reaplicar policies antigas)
+
+Estado de qualidade na reauditoria (17/07):
+- npm test: 45/45
+- npm run lint: 0 erros
+- npm audit --audit-level=high: 0
+- npm run build: OK
+- HEAD conhecido: 8946ecb (main)
+
+================================================================================
+O QUE JÁ ESTÁ FEITO — NÃO DESFAZER / NÃO REIMPLEMENTAR
+================================================================================
+
+Camada produto/domínio (prompt 11/07 e anteriores):
+- Demo empanado + molho separados (não prato montado)
+- Termos + LGPD + checkbox cadastro
+- GuideTour essenciais/opcionais
+- Quantidade obrigatória na produção + anti-duplo-toque
+- lotesVencendo reconciliado com estoque
+- Ajuda Min/Máx + dia da semana
+- Backup restore com soft-delete
+- Zero “Suflex”; QR default off; print seguro
+- FC com produtoId + nomesCasam
+- xlsx 0.20.3; CI completo; zoom WCAG; orientation any
+
+Pacote comercial/acessos (commit 8946ecb + migration9 — rodada em prod 17/07):
+- Admin: +7/+14/+30/+90 + custom, confirmação, toast, badge teste/ativo/vencido/
+  bloqueado, usuários X/max, suporte, e-mails (RPC), notas internas, VIP select
+  3|4|5, suspender/reativar conta
+- RPCs m9: aceitar_convite v9 (não queima token se já tem perfil),
+  definir_max_usuarios (1–5, só super-admin), definir_bloqueio,
+  usuarios_do_restaurante, salvar_notas_admin
+- App: sessao.maxUsuarios, sessao.bloqueado, statusAssinatura tipo bloqueado
+- Config Acessos: vagas com pendentes, WhatsApp share, copiar link ?convite=
+- Login: deep-link ?convite=, copy “7 dias grátis · R$149/mês”
+- Toast boas-vindas (novo / convite)
+- Code-split lazy: Relatorio, Configuracoes, Admin
+
+================================================================================
+DECISÕES CONFIRMADAS — NÃO FAZER NESTE CICLO
+================================================================================
+
+1. NÃO hidratação cega com janela 120 dias (T1.5 do bloco antigo).
+   Motivo: calcEstoque + FEFO precisam do histórico coerente; banco foi zerado
+   recentemente; corte cego pode corromper estoque. Só reabrir no futuro com
+   desenho “desde o último inventário por produto” (fora deste prompt).
+
+2. NÃO trocar setTimeout(800) dos formulários por “await finally de rede”.
+   Motivo: gravação é otimista/síncrona no client; 800ms protege toque duplo.
+   Só mudar se o fluxo passar a aguardar a Promise do Supabase de ponta a ponta.
+
+3. NÃO colocar exemplo “parmegiana” nos Termos de uso (pedido do dono: tom
+   profissional, sem esse exemplo no modal).
+
+4. NÃO impersonar cliente sem autorização de suporte (prefs 24h). LGPD.
+
+5. NÃO integrar Sentry sem DSN fornecido pelo dono. Se o dono passar DSN neste
+   ciclo, aí sim: Sentry.init + ErrorBoundary (~20 linhas).
+
+6. NÃO módulo financeiro/CMV/PDV/preço/DRE.
+
+7. NÃO renomear pasta polo-estoque; NÃO force-push; NÃO git add -A.
+
+8. NÃO aumentar o DEFAULT global de max_usuarios para 4 ou 5. Padrão permanece 3.
+   VIP 4–5 só via super-admin por restaurante (já existe).
+
+9. rid === 'demo' NUNCA chama Supabase.
+
+================================================================================
+REGRAS DE TRABALHO
+================================================================================
+
+1. Só pasta polo-estoque (+ SQL em src/lib/*.sql documentado no README).
+2. Confirme no código ANTES de “corrigir”. Diffs pequenos.
+3. Migrations: idempotentes (IF EXISTS / OR REPLACE), numeradas, README com
+   ordem e queries de checagem. Dono aplica no Supabase SQL Editor.
+4. Comentários PT só para WHY operacional não-óbvio.
+5. Ao terminar: npm test && npm run lint (e build se possível) zerados.
+6. Não expor secrets de .env. Anon key no client é esperada (segurança = RLS).
+
+```bash
+cd "C:\Users\atili\Downloads\Code\polo-estoque"
+cmd /c "npm test"
+cmd /c "npm run lint"
+cmd /c "npm run build"
+```
+
+################################################################################
+#                                                                              #
+#     CAMADA S — SEGURANÇA / HARDENING (PRIORIDADE DESTE PROMPT)               #
+#                                                                              #
+################################################################################
+
+Ordem sugerida: S1 → S2 → S3 → S4 → (S5 se couber) → test/lint/build + resumo.
+
+================================================================================
+S1 — P0 CRÍTICO: FECHAR INSERT DIRETO EM `perfis`
+================================================================================
+
+Arquivo SQL novo: src/lib/migration10_hardening_perfis.sql
+(e menção no README na tabela de migrations)
+
+### Problema confirmado (migration4)
+Policy atual (ou equivalente em produção):
+
+  create policy "perfis_ins_v4" on perfis for insert
+    with check (id = auth.uid());
+
+Isso NÃO valida restaurante_id nem convite. Um usuário autenticado pode, via
+API REST/PostgREST com a anon key + JWT próprio:
+
+  INSERT INTO perfis (id, restaurante_id, nome, cargo)
+  VALUES (auth.uid(), '<uuid-vitima>', 'Hacker', 'diretoria');
+
+e entrar na memória do restaurante vítima (quebra multi-tenant).
+
+Onboarding legítimo já usa:
+- criar_restaurante (SECURITY DEFINER)
+- aceitar_convite (SECURITY DEFINER)
+
+### Correção obrigatória
+1) DROP da policy de INSERT em perfis (perfis_ins_v4 e nomes legados).
+2) NÃO criar policy de INSERT aberta de volta. Sem policy de INSERT no client
+   = só roles/definer inserem (as RPCs existentes).
+3) Opcional rede de cinto: policy `with check (false)` se preferir explícito
+   (equivalente prático a não ter INSERT).
+4) Manter SELECT/UPDATE atuais (perfis_sel_v4, perfis_upd_v4) e o trigger de
+   cargo; não afrouxar UPDATE (já impede trocar restaurante_id de forma útil).
+
+### Aceite S1
+- [ ] Cadastro “Cadastrar restaurante” ainda funciona (RPC criar_restaurante)
+- [ ] Cadastro por convite ainda funciona (RPC aceitar_convite)
+- [ ] INSERT manual em perfis com JWT de usuário comum FALHA (403/policy)
+- [ ] SQL idempotente + query de checagem no README
+
+Query de checagem sugerida:
+```sql
+select polname, cmd from pg_policies
+  where tablename = 'perfis' and cmd = 'INSERT';
+-- Esperado: zero policies de INSERT (ou só uma com check false).
+```
+
+================================================================================
+S2 — P1: `notas_admin` NÃO PODE VAZAR PARA O CLIENTE
+================================================================================
+
+### Problema
+Coluna restaurantes.notas_admin (migration9). Policy rest_sel_v4 permite ao
+dono do restaurante SELECT da própria linha. O app Admin só usa notas no
+super-admin, mas um cliente autenticado pode:
+
+  GET /restaurantes?select=notas_admin
+
+e ler notas internas (VIP, WhatsApp, dívidas…).
+
+### Correção (escolher a mais simples e segura)
+
+**Opção preferida A — tabela separada (mais limpa):**
+- Tabela admin_notas (restaurante_id PK/FK, notas text, updated_at)
+- RLS: ENABLE; SEM policy para authenticated comum
+- SELECT/UPDATE só via RPCs SECURITY DEFINER que checam sou_super_admin()
+  (adaptar salvar_notas_admin e o select do Admin)
+- Remover ou deixar de usar coluna notas_admin em restaurantes (ou parar de
+  selecioná-la; preferir migrar dados se já houver notas)
+
+**Opção B — view / RPC só leitura super-admin:**
+- Manter coluna mas NÃO expor via SELECT de restaurantes ao client:
+  Postgres não tem column-level RLS fácil → a prática é view sem a coluna
+  para o app do cliente, e super-admin lê via RPC
+  `notas_admin_do_restaurante(uuid)` com sou_super_admin().
+- Client normal: select de restaurantes NUNCA inclui notas_admin no código
+  (já é o caso no AuthContext) — insuficiente sozinho; precisa bloquear API.
+
+Implementar A ou B de forma que o teste “select notas como dono” retorne vazio
+ou erro.
+
+### Aceite S2
+- [ ] Super-admin ainda lê/grava notas no Admin
+- [ ] JWT de diretoria do restaurante NÃO obtém o texto das notas
+- [ ] Fallback se m10 ainda não rodou: não quebrar Admin (mensagem clara)
+
+================================================================================
+S3 — P1: ENFORCEMENT DE BLOQUEIO / PLANO NO BANCO (não só UI)
+================================================================================
+
+### Problema
+statusAssinatura + BloqueioAssinatura em App.jsx são **só front**.
+Com JWT válido e conta bloqueada ou teste/assinatura vencidos, PostgREST ainda
+permite insert/update em registros e documentos (RLS atual só checa
+restaurante_id, não plano).
+
+Decisão do dono 07/07: corte visual. A reauditoria eleva para P1 se houver
+clientes pagantes e risco de bypass técnico.
+
+### Correção obrigatória (mínima e offline-friendly)
+
+Criar helper SQL (SECURITY DEFINER, search_path fixo), ex.:
+
+  restaurante_pode_escrever(rid uuid) returns boolean
+
+Regras alinhadas ao client (utils/assinatura.js):
+- se restaurante.bloqueado → false
+- se assinatura_ate > now() → true
+- senão se created_at + 7 days > now() → true
+- senão false
+- super-admin em modo suporte: NÃO abrir escrita global; manter regras m7
+  (suporte_pode_editar). Ou seja: esta função é para o **tenant dono**, não
+  para furar suporte.
+
+Aplicar em policies de INSERT/UPDATE (e se fizer sentido DELETE soft) de:
+- registros (exceto talvez auditoria insert-only que já é restrita)
+- documentos
+
+Ou trigger BEFORE INSERT OR UPDATE que RAISE se not restaurante_pode_escrever.
+
+**Cuidado offline-first:** o app grava local e sobe depois. Se o plano venceu
+durante offline, o outbox pode falhar ao sincronizar — isso é CORRETO
+(não gravar na nuvem sem pagar). Não “consertar” fazendo a policy aceitar
+sempre. UI já bloqueia; o banco só garante.
+
+**Leitura:** pode continuar permitida (dados históricos) OU também bloquear —
+preferência: **leitura OK, escrita bloqueada** (cliente vê que dados existem;
+renova e volta). Alinhar com BloqueioAssinatura (hoje não deixa nem ver app —
+ok no front; API read-only é aceitável).
+
+### Super-admin
+- sou_super_admin() continua lendo tudo (policies super).
+- Escrita de suporte continua condicionada a suporte_pode_editar (m7).
+
+### Aceite S3
+- [ ] Conta bloqueada: insert registro via API falha
+- [ ] Conta com assinatura ativa: insert OK
+- [ ] Dentro dos 7 dias de teste: insert OK
+- [ ] Teste + assinatura vencidos: insert falha
+- [ ] App do cliente legítimo durante teste ainda registra entrada/saída
+- [ ] Documentar no README: “corte de plano também no RLS (m10/m11)”
+
+Nota de numeração: se S1+S2+S3 couberem num único migration10_hardening.sql
+com seções claras, OK. Se o arquivo ficar grande, migration10 (perfis+notas)
+e migration11 (plano/escrita). Preferir **um arquivo** se o dono aplica tudo
+de uma vez.
+
+================================================================================
+S4 — P2: TOKEN DE CONVITE MAIS FORTE + MENSAGENS
+================================================================================
+
+### Problema
+schema: encode(gen_random_bytes(4),'hex') → 8 hex. + convite_valido exposto a
+anon (true/false) permite probe.
+
+### Correção
+1) Alter default do token para gen_random_bytes(16) hex (32 chars) OU
+   encode(gen_random_bytes(12),'hex'). Manter text PK.
+2) Tokens já emitidos continuam válidos até expirar/usar.
+3) UI: tracking-widest e copiar/WhatsApp/link devem funcionar com token longo
+   (quebra de linha / font-size se necessário).
+4) NÃO expor cargo/restaurante em convite_valido (já não expõe — manter).
+
+### Opcional no mesmo PR
+- Mensagem de erro do aceitar_convite v9 já existe para “já tem restaurante”
+  — garantir que o client (Login/usarConvite) mostra a mensagem do Postgres
+  traduzida/amigável, não genérica só.
+
+### Aceite S4
+- [ ] Novo convite gera token ≥ 24 caracteres hex
+- [ ] Link ?convite= e WhatsApp funcionam
+- [ ] Convite antigo de 8 chars (se ainda pendente) ainda aceita até vencer
+
+================================================================================
+S5 — P2/P3: HIGIENE DE CÓDIGO E FALLBACKS PERIGOSOS
+================================================================================
+
+Só se S1–S3 estiverem verdes e o PR não estiver enorme.
+
+### S5.1 Fallback criar_restaurante
+AuthContext.criarPrimeiroAdmin: se RPC falha por “function does not exist”,
+ainda tenta insert direto em restaurantes/perfis. Com m4 isso deve falhar no
+RLS; se alguém reaplicar schema antigo, reabre spam.
+
+Correção: remover o fallback de insert direto OU deixá-lo só atrás de
+import.meta.env.DEV com console.error. Em produção: retornar erro pedindo
+contato com suporte / migration.
+
+### S5.2 Seed produtos.js (opcional / dono)
+Ainda existem nomes “Filé parmegiana” / “Frango parmegiana” no seed real Polo.
+Só renomear se o dono confirmar (ex.: “Empanado de filé (porção)”). NÃO é
+segurança. Demo já está correta.
+
+### S5.3 Copy residual
+Comentários/código ainda dizem “produto final” em Dashboard/Historico/utils —
+UI visível já usa “item produzido” em pontos-chave. Limpeza cosmética opcional.
+
+### S5.4 Admin N+1 de usuários
+Admin.jsx loop rpc usuarios_do_restaurante por restaurante. Com poucos
+clientes OK. Se couber: uma RPC lista_todos_usuarios_admin() — fora do
+crítico.
+
+================================================================================
+S6 — CHECKLIST DE PENTEST / ACEITE (OBRIGATÓRIO NO RESUMO)
+================================================================================
+
+Ambiente de teste (não precisa ser prod se o dono preferir staging).
+
+A) Multi-tenant
+- [ ] User A não lê registros de B
+- [ ] User A não grava com restaurante_id de B
+- [ ] Cozinha não cria convite de diretoria
+
+B) Perfis (S1)
+- [ ] INSERT direto em perfis falha
+- [ ] criar_restaurante e aceitar_convite OK
+
+C) Notas (S2)
+- [ ] Dono não lê notas_admin / admin_notas
+- [ ] Super-admin lê/grava no painel
+
+D) Plano/bloqueio (S3)
+- [ ] bloqueado → escrita API falha
+- [ ] vencido → escrita API falha
+- [ ] teste ou assinatura válida → escrita OK
+
+E) Convite (já m9 + S4)
+- [ ] Token inválido não cria órfão (convite_valido)
+- [ ] Conta com perfil não queima token (m9)
+- [ ] Limite max_usuarios respeitado
+- [ ] Token longo funciona no link
+
+F) Regressão app
+- [ ] npm test / lint / build OK
+- [ ] Demo offline OK
+- [ ] Admin +7/+30, VIP 5, suspender conta ainda OK
+- [ ] Fluxo turno / produção / convite UI não regrediu
+
+G) Queries SQL de verificação (colar no README)
+```sql
+-- RPCs super-admin
+select proname from pg_proc
+  where proname in (
+    'ativar_assinatura','definir_max_usuarios','definir_bloqueio',
+    'usuarios_do_restaurante','salvar_notas_admin','aceitar_convite',
+    'convite_valido','criar_restaurante','sou_super_admin'
+  );
+
+-- Sem INSERT aberto em perfis
+select polname, cmd, qual, with_check from pg_policies where tablename = 'perfis';
+
+-- Colunas comerciais
+select column_name from information_schema.columns
+  where table_name = 'restaurantes'
+    and column_name in ('assinatura_ate','max_usuarios','bloqueado','notas_admin');
+```
+
+################################################################################
+#                                                                              #
+#     FORA DE ESCOPO DESTE PROMPT (backlog consciente)                         #
+#                                                                              #
+################################################################################
+
+- Sentry (sem DSN)
+- Produção atômica tipo único (ainda par saida+entrada + producoesIncompletas)
+- Code-split extra do chunk principal (~680KB) além do já lazy
+- Webhook Stripe automático
+- MFA TOTP (recomendado para super-admin manualmente no Supabase Auth UI)
+- Confirmação de e-mail no cadastro de restaurante (mitigação P1 de account
+  takeover por e-mail de terceiro — listar como melhoria futura se o dono
+  quiser; NÃO obrigatório neste PR se aumentar fricção de onboarding)
+- Janela de hidratação / IndexedDB
+- Extrair Configuracoes.jsx god component
+
+################################################################################
+#                                                                              #
+#     FORMA DE ENTREGAR                                                        #
+#                                                                              #
+################################################################################
+
+1. Lista do feito por bloco S1…S5
+2. Arquivos alterados + migration(s) novas
+3. Instruções para o dono: “cole migration10 no SQL Editor” (ordem após m9)
+4. Resultado npm test / lint / build
+5. Resultado do checklist S6 (o que testou / o que o dono deve retestar em prod)
+6. O que ficou de fora
+7. NÃO CMV; NÃO desfazer Admin/convites/m9
+
+### Ordem de implementação
+1. migration10 (S1 perfis + S2 notas + S3 escrita condicionada) — pode ser
+   um SQL único se bem seccionado
+2. Ajustes AuthContext/Admin se RPCs de notas mudarem
+3. S4 token convite (default SQL + UI se precisar)
+4. S5.1 remover fallback perigoso
+5. test + lint + build + resumo PT
+
+================================================================================
+FIM DO PROMPT — Aurum Cozinha Pro · Segurança 17/07/2026
+================================================================================

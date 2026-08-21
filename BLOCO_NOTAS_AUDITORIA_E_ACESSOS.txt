@@ -1,0 +1,397 @@
+================================================================================
+AURUM COZINHA PRO — BLOCO DE NOTAS PARA OUTRA IA
+Data: 2026-07-17
+Pasta do app: C:\Users\atili\Downloads\Code\polo-estoque
+Prompt origem (produto): C:\Users\atili\Downloads\PROMPT_AURUM_COZINHA_PRO_10-10.txt
+Stack: React 19 + Vite + Tailwind 3 + Supabase + PWA offline-first
+Produção: https://atiliorod-jpg.github.io/aurum-cozinha-pro/
+Super-admin (hardcoded): atiliopinpolho@gmail.com
+NÃO implementar financeiro/CMV/PDV. NÃO renomear pasta polo-estoque.
+Idioma UI/código: pt-BR.
+
+### DECISÃO DO DONO (2026-07-17) — LIMITE DE USUÁRIOS
+- PADRÃO de todo restaurante novo: **max_usuarios = 3** (dono + até 2 convidados).
+- NÃO aumentar o default global para 4 ou 5.
+- EXCEÇÃO: super-admin pode liberar **4 ou 5** só em **cliente grande / VIP**,
+  por restaurante (UI Admin + RPC/UPDATE seguro no banco). Cliente comum continua em 3.
+- Marketing/Pagamento: continuar falando “até 3 usuários”; VIP é cortesia operacional.
+================================================================================
+
+INSTRUÇÕES PARA A IA IMPLEMENTADORA
+-----------------------------------
+1. Só mexer em polo-estoque (e SQL migrations documentadas no Supabase se precisar).
+2. Confirmar no código ANTES de “corrigir”. Diffs pequenos. test + lint no fim.
+3. Commits por arquivo se o dono pedir. Sem git add -A. Sem force-push.
+4. rid === 'demo' NUNCA chama Supabase.
+5. Assinatura: ativação é MANUAL via super-admin (RPC ativar_assinatura) — sem webhook
+   obrigatório neste ciclo, a menos que o dono peça.
+6. Ao terminar: npm test && npm run lint (e build se possível).
+
+Como rodar (PowerShell / cmd se script policy bloquear npm.ps1):
+  cd C:\Users\atili\Downloads\Code\polo-estoque
+  cmd /c "npm test"
+  cmd /c "npm run lint"
+
+
+################################################################################
+# PARTE 1 — PENDÊNCIAS DA AUDITORIA TÉCNICA (prompt 11/07 + reauditoria 17/07)
+################################################################################
+
+Contexto: Camada 1 (A–J) do prompt 10-10 está ~95% feita. Camada 2 ~70%.
+Testes no momento da auditoria: 45/45. Lint: 0 erros. Nota geral ~82/100.
+
+### P1 — implementar com prioridade
+- [ ] T1.5 Hidratação com janela: AppContext busca TODOS os registros
+      (select * ... deleted=false). Preferir janela ~90–120 dias no boot;
+      resto sob demanda em Histórico/Relatório.
+- [ ] Confirmar no Supabase de PRODUÇÃO se migrations 4–8 rodaram
+      (especialmente migration8 salvar_documento + coluna versao; migration7
+      assinatura_ate + ativar_assinatura; migration5 convite_valido).
+- [ ] Observabilidade: Sentry free + ErrorBoundary (~20 linhas). Hoje erro no
+      tablet do cliente = WhatsApp.
+
+### P2
+- [ ] T1.3 Produção ainda é 2 inserts (saída + entrada com mesmo producaoId).
+      Existe detecção producoesIncompletas + alerta no Dashboard. Ideal futuro:
+      1 registro tipo='producao' ou fila que só confirma o par.
+- [ ] Anti-duplo-toque usa setTimeout(800) em vários forms — melhorar liberar
+      no finally real (Produção é o melhor padrão).
+- [ ] React.lazy / code-split rotas pesadas (Config, Relatório, Admin).
+- [ ] Copy residual “produto final” → “item produzido / porção / semiacabado”
+      em: Producao.jsx (label armazenamento), Dashboard, Historico, NavBar.
+- [ ] Dashboard (opcional Bloco J.6): se autoMinMax off e <15 dias de saídas,
+      linha discreta “Sugestões de mín/máx após ~15 dias de saídas”.
+
+### P3 / polish
+- [ ] Seed real produtos.js: “Filé parmegiana” / “Frango parmegiana” — se a
+      equipe confunde com prato montado, renomear para porção/empanado.
+- [ ] ModalTermos: deixar 1 frase didática explícita
+      (parmegiana no estoque = empanado; molho separado; não montada no freezer).
+- [ ] Logo ~375KB em public/logo-aurum.png — opcional WebP/512.
+- [ ] GuideTour: “Saídas” sempre essencial — se casa às vezes não envia no dia,
+      suavizar (obrigatório só se houve produção).
+
+### Já FEITO (NÃO desfazer)
+Camada 1: demo empanado+molho, Termos+checkbox, quantidade obrigatória produção,
+lotesVencendo vs estoque, GuideTour essenciais/opcionais, ajuda Min/Máx,
+anti-duplo em lançamentos, backup soft-delete+upsert, zero Suflex, QR default off,
+FC com produtoId + nomesCasam, xlsx 0.20.3, CI test/lint/audit/build,
+viewport zoom, orientation any.
+
+Arquivos-chave: src/data/demo.js, Login.jsx, GuideTour.jsx, Producao.jsx,
+utils/lotes.js, utils/assinatura.js, store/AppContext.jsx, pages/Admin.jsx,
+lib/migration*.sql
+
+
+################################################################################
+# PARTE 2 — SUPERADMIN: O QUE JÁ EXISTE HOJE
+################################################################################
+
+Arquivos: src/pages/Admin.jsx, AuthContext.jsx, utils/assinatura.js,
+lib/migration7_suporte_assinatura.sql, App.jsx
+
+### Poderes atuais
+1. Listar todos os restaurantes (precisa RLS super_admin_* no Supabase).
+2. Ver usuários (nome/cargo) de cada restaurante.
+3. Ver se suporte remoto está ativo e se é “só ver” ou “ver e editar”.
+4. Entrar em modo suporte (impersonar) SE o cliente autorizou em Config.
+5. Botão “+30 dias” → RPC ativar_assinatura(p_restaurante, p_dias: 30).
+   - RPC aceita 1..400 dias; UI só expõe 30.
+   - Soma a partir de max(assinatura_ate, now()) — renova sem perder dias.
+   - Só super-admin (sou_super_admin() no SQL).
+6. Super-admin é ISENTO de bloqueio de plano (statusAssinatura → isento).
+7. Acesso a /admin; se sem restaurante próprio, redireciona do / para /admin.
+
+### “Aumentar tempo gratuito” — estado real
+- O TESTE GRÁTIS de 7 dias NÃO é uma coluna. É calculado no client:
+    fimTeste = restaurante.created_at + 7 dias
+  (utils/assinatura.js TESTE_DIAS = 7).
+- NÃO existe botão “estender trial” separado.
+- O que EXISTE e FUNCIONA na prática: ativar_assinatura / botão +30 dias.
+  Isso grava restaurantes.assinatura_ate → status vira tipo 'assinatura'
+  (não 'teste'), mas o cliente CONTINUA USANDO o app — efeito prático = mais
+  tempo liberado (cortesia ou pós-pagamento).
+- Se o dono quiser que a UI ainda diga “teste estendido” em vez de
+  “assinatura ativa”, precisa de coluna trial_ate OU flag cortesia — opcional.
+
+### Gaps do painel Admin (melhorias pedidas pelo dono)
+- [ ] Botões de cortesia: +7 / +14 / +30 / custom (dias) — não só +30.
+- [ ] Mostrar data de fim do TESTE (created_at+7) e assinatura_ate lado a lado.
+- [ ] Contador “dias restantes” e badge: teste | ativo | vencido.
+- [ ] Confirmação antes de ativar (“liberar 30 dias para Restaurante X?”).
+- [ ] Toast em vez de alert().
+- [ ] Recarregar lista após ação; feedback se migration7 não rodou.
+- [ ] (Opcional) RPC ou campo notas_admin no restaurante (“cliente VIP”, WhatsApp).
+- [ ] (Opcional) aumentar max_usuarios por restaurante (hoje default 3 fixo no DB).
+
+
+################################################################################
+# PARTE 3 — PODERES SUPERADMIN SUGERIDOS (priorizados)
+################################################################################
+
+### ESSENCIAIS (fazer) — alto valor operacional
+A) Estender acesso (já quase pronto)
+   - +7, +14, +30, +90 e input custom 1–400.
+   - Labels: “Cortesia / liberar dias” (pós-pagamento ou extensão de teste).
+   - Mostrar assinatura_ate atual e nova data prevista.
+
+B) Visão comercial do restaurante no card
+   - created_at, fim do teste 7d, assinatura_ate, status (teste/ativo/vencido).
+   - Nº de usuários / max_usuarios.
+   - Se suporte ativo e até quando.
+
+C) Bloquear / desbloquear conta (se ainda não existir no schema)
+   - Coluna restaurantes.ativo ou usar assinatura_ate no passado.
+   - Útil se não pagar e você quiser forçar corte sem apagar dados.
+
+D) Ajustar max_usuarios por cliente (3 → 4 ou 5 só para VIP)
+   - Hoje max_usuarios default 3; super-admin não tem UI para mudar.
+   - Precisa UPDATE em restaurantes só para super-admin (policy/RPC).
+
+### IMPORTANTES (fazer em seguida)
+E) Ver e-mails dos usuários (hoje Admin só mostra nome/cargo) — ajuda suporte.
+F) “Desativar usuário” (perfis.ativo=false) sem apagar histórico — vaga no limite.
+G) Forçar logout / invalidar sessão de um usuário (sessão única já existe no app).
+H) Notas internas por restaurante (texto livre no Admin, não visível ao cliente).
+I) Link rápido WhatsApp do cliente (se cadastrar telefone no restaurante).
+
+### ÚTEIS MAS CUIDADO
+J) Apagar restaurante / wipe — só com digitar o nome 2×; quase nunca usar.
+K) Impersonar SEM autorização do cliente — NÃO recomendar (LGPD + confiança).
+   Manter modelo atual: cliente liga suporte 24h em Config.
+L) Criar convite em nome do restaurante (suporte monta equipe) — só com
+   suporte “pode editar” + trilha de auditoria.
+M) Alterar e-mail de usuário — melhor o próprio usuário “esqueci senha”.
+
+### NÃO fazer / baixo ROI agora
+- MFA obrigatória no super-admin (bom depois).
+- Multi-super-admin (só 1 e-mail hardcoded — ok para porte atual).
+- Webhook Stripe automático (GitHub Pages sem backend; ativação manual resolve).
+
+
+################################################################################
+# PARTE 4 — CRIAÇÃO DE CONTA DO RESTAURANTE + 7 DIAS GRÁTIS
+################################################################################
+
+### Fluxo atual (dois caminhos no Login)
+
+CAMINHO 1 — “Cadastrar meu restaurante” (dono / diretoria)
+  Login.jsx → criarPrimeiroAdmin → auth.signUp → RPC criar_restaurante
+  → cria restaurantes + perfis(cargo=diretoria) no MESMO user id.
+  Proteção: se user já tem perfil, RPC recusa (“já pertence a um restaurante”).
+  Trial: created_at do restaurante + 7 dias (client-side).
+  Após vencer sem assinatura_ate futuro: BloqueioAssinatura em App.jsx
+  (dados preservados; só /pagamento se gerência+).
+
+CAMINHO 2 — “Tenho um código de convite” (funcionário)
+  usarConvite → convite_valido → signUp → aceitar_convite
+  → perfil no restaurante_id DO TOKEN (não cria restaurante novo).
+  Conta entra na MESMA “memória” (mesmo restaurante_id → mesmos documentos/registros).
+
+Demo: entrarDemo, rid local, sem Supabase — não conta como cliente.
+
+### O que está BOM
+- Modelo “1 restaurante = 1 banco de dados lógico (restaurante_id)” correto.
+- Bloqueio visual pós-teste (não apaga dados).
+- Faixa dourada “X dia(s) restante(s)” durante o teste.
+- Página /pagamento explica 7 dias + ativação manual até 24h.
+- Super-admin isento.
+
+### O que FALTA no onboarding (copy / UX)
+- [ ] No formulário “Cadastrar restaurante”: destaque claro
+      “7 dias grátis com tudo liberado. Depois, mensalidade R$149 para continuar.”
+- [ ] Após criar conta com sucesso: toast ou banner de boas-vindas com data fim do teste.
+- [ ] Checkbox/termos: opcional acrescentar “li que o teste é 7 dias”.
+- [ ] Se migration7 não rodou: assinatura_ate null — trial ainda funciona via created_at.
+
+### Pagamento pós-teste
+- Stripe Payment Link OU WhatsApp (fallback se VITE_STRIPE_PAYMENT_LINK vazio).
+- Ativação NÃO é automática: super-admin clica +30 dias (ou N dias).
+- Documentar processo operacional: cliente paga → você vê no Stripe/WPP → Admin +30.
+
+### Sugestão de “melhor forma” de criação (recomendada, sem reinventar)
+Manter 2 botões no login (já existe), mas deixar o fluxo do restaurante mais honesto:
+
+  [ Entrar ]
+  [ Cadastrar meu restaurante ]  ← destaque “7 dias grátis”
+  [ Tenho código de convite ]    ← “entrei na equipe, não crio restaurante novo”
+  [ Ver demonstração ]
+
+Não unificar cadastro e convite na mesma tela — reduz erro de “criei restaurante
+sem querer em vez de entrar no da casa”.
+
+Opcional futuro (não urgente): deep link
+  https://.../aurum-cozinha-pro/#/login?convite=TOKEN
+  pré-preenche o código.
+
+
+################################################################################
+# PARTE 5 — CONVITES / MULTI-USUÁRIO NO MESMO RESTAURANTE
+################################################################################
+
+### Como está HOJE (conferido no código)
+
+Limite:
+- restaurantes.max_usuarios DEFAULT 3 (migration3 / migration4).
+- Client: criarConvite recusa se usuarios.length >= 3.
+- Server: aceitar_convite conta perfis ativos e compara com max_usuarios.
+- Interpretação: 1 conta dono + até 2 convidados = 3 total.
+  (Não é “3 convites além do dono” — é 3 perfis no total.)
+- Pagamento.jsx / marketing: “Até 3 usuários com cargos” — alinhado.
+
+Token:
+- schema: encode(gen_random_bytes(4),'hex') → 8 caracteres hex (ex.: a1b2c3d4).
+- expira_em: now() + 7 days.
+- uso único (usado=true após aceitar; FOR UPDATE anti-corrida).
+- Cargo no convite: cozinha | gerencia | diretoria (só diretoria convida diretoria).
+
+UI Config → Acessos:
+- Gerar convite, copiar código, lista pendentes, revogar.
+- Texto: e-mail/senha próprios; código; se cadastra no login.
+
+Isolamento multi-tenant (MESMA memória do restaurante, NÃO de outro):
+- INSERT convite: restaurante_id = sessao.restauranteId + RLS
+  (só meu restaurante; gerência/diretoria).
+- aceitar_convite (SECURITY DEFINER): lê token → pega v_conv.restaurante_id
+  → insert perfis (auth.uid(), v_conv.restaurante_id, cargo do convite).
+- Dados (registros/documentos) filtrados por restaurante_id via RLS
+  (meu_restaurante_id()).
+- Conclusão: com migrations 4/5 ok, o código NÃO coloca usuário em outro
+  restaurante por acidente — o token carrega o restaurante_id certo.
+
+### Riscos / bugs a verificar e melhorar
+
+R1) ON CONFLICT DO NOTHING no aceitar_convite
+    Se o user JÁ tem perfil (já em outro restaurante ou mesmo), o insert do
+    perfil é ignorado, mas o convite pode ser marcado usado=true.
+    → Pessoa fica no restaurante ANTIGO; convite queimado.
+    Correção sugerida: se already has perfil, NÃO marcar usado; raise exception
+    'Esta conta já pertence a um restaurante. Use outro e-mail ou peça suporte.'
+
+R2) Conta Auth órfã se aceitar_convite falhar DEPOIS do signUp
+    (limite atingido, erro rede). Mitigado em parte por convite_valido antes,
+    mas race no limite ainda pode orphanar. Mensagem de erro + suporte limpa
+    no Auth admin. Ideal: RPC única “signup_with_invite” (difícil com GoTrue)
+    ou documentar limpeza.
+
+R3) Token curto (8 hex) — ~4 bilhões de combinações; rate limit do Supabase
+    ajuda. Não expor lista de convites a anon (já fechado). OK para o porte.
+
+R4) Client checa usuarios.length >= 3 mas não conta convites pendentes
+    Pode gerar 5 códigos com 1 usuário; só 2 cabem ao aceitar — os extras
+    falham no server. Melhor: (ativos + pendentes) < max OU mensagem clara.
+
+R5) Sem mostrar “vagas: 2/3” na UI de Acessos — operador não sabe se cabe.
+
+R6) Sem deep link / WhatsApp share do convite — só “Copiar”.
+
+R7) Demo não testa convite (sessao.demo bloqueia criarConvite).
+
+### O convite é o modelo IDEAL para este app?
+SIM, para multi-usuário no MESMO restaurante. Alternativas:
+
+| Modelo | Prós | Contras |
+|--------|------|---------|
+| Código/token (atual) | Offline-friendly, WhatsApp, sem e-mail obrigatório no convite | Usuário digita errado; token curto |
+| Link mágico ?convite= | Menos erro de digitação | Precisa abrir no browser certo / PWA |
+| Convidar por e-mail (Supabase invite) | Padrão SaaS | Depende de e-mail; config SMTP |
+| PIN da casa (fix) | Fácil na cozinha | Segurança fraca se PIN vaza; todos compartilham identidade |
+| 1 login + múltiplos “operadores” locais | Simples | Sem trilha por pessoa; pior auditoria |
+
+RECOMENDAÇÃO: manter código + melhorar UX (link, vagas, mensagem de erro,
+WhatsApp share). Não trocar por PIN compartilhado (mata auditoria por pessoa).
+
+### Melhorias de convite (backlog priorizado)
+1. UI: “Usuários 2/3 — restam 1 vaga”
+2. Share: botão “Enviar no WhatsApp” com texto pronto + código
+3. Deep link: copiar URL completa com ?convite=TOKEN e Login pré-preenche
+4. SQL: se perfil já existe, falhar SEM consumir token
+5. Após aceitar: tela “Você entrou em {nome do restaurante} como {cargo}”
+6. Super-admin: poder subir max_usuarios para 4–5 em cliente grande
+7. (Opcional) reenviar/regenerar: revogar + gerar novo (já dá com 2 cliques)
+8. Não permitir gerar convite se assinatura vencida? (opcional — equipe ainda
+   precisa entrar para a diretoria pagar)
+
+
+################################################################################
+# PARTE 6 — CHECKLIST DE TESTE MANUAL (convite + isolamento + trial)
+################################################################################
+
+Pré-requisito: migrations 4, 5, 7 no Supabase; app apontando pro projeto certo.
+
+A) Criar restaurante novo
+   1. Login → Cadastrar restaurante (e-mail novo).
+   2. Entrar → deve ver faixa “Período de teste — N dia(s)”.
+   3. Config → Acessos: 1 usuário (você, diretoria).
+
+B) Convite na mesma memória
+   1. Gerar convite cargo Cozinha; copiar token.
+   2. Logout. Outro browser/incógnito → Tenho código de convite.
+   3. Outro e-mail + token → criar conta.
+   4. Conferir: mesmos produtos/estoque do restaurante A (não vazio “novo”).
+   5. Admin: 2 usuários no mesmo restaurante_id.
+
+C) Não vazar para outro restaurante
+   1. Criar restaurante B com outro e-mail.
+   2. Gerar convite em A; tentar usar logado? (deve ser fluxo deslogado).
+   3. Usuário do B NÃO deve ver dados de A (RLS).
+   4. Token de A usado com e-mail novo → perfil só em A.
+
+D) Limite 3
+   1. Com 3 usuários ativos, gerar convite deve falhar no client.
+   2. Se contornar, aceitar_convite no server deve raise exception.
+
+E) Trial / pagamento
+   1. Super-admin Admin → +30 dias no restaurante de teste.
+   2. Cliente: faixa de teste some; status assinatura ativa.
+   3. Simular vencido: assinatura_ate no passado + created_at antigo → bloqueio.
+
+F) Token inválido
+   1. Código errado → mensagem sem criar conta órfã (convite_valido).
+   2. Código usado 2× → segunda falha.
+
+
+################################################################################
+# PARTE 7 — PLANO DE IMPLEMENTAÇÃO SUGERIDO (ordem para a outra IA)
+################################################################################
+
+PR 1 — Super-admin “liberar dias” (sem SQL novo se m7 já rodou)
+  - Admin.jsx: botões +7 +14 +30 + custom; confirmação; toast; status visual
+    (teste/ativo/vencido) calculado com created_at + assinatura_ate.
+  - Reusar RPC ativar_assinatura (já 1–400 dias).
+
+PR 2 — Onboarding honesto (só copy)
+  - Login.jsx cadastro: “7 dias grátis · depois R$149/mês”
+  - Opcional banner pós-primeiro-login.
+
+PR 3 — Convite UX
+  - Config Acessos: vagas X/max; WhatsApp share; copiar link ?convite=
+  - Login: ler query param convite e abrir modo convite com token.
+
+PR 4 — SQL hardening convite (migration9)
+  - aceitar_convite: se exists perfil for auth.uid(), raise e NÃO marca usado.
+  - (Opcional) RPC set_max_usuarios só super-admin.
+  - (Opcional) RPC set_assinatura_ate ou estender_teste com nota.
+
+PR 5 — Pendências técnicas Parte 1 (hidratação, Sentry, copy produto final).
+
+Não misturar PR 1 com refactor de AppContext.
+
+
+################################################################################
+# PARTE 8 — RESUMO EM 10 LINHAS PARA O DONO
+################################################################################
+
+1. Super-admin JÁ pode dar +30 dias de acesso (cortesia/pós-pagamento) via Admin.
+2. “Teste grátis 7 dias” é automático na criação (created_at+7); depois bloqueia.
+3. Falta UI rica: +7/+14/custom e status claro no painel.
+4. Cada restaurante = até 3 usuários no total (dono + 2); limite no banco e no app.
+5. Convidado entra com CÓDIGO na mesma memória (mesmo restaurante_id) — modelo certo.
+6. Isolamento entre restaurantes depende do RLS + token amarrado ao restaurante.
+7. Melhorias de convite: vagas, WhatsApp, link, falhar se e-mail já tem restaurante.
+8. Criação de conta: deixar explícito “7 dias grátis → mensalidade” no formulário.
+9. Não trocar convite por PIN compartilhado (perde auditoria por pessoa).
+10. Parte técnica antiga (hidratação, Sentry, produção atômica) segue na Parte 1.
+
+FIM DO BLOCO DE NOTAS
+================================================================================

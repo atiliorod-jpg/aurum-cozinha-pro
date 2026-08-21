@@ -1,0 +1,264 @@
+================================================================================
+PROMPT UNIFICADO — Aurum Cozinha Pro
+Auditoria ultra completa 19/07/2026 (pós-evolução Pix / m11–m15 / permissões)
+Cole este documento INTEIRO em outra IA (implementação).
+Não reescreva o app do zero. Não invente features fora deste documento.
+Idioma: pt-BR. Pasta: C:\Users\atili\Downloads\Code\polo-estoque
+================================================================================
+
+## ESTADO VERIFICADO (NÃO ALUCINAR — revalidar no código)
+
+HEAD de referência da auditoria: e0ce836 (main)
+- npm test: 68/68 PASS
+- npm run lint: 0 erros
+- npm audit --audit-level=high: 0
+- npm run build: OK
+- Pentest AO VIVO (scripts VERSIONADOS no git):
+  - scripts/pentest-adversarial.mjs → 13/13 PASS
+  - scripts/pentest-convite.mjs → suite PASS
+  - scripts/pentest-m11.mjs → M1 bloqueio convite + P1 desativar PASS
+- Produto/produção: https://atiliorod-jpg.github.io/aurum-cozinha-pro/
+- Super-admin: atiliopinpolho@gmail.com
+
+### O que o sistema É hoje (mudou desde 17/07)
+- Estoque/produção PWA multi-tenant (inalterado no núcleo)
+- Migrations até 15: m10 hardening, m11 convites×plano + desativar usuário,
+  m12 stripe_customer (só se ativar webhook), m13/m14 aviso Pix + nome pagador,
+  m15 feedback no Admin
+- Pagamento principal na UI: **Pix manual** (QR + copia-cola + “Já paguei”) —
+  NÃO Payment Link Stripe na tela atual de Pagamento.jsx
+- Stripe: código webhook em supabase/functions/stripe-webhook + STRIPE_SETUP.md
+  (Fase 2 opcional); app não depende disso no fluxo Pix
+- Permissões por função (prefs.permissoes) — **trava de UI**, documentada
+- Outbox com fila morta (MAX 8) + UI em Config
+- Relatórios ampliados, Novidades, AvisoVencimento, BotaoFeedback
+- Planos mensal/semestral/anual com desconto (utils/assinatura.js PLANOS)
+
+### NÃO DESFAZER
+- RLS multi-tenant / m10 / m11 (pentest verde)
+- admin_notas só RPC; restaurante_pode_escrever
+- aceitar_convite v9; token 16; desativar_usuario
+- Outbox morta; matriz de permissões (conceito)
+- Pix + avisar_pagamento + feedback
+- Demo rid local; CI test/lint/audit/build
+- Escopo: SEM CMV/PDV financeiro de cozinha (assinatura do SaaS é outra coisa)
+
+### NÃO REABRIR (decisões antigas válidas)
+- Hidratação cega 120d
+- Trocar setTimeout(800) anti-duplo-toque
+- Impersonate sem autorização 24h
+- Default max_usuarios global ≠ 3 (VIP 4–5 só super-admin)
+- Service role no frontend Vite
+
+================================================================================
+REGRAS DE TRABALHO
+================================================================================
+1. Só polo-estoque. Diffs pequenos. Confirme no código ANTES de “corrigir”.
+2. Migrations idempotentes + README. Dono cola SQL no Supabase.
+3. NÃO git add -A; NÃO force-push; NÃO secrets no client além anon/VITE_PIX_*.
+4. rid === 'demo' NUNCA Supabase.
+5. Ao terminar: npm test && npm run lint (+ build).
+6. Pentest: preferir staging; limpar Auth pentest.* depois.
+7. Se o PR ficar grande: PR A (docs+higiene+rate limit) → PR B (produto) → PR C.
+
+```bash
+cd "C:\Users\atili\Downloads\Code\polo-estoque"
+cmd /c "npm test"
+cmd /c "npm run lint"
+cmd /c "npm run build"
+cmd /c "node scripts/pentest-adversarial.mjs"
+cmd /c "node scripts/pentest-m11.mjs"
+```
+
+################################################################################
+# CAMADA A — CORREÇÕES REAIS (prioridade)                                      #
+################################################################################
+
+================================================================================
+A1 — DOCS: README mentindo / confuso (REAL — verificado)
+================================================================================
+
+Problemas confirmados no README.md:
+1) Query de checagem ainda espera conv_ins_v4 / conv_del_v4 — após m11 o
+   correto é conv_ins_v11 / conv_del_v11 (e conv_sel_v4).
+2) Duas linhas “13” e status conflitante entre migration14_aviso_nome.sql
+   (✅ rodado) e migration14_pagador.sql (⏳ pendente) — são o MESMO assunto
+   (aviso_pagamento_nome). Arquivos duplicados no repo:
+   - src/lib/migration14_aviso_nome.sql
+   - src/lib/migration14_pagador.sql
+   Conteúdo quase idêntico. Risco: dono roda os dois ou não sabe qual vale.
+
+### Correção
+1) Unificar documentação: UMA migration 14 canônica no README; a outra arquivo
+   marcar no topo “DUPLICATA / histórico — não rodar se 14 já aplicada” OU
+   apagar/renomear com nota (preferir comentário + não apagar se já citado).
+2) Atualizar queries de checagem (conv_v11, m13–15 RPCs).
+3) Deixar explícito: pagamento na UI = Pix; Stripe = opcional Fase 2.
+4) Remover ou sinalizar forte se login de teste no README
+   (`teste-prod@aurum.app` / `teste123`) for conta real fraca — pelo menos
+   “só staging” / “troque a senha”.
+
+### Aceite
+- [ ] README coerente com m11–m15 e Pix
+- [ ] Sem duas “migration 14” com status oposto sem explicação
+
+================================================================================
+A2 — SPAM: avisar_pagamento e enviar_feedback sem freio (REAL)
+================================================================================
+
+### Problema
+- avisar_pagamento (m13/14): qualquer auth do restaurante, inclusive vencido,
+  pode chamar à vontade → polui Admin com “Já paguei” fake.
+- enviar_feedback (m15): sem rate limit → flood na aba super-admin.
+
+Não é cross-tenant (RPC amarra meu_restaurante_id / auth.uid), mas é abuso
+operacional real.
+
+### Correção (escolher simples)
+1) SQL: se último aviso_pagamento_em < interval '1 hour' (ou 15 min), raise
+   'Aguarde antes de avisar de novo.'
+2) SQL feedback: max N envios / hora por usuario_id (contar na tabela).
+3) Client: desabilitar botão após sucesso + mensagem “já avisamos”.
+
+### Aceite
+- [ ] Segundo aviso em sequência rápida falha com mensagem clara
+- [ ] Feedback em excesso limitado
+- [ ] Fluxo legítimo “Já paguei” uma vez ainda funciona
+
+================================================================================
+A3 — WEBHOOK STRIPE: lacunas se Fase 2 for usada (REAL no código)
+================================================================================
+
+Arquivo: supabase/functions/stripe-webhook/index.ts
+
+Achados (código lido, não “produção ativa” — Pix é o fluxo atual):
+1) Sempre +31 dias — ignora planos semestral/anual do app (PLANOS.dias).
+   OK se o Payment Link for SÓ mensal R$149; documentar essa premissa.
+2) Ativar por update direto NÃO limpa aviso_pagamento_em/plano/nome
+   (ativar_assinatura RPC sim limpa). Cliente pode ficar com banner
+   “avisou pagamento” depois de Stripe auto-ativar.
+3) checkout.session.completed confia em client_reference_id = restaurante id
+   — ok se o app sempre envia; documentar que Payment Link precisa passar isso.
+4) m12 stripe_customer_id ainda ⏳ no README — sem ela, invoice.paid renovação
+   não casa restaurante.
+
+### Correção (só se for manter Stripe no roadmap)
+1) No webhook, ao ativar: também null em aviso_pagamento_* (e bloqueado=false
+   já faz).
+2) README/STRIPE_SETUP: “hoje a UI é Pix; Stripe Fase 2 opcional; dias=31 só
+   mensal; rode m12 antes.”
+3) Se Payment Link não for mais usado na UI, não remover o código — só alinhar
+   docs para não prometer “Assinar no Stripe” no app.
+
+### Aceite
+- [ ] Docs honestas Pix vs Stripe
+- [ ] Se webhook for tocado: limpa aviso Pix ao ativar
+
+================================================================================
+A4 — HIGIENE AUTH PÓS-PENTEST (OPERACIONAL — dono)
+================================================================================
+
+Pentests criam usuários em Auth. README já pede limpeza.
+- [ ] Dono: Authentication → apagar pentest.* e contas de teste sobrando
+- [ ] Preferir .env de staging para próximos pentests (O5 antigo)
+
+Não precisa código se doc já existe; reforçar no resumo da entrega.
+
+################################################################################
+# CAMADA B — MELHORIAS IMPORTANTES (não bugs críticos)                         #
+################################################################################
+
+================================================================================
+B1 — OBSERVABILIDADE AINDA FRACA
+================================================================================
+Ainda não há Sentry nem reportError central.
+- Se dono passar VITE_SENTRY_DSN → integrar @sentry/react + ErrorBoundary
+- Senão: src/lib/reportError.js stub + 2–3 call sites (flush, backup, feedback)
+
+================================================================================
+B2 — UX / PRODUTO LEVES
+================================================================================
+1) Toggle mostrar senha no Login (e NovaSenha)
+2) Badge de pendências/mortos mais óbvio no header (já existe lista em Config)
+3) Cozinha com removerRegistros=true por padrão — confirmar com dono se quer
+   default false (só gerência remove). Se sim: mudar PERMISSOES_PADRAO.cozinha
+
+================================================================================
+B3 — LGPD / BACKUP (processo)
+================================================================================
+1) Seção README ou docs/OPERACAO_LGPD.md: passo a passo exclusão de conta
+   (Auth + perfil + o que fazer com registros) alinhado ao modal “4 dias úteis”
+2) Backup: texto “exporte 1×/semana” na UI de export (se ainda fraco)
+3) Nunca service role no client
+
+================================================================================
+B4 — TESTES
+================================================================================
+- Já há testes de statusAssinatura 7d, outbox, permissões — manter
+- Opcional: teste unitário crc16/montarPixBRCode com fixture conhecida
+- Opcional: smoke demo (Playwright) — não bloquear se flaky
+- Após A2: re-rodar pentest-m11
+
+################################################################################
+# CAMADA C — BACKLOG CONSCIENTE (NÃO obrigatório neste PR)                     #
+################################################################################
+
+- Produção atômica (ainda 2 inserts; há producoesIncompletas)
+- Extrair Configuracoes.jsx
+- Bundle main ~700KB (lazy já em Admin/Config/Relatorio)
+- MFA superadmin (operacional no Supabase — já documentado)
+- Confirmação de e-mail no cadastro de restaurante
+- Enforcement de matriz de permissões no RLS (hoje só UI — por design)
+- Webhook Stripe Fase 2 completo + m12 se quiser automação
+
+################################################################################
+# CHECKLIST DE ACEITE                                                          #
+################################################################################
+
+- [ ] A1 README + migration14 unificada na doc
+- [ ] A2 rate limit aviso pagamento + feedback
+- [ ] A3 docs Stripe/Pix honestas (+ fix webhook se tocado)
+- [ ] A4 limpeza Auth (dono)
+- [ ] B* o que couber
+- [ ] npm test / lint / build
+- [ ] pentest adversarial + m11 se tocou SQL de convite/plano
+- [ ] Lista honesta do que ficou de fora
+
+################################################################################
+# FORMA DE ENTREGAR                                                            #
+################################################################################
+
+1. Feito por bloco A/B/C
+2. Arquivos + SQL novos
+3. “Cole migration X no SQL Editor”
+4. test / lint / build
+5. Pentest se aplicável + limpar Auth
+6. Fora de escopo
+
+### Ordem sugerida
+1. A1 docs (rápido, zero risco)
+2. A2 rate limits SQL + client
+3. A3 docs Stripe/Pix (+ webhook limpa aviso se mexer)
+4. B1 observabilidade mínima
+5. B2 toggle senha + defaults se dono ok
+6. B3 LGPD/backup texto
+7. test + lint + build + resumo PT
+
+================================================================================
+RESUMO 10 LINHAS (DONO)
+================================================================================
+
+1. Sistema está maduro: 68 testes, lint 0, pentest multi-tenant/m11 verde.
+2. Pagamento real na UI é Pix + “Já paguei”; Stripe é opcional/futuro.
+3. Segurança de tenant (m10/m11) ok — revalidada ao vivo em 19/07/2026.
+4. Corrigir docs (README m14 duplicada, policies v11, Pix vs Stripe).
+5. Rate limit em “Já paguei” e feedback (anti-spam Admin).
+6. Webhook Stripe: se usar, limpar aviso Pix e documentar só mensal +31d.
+7. Observabilidade ainda fraca (Sentry ou stub).
+8. UX: toggle senha; revisar se cozinha deve apagar lançamentos por padrão.
+9. LGPD/backup: processo escrito.
+10. Não reabrir escopo financeiro de cozinha nem quebrar offline-first.
+
+================================================================================
+FIM DO PROMPT — Auditoria 19/07/2026
+================================================================================

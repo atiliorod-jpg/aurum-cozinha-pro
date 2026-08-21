@@ -1,0 +1,683 @@
+================================================================================
+PROMPT UNIFICADO — Aurum Cozinha Pro
+Pós-migration10 · Melhorias completas
+  Camada M: segurança residual, observabilidade, deps, docs
+  Camada O: operação (backup, outbox, superadmin, LGPD, staging)
+  Camada P: produto leve (equipe, UX, paridade trial, testes)
+Data do prompt: 17/07/2026 (atualizado com pontos de operação/produto)
+Cole este documento INTEIRO em outra IA (implementação).
+Não reescreva o app do zero. Não invente features fora deste documento.
+Idioma do código e da UI: português (pt-BR).
+================================================================================
+
+Origem:
+- Hardening m10 aplicado e verificado em produção (commit 69559cd) — outra IA
+- Auditoria ultra completa 17/07/2026 (Grok / sessão do dono) com PENTTEST AO
+  VIVO no Supabase usando scripts CRIADOS NESSA SESSÃO:
+    scripts/pentest-adversarial.mjs  → 13/13 PASS multi-tenant
+    scripts/pentest-convite.mjs      → suite convite PASS
+  ATENÇÃO DE HONESTIDADE: esses dois arquivos ficaram só no disco local do
+  dono (git status: Untracked). NÃO foram commitados nem pushados no remote.
+  Por isso outra máquina / clone / “repo limpo” NÃO tem a pasta scripts/ com
+  os pentests — só scripts/gerar-icones.mjs costuma estar versionado.
+  Se os pentest-*.mjs NÃO existirem: recriar com o conteúdo esperado em M4
+  (ou copiar do workspace do dono se ainda estiverem lá) ANTES de afirmar
+  “13/13” de novo. Não inventar histórico de pentest sem rodar de novo.
+- Nota geral produto ~85/100; segurança multi-tenant ~90; observabilidade ~40
+  (notas da auditoria Grok 17/07, com pentest local naquele ambiente)
+- Complemento: pontos de operação/produto (backup, desativar usuário, paridade
+  trial, outbox, LGPD, E2E, UX cozinha, staging)
+
+O que NÃO reabrir (já fechado / decisões confirmadas):
+- INSERT aberto em perfis (m10 S1) — NÃO recriar policy de INSERT em perfis
+- notas_admin em restaurantes — tabela admin_notas + RPC só super-admin
+- restaurante_pode_escrever em registros/documentos (leitura livre, escrita condicionada)
+- token convite 16 hex; aceitar_convite v9 (não queima se já tem perfil)
+- Hidratação cega 120d; trocar setTimeout(800); parmegiana nos Termos;
+  impersonate sem auth; default max_usuarios=3 (VIP 4–5 só super-admin);
+  módulo financeiro/CMV/PDV; webhook Stripe (GitHub Pages sem backend);
+  refactor god component Configuracoes; reescrever FEFO/MinMáx;
+  produção atômica tipo único (já mitigado com producoesIncompletas)
+
+================================================================================
+CONTEXTO DO PROJETO
+================================================================================
+
+- Pasta: C:\Users\atili\Downloads\Code\polo-estoque
+- Stack: React 19 + Vite + Tailwind 3 + Supabase + PWA offline-first
+- Produção: https://atiliorod-jpg.github.io/aurum-cozinha-pro/
+- Super-admin: atiliopinpolho@gmail.com (hardcoded em sou_super_admin / client)
+- Migrations: src/lib/migration2…migration10_hardening.sql (m10 rodada 17/07)
+- Testes: npm test (45) · lint 0 · audit high 0 · build OK
+- HEAD de referência da auditoria: 69559cd (main)
+- Plano: R$149/mês · teste 7 dias (JS: TESTE_DIAS em utils/assinatura.js;
+  SQL m10: created_at + interval '7 days') — DEVEM permanecer iguais
+
+Docs: README.md, PROMPT_NOVA_CONVERSA.md, scripts/pentest-*.mjs
+
+================================================================================
+REGRAS DE TRABALHO
+================================================================================
+
+1. Só pasta polo-estoque. Diffs pequenos. Confirme no código antes de “corrigir”.
+2. SQL: migrations idempotentes + README (ordem + queries de checagem).
+3. NÃO git add -A; NÃO force-push; NÃO renomear pasta; NÃO secrets no client além
+   de anon key (esperado).
+4. rid === 'demo' NUNCA Supabase.
+5. Ao terminar: npm test && npm run lint (+ build se possível).
+6. Se criar contas de teste: e-mails óbvios (ex. pentest.*) e documentar limpeza
+   no Auth do Supabase (anon NÃO apaga auth.users).
+7. Prioridade de entrega se o PR ficar grande:
+   Camada M (M1–M5) primeiro → Camada O (O1–O3) → Camada P (P1–P3).
+   Não misturar com financeiro nem com refactor grande.
+
+```bash
+cd "C:\Users\atili\Downloads\Code\polo-estoque"
+cmd /c "npm test"
+cmd /c "npm run lint"
+cmd /c "npm run build"
+# pentest opcional (precisa .env.local; limpar Auth depois):
+cmd /c "node scripts/pentest-adversarial.mjs"
+cmd /c "node scripts/pentest-convite.mjs"
+```
+
+################################################################################
+#                                                                              #
+#  CAMADA M — SEGURANÇA RESIDUAL, OBSERVABILIDADE, DEPS, DOCS                  #
+#                                                                              #
+################################################################################
+
+Ordem sugerida Camada M: M1 → M2 → M3 → M4 → M5 → M6 (opcional).
+
+================================================================================
+M1 — SEGURANÇA P2: CONVITES TAMBÉM RESPEITAM PLANO/BLOQUEIO
+================================================================================
+
+### Problema real (auditoria 17/07 — confirmado no SQL)
+Policies de escrita de `registros` e `documentos` usam `restaurante_pode_escrever`
+(m10). A tabela `convites` NÃO:
+
+  conv_ins_v4 / conv_del_v4 — só checam meu_restaurante_id + cargo
+
+Efeito: conta **bloqueada** ou com **teste+assinatura vencidos** ainda pode
+gerar/revogar convites via API (e possivelmente pela UI se o front não bloquear
+100% do Config).
+
+### Correção
+Arquivo: src/lib/migration11_convites_plano.sql (novo)
+
+1) Recriar policies de INSERT/DELETE em convites exigindo também
+   restaurante_pode_escrever(restaurante_id).
+
+Exemplo de intenção (adaptar nomes e drops legados):
+```sql
+drop policy if exists "conv_ins_v4" on convites;
+drop policy if exists "conv_ins_v11" on convites;
+-- manter regras de cargo da m4 (gerência/diretoria; só diretoria convida diretoria)
+create policy "conv_ins_v11" on convites for insert
+  with check (
+    restaurante_id = meu_restaurante_id()
+    and restaurante_pode_escrever(restaurante_id)
+    and meu_cargo() in ('gerencia','diretoria')
+    and (cargo <> 'diretoria' or meu_cargo() = 'diretoria')
+  );
+
+drop policy if exists "conv_del_v4" on convites;
+drop policy if exists "conv_del_v11" on convites;
+create policy "conv_del_v11" on convites for delete
+  using (
+    restaurante_id = meu_restaurante_id()
+    and meu_cargo() in ('gerencia','diretoria')
+    and restaurante_pode_escrever(restaurante_id)
+  );
+-- SELECT de convites pode permanecer sem corte de plano (listar pendentes ok)
+```
+
+2) Client (recomendado): em Configuracoes / criarConvite, se a sessão estiver
+   bloqueada ou statusAssinatura ok===false, não oferecer gerar convite
+   (UX honesta; o banco é a fonte da verdade).
+
+3) README: linha na tabela de migrations + query de checagem:
+```sql
+select polname, cmd from pg_policies where tablename = 'convites';
+```
+
+### Aceite M1
+- [ ] Conta em trial/assinatura: gera convite OK
+- [ ] Conta bloqueada ou vencida: INSERT convite via API falha
+- [ ] Cozinha ainda não cria convite de diretoria
+- [ ] test/lint OK
+
+### NÃO fazer em M1
+- Não mudar aceitar_convite (já m9)
+- Não mudar tamanho do token de novo
+
+================================================================================
+M2 — SEGURANÇA / OPERAÇÃO: SUPERADMIN E CONTA CRÍTICA
+================================================================================
+
+### 2.1 MFA do super-admin (operacional — dono faz no Supabase)
+Documentar no README (seção Segurança):
+- Ativar MFA (TOTP) na conta atiliopinpolho@gmail.com no Supabase Auth
+- Senha forte, sem reutilizar
+- Motivo: sou_super_admin() = e-mail no JWT; comprometer esse e-mail = poder total
+
+### 2.2 Aviso no painel Admin (código, baixo esforço)
+Em Admin.jsx cabeçalho: texto discreto
+  “Conta crítica: use MFA no Supabase Auth.”
+Sem bloquear o painel.
+
+### 2.3 (Opcional, só se o dono pedir) Lista de admins em tabela
+Em vez de e-mail hardcoded — FORA do ciclo se aumentar risco; NÃO obrigatório.
+
+### Aceite M2
+- [ ] README com passo MFA
+- [ ] (Opcional) linha de aviso no Admin
+
+================================================================================
+M3 — SEGURANÇA P2/P3: CONFIRMAÇÃO DE E-MAIL NO CADASTRO DE RESTAURANTE
+================================================================================
+
+### Problema
+No pentest, signUp devolveu sessão imediata → confirmação de e-mail desligada.
+Risco: cadastrar com e-mail de terceiro; dono real usa “esqueci senha” e assume
+a conta (ou e-mail queimado).
+
+### Opções (default = A + B)
+
+**A — Documentação**  
+README: “Confirmação de e-mail desligada de propósito para onboarding tablet;
+risco X; mitigações Y.”
+
+**B — Copy no cadastro**  
+Fluxo “Cadastrar restaurante”: “Use um e-mail que só você controla. Quem tiver
+acesso a esse e-mail pode recuperar a senha.”
+
+**C — Confirmar e-mail só no fluxo novo restaurante** (maior esforço)
+Só se o dono autorizar fricção. Convite pode continuar imediato.
+
+Implementar pelo menos **A + B**. C só com autorização explícita.
+
+### Aceite M3
+- [ ] Texto honesto no cadastro e/ou README
+- [ ] Não quebrar demo nem convite
+
+================================================================================
+M4 — DOCS: SCHEMA LEGADO + PENTEST + HIGIENE PÓS-TESTE
+================================================================================
+
+### 4.1 schema.sql / SUPABASE_SETUP.sql
+Arquivos legados ainda mostram policies antigas (ex. perfis_insert aberto).
+Risco: alguém reaplicar schema e reabrir buracos.
+
+1) No TOPO de schema.sql e SUPABASE_SETUP.sql (comentário grande):
+   “NÃO reaplicar em produção. Estado atual = migrations 4–11+ em ordem.
+    Este arquivo é histórico / bootstrap antigo.”
+2) README: migrations atualizadas; nunca rodar só schema.sql em cima de prod.
+
+### 4.2 Scripts de pentest (podem NÃO estar no git — verificar)
+Esperados no repo (se faltarem, CRIAR e versionar neste PR):
+- scripts/pentest-adversarial.mjs
+- scripts/pentest-convite.mjs
+- (já versionado) scripts/gerar-icones.mjs
+
+O que cada pentest deve fazer (especificação se recriar):
+
+**pentest-adversarial.mjs**
+- Lê .env.local (VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY); NÃO imprime secrets
+- Cria contas temporárias pentest.a|b|c.<ts>@example.invalid
+- A e B: signUp + criar_restaurante
+- C: signUp e tenta INSERT em perfis no restaurante de B → deve FALHAR (RLS)
+- A lê registros de B → 0 rows; A grava em B → falha; A grava no próprio → ok (trial)
+- notas_admin coluna → erro “does not exist”; admin_notas select → vazio/erro
+- notas_admin_todas como cliente → falha super-admin
+- convite token length >= 16
+- definir_bloqueio / definir_max_usuarios como cliente → falha
+- Imprime PASS/FAIL por linha; exit ≠ 0 se algum FAIL
+
+**pentest-convite.mjs**
+- D cria restaurante; gera convite; E aceita → mesmo restaurante_id + cargo
+- E grava registro na memória de D
+- E com perfil tenta outro convite → erro e token NÃO usado (usado=false)
+- Limpa convites de teste quando possível
+
+README seção “Pentest / regressão de segurança”:
+- Como rodar (precisa .env.local)
+- O que validam (lista curta acima)
+- **Commitar os scripts** se ainda estiverem untracked
+- **Limpeza obrigatória:** Authentication → users `pentest.*@example.invalid`
+- **Nunca** no CI automático de produção; staging = ver O5
+
+### 4.3 Contas de teste (ação do dono)
+Limpar no Supabase se ainda existirem:
+  pentest.a|b|c|d|e.*@example.invalid
+(auditoria Grok 17/07 criou várias dessas em produção se .env.local = prod)
+
+### Aceite M4
+- [ ] Avisos nos SQLs legados
+- [ ] README com pentest + limpeza
+- [ ] scripts/pentest-*.mjs presentes no working tree E versionados (git add)
+- [ ] (Dono) limpeza Auth se ainda houver lixo
+
+================================================================================
+M5 — OBSERVABILIDADE (maior gap de nota: ~40/100)
+================================================================================
+
+### Problema
+Zero canal quando o tablet do cliente quebra. Descoberta = WhatsApp.
+
+### Correção (condicional)
+
+**Se o dono fornecer DSN do Sentry (browser):**
+1) @sentry/react compatível com React 19
+2) init em main.jsx: VITE_SENTRY_DSN, environment, release opcional
+3) beforeSend: minimizar PII (não mandar senha; e-mail opcional omitir/hash)
+4) ErrorBoundary com tela amigável
+5) .env.example + README; CI secret opcional (não falhar se vazio)
+
+**Se NÃO houver DSN:**
+1) NÃO poluir bundle com Sentry desligado
+2) src/lib/reportError.js stub (console.error + hook futuro Sentry)
+3) Usar em: falha flush/outbox, importarBackup, criar_restaurante/aceitar_convite
+4) README: como ligar Sentry depois
+
+### Aceite M5
+- [ ] Com DSN: erro de teste no Sentry
+- [ ] Sem DSN: stub + docs, zero regressão
+- [ ] Não logar senha nem tokens de convite em claro
+
+================================================================================
+M6 — DEPENDÊNCIAS, PERFORMANCE, CI (P3 — se couber)
+================================================================================
+
+### 6.1 Dependências
+- Manter npm audit --audit-level=high no CI
+- NÃO migrar Tailwind 3→4
+- Documentar por que `stripe` está em devDependencies (script payment link)
+- xlsx 0.20.3 — NÃO rebaixar
+
+### 6.2 Bundle
+- Já lazy: Relatorio, Configuracoes, Admin
+- Opcional: lazy jspdf / EtiquetaPrint se no main chunk
+- Logo ~375KB: opcional WebP/512
+
+### 6.3 CI
+- test → lint → audit high → build (manter)
+- Pentest: só workflow_dispatch + **staging** (ver O5), nunca prod automático
+
+### 6.4 Dependabot
+Manter .github/dependabot.yml
+
+### Aceite M6
+- [ ] Nada quebrado; o que não couber → “fora deste PR” no resumo
+
+################################################################################
+#                                                                              #
+#  CAMADA O — OPERAÇÃO (backup, outbox, superadmin, LGPD, staging)             #
+#                                                                              #
+################################################################################
+
+Fazer depois da Camada M estável (ou no mesmo PR se M1–M5 já verdes e o PR
+não explodir). Foco: o sistema sobreviver ao dia a dia e a desastres.
+
+Ordem sugerida: O1 → O2 → O3 → O4 → O5.
+
+================================================================================
+O1 — BACKUP / DESASTRE (hoje só botão manual)
+================================================================================
+
+### Problema
+Backup JSON é manual em Config → Sistema. Plano free Supabase sem PITR.
+Risco real: “apaguei tudo / outbox sincronizou lixo / tablet formatado”.
+
+### Correção (escolher o que for viável sem backend novo pesado)
+
+**Mínimo (obrigatório neste ciclo se implementar Camada O):**
+1) README seção “Backup e recuperação”:
+   - Como exportar pelo app
+   - Frequência sugerida (ex.: semanal para o dono do restaurante; diário se
+     operação crítica)
+   - Como restaurar (importarBackup) e o que a m/App já faz (soft-delete + upsert)
+   - Limite: backup no aparelho ≠ backup do projeto Supabase inteiro
+2) UX leve: em Config → Cópia de segurança, texto:
+   “Recomendado: exporte pelo menos 1× por semana. Guarde o arquivo fora do tablet.”
+3) (Opcional) lembrar se prefs.ultimoBackupEm > 7 dias — banner discreto no
+   Dashboard ou Config (sem modal chato todo login).
+
+**Desejável (se o dono quiser e houver secret de connection string):**
+- Workflow GitHub Actions semanal com pg_dump (ou supabase db dump) para artifact
+  privado / storage — SÓ com secret; documentar que é backup do **projeto**,
+  não substitui export do cliente.
+- NÃO commitar connection string.
+
+### Aceite O1
+- [ ] README backup claro
+- [ ] Copy na UI de export
+- [ ] (Opcional) lembrete 7 dias / workflow dump
+
+================================================================================
+O2 — OUTBOX: FILA MORTA APÓS N FALHAS
+================================================================================
+
+### Problema (auditoria antiga, ainda válido)
+`flush` processa a fila item a item. Um item eternamente inválido (payload que
+viola constraint / plano vencido permanente / schema) pode ficar preso e o
+badge de pendências nunca zera — operador acha que “não sincroniza nada”.
+
+Arquivos prováveis: src/lib/cache.js (outbox*), src/store/AppContext.jsx (flush).
+
+### Correção
+1) Em cada item do outbox: `_tentativas` (number), incrementar em falha.
+2) Após N falhas (ex.: 8 ou 10): mover para `_outbox_morta` (ou flag `_morto: true`)
+   em vez de retentar para sempre.
+3) UI Config → Sistema (ou badge):  
+   “X pendências · Y com erro permanente” + lista curta (tipo, id, última msg)
+   + botão “Tentar de novo” (zera tentativas) e “Descartar” (com confirm, só
+   se fizer sentido operacional — preferir não apagar silencioso).
+4) reportError (M5) quando item for para a fila morta.
+5) Não contar itens mortos no badge “sincronizando” principal (ou contar separado
+   em vermelho).
+
+### Aceite O2
+- [ ] Item que falha N vezes sai do loop infinito
+- [ ] UI mostra fila morta de forma honesta
+- [ ] Retry manual funciona
+- [ ] test se extrair lógica pura de “classificar tentativa” para utils
+
+================================================================================
+O3 — SUPERADMIN: HIGIENE DE CONTAS (órfãs / pentest)
+================================================================================
+
+### Problema
+- Contas Auth sem perfil (“Cadastro incompleto”) após falha de onboarding
+- Users pentest.* deixados no Auth após auditoria
+- Anon key não apaga auth.users
+
+### Correção (pragmática)
+1) README “Limpeza de contas Auth”:
+   - Dashboard → Authentication → filtrar e-mail
+   - Quando apagar: conta órfã vs conta com restaurante (cuidado)
+2) (Opcional código) No Admin, seção “Ferramentas”:
+   - Texto fixo: “Contas órfãs e de teste limpam-se no Supabase Auth (link docs)”
+   - NÃO implementar delete de auth.users pelo client (precisa service role —
+     NUNCA colocar service role no app Vite)
+3) Se no futuro houver Edge Function com service role: aí sim RPC admin —
+   FORA deste prompt salvo o dono pedir backend.
+
+### Aceite O3
+- [ ] Doc clara de limpeza
+- [ ] Zero service role no frontend
+
+================================================================================
+O4 — LGPD: EXCLUSÃO DE CONTA / DADOS (processo)
+================================================================================
+
+### Problema
+Modal de privacidade já cita exclusão via WhatsApp em até 4 dias úteis.
+Falta processo **operacional** documentado para o operador Aurum (você)
+executar sem improviso — e o cliente achar o caminho.
+
+### Correção
+1) README ou docs/OPERACAO_LGPD.md (ou seção no README):
+   - O que apagar: Auth user, perfil, opcional soft-delete restaurante /
+     manter registros? (decisão: preferir desativar restaurante + anonimizar
+     e-mail se retenção fiscal/operacional; se exclusão total, listar tabelas)
+   - Passo a passo no Supabase (sem service key no app)
+   - Prazo e canal (já no modal: WhatsApp, 4 dias úteis) — alinhar texto
+2) Login / Config: link “Solicitar exclusão de dados” pode ser o mesmo WhatsApp
+   com texto pré-preenchido (se ainda não houver).
+3) NÃO precisa DPO nem juridiquês; precisa **existir e ser repetível**.
+
+### Aceite O4
+- [ ] Processo escrito no repo
+- [ ] Cliente encontra como solicitar
+- [ ] Nada de apagar produção “no chute” sem checklist
+
+================================================================================
+O5 — STAGING PARA PENTEST / CI (não usar produção no automático)
+================================================================================
+
+### Problema
+Pentest adversarial cria users no **mesmo** projeto se .env.local aponta a prod.
+CI automático em prod = risco e lixo no Auth.
+
+### Correção
+1) README: “Use projeto Supabase de staging (aurum-cozinha-teste ou similar)
+   para pentest. Produção só sob demanda consciente.”
+2) Se existir segundo par URL/KEY: documentar .env.staging.example
+3) CI: workflow_dispatch opcional com secrets STAGING_* rodando pentest;
+   **não** no push main
+4) Scripts pentest: no cabeçalho, avisar se a URL parece produção
+   (heurística: hostname contém projeto prod conhecido) — log WARN
+
+### Aceite O5
+- [ ] Doc staging vs prod
+- [ ] CI não pentesta prod no push
+- [ ] (Opcional) warn no script
+
+################################################################################
+#                                                                              #
+#  CAMADA P — PRODUTO LEVE (equipe, UX, paridade trial, testes)                #
+#                                                                              #
+################################################################################
+
+Ordem sugerida: P1 → P2 → P3 → P4 → P5.
+
+================================================================================
+P1 — DESATIVAR USUÁRIO / LIBERAR VAGA (soft-delete operacional)
+================================================================================
+
+### Problema
+Limite max_usuarios conta `perfis.ativo = true` no aceitar_convite.
+Não há UI clara para **desativar** funcionário que saiu (libera vaga sem apagar
+histórico de auditoria/registros).
+
+### Correção
+1) Config → Acessos: por usuário (exceto eu mesmo / última diretoria):
+   - Ação “Desativar acesso” → RPC ou update seguro
+2) Preferir RPC SECURITY DEFINER `desativar_usuario(p_usuario uuid)`:
+   - só gerência/diretoria do mesmo restaurante
+   - não desativar a si mesmo
+   - não deixar o restaurante sem nenhuma diretoria ativa
+   - set perfis.ativo = false
+3) Lista: mostrar inativos em seção colapsável “Acessos desativados” +
+   “Reativar” (mesmas regras de cargo)
+4) Contador vagas: só ativos + convites pendentes (já parcialmente feito)
+5) Migration se faltar policy/RPC (perfis.ativo já existe no schema)
+
+### Aceite P1
+- [ ] Desativar libera vaga para novo convite
+- [ ] Histórico antigo permanece
+- [ ] Não dá para desativar a si mesmo nem a última diretoria
+- [ ] test/lint OK
+
+================================================================================
+P2 — PARIDADE CLIENT ↔ SQL DO TESTE DE 7 DIAS
+================================================================================
+
+### Problema
+Client: `TESTE_DIAS = 7` em src/utils/assinatura.js  
+SQL m10: `r.created_at + interval '7 days'` em restaurante_pode_escrever  
+
+Se alguém mudar só um lado, o app mostra “ok” e o banco nega escrita (ou o
+inverso). Bug sutil de suporte.
+
+### Correção
+1) Comentário cruzado nos dois lados: “manter igual a TESTE_DIAS / m10”
+2) Teste unitário em regras.test.js (ou assinatura.test.js):
+   - statusAssinatura com created_at = agora - 6d → teste ok
+   - created_at = agora - 8d, sem assinatura → vencido
+3) No README da migration10/11: “7 days alinhado a utils/assinatura.js TESTE_DIAS”
+4) NÃO hardcodar 7 em mais lugares — importar constante no client sempre
+
+### Aceite P2
+- [ ] Testes de statusAssinatura cobrindo borda 7 dias
+- [ ] Comentários de paridade no SQL (migration doc) e no JS
+
+================================================================================
+P3 — UX COZINHA LEVE
+================================================================================
+
+1) **Login: toggle mostrar/ocultar senha** (botão no campo, aria-label).
+2) **Badge de sync / pendências** mais visível no tablet (se já existe no Layout,
+   reforçar: cor, “X não enviados”, toque → Config ou Histórico de pendências;
+   integrar com O2 fila morta se implementado).
+3) **Compras.jsx**: comentário com “parmegiana” — limpar se tocar o arquivo
+   (não é UI).
+
+### Aceite P3
+- [ ] Toggle senha funciona e é acessível
+- [ ] Operador entende se há pendência de sync sem adivinhar
+
+================================================================================
+P4 — TESTE SMOKE DE PRODUTO (E2E mínimo)
+================================================================================
+
+### Problema
+45 testes só em utils. Regressão de tela (login → fluxo) não é pega no CI.
+
+### Correção (escolha pragmática)
+**Opção A — Playwright (recomendado se ambiente permitir):**
+- 1 spec: login (ou demo) → registrar entrada → ver item no Dashboard/estoque
+- Rodar local; CI opcional (não bloquear se flaky no primeiro PR)
+- Demo mode (rid demo) evita sujar prod: **preferir smoke na demo offline**
+  se for 100% estável sem rede
+
+**Opção B — sem Playwright neste ciclo:**
+- Documentar checklist manual de 5 passos no README “Smoke manual release”
+- Expandir unit tests de assinatura (P2) e outbox se extrair (O2)
+
+Preferir **smoke na demo** (offline) se Playwright for adicionado — zero Auth.
+
+### Aceite P4
+- [ ] Ou 1 E2E verde local, ou checklist manual no README + testes unitários P2
+
+================================================================================
+P5 — (OPCIONAL) LEMBRETE DE BACKUP NA UI
+================================================================================
+
+Se O1 implementar “ultimoBackupEm”:
+- Ao exportarBackup com sucesso: gravar prefs.ultimoBackupEm = Date.now()
+- Se > 7 dias: linha discreta no Config ou Dashboard
+- Não modal bloqueante
+
+################################################################################
+#                                                                              #
+#  CHECKLIST DE ACEITE GLOBAL                                                  #
+#                                                                              #
+################################################################################
+
+Camada M — Segurança / obs / docs
+- [ ] M1: convites + plano no banco
+- [ ] M2: MFA documentada
+- [ ] M3: risco e-mail + copy cadastro
+- [ ] M4: schema legado + pentest docs
+- [ ] M5: Sentry ou stub reportError
+- [ ] M6: o que coube
+
+Camada O — Operação
+- [ ] O1: backup documentado (+ lembrete opcional)
+- [ ] O2: outbox com fila morta + UI
+- [ ] O3: doc limpeza Auth / sem service role no client
+- [ ] O4: processo LGPD exclusão
+- [ ] O5: staging vs prod para pentest
+
+Camada P — Produto
+- [ ] P1: desativar usuário / vagas
+- [ ] P2: paridade 7 dias + testes
+- [ ] P3: toggle senha + sync visível
+- [ ] P4: smoke E2E ou checklist manual
+
+Qualidade
+- [ ] npm test / lint / build OK
+- [ ] README migrations (m11+)
+- [ ] Pentest re-rodado se M1/O mudou policies; limpar pentest.* no Auth
+
+################################################################################
+#                                                                              #
+#  O QUE JÁ ESTÁ BOM — NÃO DESFAZER                                            #
+#                                                                              #
+################################################################################
+
+- RLS multi-tenant (pentest 13/13)
+- m9 Admin: +dias, VIP 3–5, bloqueio, e-mails, notas via RPC
+- m10: perfis, admin_notas, restaurante_pode_escrever, token 16
+- Offline cache pe::{rid}::* + outbox (melhorar com O2, não remover)
+- Demo local; GuideTour; quantidade obrigatória produção; lotesVencendo
+- CI test/lint/audit/build; xlsx 0.20.3; 0 vulns high
+- Termos + LGPD texto; 7 dias grátis + R$149; deep-link convite
+- exportarBackup / importarBackup com soft-delete (O1 só documenta/lembra)
+
+################################################################################
+#                                                                              #
+#  FORA DE ESCOPO (não implementar neste prompt)                               #
+#                                                                              #
+################################################################################
+
+- Financeiro / CMV / PDV / preço / DRE
+- Hidratação 120 dias cega (só reabrir com desenho “desde último inventário”)
+- Trocar anti-duplo-toque setTimeout(800)
+- Impersonate sem autorização do cliente
+- Aumentar default max_usuarios global
+- Webhook Stripe / backend serverless (salvo pedido explícito)
+- Service role no frontend
+- Refactor god component Configuracoes.jsx
+- Reescrever motor FEFO/MinMáx
+- Produção atômica tipo único (mitigado; backlog separado)
+
+################################################################################
+#                                                                              #
+#  FORMA DE ENTREGAR                                                           #
+#                                                                              #
+################################################################################
+
+1. Lista do feito por bloco (M*, O*, P*)
+2. Arquivos + migration(s) novas
+3. Instruções SQL: “cole m11… no SQL Editor após m10”
+4. npm test / lint / build
+5. Pentest se tocou RLS; limpar Auth
+6. O que ficou de fora (honesto)
+7. DSN Sentry: se o dono não passou, caminho stub (M5)
+
+### Ordem de implementação (PR único ou 2–3 PRs)
+**PR A — Segurança e base**
+1. M1 migration11 convites + plano  
+2. M4 docs schema/pentest  
+3. M2/M3 MFA + e-mail copy  
+4. M5 observabilidade  
+5. P2 paridade 7 dias + testes  
+
+**PR B — Operação e equipe**
+6. O1 backup docs/UI  
+7. O2 outbox fila morta  
+8. P1 desativar usuário  
+9. O3/O4/O5 docs  
+
+**PR C — UX e smoke (se sobrar)**
+10. P3 toggle senha + badge sync  
+11. P4 smoke / checklist  
+12. M6 polish  
+
+Se um único PR: seguir A→B→C e parar com test/lint verdes; o que não couber
+vai no resumo “fora deste PR”.
+
+================================================================================
+RESUMO EM 12 LINHAS PARA O DONO
+================================================================================
+
+1. Segurança multi-tenant e m10 estão sólidos (validado ao vivo).
+2. Falta amarrar CONVITES ao corte de plano/bloqueio (M1).
+3. Superadmin: ativar MFA no Supabase (M2).
+4. E-mail sem confirmação: documentar + aviso no cadastro (M3).
+5. schema.sql legado: nunca reaplicar em prod (M4).
+6. Pentest: documentar, preferir staging, limpar users de teste (M4/O5).
+7. Observabilidade: Sentry com DSN ou stub reportError (M5).
+8. Backup: documentar rotina e lembrar o cliente de exportar (O1).
+9. Outbox: fila morta para não prender sync para sempre (O2).
+10. Equipe: desativar usuário para liberar vaga (P1).
+11. Manter 7 dias iguais no JS e no SQL + teste (P2).
+12. UX: mostrar senha + pendências claras; smoke mínimo (P3/P4).
+
+================================================================================
+FIM DO PROMPT — Aurum Cozinha Pro · Pós-m10 melhorias completas 17/07/2026
+================================================================================
