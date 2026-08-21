@@ -9,7 +9,7 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
 import { registrarFalha, ressuscitar } from '../utils/outbox';
-import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, DESTINO_FINALIZACAO } from '../utils/modulos';
+import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, DESTINO_FINALIZACAO } from '../utils/modulos';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -525,7 +525,7 @@ export function AppProvider({ children }) {
     let ativo = true;
 
     // 1) cache instantâneo (funciona offline) — tudo pela chave do MÓDULO ativo
-    const P = catalogosPadrao(modulo);
+    const P = catalogosPadrao(tipoBase(modulo));
     setProdutosRaw(cacheGet(rid, kc('produtos'), P.produtos));
     setCategoriasRaw(cacheGet(rid, kc('categorias'), P.categorias));
     setPessoasRaw(cacheGet(rid, 'pessoas', P.pessoas)); // equipe é do restaurante, não do módulo

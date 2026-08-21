@@ -58,6 +58,21 @@ for (const tipo of ['entrada', 'seco:entrada', 'seco:ajuste', 'finalizacao:perda
   linha(tipo, r.ok, r.motivo);
 }
 
+console.log('\n\u2550\u2550\u2550 MIGRA\u00c7\u00c3O 22 \u2014 v\u00e1rios estoques do mesmo tipo (inst\u00e2ncias) \u2550\u2550\u2550\n');
+for (const tipo of ['seco#zzzz:entrada', 'finalizacao#ab12:perda', 'producao#qq99:saida']) {
+  const r = await tipoAceito(tipo);
+  linha(tipo, r.ok, r.motivo);
+}
+// Sonda NEGATIVA: duas grafias para o mesmo estoque \u00e9 como saldo duplicado
+// nasce \u2014 metade dos lan\u00e7amentos numa, metade na outra, e nenhuma tela somando
+// as duas. O CHECK tem que RECUSAR.
+{
+  const r = await tipoAceito('producao:entrada');
+  const deveRecusar = r.ok === false;
+  linha('producao:entrada e RECUSADO (grafia duplicada)', deveRecusar,
+        deveRecusar ? '' : 'ACEITOU \u2014 duplicaria saldo');
+}
+
 console.log('\n═══ MIGRAÇÃO 18 — a trilha de auditoria é gravada pelo banco ═══\n');
 const rpc = await req('/rest/v1/rpc/registrar_auditoria', ANON, { method: 'POST', body: JSON.stringify({ p_acao: 'sonda' }) });
 let jr = {}; try { jr = JSON.parse(await rpc.text()); } catch { /* void devolve corpo vazio */ }

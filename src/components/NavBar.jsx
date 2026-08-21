@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { statusEstoque } from '../utils/calculos';
-import { pode, podeAbrirAdministracao } from '../utils/permissoes';
+import { pode } from '../utils/permissoes';
 import { temRecurso } from '../utils/modulos';
 import Icon from './Icons';
 
@@ -18,15 +18,15 @@ const NAV = [
   // barra, não um card dentro de Registrar. O histórico geral saiu daqui: cada
   // tela já tem a aba "📋 Histórico" dela, e ele continua no hub Registrar.
   { to: '/validades',     icon: 'etiqueta',  label: 'Validades' },
-  // Relatório e Configurações SAÍRAM da barra: agora moram só na Administração.
-  // O motivo é de escopo — os dois são gesto de GESTÃO, não de operação, e
-  // ocupavam dois dos cinco lugares da barra num tablet que a cozinha usa de
-  // mão suja. Quem opera precisa de Início, Registrar, Validades e (na
-  // finalização) Fechar turno; o resto é do dono.
+  // Relatório e Configurações SAÍRAM da barra: moram só na Administração.
+  // Os dois são gesto de GESTÃO, não de operação, e ocupavam dois dos cinco
+  // lugares da barra num tablet que a cozinha usa de mão suja. Quem opera
+  // precisa de Início, Registrar, Validades e (na finalização) Fechar turno.
   //
-  // A Administração entra no lugar deles, para gerência+ chegar lá com um
-  // toque em vez de abrir o seletor de estoque.
-  { to: '/administracao', icon: 'config',    label: 'Admin.',    cap: 'administracao' },
+  // A Administração TAMBÉM não entra aqui: a porta dela é o seletor de estoque,
+  // uma só. Repetir o mesmo destino na barra de todos os três estoques polui a
+  // navegação e faz parecer que são telas diferentes — é o mesmo defeito que
+  // "Validades" tinha, aparecendo na barra e como card no hub.
 ];
 
 export default function NavBar() {
@@ -48,9 +48,6 @@ export default function NavBar() {
     if (n.recurso && !temRecurso(modulo, n.recurso)) return false;
     if (n.semRecurso && temRecurso(modulo, n.semRecurso)) return false;
     if (!n.cap) return true;
-    // MESMA regra da rota /administracao em App.jsx. Se as duas divergirem, o
-    // botão leva a um redirect — foi assim que a aba "Receitas" ficou morta.
-    if (n.cap === 'administracao') return podeAbrirAdministracao(sessao, permissoes);
     return pode(sessao, permissoes, n.cap);
   });
 

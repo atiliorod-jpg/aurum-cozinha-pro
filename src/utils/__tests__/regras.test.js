@@ -12,7 +12,7 @@ import { statusEstoque } from '../calculos';
 import { conciliarAuditoria } from '../auditoria';
 import { custoUnitario, valorDoEstoque, curvaABC, custoDosRegistros, precoDaCompra } from '../financeiro';
 import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
-import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe } from '../modulos';
+import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
@@ -1349,5 +1349,117 @@ describe('financeiro — preco vindo da compra (ultima compra manda)', () => {
   it('sem valor ou com quantidade zero nao gera preco', () => {
     expect(precoDaCompra({ produtoId: 'file', quantidade: 20 })).toBeNull();
     expect(precoDaCompra({ produtoId: 'file', quantidade: 0, valorTotal: 100 })).toBeNull();
+  });
+});
+
+// Varios estoques do MESMO tipo na mesma conta (Estoque Seco do Restaurante X e
+// do Y). O que estes testes travam e a REGRA QUE EVITA MIGRACAO: a instancia
+// raiz mantem o id de sempre, e o separador '#' nao atrapalha o lerTipo, que
+// corta no primeiro ':'.
+describe('instancias — varios estoques do mesmo tipo', () => {
+  it('tipoBase tira o sufixo, e id sem sufixo continua igual', () => {
+    expect(tipoBase('seco#x7k2')).toBe('seco');
+    expect(tipoBase('seco')).toBe('seco');
+    expect(tipoBase('producao')).toBe('producao');
+    expect(tipoBase(undefined)).toBe('');
+  });
+
+  it('lerTipo devolve a instancia inteira — o "#" nao confunde o corte no ":"', () => {
+    expect(lerTipo('seco#x7k2:entrada')).toEqual({ modulo: 'seco#x7k2', tipo: 'entrada' });
+    expect(lerTipo('finalizacao#b3nq:perda')).toEqual({ modulo: 'finalizacao#b3nq', tipo: 'perda' });
+  });
+
+  it('a chave e o tipo do banco levam a instancia', () => {
+    expect(chaveModulo('seco#x7k2', 'produtos')).toBe('seco#x7k2::produtos');
+    expect(tipoModulo('seco#x7k2', 'entrada')).toBe('seco#x7k2:entrada');
+  });
+
+  it('a instancia RAIZ nao muda nada — e o que dispensa migracao de dados', () => {
+    expect(chaveModulo('seco', 'produtos')).toBe('seco::produtos');
+    expect(tipoModulo('producao', 'entrada')).toBe('entrada');
+    expect(chaveModulo(MODULO_PADRAO, 'produtos')).toBe('produtos');
+  });
+
+  it('CATALOGO e por TIPO: toda instancia de seco le o mesmo catalogo', () => {
+    // e o que torna o balanco consolidado possivel — somar por produtoId so
+    // funciona porque o id e o mesmo dos dois lados
+    expect(catalogoDe('seco#x7k2')).toBe('seco');
+    expect(catalogoDe('seco#b9dd')).toBe('seco');
+    expect(chaveModulo(catalogoDe('seco#x7k2'), 'produtos')).toBe('seco::produtos');
+  });
+
+  it('toda finalizacao — inclusive instancia nova — le o catalogo da producao', () => {
+    expect(catalogoDe('finalizacao')).toBe(MODULO_PADRAO);
+    expect(catalogoDe('finalizacao#b3nq')).toBe(MODULO_PADRAO);
+    expect(chaveModulo(catalogoDe('finalizacao#b3nq'), 'produtos')).toBe('produtos');
+  });
+
+  it('mas o SALDO e separado: a chave de lancamento leva a instancia', () => {
+    // catalogo igual, estoque diferente — que e exatamente o pedido do dono
+    expect(chaveModulo('seco#x7k2', 'entradas')).toBe('seco#x7k2::entradas');
+    expect(chaveModulo('seco#b9dd', 'entradas')).toBe('seco#b9dd::entradas');
+  });
+
+  it('recursos vem do TIPO: instancia nova herda tudo sem configurar', () => {
+    expect(temRecurso('seco#x7k2', 'receitas')).toBe(false);
+    expect(temRecurso('seco#x7k2', 'entradas')).toBe(true);
+    expect(temRecurso('finalizacao#b3nq', 'fecharTurno')).toBe(true);
+    expect(temRecurso('finalizacao#b3nq', 'compras')).toBe(false);
+  });
+
+  it('moduloPorId acha o rotulo do tipo mesmo com sufixo', () => {
+    expect(moduloPorId('seco#x7k2').label).toBe('Estoque Seco');
+    expect(moduloPorId('finalizacao#b3nq').icone).toBe('🍳');
+  });
+
+  // ⚠️ O TESTE MAIS IMPORTANTE DESTE BLOCO.
+  // Se moduloValido consultasse o REGISTRO de instancias em vez do FORMATO,
+  // arquivar uma instancia faria lerTipo cair no fallback "prefixo desconhecido
+  // = dado antigo" e despejar o estoque daquele restaurante DENTRO DA PRODUCAO,
+  // sem erro nenhum.
+  it('validacao e por FORMATO — id de instancia arquivada nao vira dado da producao', () => {
+    expect(moduloValido('seco#x7k2')).toBe(true);
+    expect(lerTipo('seco#x7k2:entrada').modulo).toBe('seco#x7k2');
+  });
+
+  it('formato invalido NAO passa — senao qualquer lixo viraria estoque', () => {
+    expect(moduloValido('seco#x')).toBe(false);        // curto demais
+    expect(moduloValido('seco#X7K2')).toBe(false);     // maiuscula
+    expect(moduloValido('xpto#x7k2')).toBe(false);     // tipo inexistente
+    expect(moduloValido('seco#x7k2z')).toBe(false);    // longo demais
+    expect(ehIdInstancia('seco')).toBe(false);         // raiz nao e instancia
+  });
+
+  it('prefixo desconhecido continua caindo na producao (compatibilidade)', () => {
+    expect(lerTipo('xpto:entrada')).toEqual({ modulo: MODULO_PADRAO, tipo: 'xpto:entrada' });
+  });
+
+  it('gerarIdInstancia produz id valido e nao repete o que ja existe', () => {
+    const existentes = [];
+    for (let i = 0; i < 200; i++) {
+      const id = gerarIdInstancia('seco', existentes);
+      expect(ehIdInstancia(id)).toBe(true);
+      expect(tipoBase(id)).toBe('seco');
+      existentes.push({ id });
+    }
+    expect(new Set(existentes.map(x => x.id)).size).toBe(200);
+  });
+
+  it('gerarIdInstancia recusa tipo inexistente em vez de criar estoque fantasma', () => {
+    expect(() => gerarIdInstancia('xpto')).toThrow();
+  });
+
+  it('o alfabeto do id evita caracteres que se confundem ao ler em voz alta', () => {
+    const ids = Array.from({ length: 300 }, () => gerarIdInstancia('seco'));
+    const sufixos = ids.map(i => i.split('#')[1]).join('');
+    expect(/[ilo01]/.test(sufixos)).toBe(false);
+  });
+
+  it('ida e volta sobrevive para instancia, como ja sobrevivia para modulo', () => {
+    for (const mod of ['producao', 'seco', 'seco#x7k2', 'finalizacao#b3nq']) {
+      for (const tipo of ['entrada', 'saida', 'ajuste', 'perda']) {
+        expect(lerTipo(tipoModulo(mod, tipo))).toEqual({ modulo: mod, tipo });
+      }
+    }
   });
 });

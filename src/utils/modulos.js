@@ -9,6 +9,52 @@
 
 export const MODULO_PADRAO = 'producao';
 
+// ─────────────────────────────────────────────────────────────────────
+//  INSTÂNCIAS — vários estoques do MESMO tipo na mesma conta.
+//  Ex.: o Estoque Seco do Restaurante X e o do Restaurante Y.
+//
+//  Formato: <tipo>#<4 caracteres>   →  'seco#x7k2'
+//
+//  Por que '#' e não ':' — `lerTipo` corta no PRIMEIRO ':', então
+//  'seco#x7k2:entrada' continua sendo lido como { modulo:'seco#x7k2',
+//  tipo:'entrada' } sem alterar uma linha daquela função.
+//
+//  A instância RAIZ de cada tipo mantém o id de sempre ('seco', 'producao'),
+//  então nenhum dado existente precisa ser convertido — é a mesma regra que
+//  fez o multi-módulo caber sem migração de dados.
+//
+//  ⚠️ Duas regras de higiene: id de instância NUNCA entra cru numa URL (usar
+//  encodeURIComponent — '#' vira âncora) nem num seletor CSS.
+// ─────────────────────────────────────────────────────────────────────
+export const SEPARADOR_INSTANCIA = '#';
+export const RE_INSTANCIA = /^(producao|seco|finalizacao)#[a-z0-9]{4}$/;
+
+/** Tipo base de um id. 'seco#x7k2' → 'seco'; 'seco' → 'seco'. */
+export const tipoBase = (id) => {
+  const s = String(id || '');
+  const i = s.indexOf(SEPARADOR_INSTANCIA);
+  return i < 0 ? s : s.slice(0, i);
+};
+
+export const ehIdInstancia = (id) => RE_INSTANCIA.test(String(id || ''));
+
+// Sem i, l, o, 0 e 1: o dono precisa conseguir ler o id em voz alta ao telefone
+// quando for pedir suporte, e esses cinco se confundem em qualquer fonte.
+const ALFABETO = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+/** Gera um id novo e não usado para uma instância do tipo. */
+export function gerarIdInstancia(tipo, existentes = []) {
+  if (!RECURSOS_MODULO[tipo]) throw new Error(`Tipo de estoque desconhecido: ${tipo}`);
+  const usados = new Set((existentes || []).map(i => i && i.id));
+  for (let tentativa = 0; tentativa < 50; tentativa++) {
+    let sufixo = '';
+    for (let n = 0; n < 4; n++) sufixo += ALFABETO[Math.floor(Math.random() * ALFABETO.length)];
+    const id = `${tipo}${SEPARADOR_INSTANCIA}${sufixo}`;
+    if (!usados.has(id)) return id;
+  }
+  throw new Error('Não consegui gerar um id de estoque. Tente de novo.');
+}
+
 export const MODULOS = [
   {
     id: 'producao',
@@ -37,8 +83,19 @@ export const MODULOS = [
  * a Produção porcionou. Cadastrar "Molho da casa" duas vezes criaria dois itens
  * diferentes com o mesmo nome e a ponte entre as cozinhas nunca casaria os ids.
  * Por isso ela lê o catálogo da produção — mesmo item, mesmo id, dos dois lados.
+ *
+ * Com instâncias, o catálogo é por TIPO, não por instância: "Arroz tipo 1" é
+ * cadastrado uma vez e aparece em todo Estoque Seco. O que é ÚNICO de cada
+ * instância é o SALDO (sai de graça: os lançamentos já são separados por
+ * estoque) e o mín/máx (documento `metas`, por instância).
+ *
+ * É também o que torna o balanço consolidado possível: somar por produtoId só
+ * funciona porque o id é o mesmo dos dois lados.
  */
-export const catalogoDe = (modulo) => modulo === 'finalizacao' ? 'producao' : modulo;
+export const catalogoDe = (modulo) => {
+  const base = tipoBase(modulo);
+  return base === 'finalizacao' ? MODULO_PADRAO : base;
+};
 
 // Destino de saída que representa "mandei para a Cozinha de Finalização".
 // É o gatilho da entrada automática do outro lado.
@@ -77,8 +134,21 @@ export function mesclarFixos(salvos, padrao) {
   return mudou ? saida : lista;
 }
 
-export const moduloPorId = (id) => MODULOS.find(m => m.id === id) || MODULOS[0];
-export const moduloValido = (id) => MODULOS.some(m => m.id === id);
+export const moduloPorId = (id) => MODULOS.find(m => m.id === tipoBase(id)) || MODULOS[0];
+
+/**
+ * Valida um id de estoque — por FORMATO, nunca consultando o registro de
+ * instâncias.
+ *
+ * ⚠️ Isto não é preferência de estilo. Se a validação dependesse do registro,
+ * ARQUIVAR uma instância faria `lerTipo` cair no fallback "prefixo desconhecido
+ * = dado antigo" e despejar o estoque daquele restaurante DENTRO DA PRODUÇÃO,
+ * sem erro nenhum. Validando por formato isso é impossível por construção.
+ *
+ * Também mantém a função pura: ela roda na leitura do localStorage, antes de
+ * qualquer hidratação, quando o registro ainda nem existe.
+ */
+export const moduloValido = (id) => MODULOS.some(m => m.id === id) || ehIdInstancia(id);
 
 /**
  * Quais recursos cada módulo tem. É isto que a navegação consulta para esconder
@@ -119,7 +189,7 @@ export const RECURSOS_MODULO = {
 // ligava a tela sozinho — foi assim que "Fechar turno", que só existe na
 // finalização, apareceu na Produção e no Estoque Seco.
 export const temRecurso = (modulo, recurso) =>
-  (RECURSOS_MODULO[modulo] || RECURSOS_MODULO[MODULO_PADRAO])[recurso] === true;
+  (RECURSOS_MODULO[tipoBase(modulo)] || RECURSOS_MODULO[MODULO_PADRAO])[recurso] === true;
 
 /**
  * Chave de catálogo/cache com namespace do módulo.
@@ -139,7 +209,13 @@ export const chaveModulo = (modulo, chave) =>
 export const tipoModulo = (modulo, tipo) =>
   !modulo || modulo === MODULO_PADRAO ? tipo : `${modulo}:${tipo}`;
 
-/** Separa um tipo gravado de volta em { modulo, tipo }. */
+/**
+ * Separa um tipo gravado de volta em { modulo, tipo }.
+ *
+ * Corta no PRIMEIRO ':' — é por isso que o separador de instância é '#':
+ * 'seco#x7k2:entrada' devolve { modulo: 'seco#x7k2', tipo: 'entrada' } sem que
+ * esta função precise saber que instâncias existem.
+ */
 export function lerTipo(tipoGravado) {
   const i = String(tipoGravado || '').indexOf(':');
   if (i < 0) return { modulo: MODULO_PADRAO, tipo: tipoGravado };
