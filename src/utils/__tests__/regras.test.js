@@ -12,6 +12,7 @@ import { statusEstoque } from '../calculos';
 import { conciliarAuditoria } from '../auditoria';
 import { custoUnitario, valorDoEstoque, curvaABC, custoDosRegistros, precoDaCompra } from '../financeiro';
 import { listarEstoques, estoquesAtivos, acharEstoque, estabelecimentoDe, salvarEstoque, moduloUtilizavel } from '../instancias';
+import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque } from '../visaoEstoque';
 import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
 import { isoLocal } from '../formatters';
@@ -1598,5 +1599,153 @@ describe('acharEstoque — nunca devolve nada', () => {
   });
   it('id desconhecido cai na raiz do tipo em vez de devolver undefined', () => {
     expect(acharEstoque(lista, 'seco#nada').id).toBe('seco');
+  });
+});
+
+// FASE 3 — cada estoque tem o SEU min/max para o MESMO produto do catalogo
+// compartilhado. Era o pedido explicito do dono: "as quantidades de cada
+// estoque de cada item e unica, ate para ter o controle de min e max".
+describe('metas por estoque — mesmo produto, alvos diferentes', () => {
+  const catalogo = [
+    { id: 'arroz',  nome: 'Arroz',  unidade: 'unid', min: 4, max: 12, ativo: true },
+    { id: 'feijao', nome: 'Feijao', unidade: 'unid', min: 6, max: 20, ativo: true },
+  ];
+
+  it('sem meta nenhuma, devolve o catalogo INTACTO (mesma referencia)', () => {
+    // identidade importa: se mudasse, todo useMemo que depende de `produtos`
+    // invalidaria a cada render — perceptivel num tablet barato
+    expect(comMetas(catalogo, {})).toBe(catalogo);
+    expect(comMetas(catalogo, null)).toBe(catalogo);
+  });
+
+  it('a meta do estoque sobrepoe o min/max do catalogo', () => {
+    const r = comMetas(catalogo, { arroz: { min: 20, max: 50 } });
+    expect(r.find(p => p.id === 'arroz').min).toBe(20);
+    expect(r.find(p => p.id === 'arroz').max).toBe(50);
+  });
+
+  it('o que NAO e min/max continua vindo do catalogo compartilhado', () => {
+    const r = comMetas(catalogo, { arroz: { min: 20, max: 50 } });
+    const arroz = r.find(p => p.id === 'arroz');
+    expect(arroz.nome).toBe('Arroz');       // nome e compartilhado
+    expect(arroz.unidade).toBe('unid');
+  });
+
+  it('produto sem meta fica com o objeto ORIGINAL, nao uma copia', () => {
+    const r = comMetas(catalogo, { arroz: { min: 20, max: 50 } });
+    expect(r.find(p => p.id === 'feijao')).toBe(catalogo[1]);
+  });
+
+  it('meta igual a do catalogo nao cria objeto novo', () => {
+    expect(comMetas(catalogo, { arroz: { min: 4, max: 12 } })).toBe(catalogo);
+  });
+
+  it('meta com valor invalido cai para o do catalogo em vez de virar NaN', () => {
+    const r = comMetas(catalogo, { arroz: { min: 'abc', max: null } });
+    expect(r.find(p => p.id === 'arroz').min).toBe(4);
+    expect(r.find(p => p.id === 'arroz').max).toBe(12);
+  });
+});
+
+describe('separarMetas — a gravacao vai para o lugar certo sozinha', () => {
+  const catalogo = [
+    { id: 'arroz', nome: 'Arroz', unidade: 'unid', min: 4, max: 12, ativo: true },
+  ];
+
+  it('mudar SO o min/max grava em metas e NAO toca no catalogo', () => {
+    // e o que impede o min do Restaurante Y de sobrescrever o do X
+    const nova = [{ ...catalogo[0], min: 20, max: 50 }];
+    const r = separarMetas(catalogo, nova, {});
+    expect(r.metas).toEqual({ arroz: { min: 20, max: 50 } });
+    expect(r.catalogo).toBeNull();
+  });
+
+  it('mudar o NOME grava no catalogo e nao inventa meta', () => {
+    const nova = [{ ...catalogo[0], nome: 'Arroz tipo 1' }];
+    const r = separarMetas(catalogo, nova, {});
+    expect(r.catalogo[0].nome).toBe('Arroz tipo 1');
+    expect(r.metas).toBeNull();
+  });
+
+  it('mudar os dois de uma vez separa cada um para o seu lado', () => {
+    const nova = [{ ...catalogo[0], nome: 'Arroz tipo 1', min: 20, max: 50 }];
+    const r = separarMetas(catalogo, nova, {});
+    expect(r.catalogo[0].nome).toBe('Arroz tipo 1');
+    expect(r.catalogo[0].min).toBe(4);        // catalogo preserva o min original
+    expect(r.metas.arroz).toEqual({ min: 20, max: 50 });
+  });
+
+  it('produto NOVO entra no catalogo com o min/max que veio', () => {
+    // catalogo e compartilhado: item recem-criado precisa nascer igual em todos
+    const nova = [...catalogo, { id: 'sal', nome: 'Sal', unidade: 'kg', min: 2, max: 8, ativo: true }];
+    const r = separarMetas(catalogo, nova, {});
+    expect(r.catalogo).toHaveLength(2);
+    expect(r.catalogo[1].min).toBe(2);
+  });
+
+  it('nada mudou = nada e gravado (nao suja o documento a toa)', () => {
+    const r = separarMetas(catalogo, [{ ...catalogo[0] }], {});
+    expect(r.catalogo).toBeNull();
+    expect(r.metas).toBeNull();
+  });
+
+  it('voltar a meta para o valor do catalogo continua sendo uma meta explicita', () => {
+    const r = separarMetas(catalogo, [{ ...catalogo[0], min: 4, max: 12 }], { arroz: { min: 20, max: 50 } });
+    expect(r.metas.arroz).toEqual({ min: 4, max: 12 });
+  });
+});
+
+// A Administracao precisa mostrar o relatorio do Estoque Seco enquanto a cozinha
+// segue com a Producao aberta. Antes o cartao trocava o estoque ATIVO — clicar
+// num relatorio mudava onde a equipe ia lancar.
+describe('visao de um estoque sem trocar o que esta aberto', () => {
+  const linha = (id, tipo, dados) => ({ id, tipo, ts: 1, dados, deleted: false });
+  const conv = (l) => ({ id: l.id, ts: l.ts, ...l.dados });
+
+  const linhas = [
+    linha('a', 'seco:entrada',       { data: '2026-08-01', itens: [{ produtoId: 'arroz', quantidade: 100 }] }),
+    linha('b', 'seco#x7k2:entrada',  { data: '2026-08-01', itens: [{ produtoId: 'arroz', quantidade: 7 }] }),
+    linha('c', 'seco#x7k2:saida',    { data: '2026-08-02', itens: [{ produtoId: 'arroz', quantidade: 2 }], destino: 'cozinha' }),
+    linha('d', 'auditoria',          { acao: 'x' }),
+  ];
+
+  it('cada estoque recebe so os lancamentos dele', () => {
+    const f = fatiarPorEstoque(linhas, ['seco', 'seco#x7k2'], conv);
+    expect(f['seco'].entradas.map(r => r.id)).toEqual(['a']);
+    expect(f['seco#x7k2'].entradas.map(r => r.id)).toEqual(['b']);
+    expect(f['seco#x7k2'].saidas.map(r => r.id)).toEqual(['c']);
+  });
+
+  it('auditoria e da CONTA e nao entra em estoque nenhum', () => {
+    const f = fatiarPorEstoque(linhas, ['seco', 'seco#x7k2'], conv);
+    const tudo = [...f['seco'].entradas, ...f['seco'].saidas, ...f['seco'].compras];
+    expect(tudo.some(r => r.id === 'd')).toBe(false);
+  });
+
+  it('a saida da producao vira RECEBIMENTO da finalizacao destinataria', () => {
+    const comPonte = [
+      linha('e', 'saida', { data: '2026-08-01', destino: 'finalizacao#b3nq', itens: [{ produtoId: 'molho', quantidade: 5 }] }),
+      linha('f', 'saida', { data: '2026-08-01', destino: 'finalizacao', itens: [{ produtoId: 'molho', quantidade: 9 }] }),
+    ];
+    const f = fatiarPorEstoque(comPonte, ['finalizacao', 'finalizacao#b3nq'], conv);
+    expect(f['finalizacao#b3nq'].recebimentos.map(r => r.id)).toEqual(['e']);
+    expect(f['finalizacao'].recebimentos.map(r => r.id)).toEqual(['f']);
+  });
+
+  it('SALDO separado com CATALOGO compartilhado — o pedido do dono', () => {
+    const docs = {
+      'seco::produtos': [{ id: 'arroz', nome: 'Arroz', unidade: 'unid', min: 4, max: 12, ativo: true }],
+      'seco#x7k2::metas': { arroz: { min: 20, max: 50 } },
+    };
+    const f = fatiarPorEstoque(linhas, ['seco', 'seco#x7k2'], conv);
+    const raiz = visaoDoEstoque({ id: 'seco', docs, registrosFatiados: f, aplicarMetas: comMetas });
+    const inst = visaoDoEstoque({ id: 'seco#x7k2', docs, registrosFatiados: f, aplicarMetas: comMetas });
+
+    expect(raiz.estoque.arroz).toBe(100);        // saldos diferentes
+    expect(inst.estoque.arroz).toBe(5);          // 7 entraram, 2 sairam
+    expect(raiz.produtos[0].nome).toBe('Arroz'); // mesmo cadastro
+    expect(inst.produtos[0].nome).toBe('Arroz');
+    expect(raiz.produtos[0].min).toBe(4);        // metas diferentes
+    expect(inst.produtos[0].min).toBe(20);
   });
 });

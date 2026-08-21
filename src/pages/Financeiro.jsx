@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import Layout from '../components/Layout';
+import SeletorVisao from '../components/SeletorVisao';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { pode } from '../utils/permissoes';
@@ -24,11 +25,25 @@ function Cartao({ titulo, valor, detalhe, tom = 'normal' }) {
   );
 }
 
+// ⚠️ Fallbacks ESTÁVEIS. `visao.x || []` cria um array novo a cada render e
+// invalida todo useMemo que depende dele — no tablet isso é recálculo de
+// gráfico a cada toque. Constantes de módulo têm identidade fixa.
+const SEM_LISTA = [];
+const SEM_MAPA = {};
+
 export default function Financeiro() {
-  const { produtos, estoque, precos, saidas, desperdicio, modulo } = useApp();
+  const { precos, modulo, estoques, visoesPorEstoque, permissoes } = useApp();
   const { sessao } = useAuth();
-  const { permissoes } = useApp();
   const [dias, setDias] = useState(30);
+  // Qual estoque esta tela MOSTRA. Começa no aberto por conveniência, mas
+  // trocar aqui NÃO muda o estoque da operação — ver SeletorVisao.
+  const [vendo, setVendo] = useState(modulo);
+  const visao = visoesPorEstoque?.[vendo] || visoesPorEstoque?.[modulo] || SEM_MAPA;
+  const produtos = visao.produtos || SEM_LISTA;
+  const estoque = visao.estoque || SEM_MAPA;
+  const saidas = visao.saidas || SEM_LISTA;
+  const desperdicio = visao.desperdicio || SEM_LISTA;
+  const nomeDoEstoque = estoques.find(e => e.id === vendo)?.nome || '';
 
   const de = addDias(hoje(), -dias);
   const podeVer = pode(sessao, permissoes, 'verFinanceiro');
@@ -43,7 +58,7 @@ export default function Financeiro() {
   // "não gastei nada".
   if (!podeVer) {
     return (
-      <Layout title="Financeiro">
+      <Layout title="Financeiro" area="admin">
         <div className="bg-white rounded-xl p-6 text-center border border-gray-100">
           <p className="text-4xl mb-2" aria-hidden="true">🔒</p>
           <p className="text-sm font-bold text-polo-navy">Sem acesso aos custos</p>
@@ -59,8 +74,10 @@ export default function Financeiro() {
   const semPreco = est.semCusto.length;
 
   return (
-    <Layout title="Financeiro">
+    <Layout title="Financeiro" area="admin">
       <div className="space-y-4">
+
+        <SeletorVisao valor={vendo} aoTrocar={setVendo} />
 
         <div className="flex gap-1.5">
           {[7, 30, 90].map(d => (
@@ -158,9 +175,8 @@ export default function Financeiro() {
         )}
 
         <p className="text-[11px] text-gray-400 px-1 leading-relaxed">
-          Os números são deste estoque ({modulo === 'producao' ? 'Cozinha de Produção' : modulo === 'seco' ? 'Estoque Seco' : 'Cozinha de Finalização'}).
-          Trocar de estoque na Administração muda o que aparece aqui.
-          O custo usado é o da <strong>última compra</strong> registrada de cada item.
+          Números de <strong>{nomeDoEstoque}</strong>. O custo usado é o da{' '}
+          <strong>última compra</strong> registrada de cada item.
         </p>
       </div>
     </Layout>

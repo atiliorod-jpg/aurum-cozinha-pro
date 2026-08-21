@@ -33,7 +33,7 @@ export default function Auditoria() {
   }, [auditoria, filtroUsuario, busca, periodo]);
 
   return (
-    <Layout title="Histórico de Mudanças">
+    <Layout title="Histórico de Mudanças" area="admin">
       <div className="bg-polo-beige border border-polo-gold/40 rounded-xl p-3 text-xs text-polo-navy mb-4">
         🔍 Registro automático de tudo que cada usuário fez no sistema. Visível apenas para Gerência e Diretoria.
       </div>

@@ -1390,6 +1390,7 @@ ${linkConvite(conviteGerado.token)}
   return (
     <Layout
       title="Configurações"
+      area="admin"
       actions={
         secaoAtiva === 'produtos' ? (
           <button onClick={() => setCriando(true)} aria-label="Adicionar produto"

@@ -29,7 +29,7 @@ export default function Estoques() {
 
   if (!eDiretoria) {
     return (
-      <Layout title="Estoques">
+      <Layout title="Estoques" area="admin">
         <div className="bg-white rounded-xl p-6 text-center border border-gray-100">
           <p className="text-4xl mb-2" aria-hidden="true">🔒</p>
           <p className="text-sm font-bold text-polo-navy">Só a diretoria mexe nos estoques</p>
@@ -87,7 +87,7 @@ export default function Estoques() {
   const campo = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
 
   return (
-    <Layout title="Estoques">
+    <Layout title="Estoques" area="admin">
       <div className="space-y-5">
         <p className="text-[11px] text-gray-500 px-1 leading-relaxed">
           Cada estoque tem <strong>saldo e mín/máx próprios</strong>. O cadastro de produtos é

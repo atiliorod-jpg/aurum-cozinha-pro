@@ -9,8 +9,9 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
 import { registrarFalha, ressuscitar } from '../utils/outbox';
-import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase } from '../utils/modulos';
+import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
+import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque } from '../utils/visaoEstoque';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -99,7 +100,7 @@ export function AppProvider({ children }) {
   const soLeitura = !!impersonando && !impersonando.podeMexer;
 
   // ── Estado (hidratado do cache → rede) ─────────────────────
-  const [produtos,    setProdutosRaw]    = useState(CAT.produtos);
+  const [produtosCat, setProdutosRaw]    = useState(CAT.produtos); // catálogo COMPARTILHADO
   const [categorias,  setCategoriasRaw]  = useState(CAT.categorias);
   const [pessoas,     setPessoasRaw]     = useState(CAT.pessoas);
   const [destinos,    setDestinosRaw]    = useState(CAT.destinos);
@@ -112,6 +113,8 @@ export function AppProvider({ children }) {
   const [permissoes, setPermissoesRaw] = useState(CAT.permissoes);
   const [precos,      setPrecosRaw]      = useState(CAT.precos);
   const [estoquesDoc, setEstoquesDocRaw] = useState(CAT.estoques);
+  // mín/máx DESTE estoque, sobrepostos ao catálogo compartilhado (Fase 3)
+  const [metas,       setMetasRaw]       = useState({});
   const [prefs,       setPrefsRaw]       = useState(CAT.prefs);
   const [compras,     setComprasRaw]     = useState([]);
   const [entradas,    setEntradasRaw]    = useState([]);
@@ -192,6 +195,22 @@ export function AppProvider({ children }) {
   // dois lados e a ponte nunca casaria.
   const kc = useCallback((chave) => chaveModulo(catalogoDe(moduloRef.current), chave), []);
   const t = useCallback((tipo) => tipoModulo(moduloRef.current, tipo), []);
+  // ── O que o app inteiro enxerga como `produtos` ────────────
+  // Catálogo COMPARTILHADO entre estoques do mesmo tipo + as METAS deste
+  // estoque. É o ponto único de injeção: os oito consumidores de p.min/p.max
+  // (calculos, analise, NavBar, Dashboard, Compras, Producao, sugestoes)
+  // continuam iguais, sem uma linha alterada.
+  const produtos = useMemo(() => comMetas(produtosCat, metas), [produtosCat, metas]);
+
+  // Dados CRUS da última hidratação — o cliente já baixa tudo da conta e antes
+  // jogava fora o que não era do estoque aberto. Guardar permite a Administração
+  // mostrar o relatório de outro estoque SEM trocar o que está aberto, e o
+  // balanço consolidado somar todos. Custo zero de rede.
+  // ESTADO, não ref: o cálculo das visões acontece no render, e ler ref durante
+  // o render quebra no modo concorrente do React (o lint pega). Muda só na
+  // hidratação, então não custa render extra.
+  const [brutos, setBrutos] = useState({ registros: [], docs: {} });
+
   const dadosRef = useRef({});
   dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
   /* eslint-enable react-hooks/refs */
@@ -291,7 +310,23 @@ export function AppProvider({ children }) {
     salvarDocNuvem(r, chave, valor, (dadosSrv) => { setRaw(dadosSrv); cacheSet(r, chave, dadosSrv); });
   }, [salvarDocNuvem, k, kc]);
 
-  const setProdutos   = useCallback((v) => persistCatalogo('produtos',   setProdutosRaw,   v), [persistCatalogo]);
+  const setMetas = useCallback((v) => persistCatalogo('metas', setMetasRaw, v), [persistCatalogo]);
+
+  /**
+   * PONTO ÚNICO da separação catálogo x metas.
+   *
+   * Todas as telas continuam chamando setProdutos com a lista inteira, como
+   * sempre — Configurações, importação de planilha, sugestão do Dashboard,
+   * auto-mín/máx. Se cada uma tivesse que saber da separação, bastava UMA
+   * esquecer para gravar o mín do Restaurante Y por cima do X, em silêncio.
+   */
+  const setProdutos = useCallback((v) => {
+    const lista = typeof v === 'function' ? v(dadosRef.current.produtos) : v;
+    const { catalogo, metas: novasMetas } =
+      separarMetas(dadosRef.current.produtosCat, lista, dadosRef.current.metas);
+    if (novasMetas) persistCatalogo('metas', setMetasRaw, novasMetas);
+    if (catalogo) persistCatalogo('produtos', setProdutosRaw, catalogo);
+  }, [persistCatalogo]);
   const setCategorias = useCallback((v) => persistCatalogo('categorias', setCategoriasRaw, v), [persistCatalogo]);
   const setDestinos   = useCallback((v) => persistCatalogo('destinos',   setDestinosRaw,   v), [persistCatalogo]);
   const setFichas     = useCallback((v) => persistCatalogo('fichas',     setFichasRaw,     v), [persistCatalogo]);
@@ -483,6 +518,11 @@ export function AppProvider({ children }) {
   useEffect(() => { produtosAutoRef.current = produtos; }, [produtos]);
   useEffect(() => {
     if (!prefs.autoMinMax) return;
+    // ⚠️ Sem saídas registradas não há ritmo de consumo para inferir. Na
+    // Finalização o consumo sai do FECHAMENTO DE TURNO, não de `saidas` — então
+    // calcSugestoesMinMax devolveria min=0/max=0 e o efeito apagaria as metas
+    // da bancada sozinho, no meio do serviço, sem a tela ter como avisar.
+    if (!temRecurso(moduloRef.current, 'saidas')) return;
     const t = setTimeout(() => {
       const prods = produtosAutoRef.current;
       if (!prods) return;
@@ -560,10 +600,15 @@ export function AppProvider({ children }) {
       return;
     }
     let ativo = true;
+    // documentos crus desta hidratação (usados pela visão de outro estoque)
+    let mapaDocs = {};
 
     // 1) cache instantâneo (funciona offline) — tudo pela chave do MÓDULO ativo
     const P = catalogosPadrao(tipoBase(moduloEfetivo));
     setProdutosRaw(cacheGet(rid, kc('produtos'), P.produtos));
+    // metas usam k() (por estoque), NÃO kc() — é justamente o que muda entre
+    // instâncias do mesmo tipo
+    setMetasRaw(cacheGet(rid, k('metas'), {}));
     setCategoriasRaw(cacheGet(rid, kc('categorias'), P.categorias));
     setPessoasRaw(cacheGet(rid, 'pessoas', P.pessoas)); // equipe é do restaurante, não do módulo
     setDestinosRaw(cacheGet(rid, k('destinos'), P.destinos));
@@ -669,6 +714,7 @@ export function AppProvider({ children }) {
         console.warn('[hidratação] falha ao buscar catálogos — mantendo o cache local (não sobrescreve com padrões):', errDocs.message);
       } else {
         const mapa = {};
+        mapaDocs = mapa;
         versoesRef.current = {}; // recomeça o controle de versão para este restaurante
         (docs || []).forEach(d => { mapa[d.chave] = d.dados; versoesRef.current[d.chave] = d.versao || 0; });
         // `reparar` conserta um catálogo que JÁ existe na nuvem. Era o buraco do
@@ -696,6 +742,7 @@ export function AppProvider({ children }) {
         };
         // catálogos do MÓDULO ativo (no padrão, k() devolve a chave de sempre)
         aplicaCat(kc('produtos'), setProdutosRaw, P.produtos);
+        aplicaCat(k('metas'), setMetasRaw, {});
         aplicaCat(kc('categorias'), setCategoriasRaw, P.categorias);
         aplicaCat('pessoas', setPessoasRaw, P.pessoas); // equipe é do restaurante
         aplicaCat(k('destinos'), setDestinosRaw, P.destinos);
@@ -739,6 +786,10 @@ export function AppProvider({ children }) {
 
       const { data: regs, error: errRegs } = await supabase.from('registros').select('*').eq('restaurante_id', rid).eq('deleted', false);
       if (!ativo) return;
+      // Guarda o BRUTO: a Administração precisa mostrar o relatório de outro
+      // estoque sem trocar o que está aberto, e o balanço consolidado precisa de
+      // todos. O cliente já baixou tudo — antes isto era descartado.
+      setBrutos({ registros: regs || [], docs: mapaDocs });
       if (!errRegs) {
         // Agrupa por tipo JÁ separando o módulo: 'seco:entrada' só alimenta o
         // estoque seco. Registro antigo (sem prefixo) cai na produção, que é o
@@ -814,6 +865,7 @@ export function AppProvider({ children }) {
     // divergirem de novo.
     const setterDoc = {
       [kc('produtos')]:   setProdutosRaw,
+      [k('metas')]:       setMetasRaw,
       [kc('categorias')]: setCategoriasRaw,
       [kc('fichas')]:     setFichasRaw,
       [k('destinos')]:    setDestinosRaw,
@@ -936,9 +988,37 @@ export function AppProvider({ children }) {
   // catálogo do seco é outra, o estrago era gravado direto por cima do
   // catálogo do seco. catalogoDe() mantém a finalização lendo o da produção,
   // que é o comportamento correto (ela não tem catálogo próprio).
+  // Restaura o CATÁLOGO. Não mexe nas metas: elas são de cada estoque, e
+  // apagá-las junto faria "restaurar produtos" zerar o mín/máx de todas as
+  // unidades de uma vez.
+  /**
+   * Visão de QUALQUER estoque, sem mexer no que está aberto.
+   *
+   * É o que permite a Administração ser uma área de verdade: ver o relatório do
+   * Estoque Seco enquanto a cozinha continua com a Produção aberta no mesmo
+   * aparelho. Antes o cartão chamava setModulo e a área operacional trocava
+   * embaixo do usuário — clicar num relatório mudava onde a equipe ia lançar.
+   *
+   */
+  const visoesPorEstoque = useMemo(() => {
+    const ids = estoques.map(e => e.id);
+    const fatiado = fatiarPorEstoque(brutos.registros, ids, linhaParaRegistro);
+    const saida = {};
+    ids.forEach(id => {
+      saida[id] = visaoDoEstoque({
+        id,
+        docs: brutos.docs,
+        registrosFatiados: fatiado,
+        padroes: catalogosPadrao(tipoBase(id)),
+        aplicarMetas: comMetas,
+      });
+    });
+    return saida;
+  }, [estoques, brutos]);
+
   const resetarProdutos = useCallback(
-    () => setProdutos(catalogosPadrao(catalogoDe(moduloRef.current)).produtos),
-    [setProdutos],
+    () => persistCatalogo('produtos', setProdutosRaw, catalogosPadrao(catalogoDe(moduloRef.current)).produtos),
+    [persistCatalogo],
   );
 
   const exportarBackup = useCallback(() => {
@@ -1043,7 +1123,8 @@ export function AppProvider({ children }) {
       etiquetasImpressas, setEtiquetasImpressas,
       permissoes, setPermissoes,
       precos, setPrecos,
-      estoques, estoqueAtual, estoquesDoc, setEstoquesDoc,
+      estoques, estoqueAtual, estoquesDoc, setEstoquesDoc, visoesPorEstoque,
+      metas, setMetas,
       destinos, setDestinos,
       categorias, setCategorias,
       auditoria, logAudit,

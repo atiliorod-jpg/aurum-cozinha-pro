@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { statusEstoque } from '../utils/calculos';
-import { pode } from '../utils/permissoes';
+import { pode, podeAbrirConfig } from '../utils/permissoes';
 import { temRecurso } from '../utils/modulos';
 import Icon from './Icons';
 
@@ -29,7 +29,17 @@ const NAV = [
   // "Validades" tinha, aparecendo na barra e como card no hub.
 ];
 
-export default function NavBar() {
+// Barra da ADMINISTRAÇÃO. Só destinos de dentro da própria área — nenhum
+// leva para um estoque. É o que impede a pessoa de entrar na Administração e
+// ser jogada numa cozinha ao tocar num botão.
+const NAV_ADMIN = [
+  { to: '/administracao', icon: 'inicio',    label: 'Início' },
+  { to: '/relatorio',     icon: 'relatorio', label: 'Relatórios', cap: 'verRelatorio' },
+  { to: '/financeiro',    icon: 'config',    label: 'Financeiro', cap: 'verFinanceiro' },
+  { to: '/configuracoes', icon: 'config',    label: 'Config.',    cap: 'config' },
+];
+
+export default function NavBar({ area = 'estoque' }) {
   const { produtos, estoque, producoes, permissoes, modulo } = useApp();
   const { sessao } = useAuth();
   const alertas = produtos.filter(p => {
@@ -42,12 +52,13 @@ export default function NavBar() {
     return p?.ativo && p.min > 0 && (estoque[p.id] ?? 0) < p.min;
   }).length;
 
-  const itens = NAV.filter(n => {
+  const itens = (area === 'admin' ? NAV_ADMIN : NAV).filter(n => {
     // recurso do módulo primeiro: não adianta ter permissão para uma tela que
     // não existe no estoque aberto
     if (n.recurso && !temRecurso(modulo, n.recurso)) return false;
     if (n.semRecurso && temRecurso(modulo, n.semRecurso)) return false;
     if (!n.cap) return true;
+    if (n.cap === 'config') return podeAbrirConfig(sessao, permissoes);
     return pode(sessao, permissoes, n.cap);
   });
 

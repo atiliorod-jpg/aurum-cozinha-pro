@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
+import SeletorVisao from '../components/SeletorVisao';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
@@ -22,12 +23,31 @@ const Card = ({ titulo, children }) => (
   </div>
 );
 
+// ⚠️ Fallbacks ESTÁVEIS. `visao.x || []` cria um array novo a cada render e
+// invalida todo useMemo que depende dele — no tablet isso é recálculo de
+// gráfico a cada toque. Constantes de módulo têm identidade fixa.
+const SEM_LISTA = [];
+const SEM_MAPA = {};
+
 export default function Relatorio() {
-  const { produtos, compras, entradas, saidas, aparas, desperdicio, estoque, categorias, destinos, locais, modulo } = useApp();
+  const { modulo, estoques, visoesPorEstoque, categorias, destinos, locais } = useApp();
+  // Qual estoque o RELATÓRIO mostra. Começa no aberto, mas trocar aqui NÃO muda
+  // o estoque da operação — antes o cartão da Administração chamava setModulo e
+  // abrir um relatório trocava onde a equipe ia lançar.
+  const [vendo, setVendo] = useState(modulo);
+  const visao = visoesPorEstoque?.[vendo] || visoesPorEstoque?.[modulo] || SEM_MAPA;
+  const produtos = visao.produtos || SEM_LISTA;
+  const estoque = visao.estoque || SEM_MAPA;
+  const compras = visao.compras || SEM_LISTA;
+  const entradas = visao.entradas || SEM_LISTA;
+  const saidas = visao.saidas || SEM_LISTA;
+  const aparas = visao.aparas || SEM_LISTA;
+  const desperdicio = visao.desperdicio || SEM_LISTA;
+  const nomeDoEstoque = estoques.find(e => e.id === vendo)?.nome || '';
   // O estoque seco não tem apara de limpeza nem receita — esconder os blocos
   // evita seções eternamente vazias no relatório dele.
-  const temApara = temRecurso(modulo, 'aparas');
-  const temProducao = temRecurso(modulo, 'producao');
+  const temApara = temRecurso(vendo, 'aparas');
+  const temProducao = temRecurso(vendo, 'producao');
   // destinos criados pelo usuário em Config também precisam aparecer com o nome certo
   const rotuloDestino = useCallback((cod) =>
     destinos.find(d => d.cod === cod)?.label || DESTINOS_APARA.find(d => d.cod === cod)?.label || cod, [destinos]);
@@ -94,6 +114,7 @@ export default function Relatorio() {
   return (
     <Layout
       title="Relatório"
+      area="admin"
       actions={
         <button onClick={() => window.print()}
           className="bg-polo-gold text-polo-navy text-xs font-bold px-3 py-1.5 rounded-lg">
@@ -101,9 +122,17 @@ export default function Relatorio() {
         </button>
       }
     >
+      <div className="mb-4 print:hidden">
+        <SeletorVisao valor={vendo} aoTrocar={setVendo} />
+      </div>
+
       {/* Cabeçalho que só aparece na impressão/PDF (o header do app some no print) */}
       <div className="relatorio-print-cabecalho mb-4">
         <p className="text-lg font-bold text-polo-navy">Relatório — {nomeRest || 'Aurum Cozinha Pro'}</p>
+        {/* O nome do ESTOQUE entra no PDF impresso: com vários estoques na
+            conta, um relatório sem essa linha não diz de qual é — e ele
+            costuma ser impresso e passado adiante. */}
+        <p className="text-xs text-gray-500">{nomeDoEstoque}</p>
         <p className="text-xs text-gray-500">Período: {fmtData(rIni)} a {fmtData(rFim)} · gerado em {fmtData(hj)}</p>
       </div>
       {/* Seletor único de período */}

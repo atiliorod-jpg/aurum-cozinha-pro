@@ -9,7 +9,16 @@ import { useUI } from '../store/UIContext';
 
 const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
-export default function Layout({ title, children, actions }) {
+/**
+ * `area`:
+ *   'estoque' (padrão) — barra de operação e seletor de estoque no cabeçalho
+ *   'admin'            — barra própria da Administração, SEM seletor de estoque
+ *
+ * ⚠️ A Administração não mostra o seletor nem a barra de operação. Ter os dois
+ * ali fazia clicar em "Validades" sair da Administração e cair dentro de um
+ * estoque — a pessoa entrava numa área e era levada para outra sem pedir.
+ */
+export default function Layout({ title, children, actions, area = 'estoque' }) {
   const { sessao, logout } = useAuth();
   const { pendencias, online, estoqueAtual } = useApp();
   // Nome do ESTOQUE aberto — pode ser uma instância com nome próprio, não só o
@@ -61,7 +70,10 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
             )}
           </div>
         </div>
-        {/* Estoque aberto — toque para trocar (produção ⇄ seco) */}
+        {/* Estoque aberto — toque para trocar. Some na Administração: lá não
+            existe "estoque aberto", e mostrar o seletor convidava a trocar de
+            área sem querer. */}
+        {area === 'estoque' && (
         <button onClick={() => setTrocandoModulo(true)}
           aria-label={`Estoque aberto: ${mod.label}. Tocar para trocar de estoque`}
           className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1">
@@ -69,6 +81,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           <span className="text-[10px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
           <span className="text-white/50 text-[9px]" aria-hidden="true">▾</span>
         </button>
+        )}
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Status de sincronização: avisa quando há dados ainda não enviados ou sem internet */}
           {(pendencias > 0 || !online) && (
@@ -128,7 +141,10 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
         <GuideTour />
         {children}
       </main>
-      <NavBar />
+      {/* Cada área tem a SUA barra. A da operação leva para Registrar/Validades,
+          que são de dentro de um estoque; mostrá-la na Administração fazia um
+          toque tirar a pessoa da área em que ela acabou de entrar. */}
+      <NavBar area={area} />
     </div>
   );
 }
