@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { calcEstoquePuro } from '../estoque';
 import { calcLotes, lotesVencendo } from '../lotes';
 import { calcSugestoesMinMax } from '../sugestoes';
@@ -10,6 +10,7 @@ import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
 import { conciliarAuditoria } from '../auditoria';
+import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
@@ -1143,5 +1144,65 @@ describe('conciliarAuditoria — otimista local x definitiva do banco', () => {
   it('listas vazias ou ausentes não quebram', () => {
     expect(conciliarAuditoria([], [L('x', 1)])).toHaveLength(1);
     expect(conciliarAuditoria(undefined, undefined)).toEqual([]);
+  });
+});
+
+// ⚠️ SEGURANÇA. O logout de uma conta real não apagava NADA do cache: num
+// tablet de cozinha, compartilhado por definição, o próximo usuário lia
+// produtos, custos e histórico pelo DevTools. Estes testes travam as duas
+// metades da regra — apagar o dado, e NÃO apagar trabalho não sincronizado.
+describe('limparCacheLocal — logout não pode deixar dado no aparelho', () => {
+  // O código de produção usa `Object.keys(localStorage)`, e no localStorage REAL
+  // isso devolve as chaves guardadas. Num objeto comum devolveria os métodos —
+  // por isso os métodos entram como NÃO enumeráveis e os dados ficam como
+  // propriedades próprias. Mock que não imita isso passa sem testar nada.
+  let store;
+  beforeEach(() => {
+    store = {};
+    Object.defineProperties(store, {
+      getItem:    { value: (k) => (Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null) },
+      setItem:    { value: (k, v) => { store[k] = String(v); } },
+      removeItem: { value: (k) => { delete store[k]; } },
+    });
+    globalThis.localStorage = store;
+  });
+
+  const semir = (k, v) => { store[k] = JSON.stringify(v); };
+
+  it('apaga os dados de conta de TODOS os restaurantes do aparelho', () => {
+    semir('pe::rest_a::produtos', [{ id: 'x' }]);
+    semir('pe::rest_a::entradas', [{ id: 'e1' }]);
+    semir('pe::rest_b::produtos', [{ id: 'y' }]);   // outra conta que usou o mesmo tablet
+    semir('pe::rest_a::auditoria', [{ acao: 'x' }]);
+    limparCacheLocal();
+    expect(Object.keys(store)).toEqual([]);
+  });
+
+  it('preserva a preferência do APARELHO (senão o tablet esquece o estoque aberto)', () => {
+    store['pe::modulo'] = 'seco';
+    semir('pe::rest_a::produtos', [{ id: 'x' }]);
+    limparCacheLocal();
+    expect(store['pe::modulo']).toBe('seco');
+    expect(store['pe::rest_a::produtos']).toBeUndefined();
+  });
+
+  it('NÃO apaga fila com item vivo — seria destruir lançamento que não subiu', () => {
+    semir('pe::rest_a::_outbox', [{ _uid: '1', kind: 'registro' }]);
+    semir('pe::rest_a::produtos', [{ id: 'x' }]);
+    limparCacheLocal();
+    expect(store['pe::rest_a::_outbox']).toBeDefined();  // trabalho preservado
+    expect(store['pe::rest_a::produtos']).toBeUndefined(); // dado apagado
+  });
+
+  it('fila só com item MORTO pode sair: já falhou em definitivo, não é trabalho a salvar', () => {
+    semir('pe::rest_a::_outbox', [{ _uid: '1', _morto: true }]);
+    limparCacheLocal();
+    expect(store['pe::rest_a::_outbox']).toBeUndefined();
+  });
+
+  it('pendenciasNaoSincronizadas conta os vivos de todas as contas', () => {
+    semir('pe::rest_a::_outbox', [{ _uid: '1' }, { _uid: '2', _morto: true }]);
+    semir('pe::rest_b::_outbox', [{ _uid: '3' }]);
+    expect(pendenciasNaoSincronizadas()).toBe(2); // 2 vivos; o morto não conta
   });
 });

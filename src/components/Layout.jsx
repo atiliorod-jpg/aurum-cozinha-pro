@@ -24,7 +24,25 @@ export default function Layout({ title, children, actions }) {
   const nomeExibicao = sessao?.nome || (sessao?.eSuperAdmin ? 'Administrador' : 'sua conta');
 
   const sair = async () => {
-    const ok = await confirm({ titulo: 'Sair', mensagem: `Encerrar a sessão de ${nomeExibicao}?`, confirmar: 'Sair' });
+    // O logout agora LIMPA o cache local do aparelho (era vazamento em tablet
+    // compartilhado). A fila pendente é preservada, mas quem sai precisa saber
+    // que tem lançamento sem subir — neste app a tela mostra sucesso mesmo
+    // quando o servidor recusou, então a pessoa não tem outro jeito de saber.
+    const mensagem = pendencias > 0
+      ? `Encerrar a sessão de ${nomeExibicao}?
+
+⚠️ Há ${pendencias} lançamento(s) que ainda não subiram para a nuvem. Eles ficam guardados neste aparelho e sobem no próximo login com internet — mas só NESTE aparelho.
+
+Se der para esperar, conecte antes de sair.`
+      : `Encerrar a sessão de ${nomeExibicao}?
+
+Os dados em cache neste aparelho serão apagados (o próximo usuário não vê nada da sua conta).`;
+    const ok = await confirm({
+      titulo: 'Sair',
+      mensagem,
+      perigo: pendencias > 0,
+      confirmar: pendencias > 0 ? 'Sair mesmo assim' : 'Sair',
+    });
     if (ok) logout();
   };
 

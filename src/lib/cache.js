@@ -55,3 +55,58 @@ export const outboxClear = (rid) => outboxSet(rid, []);
 export const outboxCount = (rid) => contarVivos(outboxGet(rid));
 export const outboxMortos = (rid) => outboxGet(rid).filter(i => i._morto);
 export const outboxMortosCount = (rid) => contarMortos(outboxGet(rid));
+
+// ── Limpeza no logout ────────────────────────────────────────
+//
+// ⚠️ SEGURANÇA. Até aqui o logout só apagava as chaves da DEMO
+// (`pe::demo::*`). Numa conta real não apagava NADA: produtos, entradas,
+// saídas, histórico e a trilha de auditoria ficavam no aparelho depois que a
+// pessoa saía. Num tablet de cozinha — que é compartilhado por definição — o
+// próximo usuário lia tudo pelo DevTools sem precisar de senha. Pior no modo
+// suporte: os dados do CLIENTE ficavam no aparelho do super-admin.
+//
+// Formato das chaves: `pe::<rid>::<chave>` (dados) e `pe::<algo>` (preferência
+// do APARELHO, ex.: `pe::modulo`). Só as de três partes são dados de conta —
+// as de duas partes ficam, senão o tablet esquece em qual estoque estava.
+
+const ehChaveDeDados = (k) => {
+  const p = String(k).split('::');
+  return p[0] === 'pe' && p.length >= 3;
+};
+
+/** Itens da fila que o servidor ainda NÃO recebeu, somando todas as contas. */
+export function pendenciasNaoSincronizadas() {
+  let total = 0;
+  try {
+    Object.keys(localStorage).forEach(k => {
+      const p = k.split('::');
+      if (p[0] !== 'pe' || p.slice(2).join('::') !== '_outbox') return;
+      total += contarVivos(cacheGet(p[1], '_outbox', []));
+    });
+  } catch { /* storage indisponível */ }
+  return total;
+}
+
+/**
+ * Apaga o cache local de TODAS as contas neste aparelho.
+ *
+ * `preservarOutbox` (padrão) mantém as filas que ainda têm item vivo: é
+ * trabalho que o servidor não recebeu, e apagá-lo no logout seria destruir
+ * lançamento — justamente num app cuja tela mostra sucesso mesmo quando o
+ * servidor recusou. Quem chama deve AVISAR antes quando houver pendência.
+ *
+ * Devolve quantas chaves saíram (útil para teste e para log).
+ */
+export function limparCacheLocal({ preservarOutbox = true } = {}) {
+  let removidas = 0;
+  try {
+    Object.keys(localStorage).filter(ehChaveDeDados).forEach(k => {
+      const p = k.split('::');
+      const chave = p.slice(2).join('::');
+      if (preservarOutbox && chave === '_outbox' && contarVivos(cacheGet(p[1], '_outbox', [])) > 0) return;
+      localStorage.removeItem(k);
+      removidas++;
+    });
+  } catch { /* storage indisponível */ }
+  return removidas;
+}

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { limparCacheLocal } from '../lib/cache';
 import { statusAssinatura } from '../utils/assinatura';
 
 export const CARGOS = [
@@ -188,6 +189,15 @@ export function AuthProvider({ children }) {
     } else {
       await supabase.auth.signOut();
     }
+    // ⚠️ SEGURANÇA: antes daqui o logout de uma conta REAL não apagava nada —
+    // produtos, entradas, saídas, histórico e auditoria continuavam no
+    // aparelho. Num tablet de cozinha, que é compartilhado por definição, o
+    // próximo usuário lia tudo pelo DevTools sem senha nenhuma. Pior no modo
+    // suporte: dados do CLIENTE ficavam no aparelho do super-admin.
+    //
+    // A fila do outbox com item vivo é preservada de propósito: é trabalho que
+    // o servidor ainda não recebeu. Quem chama avisa antes (ver Layout.sair).
+    limparCacheLocal();
     setSessao(null);
     setUsuarios([]);
     setImpersonando(null);
