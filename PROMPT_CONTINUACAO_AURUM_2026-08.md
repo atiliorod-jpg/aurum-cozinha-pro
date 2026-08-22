@@ -92,11 +92,16 @@ enfileirando normalmente.
 ### Estoques (antes "módulos")
 Três TIPOS, e a conta pode ter **várias instâncias** de cada:
 
-| tipo | o que faz |
-|---|---|
-| `producao` | porcionamento, receitas, aparas (é o app original) |
-| `finalizacao` | recebe da produção, fecha turno contando a sobra |
-| `seco` | mantimentos: grãos, enlatados, descartáveis, limpeza |
+| tipo | o que faz | particularidades |
+|---|---|---|
+| `producao` | porcionamento, receitas, aparas (é o app original) | compra ≠ entrada: compra o cru, porciona, e a **porção** entra |
+| `finalizacao` | recebe da produção, fecha turno contando a sobra | não tem saída; o consumo nasce do fechamento |
+| `seco` | mantimentos: grãos, enlatados, descartáveis, limpeza | **compra JÁ é a entrada**; sem etiqueta, sem temperatura; validade é a **do produtor** |
+
+⚠️ As diferenças acima são declaradas em `RECURSOS_MODULO`, não espalhadas em
+`if` pelas telas. Ao criar regra nova, declare o recurso — `temRecurso` é
+ESTRITO (só liga o que está `true`), e há teste exigindo que todo módulo declare
+todos os recursos.
 
 **Instância:** `seco#x7k2` — tipo + `#` + 4 caracteres.
 - Usa **`#` e não `:`** porque `lerTipo` corta no primeiro `:`
@@ -127,6 +132,31 @@ São **duas áreas separadas**, e isso foi corrigido a duro custo:
 ⚠️ "Administração" **não** é um valor de `modulo`. Se fosse, toda chave viraria
 `admin::produtos` e o banco recusaria em silêncio.
 
+### Consumo: uma conta só para as três áreas
+`saidasParaConsumo` no contexto. Na Produção e no Seco são as saídas; na
+Finalização é `consumoComoSaidas(ajustes)` — o consumo apurado no fechamento de
+turno, convertido para o formato de saída.
+
+Isso é o que permite média diária, previsão de ruptura e sugestão de mín/máx
+funcionarem nas três com **uma implementação só**. Duplicar essas contas por
+área é onde elas começam a divergir.
+
+Consumo negativo é descartado: significa que sobrou mais do que entrou
+(recebimento não registrado), e somar puxaria a média para baixo.
+
+### Contagem física tem DUAS formas — e ignorar uma some com o número
+- Inventário (Produção/Seco): um ajuste **por produto**, `produtoId`/`quantidade`
+  na raiz.
+- Fechamento de turno (Finalização): **um** ajuste com vários `itens[]`, onde
+  `quantidade` é a sobra contada.
+
+`calcEstoquePuro` lia só a forma da raiz, então o fechamento era descartado em
+silêncio — a bancada contava 5 de sobra e o estoque seguia mostrando os 20
+recebidos. Corrigido em 21/08, com teste travando as duas formas.
+
+E `recebimentos` **precisa** entrar no cálculo do estoque: a Finalização não tem
+tela de entrada, então sem essa lista o estoque dela ficava sempre zerado.
+
 ### Financeiro travado no BANCO
 `verFinanceiro` é a única capacidade que é barreira dura: a policy de SELECT
 chama `pode_ver_financeiro()` e a linha `precos` **não sai do servidor** para
@@ -156,6 +186,8 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 Sessão longa. Segurança, Fases 0 a 4 completas.
 
 ```
+8fe9965  Estoque Seco simplificado + consumo medio diario nas tres areas
+f3ec601  Corrige o numero errado da Finalizacao + tira repeticao e temperatura do seco
 1442552  Fecha a Fase 4: balanco consolidado, etiqueta por estoque, erro que nao mente
 e92e75a  Administracao vira area de verdade + min/max por estoque (Fase 3)
 8b02c3c  Multi-instancia funcionando: criar estoques, saldo separado, catalogo comum
@@ -169,8 +201,17 @@ b869dde  Fase 2: Administracao unificada como 4a opcao do seletor
 d6ddec1  SEGURANCA: a trava de super-admin nunca travou (NULL nao e FALSE)
 ```
 
-**Estado:** 201 testes, lint 0 erros, build ok, deploy verde, e2e 48/48,
+**Estado:** 220 testes, lint 0 erros, build ok, deploy verde, e2e 48/48,
 pentest financeiro 18/18, auditoria 26/26, banco de produção limpo.
+
+**Fases 0 a 4 concluídas.** O que o dono pediu e foi entregue: correções de
+rótulo e fluxo, Administração unificada como área separada, financeiro travado
+no banco, multi-instância com catálogo compartilhado e saldo/mín-máx próprios,
+balanço consolidado, e o Estoque Seco simplificado.
+
+⚠️ "Validade após aberto" na Finalização **já existe** — são as etiquetas
+avulsas (`tipoData: 'abertura'`). O dono confirmou que é isso mesmo e que não
+precisa construir nada.
 
 ---
 
@@ -203,8 +244,10 @@ Ordem sugerida. **Escolha com o Atílio antes de implementar.**
     para todos os estoques. Só o nome do estabelecimento foi separado.
 
 ### UX de cozinha (tablet)
-11. **Recebimento partido em duas telas** — Compras não entra no estoque; é
-    preciso redigitar em Entradas. É o maior ganho de fluxo disponível.
+11. **Recebimento partido em duas telas NA PRODUÇÃO.** No Seco já foi resolvido
+    (a compra dá entrada). Na Produção segue: compra o filé cru e depois
+    redigita na produção/entrada. Aqui unir é mais delicado — somar as duas
+    contaria o mesmo insumo duas vezes, a menos que a receita abata o cru.
 12. **Trabalho longo evapora sem aviso** — 25 min de contagem somem num toque.
     Falta rascunho e confirmação ao sair.
 13. **Botão principal no topo em 3 telas e no rodapé em 3**, e desabilitado sem
@@ -231,7 +274,7 @@ lote na saída.
 ## Como trabalhar neste projeto
 
 ```bash
-npx vitest run                        # 201 testes
+npx vitest run                        # 220 testes
 npx eslint .                          # 0 ERROS (2 warnings pré-existentes)
 npx vite build
 node scripts/audit-check.mjs          # gate de vulnerabilidade do CI
