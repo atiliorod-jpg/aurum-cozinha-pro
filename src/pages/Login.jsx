@@ -231,11 +231,18 @@ function ModalPrivacidade({ onFechar }) {
         operacionais do estabelecimento (estoque, produção, movimentações e trilha de auditoria).</p>
         <p><strong>Finalidade:</strong> os dados são tratados exclusivamente para a prestação do serviço
         contratado. Não há venda, cessão ou compartilhamento com terceiros para fins comerciais.</p>
+        {/* ⚠️ Este parágrafo dizia que o acesso da equipe Aurum "ocorre apenas
+            mediante autorização expressa do cliente". Não era verdade: só a
+            EDIÇÃO exige autorização; a leitura sempre foi livre para o suporte.
+            Desde a migração 25 todo acesso fica registrado na trilha do próprio
+            cliente, e o texto passou a descrever o que de fato acontece. */}
         <p><strong>Armazenamento e segurança:</strong> os dados residem em infraestrutura de nuvem com
         criptografia em trânsito e isolamento por estabelecimento aplicado na camada do banco de dados —
-        cada conta acessa somente os próprios registros. O acesso da equipe Aurum ocorre apenas mediante
-        autorização expressa do cliente (Configurações → Sistema → Suporte remoto), limitado a 24 horas,
-        no nível concedido — visualização ou edição — e revogável a qualquer momento.</p>
+        cada conta acessa somente os próprios registros. A equipe Aurum pode acessar os dados da sua conta
+        para prestar suporte, e <strong>todo acesso fica registrado no seu Histórico de mudanças</strong>,
+        identificado como “Suporte Aurum”. Para EDITAR qualquer dado, a equipe depende de autorização
+        expressa sua (Configurações → Sistema → Suporte remoto), limitada a 24 horas e revogável a
+        qualquer momento.</p>
         <p><strong>Direitos do titular (LGPD):</strong> a conta permite exportar a íntegra dos dados a
         qualquer momento (Configurações → Sistema → Cópia de segurança). Solicitações de correção ou de
         exclusão definitiva da conta e dos dados podem ser feitas pelo canal oficial de atendimento

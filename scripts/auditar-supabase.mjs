@@ -160,6 +160,35 @@ for (const [fn, args, oQueFaria] of SENSIVEIS) {
   }
 }
 
+// ── 2c. DENY-BY-DEFAULT nas RPCs (migrações 24 e 26) ────────────
+//
+// ⚠️ Esta conferência existe porque a plataforma RECONCEDE. O Supabase mantém
+// default privileges que dão EXECUTE a `anon` em toda função nova do schema
+// `public`, e a migração 24 — que revogou as existentes — não impediu a
+// primeira função criada depois dela de nascer aberta. A 26 pôs um event
+// trigger para fechar automaticamente; isto aqui é a rede embaixo dele.
+//
+// Só `convite_valido` pode ficar: é a única RPC chamada ANTES do login
+// (valida o token do convite para não deixar conta órfã no signUp).
+linha('\n═══ 2c. RPCs ao alcance do ANÔNIMO ═══\n');
+
+const PRE_LOGIN = new Set(['convite_valido']);
+const abertas = [];
+for (const rpc of rpcsExpostas) {
+  const r = await req(`/rest/v1/rpc/${rpc}`, ANON, { method: 'POST', body: '{}' });
+  // 404 = PostgREST não achou (revogada); 401/403 = permissão negada.
+  // Qualquer outra coisa significa que a função foi ALCANÇADA sem login.
+  const alcancou = ![401, 403, 404].includes(r.status);
+  if (alcancou && !PRE_LOGIN.has(rpc)) abertas.push(`${rpc} (${r.status})`);
+}
+if (abertas.length) {
+  problemas.push(`RPC ao alcance do anônimo: ${abertas.join(', ')} — falta 'revoke execute ... from anon, public'`);
+  linha(`  ❌ ${abertas.length} RPC(s) alcançáveis sem login: ${abertas.join(', ')}`);
+} else {
+  ok.push('nenhuma RPC alcançável sem login além de convite_valido');
+  linha(`  ✅ nenhuma RPC alcançável sem login (fora convite_valido, que é pré-login por desenho)`);
+}
+
 // ── 3) Cadastro anônimo no Auth (pendência da auditoria de 25/06) ──
 linha('\n═══ 3. AUTH — cadastro anônimo ═══\n');
 const rAnon = await req('/auth/v1/signup', ANON, { method: 'POST', body: JSON.stringify({}) });

@@ -218,6 +218,21 @@ export function AuthProvider({ children }) {
   // escrita real depende das policies do migration7 (suporte_pode_editar).
   const verComoRestaurante = useCallback((restauranteId, restauranteNome, podeMexer = false) => {
     if (!sessao?.eSuperAdmin || !restauranteId) return;
+    // ⚠️ O acesso do suporte DEIXA RASTRO na trilha do cliente (migração 25).
+    // Antes, o super-admin lia os dados de qualquer restaurante sem o cliente
+    // autorizar e sem registrar nada — e o app mostra a ele um texto de
+    // privacidade que, por isso, não era verdade. `registrar_auditoria` não
+    // servia aqui: ela exige perfil ativo, e o super-admin não tem perfil.
+    //
+    // Não bloqueia a entrada se a gravação falhar: ficar sem suporte por causa
+    // de uma falha de rede seria pior que o registro atrasado. Mas o erro vai
+    // para o console em vez de sumir.
+    supabase.rpc('registrar_acesso_suporte', {
+      p_restaurante: restauranteId,
+      p_motivo: podeMexer ? 'Acesso com edição autorizada pelo cliente.' : 'Acesso somente leitura.',
+    }).then(({ error }) => {
+      if (error) console.error('Falha ao registrar o acesso de suporte:', error.message);
+    });
     setImpersonando({ restauranteId, restauranteNome: restauranteNome || '', podeMexer: !!podeMexer });
   }, [sessao]);
   const sairImpersonacao = useCallback(() => setImpersonando(null), []);
