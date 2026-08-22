@@ -46,7 +46,7 @@ export default function NovidadesPopup() {
         className="bg-white text-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
-          <h2 className="font-bold text-polo-navy">✨ O que há de novo</h2>
+          <h2 className="font-bold text-polo-navy">O que há de novo</h2>
           <button onClick={fechar} aria-label="Fechar" className="text-gray-600 text-xl leading-none">✕</button>
         </div>
         <p className="text-[11px] text-gray-600 mb-3">{ultimoRelease.titulo} · {ultimoRelease.data}</p>

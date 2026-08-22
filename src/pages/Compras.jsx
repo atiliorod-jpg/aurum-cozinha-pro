@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
+import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { pode } from '../utils/permissoes';
@@ -447,7 +448,7 @@ export default function Compras() {
                 <div className="bg-white rounded-xl overflow-hidden border border-gray-100">
                   <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold text-polo-navy">📖 Ingredientes de receita (referência)</p>
+                      <p className="text-xs font-bold text-polo-navy">Ingredientes de receita (referência)</p>
                       <p className="text-[11px] text-gray-500 mt-0.5">Não controlados em estoque — lembrete para o comprador.</p>
                     </div>
                     <span className="text-[11px] font-bold text-gray-500 bg-white border border-gray-200 rounded-full px-2 py-0.5 flex-shrink-0">
@@ -657,10 +658,9 @@ export default function Compras() {
             <ResponsavelSelect value={form.responsavel} onChange={v => set('responsavel', v)} />
           </div>
 
-          <button onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade || salvando}
-            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
+          <Botao onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade || salvando}>
             ✓ Registrar Compra
-          </button>
+          </Botao>
         </div>
       ) : null}
     </Layout>

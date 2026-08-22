@@ -16,8 +16,8 @@ const NAV = [
   { to: '/fechar-turno',  icon: 'registrar', label: 'Fechar turno', recurso: 'fecharTurno' },
   // "O que vence hoje" é a pergunta mais repetida de uma cozinha — merece a
   // barra, não um card dentro de Registrar. O histórico geral saiu daqui: cada
-  // tela já tem a aba "📋 Histórico" dela, e ele continua no hub Registrar.
-  { to: '/validades',     icon: 'etiqueta',  label: 'Validades' },
+  // tela já tem a aba "Histórico" dela, e ele continua no hub Registrar.
+  { to: '/validades',     icon: 'validade',  label: 'Validades' },
   // Relatório e Configurações SAÍRAM da barra: moram só na Administração.
   // Os dois são gesto de GESTÃO, não de operação, e ocupavam dois dos cinco
   // lugares da barra num tablet que a cozinha usa de mão suja. Quem opera
@@ -87,8 +87,8 @@ export default function NavBar() {
                 )}
                 {to === '/' && precisaProduzir > 0 && (
                   <span aria-label={`${precisaProduzir} receita(s) precisam ser produzidas`}
-                    className="absolute top-0.5 left-1/4 bg-amber-500 text-white text-[11px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold ring-2 ring-polo-navy">
-                    🍲
+                    className="absolute top-0.5 left-1/4 bg-amber-700 text-white rounded-full w-5 h-5 flex items-center justify-center ring-2 ring-polo-navy">
+                    <Icon name="producao" size={11} strokeWidth={2.5} />
                   </span>
                 )}
               </>

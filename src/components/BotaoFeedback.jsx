@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
+import Icon from './Icons';
 
 // Canal de feedback do cliente (bug ou sugestão) direto pelo app.
 // Guia o cliente a descrever direito — o que esperava, o que aconteceu e como
@@ -68,7 +69,7 @@ export default function BotaoFeedback() {
         title="Relatar problema ou sugerir melhoria"
         className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
-        <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">💬</span>
+        <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><Icon name="suporte" size={18} /></span>
         <span className="text-[8px] leading-none font-semibold text-white/70">Ajuda</span>
       </button>
 
@@ -95,7 +96,7 @@ export default function BotaoFeedback() {
 
             {/* Tipo */}
             <div className="flex gap-2 mb-3">
-              {[['bug', '🐛 Problema'], ['sugestao', '💡 Sugestão']].map(([v, l]) => (
+              {[['bug', 'Problema'], ['sugestao', 'Sugestão']].map(([v, l]) => (
                 <button key={v} onClick={() => setTipo(v)}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2
                     ${tipo === v ? 'border-polo-gold bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-500'}`}>

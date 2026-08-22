@@ -64,7 +64,7 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-      <p className="text-sm font-bold text-polo-navy">🛠️ Suporte remoto</p>
+      <p className="text-sm font-bold text-polo-navy">Suporte remoto</p>
       {suporteAtivo ? (
         <>
           <p className="text-xs text-green-700 mt-0.5">
@@ -139,7 +139,7 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
-        <p className="text-sm font-bold text-polo-navy">🏷️ Etiquetas</p>
+        <p className="text-sm font-bold text-polo-navy">Etiquetas</p>
         <p className="text-xs text-gray-500 mt-0.5">
           Tamanho e conteúdo das etiquetas impressas (Registrar → Etiquetas). Use o tamanho do rolo da sua impressora.
         </p>
@@ -285,7 +285,7 @@ function CartaoInstalarApp() {
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
       <div className="flex items-start gap-3">
         <div className="flex-1">
-          <p className="text-sm font-bold text-polo-navy">📲 Instalar app</p>
+          <p className="text-sm font-bold text-polo-navy">Instalar app</p>
           {instalado ? (
             <p className="text-xs text-green-700 mt-0.5">✅ App já instalado neste aparelho.</p>
           ) : ios ? (
@@ -394,7 +394,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
         className="w-full flex items-center justify-between gap-2 p-4 text-left"
       >
         <div className="min-w-0">
-          <p className="text-sm font-bold text-polo-navy">🎯 Rendimento por ingrediente</p>
+          <p className="text-sm font-bold text-polo-navy">Rendimento por ingrediente</p>
           <p className="text-xs text-gray-500 mt-0.5">
             {grupos.length} {grupos.length === 1 ? 'ingrediente' : 'ingredientes'}
             {naoVinc.length > 0 && ` • ${naoVinc.length} sem vínculo`} — toque para {aberto ? 'recolher' : 'abrir'}
@@ -871,7 +871,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
             <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento</label>
             <select value={form.armazenamento} onChange={e => set('armazenamento', e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-              <option value="ambos">🔄 Ambos (decide na hora)</option>
+              <option value="ambos">Ambos (decide na hora)</option>
               <option value="congelado">❄️ Congelado</option>
               <option value="resfriado">🧊 Resfriado</option>
             </select>
@@ -1146,10 +1146,10 @@ ${linkConvite(conviteGerado.token)}
   // abasDisponiveis, o secaoAtiva caía de volta em "Produtos" e o botão ficava
   // ali, morto, dando a entender que a tela estava quebrada.
   const ABAS = [
-    ['produtos', '📦 Produtos', podeProdutos],
+    ['produtos', 'Produtos', podeProdutos],
     ['receitas', '🍽️ Receitas', podeProdutos && temRecurso(modulo, 'receitas')],
-    ['acessos',  '👤 Acessos',  podeAcessos],
-    ['sistema',  '🛠️ Sistema',  podeSistema],
+    ['acessos',  'Acessos',  podeAcessos],
+    ['sistema',  'Sistema',  podeSistema],
   ];
   const abasVisiveis = ABAS.filter(([, , ok]) => ok);
   const abasDisponiveis = abasVisiveis.map(([v]) => v);
@@ -1488,7 +1488,7 @@ ${linkConvite(conviteGerado.token)}
       {/* Gerenciar categorias */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🏷️ Categorias</p>
+          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Categorias</p>
           <p className="text-xs text-gray-500 mt-1">Organizam os produtos em todas as telas. Só é possível remover categorias sem produtos.</p>
         </div>
         <div className="flex gap-2">
@@ -1517,7 +1517,7 @@ ${linkConvite(conviteGerado.token)}
       {secaoAtiva === 'receitas' && <>
         <div className="bg-polo-beige border border-polo-gold/40 rounded-xl p-3 text-xs text-polo-navy mb-3">
           Receitas de itens <strong>produzidos</strong> (molhos, caldos, refogados): vários ingredientes viram 1 produto com rendimento. A equipe executa em <strong>Registrar → Produção</strong>.
-          <br />Gramatura por porção é configurada diretamente em cada <strong>📦 Produto</strong>.
+          <br />Gramatura por porção é configurada diretamente em cada <strong>Produto</strong>.
         </div>
         <div className="space-y-3 mb-4">
           {producoes.length === 0 && (
@@ -1595,7 +1595,7 @@ ${linkConvite(conviteGerado.token)}
       <Link to="/novidades"
         className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
         <div>
-          <p className="text-sm font-bold text-polo-navy">✨ Novidades do app</p>
+          <p className="text-sm font-bold text-polo-navy">Novidades do app</p>
           <p className="text-xs text-gray-500 mt-0.5">Veja o que mudou nas últimas atualizações.</p>
         </div>
         <span className="text-polo-navy text-lg">›</span>
@@ -1618,7 +1618,7 @@ ${linkConvite(conviteGerado.token)}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <p className="text-sm font-bold text-polo-navy">🔒 Minha senha</p>
+            <p className="text-sm font-bold text-polo-navy">Minha senha</p>
             <p className="text-xs text-gray-500 mt-0.5">Troque a senha de acesso da sua conta.</p>
           </div>
           <button onClick={() => setTrocandoSenha(true)}
@@ -1703,7 +1703,7 @@ ${linkConvite(conviteGerado.token)}
           <div className="border-t border-gray-100 pt-3">
             <div className="flex items-start gap-3">
               <div className="flex-1">
-                <p className="text-sm font-bold text-polo-navy">📅 Considerar o dia da semana</p>
+                <p className="text-sm font-bold text-polo-navy">Considerar o dia da semana</p>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Em vez da média lisa, dimensiona o mín/máx pelo consumo previsto dos próximos dias —
                   sobe na véspera do fim de semana e cai no início da semana.
@@ -1734,7 +1734,7 @@ ${linkConvite(conviteGerado.token)}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="flex items-start gap-3">
           <div className="flex-1">
-            <p className="text-sm font-bold text-polo-navy">📋 Guia de fluxo do turno</p>
+            <p className="text-sm font-bold text-polo-navy">Guia de fluxo do turno</p>
             <p className="text-xs text-gray-500 mt-0.5">
               Painel no topo de cada tela com os essenciais do turno (Produção/entrada → Saídas)
               e lembretes opcionais de etiquetas e aparas — aparas só contam se houver.
@@ -1754,7 +1754,7 @@ ${linkConvite(conviteGerado.token)}
         <Link to="/inventario"
           className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
           <div>
-            <p className="text-sm font-bold text-polo-navy">📐 Contagem física / conferência</p>
+            <p className="text-sm font-bold text-polo-navy">Contagem física / conferência</p>
             <p className="text-xs text-gray-500 mt-0.5">Use quando conferir o estoque real e ele divergir do calculado.</p>
           </div>
           <span className="text-polo-navy text-lg">›</span>
@@ -1766,7 +1766,7 @@ ${linkConvite(conviteGerado.token)}
         <Link to="/pagamento"
           className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
           <div>
-            <p className="text-sm font-bold text-polo-navy">💳 Assinatura / Plano</p>
+            <p className="text-sm font-bold text-polo-navy">Assinatura / Plano</p>
             <p className="text-xs text-gray-500 mt-0.5">Gerencie seu plano e forma de pagamento.</p>
           </div>
           <span className="text-polo-navy text-lg">›</span>
@@ -1778,7 +1778,7 @@ ${linkConvite(conviteGerado.token)}
         <Link to="/auditoria"
           className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
           <div>
-            <p className="text-sm font-bold text-polo-navy">🔍 Histórico de mudanças</p>
+            <p className="text-sm font-bold text-polo-navy">Histórico de mudanças</p>
             <p className="text-xs text-gray-500 mt-0.5">Registro de tudo que cada usuário fez no sistema.</p>
           </div>
           <span className="text-polo-navy text-lg">›</span>
@@ -1820,7 +1820,7 @@ ${linkConvite(conviteGerado.token)}
       {/* Usuários e acessos */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">👤 Usuários e Acessos</p>
+          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Usuários e Acessos</p>
           <p className="text-xs text-gray-500 mt-1">
             Cada pessoa entra com <strong>e-mail e senha próprios</strong>. Para dar acesso a alguém novo, gere um
             código de convite, escolha o cargo e passe o código — a pessoa se cadastra sozinha na tela de login.
@@ -1855,7 +1855,7 @@ ${linkConvite(conviteGerado.token)}
             </div>
             <div className="grid grid-cols-2 gap-2">
               <button onClick={compartilharWhatsApp}
-                className="bg-green-600 text-white font-bold py-2 rounded-lg text-xs">💬 Enviar no WhatsApp</button>
+                className="bg-green-600 text-white font-bold py-2 rounded-lg text-xs">Enviar no WhatsApp</button>
               <button onClick={copiarLinkConvite}
                 className="border border-polo-navy text-polo-navy font-bold py-2 rounded-lg text-xs">🔗 Copiar link direto</button>
             </div>
@@ -2004,7 +2004,7 @@ ${linkConvite(conviteGerado.token)}
       {secaoAtiva === 'sistema' && <>
       {/* Destinos de saída (para onde o estoque vai) */}
       <CartaoCatalogoChips
-        titulo="📤 Destinos de Saída"
+        titulo="Destinos de Saída"
         descricao="Para onde o estoque é enviado (ex.: unidades, salão, delivery). Aparecem na tela de Saídas."
         placeholder="Novo destino (ex: Unidade Centro)"
         valor={novoLocal} onValor={setNovoLocal} onAdd={handleAddLocal}
@@ -2021,7 +2021,7 @@ ${linkConvite(conviteGerado.token)}
 
       {/* Destinos de apara */}
       <CartaoCatalogoChips
-        titulo="✂️ Destinos de Apara"
+        titulo="Destinos de Apara"
         descricao={'Opções que aparecem ao registrar uma apara. "Outro" é fixo e abre campo livre.'}
         placeholder="Novo destino (ex: Escondidinho)"
         valor={novoDestino} onValor={setNovoDestino} onAdd={handleAddDestino}
@@ -2045,7 +2045,7 @@ ${linkConvite(conviteGerado.token)}
       {/* Planilha de produtos — cadastro padronizado em massa */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">📊 Planilha de produtos</p>
+          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Planilha de produtos</p>
           <p className="text-xs text-gray-500 mt-1">
             Forma rápida de montar um restaurante novo: baixe a planilha modelo (já vem com produtos de exemplo),
             ajuste no Excel/Google Sheets e importe. Produtos com o mesmo nome são atualizados; os novos, criados.

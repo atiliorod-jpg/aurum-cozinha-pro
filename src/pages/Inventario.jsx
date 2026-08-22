@@ -131,7 +131,7 @@ export default function Inventario() {
   return (
     <Layout title="Inventário / Contagem">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['novo', '📐 Contar'], ['historico', '📋 Histórico']].map(([v, l]) => (
+        {[['novo', 'Contar'], ['historico', 'Histórico']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
@@ -159,7 +159,7 @@ export default function Inventario() {
           <div className="bg-white rounded-xl p-4">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-sm font-bold text-polo-navy">📷 Contar escaneando</p>
+                <p className="text-sm font-bold text-polo-navy">Contar escaneando</p>
                 <p className="text-[11px] text-gray-500">
                   Passe a câmera no QR de cada pote. Produto por unidade soma 1; por peso/volume soma a medida da etiqueta. Dá para misturar com a digitação.
                 </p>

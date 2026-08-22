@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { estoquesAtivos } from '../utils/instancias';
+import Icon from './Icons';
 
 /**
  * Escolhe qual estoque a TELA MOSTRA — sem trocar o que está aberto na operação.
@@ -17,7 +18,7 @@ import { estoquesAtivos } from '../utils/instancias';
 // vez. Só aparece com `comTodos` e mais de um estoque ativo — com um só não há
 // o que comparar.
 export const TODOS = 'todos';
-const OPCAO_TODOS = { id: TODOS, icone: '📊', nome: 'Todas as cozinhas', estabelecimento: '' };
+const OPCAO_TODOS = { id: TODOS, icone: 'relatorio', nome: 'Todas as cozinhas', estabelecimento: '' };
 
 export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
   const { estoques } = useApp();
@@ -33,7 +34,7 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
       <button onClick={() => setAberto(a => !a)}
         aria-expanded={aberto}
         className="w-full flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-left">
-        <span className="text-lg flex-shrink-0" aria-hidden="true">{atual.icone}</span>
+        <span className="text-polo-navy flex-shrink-0"><Icon name={atual.icone} size={20} /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Mostrando</span>
           <span className="block text-sm font-bold text-polo-navy truncate">
@@ -53,7 +54,7 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
                 onClick={() => { aoTrocar(e.id); setAberto(false); }}
                 className={`w-full text-left px-3 py-2.5 flex items-center gap-2 border-b border-gray-50 last:border-0
                   ${e.id === atual.id ? 'bg-polo-beige' : ''}`}>
-                <span className="text-lg flex-shrink-0" aria-hidden="true">{e.icone}</span>
+                <span className="text-polo-navy flex-shrink-0"><Icon name={e.icone} size={20} /></span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-polo-navy truncate">{e.nome}</span>
                   {e.estabelecimento && <span className="block text-[11px] text-gray-600 truncate">{e.estabelecimento}</span>}

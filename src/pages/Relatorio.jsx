@@ -307,7 +307,7 @@ export default function Relatorio() {
       {/* Rendimento por item — chegou → aparas/perdas → % (o controle do período) */}
       {temApara && (
       <div className="bg-white rounded-xl p-4 mb-4">
-        <p className="text-sm font-bold text-polo-navy mb-1">📊 Rendimento por item</p>
+        <p className="text-sm font-bold text-polo-navy mb-1">Rendimento por item</p>
         <p className="text-[11px] text-gray-500 mb-3">Quanto de cada matéria-prima chegou e quanto virou apara/perda. Rendimento = o que sobrou aproveitável.</p>
         {rendItens.length === 0 ? (
           <div className="text-center text-gray-600 py-6 text-sm">Nenhuma compra registrada neste período.</div>
@@ -355,7 +355,7 @@ export default function Relatorio() {
       {/* Produção por item — quanto se produziu de cada semiacabado */}
       {temProducao && (
       <div className="bg-white rounded-xl p-4 mb-4">
-        <p className="text-sm font-bold text-polo-navy mb-1">🍲 Produção por item</p>
+        <p className="text-sm font-bold text-polo-navy mb-1">Produção por item</p>
         <p className="text-[11px] text-gray-500 mb-3">Quanto de cada item produzido saiu da cozinha no período.</p>
         {prodItens.length === 0 ? (
           <div className="text-center text-gray-600 py-6 text-sm">Nenhuma produção registrada neste período.</div>
@@ -372,15 +372,15 @@ export default function Relatorio() {
       </div>
       )}
 
-      <Card titulo="📈 Saídas por dia">
+      <Card titulo="Saídas por dia">
         <LinhaDias dados={serieDias} />
       </Card>
 
-      <Card titulo="🏆 Produtos mais consumidos">
+      <Card titulo="Produtos mais consumidos">
         <BarrasEmpilhadas dados={topProdutos} locais={locais} />
       </Card>
 
-      <Card titulo="🗑️ Perdas por motivo">
+      <Card titulo="Perdas por motivo">
         {perdasPorMotivo.length === 0
           ? <p className="text-center text-gray-500 text-xs py-4">Nenhuma perda registrada no período.</p>
           : perdasPorMotivo.map(g => (
@@ -394,7 +394,7 @@ export default function Relatorio() {
       </Card>
 
       {temApara && (
-      <Card titulo="✂️ Aparas por destino">
+      <Card titulo="Aparas por destino">
         {aparasPorDestino.length === 0
           ? <p className="text-center text-gray-500 text-xs py-4">Nenhuma apara registrada no período.</p>
           : aparasPorDestino.map(g => (
@@ -409,7 +409,7 @@ export default function Relatorio() {
       )}
 
       {temApara && (
-      <Card titulo="🚚 Rendimento por fornecedor">
+      <Card titulo="Rendimento por fornecedor">
         {fornecedores.length === 0 ? (
           <p className="text-center text-gray-500 text-xs py-4">Nenhuma compra no período. Registre compras e associe aparas/perdas a elas.</p>
         ) : (
@@ -495,7 +495,7 @@ export default function Relatorio() {
 
       {/* Saídas por destino (por dia) — sem misturar destinos */}
       <div className="bg-white rounded-xl p-4 mb-4">
-        <p className="text-sm font-bold text-polo-navy mb-1">🎯 Saídas por destino (por dia)</p>
+        <p className="text-sm font-bold text-polo-navy mb-1">Saídas por destino (por dia)</p>
         <p className="text-[11px] text-gray-500 mb-3">O que foi enviado para cada unidade, dia a dia. Cada destino é separado.</p>
         {porDestinoDia.length === 0 ? (
           <div className="text-center text-gray-600 py-6 text-sm">Nenhuma saída para unidades neste período.</div>
@@ -504,7 +504,7 @@ export default function Relatorio() {
             {porDestinoDia.map(d => (
               <details key={d.destinoId} className="border border-gray-100 rounded-lg">
                 <summary className="cursor-pointer px-3 py-2 font-semibold text-sm text-polo-navy flex justify-between">
-                  <span>📤 {d.destinoNome}</span>
+                  <span>{d.destinoNome}</span>
                   <span className="text-[11px] text-gray-600 font-normal">{d.dias.length} dia(s)</span>
                 </summary>
                 <div className="px-3 pb-3 space-y-2">
@@ -575,7 +575,7 @@ export default function Relatorio() {
 
       {/* Chegadas por dia (controle diário do que entrou) */}
       <div className="bg-white rounded-xl p-4 mb-4">
-        <p className="text-sm font-bold text-polo-navy mb-1">📦 Chegadas por dia</p>
+        <p className="text-sm font-bold text-polo-navy mb-1">Chegadas por dia</p>
         <p className="text-[11px] text-gray-500 mb-3">O que chegou em cada data, com o peso total do dia (itens em kg).</p>
         {chegadas.length === 0 ? (
           <div className="text-center text-gray-600 py-6 text-sm">Nenhuma compra recebida neste período.</div>

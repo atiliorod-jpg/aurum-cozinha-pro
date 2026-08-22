@@ -42,7 +42,7 @@ export default function AvisoVencimento() {
         <button onClick={dispensar} aria-label="Dispensar aviso"
           className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center text-gray-600 rounded-full hover:bg-gray-100">✕</button>
         <p className="text-xs font-bold text-polo-navy">
-          {st.tipo === 'teste' ? '⏳ Seu teste ' : '💳 Sua assinatura '}{quando}
+          {st.tipo === 'teste' ? '⏳ Seu teste ' : 'Sua assinatura '}{quando}
         </p>
         <p className="text-[11px] text-gray-500 mt-0.5 mb-2">
           Pague por Pix com <strong>24h de antecedência</strong> para não ficar sem o sistema.

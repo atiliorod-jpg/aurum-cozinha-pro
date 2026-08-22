@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
+import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
@@ -168,7 +169,7 @@ export default function AparasPerdas() {
   return (
     <Layout title="Aparas & Perdas">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['novo', '+ Novo registro'], ['historico', '📋 Histórico']].map(([v, l]) => (
+        {[['novo', '+ Novo registro'], ['historico', 'Histórico']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
@@ -198,11 +199,10 @@ export default function AparasPerdas() {
 
           {tipo === 'apara' ? (
             <>
-              <button onClick={salvarApara}
-                disabled={salvando || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}
-                className="w-full bg-amber-500 text-white font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
+              <Botao onClick={salvarApara}
+                disabled={salvando || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}>
                 ✓ Registrar Apara
-              </button>
+              </Botao>
 
               <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900">
                 Sobra aproveitável da limpeza. Não abate o estoque.
@@ -298,11 +298,10 @@ export default function AparasPerdas() {
             </>
           ) : (
             <>
-              <button onClick={salvarPerda}
-                disabled={salvando || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}
-                className="w-full bg-red-600 text-white font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-40 disabled:scale-100">
+              <Botao onClick={salvarPerda}
+                disabled={salvando || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}>
                 ✓ Registrar Perda
-              </button>
+              </Botao>
 
               {/* O bloco saiu inteiro: citava "POP-07" (jargão de consultoria,
                   sem significado para quem opera) e explicava em três frases o
@@ -379,7 +378,7 @@ export default function AparasPerdas() {
       ) : (
         <div className="space-y-3">
           <input type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
-            placeholder="🔍 Buscar por item ou responsável..."
+            placeholder="Buscar por item ou responsável..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {historico.length === 0 && (
             <div className="text-center text-gray-500 py-12">Nenhum registro ainda.</div>
@@ -404,7 +403,7 @@ export default function AparasPerdas() {
                     <div className="flex items-center gap-2">
                       <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded
                         ${ehApara ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
-                        {ehApara ? '✂️ APARA' : '🗑️ PERDA'}
+                        {ehApara ? 'APARA' : 'PERDA'}
                       </span>
                       <span className="font-semibold text-sm">{r.item}</span>
                     </div>

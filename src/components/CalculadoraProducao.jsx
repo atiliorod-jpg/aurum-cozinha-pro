@@ -58,7 +58,7 @@ export default function CalculadoraProducao() {
         className="w-full px-4 py-3 flex items-center justify-between text-left active:bg-polo-beige/50"
         aria-expanded={aberto}>
         <div className="min-w-0">
-          <p className="text-sm font-bold text-polo-navy">🧮 Calculadora de produção</p>
+          <p className="text-sm font-bold text-polo-navy">Calculadora de produção</p>
           <p className="text-xs text-gray-500">Veja o que precisa ou quantas porções dá para fazer</p>
         </div>
         <span className="text-polo-navy text-xl flex-shrink-0 ml-2">{aberto ? '−' : '+'}</span>
@@ -68,7 +68,7 @@ export default function CalculadoraProducao() {
         <div className="border-t border-gray-100">
           {/* Toggle de modo */}
           <div className="flex p-3 pb-0 gap-1">
-            {(temReceitas ? [['receita', '🍲 Receita → ingredientes']] : []).concat(
+            {(temReceitas ? [['receita', 'Receita → ingredientes']] : []).concat(
               temProdGram ? [['gramatura', '🍽️ Gramatura → porções']] : []
             ).map(([v, l]) => (
               <button key={v} onClick={() => setModo(v)}

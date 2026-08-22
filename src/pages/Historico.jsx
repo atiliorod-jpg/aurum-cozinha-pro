@@ -15,7 +15,7 @@ export default function Historico() {
   const { sessao } = useAuth();
   const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   const { toast, confirm, abrirEtiquetas } = useUI();
-  const destNome = (v) => v === 'producao' ? '🍲 Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
+  const destNome = (v) => v === 'producao' ? 'Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [filtro, setFiltro] = useState('todas');
   const [busca, setBusca] = useState('');
 
@@ -83,9 +83,9 @@ export default function Historico() {
   // mostraria "Compras" e "Produção" vazios, e a Produção mostraria
   // "Recebidos", que nunca tem nada.
   const TODOS_CHIPS = [
-    ['todas', 'Tudo'], ['entradas', '📥 Entradas'], ['saidas', '📤 Saídas'],
-    ['recebimentos', '📦 Recebidos'],
-    ['producao', '🍲 Produção'], ['compras', '🛒 Compras'], ['correcoes', '✂️ Correções'],
+    ['todas', 'Tudo'], ['entradas', 'Entradas'], ['saidas', 'Saídas'],
+    ['recebimentos', 'Recebidos'],
+    ['producao', 'Produção'], ['compras', 'Compras'], ['correcoes', 'Correções'],
   ];
   const CHIPS = TODOS_CHIPS.filter(([v]) => v === 'todas' || eventos.some(e => e.grupo === v));
 
@@ -130,7 +130,7 @@ export default function Historico() {
   return (
     <Layout title="Histórico">
       <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-        placeholder="🔍 Buscar por item ou responsável..."
+        placeholder="Buscar por item ou responsável..."
         className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3" />
 
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide mb-3">

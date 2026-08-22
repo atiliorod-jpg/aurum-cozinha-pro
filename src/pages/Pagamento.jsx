@@ -164,7 +164,7 @@ export default function Pagamento() {
       {/* Pagamento por Pix */}
       {PIX_CHAVE ? (
         <div className="border-2 border-polo-gold bg-white rounded-2xl p-5 mb-5">
-          <p className="font-bold text-polo-navy">💠 Pague por Pix — {brl(valor)}</p>
+          <p className="font-bold text-polo-navy">Pague por Pix — {brl(valor)}</p>
           <p className="text-xs text-gray-500 mt-0.5 mb-3">
             Plano {plano.label}. O valor já vem preenchido no QR e no código.
           </p>

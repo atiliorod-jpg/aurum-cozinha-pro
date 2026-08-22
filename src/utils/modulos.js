@@ -58,19 +58,21 @@ export function gerarIdInstancia(tipo, existentes = []) {
 export const MODULOS = [
   {
     id: 'producao',
-    icone: '🔪',
+    // ⚠️ Nome de ÍCONE (ver Icons.jsx), não emoji: emoji renderiza diferente
+    // em cada aparelho e não aceita a cor da marca.
+    icone: 'faca',
     label: 'Cozinha de Produção',
     descricao: 'Porcionamento e semiacabados: receitas, produção, aparas e etiquetas de validade.',
   },
   {
     id: 'finalizacao',
-    icone: '🍳',
+    icone: 'frigideira',
     label: 'Cozinha de Finalização',
     descricao: 'Recebe os semiacabados da produção e monta os pratos. Fecha o turno contando a sobra.',
   },
   {
     id: 'seco',
-    icone: '🧂',
+    icone: 'mantimento',
     label: 'Estoque Seco',
     descricao: 'Mantimentos: grãos, enlatados, temperos, descartáveis, bebidas e limpeza.',
   },

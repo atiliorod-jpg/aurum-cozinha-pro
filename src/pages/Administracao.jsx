@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { pode } from '../utils/permissoes';
+import Icon from '../components/Icons';
 
 /**
  * Hub de ADMINISTRAÇÃO — o que é da CONTA, não de um estoque.
@@ -29,39 +30,39 @@ export default function Administracao() {
   // caixas com título só acrescenta ruído numa tela que se lê de uma vez.
   const cartoes = [
     can('verRelatorio') && {
-      to: '/relatorio', emoji: '📊', titulo: 'Relatórios',
+      to: '/relatorio', icone: 'relatorio', titulo: 'Relatórios',
       desc: 'Consumo, giro e lista de compras.',
     },
     can('verFinanceiro') && {
-      to: '/financeiro', emoji: '💰', titulo: 'Custos e valor do estoque',
+      to: '/financeiro', icone: 'financeiro', titulo: 'Custos e valor do estoque',
       desc: 'Valor parado, curva ABC, consumo e perdas em R$',
     },
     can('verRelatorio') && {
-      to: '/balanco', emoji: '🧮', titulo: 'Balanço da conta',
+      to: '/balanco', icone: 'balanco', titulo: 'Balanço da conta',
       desc: 'Soma dos estoques do mesmo tipo, item a item',
     },
     can('verAuditoria') && {
-      to: '/auditoria', emoji: '🕵️', titulo: 'Histórico de mudanças',
+      to: '/auditoria', icone: 'auditoria', titulo: 'Histórico de mudanças',
       desc: 'Quem mexeu em quê, no sistema inteiro',
     },
     eDiretoria && {
-      to: '/estoques', emoji: '🏢', titulo: 'Estoques da conta',
+      to: '/estoques', icone: 'estabelecimento', titulo: 'Estoques da conta',
       desc: 'Criar, renomear e arquivar — e o nome que sai na etiqueta de cada um',
     },
     {
-      to: '/configuracoes?secao=produtos', emoji: '📦', titulo: 'Cadastros',
+      to: '/configuracoes?secao=produtos', icone: 'caixa', titulo: 'Cadastros',
       desc: 'Produtos, receitas e destinos de saída',
     },
     {
-      to: '/configuracoes?secao=acessos', emoji: '👤', titulo: 'Equipe e acessos',
+      to: '/configuracoes?secao=acessos', icone: 'equipe', titulo: 'Equipe e acessos',
       desc: 'Convites, cargos e o que cada função pode fazer',
     },
     {
-      to: '/configuracoes?secao=sistema', emoji: '🛠️', titulo: 'Sistema e backup',
+      to: '/configuracoes?secao=sistema', icone: 'config', titulo: 'Sistema e backup',
       desc: 'Etiqueta, preferências, exportar e importar',
     },
     eDiretoria && {
-      to: '/pagamento', emoji: '💳', titulo: 'Assinatura',
+      to: '/pagamento', icone: 'cartao', titulo: 'Assinatura',
       desc: 'Plano, vencimento e pagamento',
     },
   ].filter(Boolean);
@@ -75,7 +76,9 @@ export default function Administracao() {
           <Link key={c.to} to={c.to}
             className="bg-white rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-transform
                        border border-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
-            <span className="w-12 h-12 rounded-xl bg-polo-beige flex items-center justify-center text-2xl flex-shrink-0" aria-hidden="true">{c.emoji}</span>
+            <span className="w-12 h-12 rounded-xl bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
+              <Icon name={c.icone} size={24} />
+            </span>
             <div className="min-w-0">
               <div className="font-bold text-polo-navy">{c.titulo}</div>
               <div className="text-xs text-gray-500">{c.desc}</div>

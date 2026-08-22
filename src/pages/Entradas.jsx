@@ -120,7 +120,7 @@ export default function Entradas() {
   return (
     <Layout title="Entrada avulsa">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['novo', '+ Nova entrada'], ['historico', '📋 Histórico']].map(([v, l]) => (
+        {[['novo', '+ Nova entrada'], ['historico', 'Histórico']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
@@ -172,7 +172,7 @@ export default function Entradas() {
 
           {/* Busca */}
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-            placeholder="🔍 Buscar produto..."
+            placeholder="Buscar produto..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
 
           {/* Categorias */}
@@ -262,7 +262,7 @@ export default function Entradas() {
       ) : (
         <div className="space-y-3">
           <input type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
-            placeholder="🔍 Buscar por produto ou responsável..."
+            placeholder="Buscar por produto ou responsável..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {entradasOrdenadas.length === 0 && (
             <div className="text-center text-gray-500 py-12">Nenhuma entrada registrada ainda.</div>

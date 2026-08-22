@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { hoje } from '../utils/formatters';
 import { MODULO_PADRAO } from '../utils/modulos';
+import Icon from './Icons';
 
 // Checklist do turno de uma casa de PRODUÇÃO INTERNA (porcionamento/semiacabados).
 // Passos ESSENCIAIS fecham o turno; os OPCIONAIS nunca travam o 100% — um dia
@@ -11,14 +12,14 @@ const ESSENCIAIS = [
   {
     key: 'estoque',
     label: 'Produção / entrada',
-    icon: '🍲',
+    icon: 'producao',
     rota: '/registrar',
     hint: 'Registre o que foi produzido hoje.',
   },
   {
     key: 'saida',
     label: 'Saídas',
-    icon: '📤',
+    icon: 'saidas',
     rota: '/saidas',
     hint: 'Registre o envio para a cozinha principal / outras unidades (transferência interna).',
   },
@@ -27,14 +28,14 @@ const OPCIONAIS = [
   {
     key: 'etiqueta',
     label: 'Etiquetas',
-    icon: '🏷️',
+    icon: 'etiqueta',
     rota: '/etiquetas',
     hint: 'Imprima a validade dos potes após produzir ou dar entrada (recomendado).',
   },
   {
     key: 'apara',
     label: 'Aparas/perdas',
-    icon: '✂️',
+    icon: 'correcoes',
     rota: '/aparas',
     hint: 'Se houve limpeza/porcionamento com apara ou perda, registre aqui.',
   },
@@ -79,7 +80,7 @@ export default function GuideTour() {
   return (
     <div className="bg-polo-beige border border-polo-gold/40 rounded-xl px-3 pt-2.5 pb-3 mb-3">
       <div className="flex items-center justify-between mb-1.5">
-        <p className="text-xs font-bold text-polo-navy">📋 Fluxo do turno — produção da casa · {nFeitos}/{ESSENCIAIS.length}</p>
+        <p className="text-xs font-bold text-polo-navy">Fluxo do turno — produção da casa · {nFeitos}/{ESSENCIAIS.length}</p>
         <button onClick={dispensar} aria-label="Dispensar guia por hoje"
           className="text-gray-500 text-lg font-bold leading-none min-w-11 min-h-11 flex items-center justify-center -mr-2">×</button>
       </div>
@@ -104,7 +105,7 @@ export default function GuideTour() {
                   : isProximo
                     ? 'bg-polo-navy text-polo-gold border-polo-navy ring-2 ring-polo-gold/40'
                     : 'bg-white text-gray-600 border-gray-200'}`}>
-              <span>{feito ? '✅' : p.icon}</span>
+              <span className="flex-shrink-0">{feito ? <Icon name="registrar" size={16} /> : <Icon name={p.icon} size={16} />}</span>
               <span>{p.label}</span>
             </Link>
           );
@@ -116,7 +117,7 @@ export default function GuideTour() {
             <Link key={p.key} to={p.rota} title={p.hint}
               className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] border border-dashed transition-colors
                 ${feito ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white/60 text-gray-600 border-gray-300'}`}>
-              <span>{feito ? '✅' : p.icon}</span>
+              <span className="flex-shrink-0">{feito ? <Icon name="registrar" size={16} /> : <Icon name={p.icon} size={16} />}</span>
               <span>{p.label}{naoSeAplica ? ' (se houver)' : ''}</span>
             </Link>
           );

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
+import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
@@ -78,16 +79,15 @@ export default function FecharTurno() {
     <Layout title="Fechar turno">
       <div className="space-y-4">
         <div className="bg-polo-navy text-white rounded-2xl p-4">
-          <p className="text-polo-gold font-bold text-sm">🍳 Fechamento do turno</p>
+          <p className="text-polo-gold font-bold text-sm">Fechamento do turno</p>
           <p className="text-xs text-white/80 mt-1">
             Conte o que <strong>sobrou na bancada</strong>.
           </p>
         </div>
 
-        <button onClick={fechar} disabled={salvando || !aberto.linhas.length}
-          className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base disabled:opacity-40 active:scale-95 transition-transform">
+        <Botao onClick={fechar} disabled={salvando || !aberto.linhas.length}>
           {salvando ? 'Fechando…' : '✓ Fechar turno'}
-        </button>
+        </Botao>
 
         <div className="bg-white rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">

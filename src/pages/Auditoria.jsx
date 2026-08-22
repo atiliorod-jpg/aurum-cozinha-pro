@@ -39,7 +39,7 @@ export default function Auditoria() {
           de permissões passou a permitir liberar a trilha para a cozinha. */}
       <div className="space-y-2 mb-4">
         <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-          placeholder="🔍 Buscar ação ou item..."
+          placeholder="Buscar ação ou item..."
           className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {[['7', 'Últimos 7d'], ['30', 'Últimos 30d'], ['90', 'Últimos 90d'], ['todos', 'Tudo']].map(([v, l]) => (

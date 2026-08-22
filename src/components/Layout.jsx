@@ -6,6 +6,7 @@ import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import SeletorModulo from './SeletorModulo';
+import Icon from './Icons';
 import { useUI } from '../store/UIContext';
 
 const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
@@ -29,8 +30,8 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   // do tipo: com dois restaurantes na conta, "Estoque Seco" sozinho não diz de
   // qual casa é, e o cabeçalho é onde se confere isso antes de lançar.
   const mod = emAdmin
-    ? { icone: '⚙️', label: 'Administração' }
-    : { icone: estoqueAtual?.icone || '📦', label: estoqueAtual?.nome || 'Estoque' };
+    ? { icone: 'config', label: 'Administração' }
+    : { icone: estoqueAtual?.icone || 'caixa', label: estoqueAtual?.nome || 'Estoque' };
   const [trocandoModulo, setTrocandoModulo] = useState(false);
   const { confirm } = useUI();
 
@@ -80,7 +81,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           aria-label={`Você está em ${mod.label}. Tocar para ir a outra área`}
           className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1
                      min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
-          <span aria-hidden="true">{mod.icone}</span>
+          <Icon name={mod.icone} size={18} />
           <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
           <span className="text-white/50 text-[11px]" aria-hidden="true">▾</span>
         </button>

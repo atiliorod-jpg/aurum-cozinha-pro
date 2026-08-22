@@ -1631,7 +1631,9 @@ describe('instancias — varios estoques do mesmo tipo', () => {
 
   it('moduloPorId acha o rotulo do tipo mesmo com sufixo', () => {
     expect(moduloPorId('seco#x7k2').label).toBe('Estoque Seco');
-    expect(moduloPorId('finalizacao#b3nq').icone).toBe('🍳');
+    // ícone e NOME de desenho SVG, nao emoji: emoji renderiza diferente em cada
+    // aparelho e nao aceita a cor da marca.
+    expect(moduloPorId('finalizacao#b3nq').icone).toBe('frigideira');
   });
 
   // ⚠️ O TESTE MAIS IMPORTANTE DESTE BLOCO.

@@ -19,7 +19,7 @@ export default function Saidas() {
   // via aqui — a permissão existia numa porta e faltava nas outras quatro.
   const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   // rótulo do destino (inclui a saída interna de produção)
-  const rotuloDestino = (v) => v === 'producao' ? '🍲 Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
+  const rotuloDestino = (v) => v === 'producao' ? 'Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [destino, setDestino] = useState(prefs.destino || locais[0]?.id || '');
@@ -126,7 +126,7 @@ export default function Saidas() {
   return (
     <Layout title="Saídas">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['novo', '+ Nova saída'], ['historico', '📋 Histórico']].map(([v, l]) => (
+        {[['novo', '+ Nova saída'], ['historico', 'Histórico']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
@@ -170,7 +170,7 @@ export default function Saidas() {
           </div>
 
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-            placeholder="🔍 Buscar produto..."
+            placeholder="Buscar produto..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
 
           {!buscando && (
@@ -269,7 +269,7 @@ export default function Saidas() {
       ) : (
         <div className="space-y-3">
           <input type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
-            placeholder="🔍 Buscar por produto ou responsável..."
+            placeholder="Buscar por produto ou responsável..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {saidasOrdenadas.length === 0 && (
             <div className="text-center text-gray-500 py-12">Nenhuma saída registrada ainda.</div>

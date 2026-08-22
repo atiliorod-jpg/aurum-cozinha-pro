@@ -150,7 +150,7 @@ export default function Login() {
           {/* NOVO RESTAURANTE */}
           {modo === 'novo' && <>
             <h2 className="font-bold text-polo-navy">Cadastrar restaurante</h2>
-            <p className="text-xs font-semibold text-green-700">✨ 7 dias grátis com tudo liberado · depois R$ 149/mês para continuar.</p>
+            <p className="text-xs font-semibold text-green-700">7 dias grátis com tudo liberado · depois R$ 149/mês para continuar.</p>
             <p className="text-xs text-gray-500">Você será o administrador (Diretoria — acesso total).</p>
             <input type="text" aria-label="Nome do restaurante" value={nomeRest} onChange={e => setNomeRest(e.target.value)} placeholder="Nome do restaurante" className={campo} />
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
@@ -196,7 +196,7 @@ function ModalTermos({ onFechar }) {
       <div role="dialog" aria-modal="true" aria-labelledby="termos-titulo"
         className="bg-white rounded-2xl p-5 max-w-sm m-auto mt-10 space-y-3 text-sm text-gray-700"
         onClick={e => e.stopPropagation()}>
-        <h2 id="termos-titulo" className="font-bold text-polo-navy">📋 Termos de uso e modo de uso</h2>
+        <h2 id="termos-titulo" className="font-bold text-polo-navy">Termos de uso e modo de uso</h2>
         <p><strong>Para quem é:</strong> cozinhas profissionais, centrais de produção e operações que
         controlam estoque e porcionamento interno da casa — pensado para o tablet da cozinha.</p>
         <p><strong>O que o sistema faz:</strong> recebimento (registro auxiliar), entradas de estoque,
@@ -226,7 +226,7 @@ function ModalPrivacidade({ onFechar }) {
       <div role="dialog" aria-modal="true" aria-labelledby="priv-titulo"
         className="bg-white rounded-2xl p-5 max-w-sm m-auto mt-10 space-y-3 text-sm text-gray-700"
         onClick={e => e.stopPropagation()}>
-        <h2 id="priv-titulo" className="font-bold text-polo-navy">🔒 Privacidade e proteção de dados</h2>
+        <h2 id="priv-titulo" className="font-bold text-polo-navy">Privacidade e proteção de dados</h2>
         <p><strong>Dados tratados:</strong> nome e e-mail dos usuários vinculados à conta e os registros
         operacionais do estabelecimento (estoque, produção, movimentações e trilha de auditoria).</p>
         <p><strong>Finalidade:</strong> os dados são tratados exclusivamente para a prestação do serviço

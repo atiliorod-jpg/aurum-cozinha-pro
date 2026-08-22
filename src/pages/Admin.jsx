@@ -16,7 +16,7 @@ const dataBRHora = (v) => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digi
 function BadgeStatus({ st }) {
   const cfg = st.tipo === 'assinatura' ? ['🟢 Ativo', 'bg-green-100 text-green-700']
     : st.tipo === 'teste' ? [`🟡 Teste (${st.diasRestantes}d)`, 'bg-amber-100 text-amber-700']
-    : st.tipo === 'bloqueado' ? ['🔒 Suspenso', 'bg-red-100 text-red-700']
+    : st.tipo === 'bloqueado' ? ['Suspenso', 'bg-red-100 text-red-700']
     : ['🔴 Vencido', 'bg-red-100 text-red-700'];
   return <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${cfg[1]}`}>{cfg[0]}</span>;
 }
@@ -278,7 +278,7 @@ export default function Admin() {
                   return (
                     <div key={fb.id} className={`px-4 py-3 ${fb.status === 'resolvido' ? 'opacity-50' : ''}`}>
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-xs font-bold">{fb.tipo === 'bug' ? '🐛 Problema' : '💡 Sugestão'}</span>
+                        <span className="text-xs font-bold">{fb.tipo === 'bug' ? 'Problema' : 'Sugestão'}</span>
                         <span className="text-[11px] text-gray-600">{dataBR(fb.created_at)}</span>
                       </div>
                       <p className="text-[11px] text-gray-600 mb-1.5">
@@ -365,10 +365,10 @@ export default function Admin() {
 
                   {/* Visão comercial */}
                   <div className="px-4 py-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-600 border-b border-gray-50">
-                    <span>🧪 Teste até: <strong>{dataBR(fimTeste)}</strong></span>
-                    <span>💳 Assinatura até: <strong>{dataBR(r.assinatura_ate)}</strong></span>
-                    <span>👥 Usuários: <strong>{r.usuarios.length}/{maxU}</strong></span>
-                    <span>🛠️ Suporte: <strong>{r.suporteAtivo ? `ativo ~${restanteH}h${r.podeMexer ? ' (editar)' : ' (ver)'}` : '—'}</strong></span>
+                    <span>Teste até: <strong>{dataBR(fimTeste)}</strong></span>
+                    <span>Assinatura até: <strong>{dataBR(r.assinatura_ate)}</strong></span>
+                    <span>Usuários: <strong>{r.usuarios.length}/{maxU}</strong></span>
+                    <span>Suporte: <strong>{r.suporteAtivo ? `ativo ~${restanteH}h${r.podeMexer ? ' (editar)' : ' (ver)'}` : '—'}</strong></span>
                   </div>
 
                   {/* Usuários (com e-mail quando a migração 9 está no banco) */}
@@ -432,7 +432,7 @@ export default function Admin() {
                     </label>
                     <button onClick={() => alternarBloqueio(r)}
                       className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 ${r.bloqueado ? 'bg-green-600 text-white' : 'bg-red-100 text-red-700'}`}>
-                      {r.bloqueado ? '✅ Reativar conta' : '🔒 Suspender conta'}
+                      {r.bloqueado ? '✅ Reativar conta' : 'Suspender conta'}
                     </button>
                   </div>
 

@@ -3,6 +3,7 @@ import { estoquesAtivos } from '../utils/instancias';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { podeAbrirAdministracao } from '../utils/permissoes';
+import Icon from './Icons';
 
 /**
  * Escolha de qual estoque abrir. Aparece como tela cheia no primeiro acesso do
@@ -37,7 +38,9 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
             aria-current={ativo ? 'true' : undefined}
             className={`w-full text-left rounded-2xl p-4 border-2 transition-colors flex items-start gap-3
               ${ativo ? 'border-polo-gold bg-polo-beige' : 'border-gray-200 bg-white'}`}>
-            <span className="text-3xl flex-shrink-0" aria-hidden="true">{e.icone}</span>
+            <span className="w-11 h-11 rounded-xl bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
+              <Icon name={e.icone} size={24} />
+            </span>
             <span className="min-w-0">
               <span className="block font-bold text-polo-navy">
                 {e.nome}
@@ -58,7 +61,9 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
           className="w-full text-left rounded-2xl p-4 border-2 border-dashed border-polo-navy/25 bg-white
                      flex items-start gap-3 active:scale-[0.99] transition-transform
                      focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
-          <span className="text-3xl flex-shrink-0" aria-hidden="true">⚙️</span>
+          <span className="w-11 h-11 rounded-xl bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
+            <Icon name="config" size={24} />
+          </span>
           <span className="min-w-0">
             <span className="block font-bold text-polo-navy">Administração</span>
             <span className="block text-xs text-gray-500 mt-0.5">

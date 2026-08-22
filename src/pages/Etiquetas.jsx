@@ -24,7 +24,7 @@ const TIPOS_IMPRESSORA = [
   },
   {
     id: 'tablet',
-    titulo: '📱 Pelo tablet ou celular Android',
+    titulo: 'Pelo tablet ou celular Android',
     resumo: 'Impressora térmica com Wi-Fi/rede, ou compartilhada pelo computador.',
     comoFica: 'O Android abre a janela de impressão e a etiqueta sai no tamanho do rolo.',
     passos: [
@@ -38,7 +38,7 @@ const TIPOS_IMPRESSORA = [
   // etiquetas"). Quando existir, ele aparece sozinho.
   {
     id: 'comum',
-    titulo: '🖨️ Impressora comum (A4) — só para testar',
+    titulo: 'Impressora comum (A4) — só para testar',
     resumo: 'Jato de tinta ou laser, papel sulfite ou etiqueta adesiva A4.',
     comoFica: 'Sai UMA etiqueta pequena por folha (o app manda o tamanho real do rolo). Serve para testar o layout, não para o dia a dia.',
     passos: [
@@ -86,7 +86,7 @@ function GuiaImpressora() {
         </div>
       ))}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
-        <p className="font-bold mb-0.5">💬 Precisa de ajuda para configurar?</p>
+        <p className="font-bold mb-0.5">Precisa de ajuda para configurar?</p>
         <p>Chame o suporte Aurum pelo WhatsApp — configuramos junto com você na instalação.</p>
       </div>
     </div>
@@ -170,7 +170,7 @@ export default function Etiquetas() {
   return (
     <Layout title="Etiquetas">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1 print:hidden">
-        {[['catalogo', '📦 Do estoque'], ['avulsas', '📝 Avulsas'], ['impressora', '🖨️ Impressora']].map(([v, l]) => (
+        {[['catalogo', 'Do estoque'], ['avulsas', 'Avulsas'], ['impressora', 'Impressora']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
@@ -187,7 +187,7 @@ export default function Etiquetas() {
             Imprima a etiqueta de qualquer produto, a qualquer momento — a validade é calculada pelos prazos do produto (Config).
           </p>
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-            placeholder="🔍 Buscar produto..."
+            placeholder="Buscar produto..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {!buscando && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -244,7 +244,7 @@ export default function Etiquetas() {
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">A data na etiqueta é de…</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {[['abertura', '📂 Abertura'], ['fabricacao', '🏭 Fabricação']].map(([v, l]) => (
+                  {[['abertura', 'Abertura'], ['fabricacao', 'Fabricação']].map(([v, l]) => (
                     <button key={v} type="button" onClick={() => setNovoTipo(v)}
                       className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors
                         ${novoTipo === v ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>

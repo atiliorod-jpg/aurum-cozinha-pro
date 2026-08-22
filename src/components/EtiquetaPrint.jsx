@@ -41,7 +41,7 @@ function Linha({ rotulo, valor, forte = false }) {
   return (
     <div className="flex justify-between gap-2" style={{ fontSize: '2.7mm' }}>
       <span style={{ fontWeight: 700 }}>{rotulo}:</span>
-      <span style={{ fontWeight: forte ? 800 : 600, textAlign: 'right' }}>{valor}</span>
+      <span style={{ fontWeight: forte ? 800 : 600, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{valor}</span>
     </div>
   );
 }
@@ -56,15 +56,30 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
     <div className="etiqueta-label bg-white text-black flex flex-col"
       style={{ width: `${config.larguraMm}mm`, height: `${config.alturaMm}mm`, padding: '1.6mm 2mm', boxSizing: 'border-box', lineHeight: 1.25, fontFamily: 'system-ui, sans-serif' }}>
       {/* Cabeçalho: produto + medida */}
-      <div className="flex items-start justify-between gap-1 border-b border-black" style={{ paddingBottom: '0.8mm', marginBottom: '0.8mm' }}>
-        <div style={{ fontSize: '3.6mm', fontWeight: 800, textTransform: 'uppercase' }}>{campos.nome}</div>
+      {/* ⚠️ flexShrink 0 + limite de 2 linhas. A etiqueta tem ALTURA FIXA e o
+          print CSS aplica overflow:hidden nela; sem esta trava um nome longo
+          ("FILÉ MIGNON PORCIONADO 180G") empurrava o miolo e o RODAPÉ para fora
+          do papel — sumia justamente o QR e o lote, numa etiqueta que fica
+          colada no pote circulando na frente do cliente do restaurante. */}
+      <div className="flex items-start justify-between gap-1 border-b border-black"
+        style={{ paddingBottom: '0.8mm', marginBottom: '0.8mm', flexShrink: 0 }}>
+        <div style={{
+          fontSize: (campos.nome || '').length > 24 ? '3.0mm' : '3.6mm',
+          fontWeight: 800, textTransform: 'uppercase',
+          // Duas travas somadas de propósito: o line-clamp corta com reticências
+          // onde o -webkit-box vale, e o maxHeight garante o corte mesmo onde
+          // ele não vale (medi no navegador: o display computou flow-root, e aí
+          // o clamp sozinho não corta nada).
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          maxHeight: '9.5mm', overflow: 'hidden', wordBreak: 'break-word',
+        }}>{campos.nome}</div>
         {campos.medida && <div style={{ fontSize: '3.2mm', fontWeight: 800, whiteSpace: 'nowrap' }}>{campos.medida}</div>}
       </div>
       {c.armazenamento !== false && campos.armazenamentoLabel && (
         <div style={{ fontSize: '2.7mm', fontWeight: 700 }}>{campos.armazenamentoLabel}</div>
       )}
       {/* Datas e dados */}
-      <div className="flex-1">
+      <div className="flex-1" style={{ minHeight: 0, overflow: 'hidden' }}>
         {c.valOriginal !== false && <Linha rotulo="VAL. ORIGINAL" valor={campos.valOriginalFmt} />}
         {c.fabricacao !== false && <Linha rotulo={campos.rotuloData} valor={campos.dataFabricacaoFmt} />}
         {c.validade !== false && <Linha rotulo="VALIDADE" valor={campos.validadeFmt} forte />}
@@ -73,7 +88,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
         {c.responsavel !== false && <Linha rotulo="RESP." valor={campos.responsavel} />}
       </div>
       {/* Rodapé: estabelecimento + ID + QR */}
-      <div className="flex items-end justify-between gap-1 border-t border-black" style={{ paddingTop: '0.8mm', marginTop: '0.8mm' }}>
+      <div className="flex items-end justify-between gap-1 border-t border-black" style={{ paddingTop: '0.8mm', marginTop: '0.8mm', flexShrink: 0 }}>
         <div style={{ fontSize: '2.1mm', lineHeight: 1.3 }} className="min-w-0">
           {c.restaurante !== false && campos.restauranteNome && (
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>{campos.restauranteNome}</div>
@@ -330,7 +345,7 @@ export default function EtiquetaPrint() {
         <div role="dialog" aria-modal="true" aria-labelledby="etq-titulo"
           className="bg-white rounded-2xl w-full max-w-md mx-auto my-8 p-5 space-y-4">
           <div className="flex items-start justify-between">
-            <h2 id="etq-titulo" className="font-bold text-polo-navy text-lg">🏷️ Imprimir etiquetas</h2>
+            <h2 id="etq-titulo" className="font-bold text-polo-navy text-lg">Imprimir etiquetas</h2>
             <button onClick={fecharEtiquetas} aria-label="Fechar"
               className="text-gray-600 text-2xl leading-none px-1 -mt-1">×</button>
           </div>
@@ -408,17 +423,39 @@ export default function EtiquetaPrint() {
             })}
           </div>
 
-          <div className="text-[11px] text-gray-600">
-            Tamanho: {config.larguraMm}×{config.alturaMm}mm · impressão {horaImpressao}
-            .
-          </div>
+          {/* ⚠️ PREVIEW em tamanho real. A área que de fato imprime é
+              visibility:hidden (index.css), então até aqui a pessoa só descobria
+              como a etiqueta ficou DEPOIS de gastar rolo — e o layout é
+              configurável (9 campos ligáveis + largura/altura), o que torna o
+              erro provavel. É a MESMA marcação da impressa, só que visível. */}
+          {itens[0] && (
+            <div>
+              <p className="text-xs font-semibold text-gray-700 mb-1.5">
+                Como vai sair — {config.larguraMm}×{config.alturaMm} mm
+              </p>
+              <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
+                <div className="shadow-md flex-shrink-0">
+                  <EtiquetaLabel
+                    campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}
+                    config={config}
+                    qr={qrs[payloadDe(itens[0], loteDaCopia(itens[0], 0))]}
+                    estabelecimento={estabelecimento} />
+                </div>
+              </div>
+              {itens.length > 1 && (
+                <p className="text-[11px] text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button onClick={fecharEtiquetas}
               className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Agora não</button>
             <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente}
               className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
-              {qrPendente ? '⏳ Gerando QR…' : `🖨️ Imprimir ${totalEtiquetas > 0 ? `${totalEtiquetas} etiqueta(s)` : ''}`}
+              {qrPendente
+                ? 'Gerando QR…'
+                : `Imprimir ${totalEtiquetas > 0 ? (totalEtiquetas === 1 ? '1 etiqueta' : `${totalEtiquetas} etiquetas`) : ''}`}
             </button>
           </div>
         </div>

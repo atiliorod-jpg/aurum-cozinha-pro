@@ -204,7 +204,7 @@ function Rotas() {
       {/* Faixa do modo demonstração — lembra o visitante que nada é salvo */}
       {sessao?.demo && (
         <div className="sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md bg-polo-gold text-polo-navy print:hidden">
-          <p className="text-xs font-semibold min-w-0 truncate">🎬 Demonstração — dados de exemplo, nada é salvo</p>
+          <p className="text-xs font-semibold min-w-0 truncate">Demonstração — dados de exemplo, nada é salvo</p>
           <button onClick={logout}
             className="font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0 bg-polo-navy text-polo-gold">
             Sair da demo

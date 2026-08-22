@@ -202,7 +202,7 @@ export default function Dashboard() {
       {/* Produzir hoje — receitas com produto final abaixo do mínimo */}
       {temRecurso(modulo, 'producao') && produzirHoje.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2">🍲 Produzir hoje</p>
+          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2">Produzir hoje</p>
           <div className="space-y-2">
             {produzirHoje.map(({ receita, produto, atual }) => (
               <button key={receita.id}
@@ -227,7 +227,7 @@ export default function Dashboard() {
       {/* Previsão de ruptura — ritmo atual de consumo */}
       {emRisco.length > 0 && (
         <div className="bg-red-50 border border-red-300 rounded-xl p-3 mb-4">
-          <p className="text-xs font-bold text-red-700 mb-2">📉 Risco de faltar (no ritmo atual de saídas)</p>
+          <p className="text-xs font-bold text-red-700 mb-2">Risco de faltar (no ritmo atual de saídas)</p>
           <div className="space-y-1">
             {emRisco.map(({ p, dias }) => (
               <div key={p.id} className="flex justify-between items-center text-xs">

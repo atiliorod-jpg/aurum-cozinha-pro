@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
+import Botao from '../components/Botao';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -307,10 +308,9 @@ export default function Producao() {
                 🧾 Adicionar ingredientes à lista de compras
               </button>
             )}
-            <button onClick={handleProduzir} disabled={salvando}
-              className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-60">
+            <Botao onClick={handleProduzir} disabled={salvando}>
               {salvando ? 'Registrando…' : '✓ Registrar Produção'}
-            </button>
+            </Botao>
             {/* O rodapé saiu: explicava o que o sistema faz por dentro, e a
                 própria tela já mostra o efeito em números logo acima. */}
           </div>
