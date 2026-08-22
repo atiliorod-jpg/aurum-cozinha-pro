@@ -208,7 +208,7 @@ teste limpas.
 
 ### O que mudou e você precisa saber antes de mexer
 
-**Migrações 23 e 24 estão aplicadas.** A 23 fechou seis brechas de privilégio DENTRO da
+**Migrações 23 a 26 estão aplicadas.** A 23 fechou seis brechas de privilégio DENTRO da
 mesma conta (nenhuma vazava entre restaurantes): token de convite legível por
 qualquer membro, convites legados de 8 hex, DELETE de documentos sem trava de
 chave, DELETE físico de registros por qualquer membro, `p_versao` NULL
@@ -222,10 +222,24 @@ amarrado a `auth.uid()` em vez do claim de e-mail; (c) janela mínima de 7 dias
 em `perda_em_reais`, que com janela de 1 dia deixava reconstruir o custo
 unitário item a item.
 
+A **25** fez o acesso do suporte deixar rastro: entrar em modo suporte grava na
+trilha do próprio cliente, como "Suporte Aurum". O texto de privacidade foi
+corrigido junto — ele afirmava que o acesso da equipe só ocorre com
+autorização, e isso só valia para a ESCRITA.
+
+A **26** conserta um defeito da 24: o `revoke` dela limpou o que existia e não
+mudou o padrão, então a primeira função criada depois já nasceu aberta ao
+anônimo. Quem fecha de verdade é um **event trigger** (`trg_fecha_funcao_nova`)
+que revoga anon/PUBLIC a cada CREATE/ALTER FUNCTION.
+
 ⚠️ Ao mexer em RPC nova, **lembre do grant**: com deny-by-default, função sem
 `grant execute ... to authenticated` simplesmente não é chamável. E os 8
 helpers usados dentro das policies de RLS PRECISAM do grant — a expressão da
 policy roda como o usuário que chama.
+
+⚠️ **`auditar-supabase.mjs` agora falha** se qualquer RPC além de
+`convite_valido` ficar alcançável sem login. Se isso disparar depois de um
+upgrade do Supabase, a plataforma reconcedeu — rode a migração 26 de novo.
 
 **`separarMetas` agora RECUSA chamada sem catálogo.** Não é validação de dado:
 o catálogo nunca é undefined, então undefined ali só pode ser chamador
@@ -275,18 +289,10 @@ Os itens 1, 2 e 3 da lista antiga (drift do `alterar_cargo`, convites legados,
    sobrescreve dado bom.
 2. **Webhook Stripe desbloqueia conta suspensa** (inerte hoje).
 3. **`registrar_auditoria` sem rate limit.**
-4. **O super-admin lê os dados de todos os clientes o tempo todo**, sem passar
-   por `suporte_pode_editar()` e sem trilha — contradiz o texto de privacidade
-   mostrado ao cliente. **Único achado de segurança em aberto.** É decisão de
-   produto, não técnica: fechar significa que o Atílio não consegue
-   diagnosticar nada sem o cliente autorizar antes (janela de 24h). As opções
-   levantadas foram: (a) condicionar a leitura a `suporte_pode_editar()`;
-   (b) manter a leitura e gravar trilha de auditoria de cada acesso; (c) manter
-   como está e ajustar o texto de privacidade.
-
-Os itens 4, 5 e 6 da lista anterior (deny-by-default, janela do
-`perda_em_reais`, `sou_super_admin` por uuid) foram **corrigidos** na
-migração 24.
+**Nenhum achado de segurança da auditoria continua em aberto.** Os quatro que
+tinham ficado de fora foram fechados nas migrações 24, 25 e 26 — o último deles
+(leitura do super-admin) pela via que o dono escolheu: mantém a leitura e grava
+trilha, com o texto de privacidade corrigido para dizer a verdade.
 
 ### Lógica / integridade
 7. **`pe::modulo` é do aparelho.** Já cai para a raiz quando o id não serve
