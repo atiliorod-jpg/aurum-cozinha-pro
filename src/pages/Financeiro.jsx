@@ -43,6 +43,10 @@ export default function Financeiro() {
   const estoque = visao.estoque || SEM_MAPA;
   const saidas = visao.saidas || SEM_LISTA;
   const desperdicio = visao.desperdicio || SEM_LISTA;
+  // As compras entram no cálculo para custear a perda de RECEBIMENTO, que não
+  // tem produtoId e por isso não tem preço de catálogo — o custo dela é o da
+  // compra a que está associada.
+  const compras = visao.compras || SEM_LISTA;
   const nomeDoEstoque = estoques.find(e => e.id === vendo)?.nome || '';
 
   const de = addDias(hoje(), -dias);
@@ -51,7 +55,7 @@ export default function Financeiro() {
   const est = useMemo(() => valorDoEstoque(produtos, estoque, precos), [produtos, estoque, precos]);
   const abc = useMemo(() => curvaABC(est.itens), [est.itens]);
   const consumo = useMemo(() => custoDosRegistros(saidas, produtos, precos, { de }), [saidas, produtos, precos, de]);
-  const perdas = useMemo(() => custoDosRegistros(desperdicio, produtos, precos, { de }), [desperdicio, produtos, precos, de]);
+  const perdas = useMemo(() => custoDosRegistros(desperdicio, produtos, precos, { de, compras }), [desperdicio, produtos, precos, de, compras]);
 
   // Sem a permissão a linha `precos` nem chega do servidor (migração 20), então
   // não há o que calcular. Dizer isso é melhor que mostrar zeros, que pareceriam

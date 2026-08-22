@@ -109,6 +109,19 @@ export function visaoDoEstoque({ id, docs, registrosFatiados, padroes, aplicarMe
   const metas = docs?.[chaveMod('metas')] ?? {};
   const produtos = aplicarMetas ? aplicarMetas(catalogo, metas) : catalogo;
 
+  // Os catálogos de APOIO precisam vir do estoque que está sendo VISTO, não do
+  // que está aberto. A Administração lê estes três para montar tabela e rótulo;
+  // pegando do estoque aberto, um relatório do Seco iterava as categorias da
+  // Produção (PROTEÍNAS/PRODUZIDOS/DIVERSOS) contra produtos do Seco (GRÃOS,
+  // ENLATADOS…) — interseção zero, e a tabela de movimentação saía EM BRANCO,
+  // dizendo na prática que nada se moveu no período.
+  //
+  // categorias segue o catálogo (por TIPO, igual aos produtos); locais e
+  // destinos são da INSTÂNCIA, porque cada casa tem os seus.
+  const categorias = docs?.[chaveCat('categorias')] ?? padroes?.categorias ?? [];
+  const locais     = docs?.[chaveMod('locais')]     ?? padroes?.locais     ?? [];
+  const destinos   = docs?.[chaveMod('destinos')]   ?? padroes?.destinos   ?? [];
+
   const regs = registrosFatiados?.[id] || vazio();
   const estoque = calcEstoquePuro({
     produtos,
@@ -122,7 +135,7 @@ export function visaoDoEstoque({ id, docs, registrosFatiados, padroes, aplicarMe
     desperdicio: regs.desperdicio,
   });
 
-  return { id, produtos, metas, estoque, ...regs };
+  return { id, produtos, metas, categorias, locais, destinos, estoque, ...regs };
 }
 
 /**

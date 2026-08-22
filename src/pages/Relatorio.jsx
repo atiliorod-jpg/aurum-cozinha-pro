@@ -5,8 +5,8 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
 import { filtrarPorPeriodo, totalPorProduto } from '../utils/calculos';
-import { saidasPorDia, topProdutosSaida, somaPorCampo, rendimentoPorFornecedor } from '../utils/analise';
-import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem } from '../utils/relatorios';
+import { saidasPorDia, topProdutosSaida, somaPorCampo, unidadesPresentes, rendimentoPorFornecedor } from '../utils/analise';
+import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade } from '../utils/relatorios';
 import { fmtData, fmtNum, hoje } from '../utils/formatters';
 import { addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
@@ -30,7 +30,7 @@ const SEM_LISTA = [];
 const SEM_MAPA = {};
 
 export default function Relatorio() {
-  const { modulo, estoques, visoesPorEstoque, categorias, destinos, locais } = useApp();
+  const { modulo, estoques, visoesPorEstoque } = useApp();
   // Qual estoque o RELATÓRIO mostra. Começa no aberto, mas trocar aqui NÃO muda
   // o estoque da operação — antes o cartão da Administração chamava setModulo e
   // abrir um relatório trocava onde a equipe ia lançar.
@@ -39,10 +39,24 @@ export default function Relatorio() {
   const produtos = visao.produtos || SEM_LISTA;
   const estoque = visao.estoque || SEM_MAPA;
   const compras = visao.compras || SEM_LISTA;
-  const entradas = visao.entradas || SEM_LISTA;
   const saidas = visao.saidas || SEM_LISTA;
   const aparas = visao.aparas || SEM_LISTA;
   const desperdicio = visao.desperdicio || SEM_LISTA;
+  // ⚠️ Catálogos de apoio do estoque VISTO, não do aberto (ver visaoDoEstoque).
+  const categorias = visao.categorias || SEM_LISTA;
+  const locais = visao.locais || SEM_LISTA;
+  const destinos = visao.destinos || SEM_LISTA;
+  // A Finalização não tem tela de entrada: o que ela recebe chega como
+  // `recebimentos`, derivado das saídas da Produção. O saldo já usava; o
+  // relatório não, então "Entradas no estoque" marcava ZERO num estoque onde
+  // receber é quase tudo o que acontece.
+  const soEntradas = visao.entradas || SEM_LISTA;
+  const recebimentos = visao.recebimentos || SEM_LISTA;
+  const entradas = useMemo(
+    // memoizado de propósito: um [...a, ...b] solto no corpo cria array novo a
+    // cada render e derruba todos os useMemo abaixo.
+    () => (recebimentos.length ? [...soEntradas, ...recebimentos] : soEntradas),
+    [soEntradas, recebimentos]);
   const nomeDoEstoque = estoques.find(e => e.id === vendo)?.nome || '';
   // O estoque seco não tem apara de limpeza nem receita — esconder os blocos
   // evita seções eternamente vazias no relatório dele.
@@ -88,21 +102,36 @@ export default function Relatorio() {
   // Análises
   const serieDias = useMemo(() => saidasPorDia(saidas, rIni, rFim), [saidas, rIni, rFim]);
   const topProdutos = useMemo(() => topProdutosSaida(produtos, saidasF), [produtos, saidasF]);
+  // Um conjunto POR UNIDADE. Antes era um donut só, somando 10 kg de filé com
+  // 3 unid de pão — e num gráfico de proporção a fatia errada distorce todas as
+  // outras junto, não só a dela.
   const perdasPorMotivo = useMemo(
-    () => somaPorCampo(perdasF, 'motivo').map(x => ({ label: `${x.cod} — ${rotuloMotivo(x.cod)}`, valor: x.valor })),
+    () => unidadesPresentes(perdasF).map(un => ({
+      unidade: un,
+      dados: somaPorCampo(perdasF, 'motivo', un).map(x => ({ label: `${x.cod} — ${rotuloMotivo(x.cod)}`, valor: x.valor })),
+    })),
     [perdasF]);
   const aparasPorDestino = useMemo(
-    () => somaPorCampo(aparasF, 'destino').map(x => ({ label: rotuloDestino(x.cod), valor: x.valor })),
+    () => unidadesPresentes(aparasF).map(un => ({
+      unidade: un,
+      dados: somaPorCampo(aparasF, 'destino', un).map(x => ({ label: rotuloDestino(x.cod), valor: x.valor })),
+    })),
     [aparasF, rotuloDestino]);
   // Rendimento considera as compras do período, mas correções associadas de qualquer data
   const fornecedores = useMemo(() => rendimentoPorFornecedor(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
 
   const produtosAtivos = produtos.filter(p => p.ativo);
 
-  const somaQtd = (regs) => regs.reduce((s, r) => s + (parseFloat(r.quantidade) || 0), 0);
-  const totalAparas = somaQtd(aparasF);
-  const totalPerdas = somaQtd(perdasF);
-  const perdasEstoque = somaQtd(perdasF.filter(p => p.origem === 'estoque'));
+  // ⚠️ Por UNIDADE, nunca num número só: 10 kg de filé + 3 unid de pão viravam
+  // "13" sob o rótulo "Perdas", e sem unidade nenhuma ao lado para denunciar.
+  const totalAparas = useMemo(() => somaPorUnidade(aparasF), [aparasF]);
+  const totalPerdas = useMemo(() => somaPorUnidade(perdasF), [perdasF]);
+  const perdasEstoque = useMemo(() => somaPorUnidade(perdasF.filter(p => p.origem === 'estoque')), [perdasF]);
+  // "12,5 kg · 3 unid" — maior primeiro. Vazio vira "0".
+  const fmtUn = (mapa) => {
+    const partes = Object.entries(mapa).sort((a, b) => b[1] - a[1]);
+    return partes.length ? partes.map(([u, q]) => `${fmtNum(q)} ${u}`).join(' · ') : '0';
+  };
 
   // Novas visões "por item": rendimento (chegou → aparas/perdas → %) e produção
   const rendItens = useMemo(() => rendimentoPorItem(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
@@ -183,13 +212,13 @@ export default function Relatorio() {
         </div>
         {temApara && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
-            <div className="text-xl font-bold text-amber-700">{fmtNum(totalAparas)}</div>
-            <div className="text-xs text-amber-600">Aparas reaproveitadas</div>
+            <div className="text-lg font-bold text-amber-800 leading-tight">{fmtUn(totalAparas)}</div>
+            <div className="text-xs text-amber-700">Aparas reaproveitadas</div>
           </div>
         )}
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
-          <div className="text-xl font-bold text-red-600">{fmtNum(totalPerdas)}</div>
-          <div className="text-xs text-red-500">Perdas ({fmtNum(perdasEstoque)} do estoque)</div>
+          <div className="text-lg font-bold text-red-700 leading-tight">{fmtUn(totalPerdas)}</div>
+          <div className="text-xs text-red-600">Perdas ({fmtUn(perdasEstoque)} do estoque)</div>
         </div>
       </div>
 
@@ -213,12 +242,21 @@ export default function Relatorio() {
                 </tr>
               </thead>
               <tbody>
+                {/* chave com a unidade: o mesmo item comprado em kg e em cx são
+                    DUAS linhas agora, e key duplicada quebraria a lista */}
                 {rendItens.map(it => (
-                  <tr key={it.item} className="border-b border-gray-50">
-                    <td className="py-1.5 text-gray-800">{it.item}</td>
+                  <tr key={`${it.item}·${it.unidade}`} className="border-b border-gray-50">
+                    <td className="py-1.5 text-gray-800">
+                      {it.item}
+                      {it.avisoUnidade && (
+                        <span className="ml-1 text-[10px] text-amber-700" title={`${fmtNum(it.incompativel)} de apara/perda em unidade diferente de ${it.unidade}`}>
+                          unidade diferente
+                        </span>
+                      )}
+                    </td>
                     <td className="py-1.5 text-right text-gray-700">{fmtNum(it.comprado)} {it.unidade}</td>
-                    <td className="py-1.5 text-right text-amber-600">{it.aparas ? fmtNum(it.aparas) : '—'}</td>
-                    <td className="py-1.5 text-right text-red-500">{it.perdas ? fmtNum(it.perdas) : '—'}</td>
+                    <td className="py-1.5 text-right text-amber-700">{it.aparas ? fmtNum(it.aparas) : '—'}</td>
+                    <td className="py-1.5 text-right text-red-600">{it.perdas ? fmtNum(it.perdas) : '—'}</td>
                     <td className={`py-1.5 text-right font-bold ${corRend(it.rendimento)}`}>
                       {it.rendimento == null ? '—' : `${it.rendimento.toFixed(0)}%`}
                     </td>
@@ -261,12 +299,30 @@ export default function Relatorio() {
       </Card>
 
       <Card titulo="🗑️ Perdas por motivo">
-        <Donut dados={perdasPorMotivo} />
+        {perdasPorMotivo.length === 0
+          ? <p className="text-center text-gray-500 text-xs py-4">Nenhuma perda registrada no período.</p>
+          : perdasPorMotivo.map(g => (
+            <div key={g.unidade} className="mb-2 last:mb-0">
+              {perdasPorMotivo.length > 1 && (
+                <p className="text-[11px] font-semibold text-gray-600 mb-1">Em {g.unidade}</p>
+              )}
+              <Donut dados={g.dados} />
+            </div>
+          ))}
       </Card>
 
       {temApara && (
       <Card titulo="✂️ Aparas por destino">
-        <Donut dados={aparasPorDestino} />
+        {aparasPorDestino.length === 0
+          ? <p className="text-center text-gray-500 text-xs py-4">Nenhuma apara registrada no período.</p>
+          : aparasPorDestino.map(g => (
+            <div key={g.unidade} className="mb-2 last:mb-0">
+              {aparasPorDestino.length > 1 && (
+                <p className="text-[11px] font-semibold text-gray-600 mb-1">Em {g.unidade}</p>
+              )}
+              <Donut dados={g.dados} />
+            </div>
+          ))}
       </Card>
       )}
 
@@ -278,14 +334,27 @@ export default function Relatorio() {
           <div className="space-y-2.5">
             {fornecedores.map(f => (
               <div key={f.fornecedor}>
-                <div className="flex justify-between text-xs mb-0.5">
+                <div className="flex justify-between text-xs mb-0.5 gap-2">
                   <span className="font-medium text-gray-700">{f.fornecedor}</span>
-                  <span className="text-gray-500">{f.n} receb. • {fmtNum(f.comprado)} comprado • {fmtNum(f.correcao)} correção</span>
+                  <span className="text-gray-600 text-right">
+                    {f.n} receb. • {fmtNum(f.comprado)} {f.unidade} • {fmtNum(f.correcao)} de correção
+                  </span>
                 </div>
                 <BarraRendimento pct={f.rendimento} />
+                {/* Quando o fornecedor entrega em mais de uma unidade, a conta
+                    roda só na dominante — dizer isso é melhor que somar cx com
+                    kg e imprimir um número que parece nota do fornecedor. */}
+                {f.itensDeFora > 0 && (
+                  <p className="text-[10px] text-gray-600 mt-0.5">
+                    Calculado sobre {f.itensNaConta} {f.itensNaConta === 1 ? 'item' : 'itens'} em {f.unidade}.
+                    {' '}{f.itensDeFora} {f.itensDeFora === 1 ? 'item ficou' : 'itens ficaram'} de fora por estar em outra unidade.
+                  </p>
+                )}
               </div>
             ))}
-            <p className="text-[10px] text-gray-500 pt-1">Rendimento = 100% − (aparas e perdas associadas ÷ total comprado). Verde ≥ 90%, âmbar ≥ 80%, vermelho abaixo.</p>
+            <p className="text-[11px] text-gray-600 pt-1">
+              Rendimento = 100% − (aparas e perdas associadas ÷ total comprado).
+            </p>
           </div>
         )}
       </Card>

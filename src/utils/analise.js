@@ -1,4 +1,6 @@
 import { hoje } from './formatters';
+// relatorios.js não importa daqui — sem ciclo.
+import { rendimentoPorItem, unidadeBase, quantidadeBase } from './relatorios';
 
 const num = (v) => parseFloat(v) || 0;
 const DIA_MS = 86400000;
@@ -169,22 +171,59 @@ export function correcoesPorCompra(aparas, desperdicio) {
 }
 
 /**
- * Rendimento por fornecedor: total comprado, correção (aparas+perdas associadas)
- * e % de rendimento. Quanto maior o rendimento, melhor a matéria-prima entregue.
+ * Rendimento por fornecedor: % de rendimento, o que foi comprado e a correção.
+ * Quanto maior o rendimento, melhor a matéria-prima entregue.
+ *
+ * ⚠️ Calculado a partir do rendimento POR ITEM, não somando tudo do fornecedor.
+ * A versão anterior agrupava só por fornecedor e somava `quantidade` de todas
+ * as compras: 10 kg de filé + 5 cx de tomate + 30 unid de ovo viravam
+ * "comprado = 45", e a correção (em kg) era dividida por esse 45. O "%" saía na
+ * tela como barra verde/âmbar/vermelha e ia ser lido como NOTA DO FORNECEDOR —
+ * que é justamente para o que o dono quer usar.
+ *
+ * Agora: rendimento de cada par (item, unidade) e média ponderada pelo volume
+ * comprado, contando só os pares comparáveis. `itensDeFora` diz quantos ficaram
+ * de fora, para a tela poder avisar em vez de esconder.
  */
 export function rendimentoPorFornecedor(compras, aparas, desperdicio) {
-  const corr = correcoesPorCompra(aparas, desperdicio);
   const porF = {};
-  compras.forEach(c => {
+  (compras || []).forEach(c => {
     const f = (c.fornecedor || '').trim() || '(sem fornecedor)';
-    if (!porF[f]) porF[f] = { fornecedor: f, comprado: 0, correcao: 0, n: 0 };
-    porF[f].comprado += num(c.quantidade);
-    porF[f].correcao += corr[c.id] || 0;
-    porF[f].n++;
+    (porF[f] = porF[f] || []).push(c);
   });
-  return Object.values(porF)
-    .map(x => ({ ...x, rendimento: x.comprado > 0 ? (1 - x.correcao / x.comprado) * 100 : null }))
-    .sort((a, b) => b.comprado - a.comprado);
+
+  return Object.entries(porF).map(([fornecedor, cs]) => {
+    const itens = rendimentoPorItem(cs, aparas, desperdicio);
+    const validos = itens.filter(i => i.rendimento != null);
+
+    // A média é ponderada pelo VOLUME comprado — e volume só compara dentro da
+    // mesma unidade. Ponderar 10 kg contra 2 cx daria peso arbitrário a cada
+    // item, então a conta roda na unidade em que este fornecedor mais entrega e
+    // `itensDeFora` conta o que sobrou, para a tela poder avisar.
+    const volumePorUnidade = {};
+    validos.forEach(i => {
+      const u = unidadeBase(i.unidade);
+      volumePorUnidade[u] = (volumePorUnidade[u] || 0) + i.comprado;
+    });
+    const dominante = Object.entries(volumePorUnidade)
+      .sort((a, b) => b[1] - a[1])[0]?.[0];
+    const naConta = validos.filter(i => unidadeBase(i.unidade) === dominante);
+    const peso = naConta.reduce((s, i) => s + i.comprado, 0);
+
+    return {
+      fornecedor,
+      n: cs.length,
+      comprado: peso,
+      correcao: naConta.reduce((s, i) => s + i.correcao, 0),
+      unidade: dominante || '',          // em que unidade o número está
+      unidades: [...new Set(itens.map(i => unidadeBase(i.unidade)).filter(Boolean))],
+      itensNaConta: naConta.length,
+      itensDeFora: itens.length - naConta.length,
+      rendimento: peso > 0
+        ? naConta.reduce((s, i) => s + i.rendimento * i.comprado, 0) / peso
+        : null,
+    };
+  }).sort((a, b) => b.comprado - a.comprado);
 }
 
 /**
@@ -302,11 +341,28 @@ export function topProdutosSaida(produtos, saidasFiltradas, limite = 8) {
 }
 
 // Agrupa registros por um campo (ex.: motivo da perda, destino da apara)
-export function somaPorCampo(registros, campo) {
+export function somaPorCampo(registros, campo, unidade = null) {
   const m = {};
-  registros.forEach(r => {
+  (registros || []).forEach(r => {
+    // ⚠️ Um donut por UNIDADE. Sem o filtro, uma fatia "estragou: 13" somava
+    // 10 kg de filé com 3 unid de pão — e num gráfico de proporção a fatia
+    // errada distorce todas as outras junto.
+    if (unidade && unidadeBase(r.unidade) !== unidade) return;
     const k = r[campo] || '?';
-    m[k] = (m[k] || 0) + num(r.quantidade);
+    m[k] = (m[k] || 0) + quantidadeBase(r.quantidade, r.unidade);
   });
   return Object.entries(m).map(([cod, valor]) => ({ cod, valor })).sort((a, b) => b.valor - a.valor);
+}
+
+/**
+ * Unidades presentes numa lista de registros, da mais volumosa para a menos.
+ * Serve para a tela desenhar um gráfico por unidade em vez de um só, misturado.
+ */
+export function unidadesPresentes(registros) {
+  const m = {};
+  (registros || []).forEach(r => {
+    const u = unidadeBase(r?.unidade) || '—';
+    m[u] = (m[u] || 0) + quantidadeBase(r?.quantidade, r?.unidade);
+  });
+  return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([u]) => u);
 }

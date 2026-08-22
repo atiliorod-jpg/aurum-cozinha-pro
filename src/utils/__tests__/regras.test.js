@@ -21,7 +21,7 @@ import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { crc16, montarPixBRCode } from '../pix';
-import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem } from '../relatorios';
+import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade } from '../relatorios';
 import { turnoAberto, consumoDoTurno } from '../turno';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
@@ -691,6 +691,120 @@ describe('rendimentoPorItem — chegou, aparas, perdas e rendimento %', () => {
     expect(Math.round(file.rendimento)).toBe(90);
     const frango = r.find(x => x.item === 'Frango');
     expect(frango.rendimento).toBe(100);   // sem correções
+  });
+
+  // 2 cx de tomate com 3 kg de apara davam "-50%" em vermelho, com cara de
+  // numero certo. Nao da para dividir kg por caixa sem saber o peso da caixa.
+  it('nao inventa rendimento quando a apara esta em unidade que nao soma com a compra', () => {
+    const r = rendimentoPorItem(
+      [{ id: 'c9', item: 'Tomate', quantidade: 2, unidade: 'cx' }],
+      [{ compraId: 'c9', quantidade: 3, unidade: 'kg' }],
+      []);
+    expect(r[0].rendimento).toBe(null);
+    expect(r[0].avisoUnidade).toBe(true);
+    expect(r[0].incompativel).toBe(3);
+    expect(r[0].aparas).toBe(0);           // nao entrou na conta
+  });
+
+  it('o mesmo item comprado em unidades diferentes vira DUAS linhas', () => {
+    const r = rendimentoPorItem([
+      { id: 'k1', item: 'Tomate', quantidade: 10, unidade: 'kg' },
+      { id: 'k2', item: 'Tomate', quantidade: 2, unidade: 'cx' },
+    ], [], []);
+    expect(r).toHaveLength(2);
+    expect(r.map(x => x.unidade).sort()).toEqual(['cx', 'kg']);
+  });
+
+  it('converte g para kg em vez de somar 500 com 10', () => {
+    const r = rendimentoPorItem(
+      [{ id: 'c8', item: 'Alho', quantidade: 10, unidade: 'kg' }],
+      [{ compraId: 'c8', quantidade: 500, unidade: 'g' }],
+      []);
+    expect(r[0].aparas).toBe(0.5);
+    expect(r[0].rendimento).toBe(95);
+  });
+
+  // Registro antigo nao tinha o campo `unidade`. Trata-la como incompativel
+  // apagaria o rendimento de todo o historico ja gravado.
+  it('correcao SEM unidade assume a unidade da compra', () => {
+    const r = rendimentoPorItem(
+      [{ id: 'c7', item: 'File', quantidade: 10, unidade: 'kg' }],
+      [{ compraId: 'c7', quantidade: 1 }],
+      []);
+    expect(r[0].aparas).toBe(1);
+    expect(r[0].avisoUnidade).toBe(false);
+    expect(r[0].rendimento).toBe(90);
+  });
+});
+
+// A perda no recebimento nao tem produtoId (OrigemCorrecao limpa o campo), entao
+// caía fora dos dois ramos de custoDosRegistros: nao somava e nem contava como
+// "sem custo". O card imprimia "R$ 0,00 · nada registrado" num mes em que a
+// cozinha jogou 40 kg fora.
+describe('custoDosRegistros — perda de recebimento nao some mais', () => {
+  const prods = [{ id: 'file', nome: 'File', unidade: 'kg' }];
+
+  it('custeia a perda de recebimento pela compra associada', () => {
+    const r = custoDosRegistros(
+      [{ data: '2026-08-02', quantidade: 2, unidade: 'kg', compraId: 'c1', origem: 'recebimento' }],
+      prods, {},
+      { compras: [{ id: 'c1', quantidade: 10, unidade: 'kg', valorTotal: 500 }] });
+    expect(r.total).toBe(100);      // 2 kg x (500/10)
+    expect(r.semCusto).toBe(0);
+  });
+
+  it('sem compra associada, ao menos CONTA em vez de sumir', () => {
+    const r = custoDosRegistros(
+      [{ data: '2026-08-02', quantidade: 2, origem: 'recebimento' }], prods, {}, {});
+    expect(r.total).toBe(0);
+    expect(r.semCusto).toBe(1);
+  });
+
+  it('nao inventa custo quando a unidade da perda difere da compra', () => {
+    const r = custoDosRegistros(
+      [{ data: '2026-08-02', quantidade: 3, unidade: 'kg', compraId: 'c2' }],
+      prods, {},
+      { compras: [{ id: 'c2', quantidade: 2, unidade: 'cx', valorTotal: 200 }] });
+    expect(r.total).toBe(0);
+    expect(r.semCusto).toBe(1);
+  });
+});
+
+describe('somaPorUnidade — nunca um numero so', () => {
+  it('quebra por unidade em vez de somar kg com unid', () => {
+    expect(somaPorUnidade([
+      { quantidade: 10, unidade: 'kg' },
+      { quantidade: 3, unidade: 'unid' },
+      { quantidade: 2.5, unidade: 'kg' },
+    ])).toEqual({ kg: 12.5, unid: 3 });
+  });
+
+  it('g entra como kg', () => {
+    expect(somaPorUnidade([
+      { quantidade: 1, unidade: 'kg' },
+      { quantidade: 250, unidade: 'g' },
+    ])).toEqual({ kg: 1.25 });
+  });
+});
+
+// Somava `quantidade` de TODAS as compras do fornecedor, misturando itens e
+// unidades: 10 kg de file + 5 cx de tomate + 30 unid de ovo viravam
+// "comprado = 45", e a correcao em kg era dividida por esse 45.
+describe('rendimentoPorFornecedor — media ponderada por item, nao soma bruta', () => {
+  it('nao mistura itens nem unidades do mesmo fornecedor', () => {
+    const r = rendimentoPorFornecedor(
+      [
+        { id: 'a1', fornecedor: 'Boi Bom', item: 'File',   quantidade: 10, unidade: 'kg' },
+        { id: 'a2', fornecedor: 'Boi Bom', item: 'Tomate', quantidade: 2,  unidade: 'cx' },
+      ],
+      [{ compraId: 'a1', quantidade: 1, unidade: 'kg' }],
+      []);
+    const f = r.find(x => x.fornecedor === 'Boi Bom');
+    // so o file entra na conta: 100 - 1/10 = 90%. O tomate em cx fica de fora.
+    expect(Math.round(f.rendimento)).toBe(90);
+    expect(f.itensNaConta).toBe(1);
+    expect(f.itensDeFora).toBe(1);   // o tomate em cx ficou de fora
+    expect(f.unidades.sort()).toEqual(['cx', 'kg']);
   });
 });
 
@@ -1792,6 +1906,37 @@ describe('visao de um estoque sem trocar o que esta aberto', () => {
       ['producao', 'producao#ab12'], conv);
     expect(f['producao'].recebimentos).toEqual([]);
     expect(f['producao#ab12'].saidas.map(r => r.id)).toEqual(['i']);
+  });
+
+  // O Relatorio lia categorias/locais/destinos do estoque ABERTO, nao do que
+  // estava sendo VISTO. Com a Producao aberta e o relatorio mostrando o Seco, a
+  // tabela iterava PROTEINAS/PRODUZIDOS/DIVERSOS contra produtos do Seco
+  // (GRAOS, ENLATADOS...) — intersecao zero, corpo da tabela EM BRANCO, e o
+  // relatorio dizia na pratica que nada se moveu no periodo.
+  it('a visao carrega os catalogos de apoio DO ESTOQUE VISTO', () => {
+    const docs = {
+      'seco::categorias': ['GRAOS E FARINACEOS', 'ENLATADOS'],
+      'seco::locais': [{ id: 'despensa', nome: 'Despensa' }],
+      'seco::destinos': [{ cod: 'D1', label: 'Doacao' }],
+      categorias: ['PROTEINAS', 'PRODUZIDOS'],   // catalogo da PRODUCAO
+    };
+    const f = fatiarPorEstoque([], ['seco'], conv);
+    const v = visaoDoEstoque({ id: 'seco', docs, registrosFatiados: f, aplicarMetas: comMetas });
+    expect(v.categorias).toEqual(['GRAOS E FARINACEOS', 'ENLATADOS']);
+    expect(v.locais[0].nome).toBe('Despensa');
+    expect(v.destinos[0].label).toBe('Doacao');
+  });
+
+  it('sem documento proprio, cai para o padrao DO TIPO e nao para o do aberto', () => {
+    const f = fatiarPorEstoque([], ['seco'], conv);
+    const v = visaoDoEstoque({
+      id: 'seco',
+      docs: { categorias: ['PROTEINAS'] },        // so a Producao tem doc
+      registrosFatiados: f,
+      padroes: { categorias: ['GRAOS E FARINACEOS'], locais: [], destinos: [] },
+      aplicarMetas: comMetas,
+    });
+    expect(v.categorias).toEqual(['GRAOS E FARINACEOS']);
   });
 
   it('SALDO separado com CATALOGO compartilhado — o pedido do dono', () => {

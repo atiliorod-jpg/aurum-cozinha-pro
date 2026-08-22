@@ -108,8 +108,9 @@ export function curvaABC(itens) {
  * produção) OU com `produtoId`/`quantidade` na raiz (perdas, aparas) — as duas
  * formas convivem na base desde antes do multi-módulo.
  */
-export function custoDosRegistros(registros, produtos, precos, { de, ate } = {}) {
+export function custoDosRegistros(registros, produtos, precos, { de, ate, compras } = {}) {
   const porId = new Map((produtos || []).map(p => [p.id, p]));
+  const porCompra = new Map((compras || []).filter(c => c && c.id).map(c => [c.id, c]));
   let total = 0;
   const porProduto = {};
   let semCusto = 0;
@@ -130,6 +131,26 @@ export function custoDosRegistros(registros, produtos, precos, { de, ate } = {})
     if (ate && r.data && r.data > ate) return;
     if (Array.isArray(r.itens) && r.itens.length) r.itens.forEach(i => somar(i.produtoId, i.quantidade));
     else if (r.produtoId) somar(r.produtoId, r.quantidade);
+    else {
+      // Perda no RECEBIMENTO nunca tem produtoId: OrigemCorrecao limpa o campo
+      // e o formulário troca o seletor de produto pelo de COMPRA. Ela caía fora
+      // dos dois ramos acima — não somava e nem contava como "sem custo" — e o
+      // card do Financeiro imprimia "R$ 0,00 · nada registrado" num mês em que
+      // a cozinha jogou 40 kg de matéria-prima fora no recebimento.
+      const qtd = Number(r.quantidade) || 0;
+      if (qtd <= 0) return;
+      const c = r.compraId ? porCompra.get(r.compraId) : null;
+      const qtdCompra = Number(c?.quantidade);
+      const valorCompra = Number(c?.valorTotal);
+      // Só custeia quando a unidade da perda BATE com a da compra: o custo da
+      // compra é por caixa, e dividir kg por ele daria valor inventado. Unidade
+      // ausente assume a da compra (registro antigo não tinha o campo).
+      const mesmaUnidade = !r.unidade || !c?.unidade
+        || String(r.unidade).toLowerCase() === String(c.unidade).toLowerCase();
+      if (!c || !mesmaUnidade || !(qtdCompra > 0) || !(valorCompra > 0)) { semCusto++; return; }
+      total += arred2(qtd * (valorCompra / qtdCompra));
+      // sem produtoId não há a quem atribuir na curva ABC — entra só no total
+    }
   });
 
   return { total: arred2(total), porProduto, semCusto };
