@@ -208,12 +208,24 @@ teste limpas.
 
 ### O que mudou e você precisa saber antes de mexer
 
-**Migração 23 está aplicada.** Fechou seis brechas de privilégio DENTRO da
+**Migrações 23 e 24 estão aplicadas.** A 23 fechou seis brechas de privilégio DENTRO da
 mesma conta (nenhuma vazava entre restaurantes): token de convite legível por
 qualquer membro, convites legados de 8 hex, DELETE de documentos sem trava de
 chave, DELETE físico de registros por qualquer membro, `p_versao` NULL
 desligando o controle de conflito, e `alterar_cargo` lendo `perfis` cru em vez
 das helpers endurecidas pela M18.
+
+A **24** fechou mais três: (a) deny-by-default nas RPCs — as 30 funções do
+projeto estavam chamáveis SEM LOGIN (`anon=X` em todas), e o anônimo agora
+alcança só `convite_valido`, o único caminho pré-login; (b) `sou_super_admin()`
+amarrado a `auth.uid()` em vez do claim de e-mail; (c) janela mínima de 7 dias
+em `perda_em_reais`, que com janela de 1 dia deixava reconstruir o custo
+unitário item a item.
+
+⚠️ Ao mexer em RPC nova, **lembre do grant**: com deny-by-default, função sem
+`grant execute ... to authenticated` simplesmente não é chamável. E os 8
+helpers usados dentro das policies de RLS PRECISAM do grant — a expressão da
+policy roda como o usuário que chama.
 
 **`separarMetas` agora RECUSA chamada sem catálogo.** Não é validação de dado:
 o catálogo nunca é undefined, então undefined ali só pode ser chamador
@@ -263,20 +275,18 @@ Os itens 1, 2 e 3 da lista antiga (drift do `alterar_cargo`, convites legados,
    sobrescreve dado bom.
 2. **Webhook Stripe desbloqueia conta suspensa** (inerte hoje).
 3. **`registrar_auditoria` sem rate limit.**
-4. **Nenhum REVOKE em todo o projeto** — no Postgres, EXECUTE de função é
-   concedido a PUBLIC por padrão, e o Supabase expõe o schema `public` para
-   `anon`. Toda RPC nasce chamável sem login; é a raiz da falha da M19. O certo
-   é deny-by-default (`revoke execute on all functions ... from anon, public`)
-   e depois `grant` uma a uma. **Não apliquei: errar a lista derruba o app.**
-   Precisa de uma passada cuidadosa enumerando cada RPC.
-5. **`perda_em_reais` permite reconstruir o custo unitário** com janelas de 1
-   dia e 1 item — `p_de`/`p_ate` são livres. Precisa de janela mínima.
-6. **`sou_super_admin()` compara claim de e-mail**, não `auth.uid()`. O claim
-   muda por fluxo de troca de e-mail. Amarrar no uuid imutável (preciso do seu
-   uuid para escrever isso).
-7. **O super-admin lê os dados de todos os clientes o tempo todo**, sem passar
+4. **O super-admin lê os dados de todos os clientes o tempo todo**, sem passar
    por `suporte_pode_editar()` e sem trilha — contradiz o texto de privacidade
-   mostrado ao cliente. Decisão de produto, não só técnica.
+   mostrado ao cliente. **Único achado de segurança em aberto.** É decisão de
+   produto, não técnica: fechar significa que o Atílio não consegue
+   diagnosticar nada sem o cliente autorizar antes (janela de 24h). As opções
+   levantadas foram: (a) condicionar a leitura a `suporte_pode_editar()`;
+   (b) manter a leitura e gravar trilha de auditoria de cada acesso; (c) manter
+   como está e ajustar o texto de privacidade.
+
+Os itens 4, 5 e 6 da lista anterior (deny-by-default, janela do
+`perda_em_reais`, `sou_super_admin` por uuid) foram **corrigidos** na
+migração 24.
 
 ### Lógica / integridade
 7. **`pe::modulo` é do aparelho.** Já cai para a raiz quando o id não serve
