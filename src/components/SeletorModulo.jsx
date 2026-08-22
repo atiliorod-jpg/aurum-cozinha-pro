@@ -62,8 +62,7 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
           <span className="min-w-0">
             <span className="block font-bold text-polo-navy">Administração</span>
             <span className="block text-xs text-gray-500 mt-0.5">
-              Relatórios de qualquer estoque, histórico de mudanças, equipe e assinatura.
-              Não é um estoque — não muda o que está aberto.
+              Relatórios, equipe, cadastros e assinatura.
             </span>
           </span>
         </Link>

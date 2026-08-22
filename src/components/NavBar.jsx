@@ -29,24 +29,12 @@ const NAV = [
   // "Validades" tinha, aparecendo na barra e como card no hub.
 ];
 
-// Barra da ADMINISTRAÇÃO. Só destinos de dentro da própria área — nenhum
-// leva para um estoque. É o que impede a pessoa de entrar na Administração e
-// ser jogada numa cozinha ao tocar num botão.
-// Barra da ADMINISTRAÇÃO. Só o INÍCIO e a volta para a operação.
-//
-// ⚠️ Relatórios, Financeiro e Config saíram daqui: eles já são cartões do
-// Início, e ter o mesmo destino nos dois lugares é botão repetido — o próprio
-// defeito que já corrigimos em "Validades" (barra + card) e na Administração
-// (seletor + barra). Um destino, um caminho.
-//
-// A Administração tem oito destinos; espalhar quatro deles numa barra e os oito
-// no Início é ruído, não atalho.
-const NAV_ADMIN = [
-  { to: '/administracao', icon: 'inicio', label: 'Início' },
-  { to: '/',              icon: 'registrar', label: 'Voltar ao estoque' },
-];
+// A Administração NÃO tem barra — o Layout nem chama este componente lá.
+// Ela tinha dois itens: "Início", que repetia o cartão do próprio hub, e
+// "Voltar ao estoque", que repetia o seletor do cabeçalho. Um destino, um
+// caminho: o seletor do cabeçalho é a porta entre as áreas, nos dois sentidos.
 
-export default function NavBar({ area = 'estoque' }) {
+export default function NavBar() {
   const { produtos, estoque, producoes, permissoes, modulo } = useApp();
   const { sessao } = useAuth();
   const alertas = produtos.filter(p => {
@@ -59,7 +47,7 @@ export default function NavBar({ area = 'estoque' }) {
     return p?.ativo && p.min > 0 && (estoque[p.id] ?? 0) < p.min;
   }).length;
 
-  const itens = (area === 'admin' ? NAV_ADMIN : NAV).filter(n => {
+  const itens = NAV.filter(n => {
     // recurso do módulo primeiro: não adianta ter permissão para uma tela que
     // não existe no estoque aberto
     if (n.recurso && !temRecurso(modulo, n.recurso)) return false;
