@@ -125,6 +125,12 @@ export function AuthProvider({ children }) {
           const quando = p.new?.updated_at;
           if (quando && registradoEmRef.current && quando <= registradoEmRef.current) return;
           setDerrubado(true);
+          // ⚠️ O cache local precisa morrer aqui também. limparCacheLocal() só
+          // era chamado no botão Sair; numa queda por sessão única — que é
+          // JUSTAMENTE o caso de "abriram minha conta em outro aparelho" — os
+          // dados do restaurante ficavam no tablet, lisíveis pelo DevTools sem
+          // senha nenhuma.
+          limparCacheLocal();
           supabase.auth.signOut();
         })
       .subscribe();
@@ -151,7 +157,10 @@ export function AuthProvider({ children }) {
           carregadoRef.current = uid;
           carregarPerfil(uid);
         } else {
+          // Sessão encerrada por QUALQUER caminho — token expirado, signOut de
+          // outra aba, revogação no servidor. Todos passavam longe da limpeza.
           carregadoRef.current = null;
+          limparCacheLocal();
           setSessao(null); setUsuarios([]); setCarregando(false);
         }
       }, 0);

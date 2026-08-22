@@ -1165,7 +1165,17 @@ export function AppProvider({ children }) {
     cat('locais', setLocaisRaw, dados.locais);
     cat('listaManual', setListaManualRaw, dados.listaManual);
     cat('etiquetasAvulsas', setEtiquetasAvulsasRaw, dados.etiquetasAvulsas);
-    cat('prefs', setPrefsRaw, dados.prefs);
+    // ⚠️ prefs entra por LISTA BRANCA, nunca inteiro. Um arquivo de backup
+    // é conteúdo que o usuário traz de fora e pode ter sido editado à mão:
+    // aplicar o objeto cru deixaria o arquivo escolher qualquer chave que o app
+    // venha a guardar em prefs — e prefs é da CONTA INTEIRA, não de um estoque.
+    // Só as chaves que o app de fato reconhece passam.
+    if (dados.prefs && typeof dados.prefs === 'object' && !Array.isArray(dados.prefs)) {
+      const permitidas = Object.keys(soRestaurante(CAT.prefs));
+      const limpo = {};
+      permitidas.forEach(k => { if (dados.prefs[k] !== undefined) limpo[k] = dados.prefs[k]; });
+      if (Object.keys(limpo).length) cat('prefs', setPrefsRaw, limpo);
+    }
 
     const r = ridRef.current;
     // RESTAURAÇÃO REAL: o backup SUBSTITUI o estado atual. Sem este soft-delete
