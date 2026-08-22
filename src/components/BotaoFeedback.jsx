@@ -80,7 +80,7 @@ export default function BotaoFeedback() {
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-polo-navy">Falar com a equipe Aurum</h2>
-              <button onClick={() => setAberto(false)} aria-label="Fechar" className="text-gray-400 text-xl leading-none">✕</button>
+              <button onClick={() => setAberto(false)} aria-label="Fechar" className="text-gray-600 text-xl leading-none">✕</button>
             </div>
 
             {sessao?.demo && (
@@ -143,7 +143,7 @@ export default function BotaoFeedback() {
               className="w-full mt-4 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm disabled:opacity-60">
               {enviando ? 'Enviando…' : 'Enviar para a equipe Aurum'}
             </button>
-            <p className="text-[11px] text-gray-400 text-center mt-1.5">
+            <p className="text-[11px] text-gray-600 text-center mt-1.5">
               Vai direto para a equipe Aurum pelo próprio sistema. Você não precisa fazer mais nada.
             </p>
           </div>

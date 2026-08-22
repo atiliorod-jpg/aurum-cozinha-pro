@@ -151,19 +151,24 @@ export default function Historico() {
             <span className="text-xl flex-shrink-0 mt-0.5">{ev.icon}</span>
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-medium ${ev.cor} break-words`}>{ev.resumo}</div>
-              <div className="text-[11px] text-gray-400">
+              <div className="text-[11px] text-gray-600">
                 {fmtData(ev.r.data)}{ev.r.hora ? ` • ${ev.r.hora}` : ''}{ev.r.responsavel ? ` • ${ev.r.responsavel}` : ''}
               </div>
-              {ev.r.obs && <div className="text-[11px] text-gray-400 italic mt-0.5">{ev.r.obs}</div>}
+              {ev.r.obs && <div className="text-[11px] text-gray-600 italic mt-0.5">{ev.r.obs}</div>}
             </div>
-            {(ev.grupo === 'entradas' || ev.grupo === 'producao') && (ev.r.itens || []).length > 0 && (
-              <button onClick={() => reimprimirEtiquetas(ev)} aria-label="Reimprimir etiquetas deste registro"
-                className="text-polo-navy text-xs font-semibold px-2 py-1 rounded hover:bg-polo-beige flex-shrink-0">🏷️</button>
-            )}
-            {podeRemover && ev.remover && (
-              <button onClick={() => handleRemover(ev)}
-                className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50 flex-shrink-0">Remover</button>
-            )}
+            {/* ⚠️ Alvos de 44 px e separados. Eram dois botões de ~24 px colados:
+                errar aqui remove um lançamento no lugar de reimprimir a etiqueta
+                dele — o toque errado mais caro do app. */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {(ev.grupo === 'entradas' || ev.grupo === 'producao') && (ev.r.itens || []).length > 0 && (
+                <button onClick={() => reimprimirEtiquetas(ev)} aria-label="Reimprimir etiquetas deste registro"
+                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-polo-beige text-polo-navy text-lg flex-shrink-0">🏷️</button>
+              )}
+              {podeRemover && ev.remover && (
+                <button onClick={() => handleRemover(ev)}
+                  className="min-h-11 px-3 rounded-xl text-sm font-semibold text-red-700 bg-red-50 border border-red-200 flex-shrink-0">Remover</button>
+              )}
+            </div>
           </div>
         ))}
       </div>

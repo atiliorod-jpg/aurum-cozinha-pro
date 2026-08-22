@@ -18,7 +18,7 @@ function BadgeStatus({ st }) {
     : st.tipo === 'teste' ? [`🟡 Teste (${st.diasRestantes}d)`, 'bg-amber-100 text-amber-700']
     : st.tipo === 'bloqueado' ? ['🔒 Suspenso', 'bg-red-100 text-red-700']
     : ['🔴 Vencido', 'bg-red-100 text-red-700'];
-  return <span className={`text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${cfg[1]}`}>{cfg[0]}</span>;
+  return <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${cfg[1]}`}>{cfg[0]}</span>;
 }
 
 export default function Admin() {
@@ -196,7 +196,7 @@ export default function Admin() {
         <div className="bg-white rounded-xl p-8 text-center">
           <p className="text-2xl mb-2">🚫</p>
           <p className="text-sm font-semibold text-gray-700">Acesso restrito</p>
-          <p className="text-xs text-gray-400 mt-1">Esta página é exclusiva para administradores.</p>
+          <p className="text-xs text-gray-600 mt-1">Esta página é exclusiva para administradores.</p>
         </div>
       </Layout>
     );
@@ -239,14 +239,14 @@ export default function Admin() {
               <summary className="cursor-pointer px-4 py-3 flex items-center justify-between">
                 <span className="text-sm font-bold text-polo-navy">📨 Feedback dos clientes</span>
                 {erroFeedback
-                  ? <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">erro</span>
+                  ? <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">erro</span>
                   : abertos > 0
-                    ? <span className="text-[10px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{abertos} novo(s)</span>
-                    : <span className="text-[10px] font-semibold text-gray-400">{feedbacks.length || 'nenhum'}</span>}
+                    ? <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{abertos} novo(s)</span>
+                    : <span className="text-[11px] font-semibold text-gray-600">{feedbacks.length || 'nenhum'}</span>}
               </summary>
 
               {carregandoFeedback && (
-                <p className="px-4 py-3 text-xs text-gray-400 animate-pulse">Carregando feedback…</p>
+                <p className="px-4 py-3 text-xs text-gray-600 animate-pulse">Carregando feedback…</p>
               )}
 
               {!carregandoFeedback && erroFeedback && (
@@ -279,9 +279,9 @@ export default function Admin() {
                     <div key={fb.id} className={`px-4 py-3 ${fb.status === 'resolvido' ? 'opacity-50' : ''}`}>
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="text-xs font-bold">{fb.tipo === 'bug' ? '🐛 Problema' : '💡 Sugestão'}</span>
-                        <span className="text-[10px] text-gray-400">{dataBR(fb.created_at)}</span>
+                        <span className="text-[11px] text-gray-600">{dataBR(fb.created_at)}</span>
                       </div>
-                      <p className="text-[10px] text-gray-400 mb-1.5">
+                      <p className="text-[11px] text-gray-600 mb-1.5">
                         {fb.restaurante_nome || '—'} · {fb.usuario_nome || '?'}{fb.contexto ? ` · ${fb.contexto}` : ''}
                       </p>
                       <div className="text-xs text-gray-700 space-y-0.5">
@@ -309,7 +309,7 @@ export default function Admin() {
 
         {carregando && (
           <div className="bg-white rounded-xl p-8 text-center">
-            <p className="text-xs text-gray-400 animate-pulse">Carregando restaurantes…</p>
+            <p className="text-xs text-gray-600 animate-pulse">Carregando restaurantes…</p>
           </div>
         )}
 
@@ -319,14 +319,14 @@ export default function Admin() {
               <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">
                 Restaurantes ({restaurantes.length})
               </p>
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[11px] text-gray-600">
                 {restaurantes.filter(r => r.suporteAtivo).length} com suporte ativo
               </span>
             </div>
 
             {restaurantes.length === 0 && (
               <div className="bg-white rounded-xl p-8 text-center">
-                <p className="text-sm text-gray-400">Nenhum restaurante encontrado.</p>
+                <p className="text-sm text-gray-600">Nenhum restaurante encontrado.</p>
               </div>
             )}
 
@@ -345,7 +345,7 @@ export default function Admin() {
                     ${r.bloqueado ? 'bg-red-50' : r.suporteAtivo ? 'bg-green-50' : 'bg-gray-50'}`}>
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-gray-900 truncate">{r.nome}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">Criado em {dataBR(r.created_at)}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5">Criado em {dataBR(r.created_at)}</p>
                     </div>
                     <BadgeStatus st={st} />
                   </div>
@@ -359,7 +359,7 @@ export default function Admin() {
                         {' '}em {dataBRHora(r.aviso_pagamento_em)}
                       </p>
                       <button onClick={() => dispensarAviso(r)}
-                        className="text-[10px] font-semibold text-gray-500 underline underline-offset-2 flex-shrink-0">dispensar</button>
+                        className="text-[11px] font-semibold text-gray-500 underline underline-offset-2 flex-shrink-0">dispensar</button>
                     </div>
                   )}
 
@@ -374,13 +374,13 @@ export default function Admin() {
                   {/* Usuários (com e-mail quando a migração 9 está no banco) */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     {r.usuarios.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">Sem usuários</p>
+                      <p className="text-xs text-gray-600 italic">Sem usuários</p>
                     ) : (
                       <div className="space-y-1">
                         {r.usuarios.map(u => (
                           <div key={u.id} className="flex items-center justify-between text-xs gap-2">
-                            <span className="text-gray-700 truncate">{u.nome || '(sem nome)'}{u.email ? <span className="text-gray-400"> · {u.email}</span> : null}</span>
-                            <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full flex-shrink-0">{u.cargo}</span>
+                            <span className="text-gray-700 truncate">{u.nome || '(sem nome)'}{u.email ? <span className="text-gray-600"> · {u.email}</span> : null}</span>
+                            <span className="text-[11px] text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full flex-shrink-0">{u.cargo}</span>
                           </div>
                         ))}
                       </div>
@@ -389,7 +389,7 @@ export default function Admin() {
 
                   {/* Ativar plano pago (após confirmar o Pix) */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Ativar plano pago</p>
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Ativar plano pago</p>
                     <div className="flex flex-wrap items-center gap-1.5 mb-2">
                       {PLANOS.map(p => (
                         <button key={p.id} onClick={() => liberarDias(r, p.dias)}
@@ -398,7 +398,7 @@ export default function Admin() {
                         </button>
                       ))}
                     </div>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Cortesia (dias avulsos)</p>
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Cortesia (dias avulsos)</p>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {[7, 14, 30, 90].map(d => (
                         <button key={d} onClick={() => liberarDias(r, d)}
@@ -438,7 +438,7 @@ export default function Admin() {
 
                   {/* Notas internas (invisíveis ao cliente) */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1">Notas internas (só você vê)</p>
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">Notas internas (só você vê)</p>
                     <div className="flex gap-1.5">
                       <input type="text" value={notasLocal[r.id] ?? ''} placeholder="Ex: VIP · WhatsApp (81) 9…"
                         onChange={e => setNotasLocal(p => ({ ...p, [r.id]: e.target.value }))}
@@ -457,7 +457,7 @@ export default function Admin() {
                         {r.podeMexer ? '✏️ Entrar como este restaurante (pode EDITAR)' : '👁️ Ver como este restaurante (somente leitura)'}
                       </button>
                     ) : (
-                      <p className="text-[10px] text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                      <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                         Para ver os dados deste restaurante, peça que ele autorize o suporte em Configurações → Sistema → Suporte remoto.
                       </p>
                     )}

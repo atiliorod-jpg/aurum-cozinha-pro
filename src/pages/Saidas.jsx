@@ -186,7 +186,7 @@ export default function Saidas() {
                   <button key={c} onClick={() => setCatAtiva(c)}
                     className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
                       ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                    {c}{nCat > 0 && <span className="ml-1 bg-polo-gold text-polo-navy rounded-full px-1.5 text-[10px] font-bold">{nCat}</span>}
+                    {c}{nCat > 0 && <span className="ml-1 bg-polo-gold text-polo-navy rounded-full px-1.5 text-[11px] font-bold">{nCat}</span>}
                   </button>
                 );
               })}
@@ -212,7 +212,7 @@ export default function Saidas() {
                           : dias <= 3 ? 'bg-orange-100 text-orange-700 border-orange-300'
                           : 'bg-gray-50 text-gray-500 border-gray-200';
                         return (
-                          <span key={`${l.validade}_${l.dataEntrada || ''}_${i}`} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cor}`}>
+                          <span key={`${l.validade}_${l.dataEntrada || ''}_${i}`} className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${cor}`}>
                             {fmtNum(l.restante)} {p.unidade} • {dias < 0 ? 'VENCIDO ' : dias === 0 ? 'vence HOJE ' : 'vence '}{fmtData(l.validade)}
                             {i === 0 && lotes[p.id].length > 1 && ' ← pegar deste'}
                           </span>
@@ -291,7 +291,7 @@ export default function Saidas() {
                         toast('Saída removida.', 'sucesso', { acao: { label: 'Desfazer', onClick: () => restaurarRegistro('saida', s) } });
                       }
                     }}
-                    className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">
+                    className="text-red-700 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">
                     Remover
                   </button>
                   )}

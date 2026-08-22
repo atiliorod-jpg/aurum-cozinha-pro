@@ -69,14 +69,14 @@ export default function Auditoria() {
           <div key={a.id} className="bg-white rounded-xl px-4 py-3 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold text-sm text-polo-navy">{a.usuario}</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${COR_ACAO(a.acao)}`}>{a.acao}</span>
-              <span className="text-[10px] text-gray-500 ml-auto">{fmtQuando(a.ts)}</span>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${COR_ACAO(a.acao)}`}>{a.acao}</span>
+              <span className="text-[11px] text-gray-500 ml-auto">{fmtQuando(a.ts)}</span>
             </div>
             {a.detalhe && <p className="text-xs text-gray-600 mt-1">{a.detalhe}</p>}
           </div>
         ))}
         {auditoria.length > 300 && registros.length === 300 && (
-          <p className="text-center text-[10px] text-gray-500 py-2">Mostrando as 300 mudanças mais recentes.</p>
+          <p className="text-center text-[11px] text-gray-500 py-2">Mostrando as 300 mudanças mais recentes.</p>
         )}
       </div>
     </Layout>

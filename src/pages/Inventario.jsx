@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -8,9 +8,10 @@ import ResponsavelSelect from '../components/ResponsavelSelect';
 import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
 import LeitorQR from '../components/LeitorQR';
 import { lerLoteIdDoQR } from '../utils/etiquetas';
+import { cacheGet, cacheSet } from '../lib/cache';
 
 export default function Inventario() {
-  const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref, etiquetasImpressas, permissoes } = useApp();
+  const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref, etiquetasImpressas, permissoes, modulo, rid } = useApp();
   const { toast, confirm } = useUI();
   const { sessao } = useAuth();
   // Mesma trava do Histórico: sem isto o cozinheiro não via 'Remover' lá, mas
@@ -18,7 +19,21 @@ export default function Inventario() {
   const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
-  const [contagem, setContagem] = useState({});
+
+  // ⚠️ RASCUNHO da contagem. Antes `contagem` vivia só na memória do
+  // componente: qualquer toque na barra, o Voltar do tablet, um refresh do
+  // service worker ou a aba sendo reciclada por falta de memória desmontavam a
+  // página e apagavam tudo. Um inventário de 80 itens leva ~25 minutos e
+  // evaporava sem uma única pergunta.
+  const chaveRascunho = `rascunho::inventario::${modulo}`;
+  const [contagem, setContagem] = useState(() => cacheGet(rid, chaveRascunho, {}));
+  // ref para não regravar no primeiro render nem depois de salvar
+  const salvouRef = useRef(false);
+  useEffect(() => {
+    if (salvouRef.current) return;
+    const t = setTimeout(() => cacheSet(rid, chaveRascunho, contagem), 500);
+    return () => clearTimeout(t);
+  }, [contagem, rid, chaveRascunho]);
   const [catAtiva, setCatAtiva] = useState(categorias[0]);
   const [tab, setTab] = useState('novo');
   const produtosAtivos = produtos.filter(p => p.ativo);
@@ -94,8 +109,11 @@ export default function Inventario() {
     itensContados.forEach(([produtoId, quantidade]) => {
       addAjuste({ data, hora: fmtHora(), responsavel, produtoId, quantidade: parseFloat(quantidade), inventarioId });
     });
+    salvouRef.current = true;
     setContagem({});
-    toast('Contagem registrada! Estoque atualizado.', 'sucesso');
+    cacheSet(rid, chaveRascunho, {});     // rascunho só some depois de gravar
+    setTimeout(() => { salvouRef.current = false; }, 600);
+    toast('Contagem registrada.', 'sucesso');
     setTab('historico');
   };
 
@@ -161,7 +179,7 @@ export default function Inventario() {
                 {lidos.slice(0, 8).map((l) => (
                   <li key={l.loteId} className="text-[11px] text-gray-600 flex justify-between gap-2">
                     <span className="truncate">✓ {l.nome}</span>
-                    <span className="text-gray-400 flex-shrink-0">
+                    <span className="text-gray-600 flex-shrink-0">
                       {l.validade ? `val. ${fmtData(l.validade)}` : 'sem validade'} · {l.loteId}
                     </span>
                   </li>

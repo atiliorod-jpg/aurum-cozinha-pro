@@ -118,7 +118,7 @@ export default function Login() {
               className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-[0.98] transition-transform">
               🎬 Ver demonstração — sem cadastro
             </button>
-            <p className="text-[10px] text-gray-400 text-center -mt-1">
+            <p className="text-[11px] text-gray-600 text-center -mt-1">
               Restaurante de exemplo. Nada é salvo: os dados voltam ao início quando você sair.
             </p>
           </>}
@@ -156,7 +156,7 @@ export default function Login() {
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
             <input type="email" aria-label="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
             <CampoSenha valor={senha} onChange={setSenha} aria="Senha (mínimo 8 caracteres)" autoComplete="new-password" placeholder="Crie uma senha (mín. 8)" />
-            <p className="text-[11px] text-gray-400 -mt-1">Use um e-mail que só você controla — quem tiver acesso a ele pode recuperar a senha da conta.</p>
+            <p className="text-[11px] text-gray-600 -mt-1">Use um e-mail que só você controla — quem tiver acesso a ele pode recuperar a senha da conta.</p>
             <label className="flex items-start gap-2 text-xs text-gray-600">
               <input type="checkbox" checked={aceitouTermos} onChange={e => setAceitouTermos(e.target.checked)}
                 className="w-4 h-4 mt-0.5 accent-[#1B2A41] flex-shrink-0" />

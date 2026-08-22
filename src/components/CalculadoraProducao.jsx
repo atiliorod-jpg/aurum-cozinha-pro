@@ -153,7 +153,7 @@ export default function CalculadoraProducao() {
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">
                     Fator de correção (%)
-                    <span className="ml-1 text-[10px] text-gray-400">osso, aparas…</span>
+                    <span className="ml-1 text-[11px] text-gray-600">osso, aparas…</span>
                   </label>
                   <input type="number" inputMode="decimal" min="0" max="90" step="0.5" value={correcaoPct}
                     onChange={e => setCorrecaoPct(e.target.value)}
@@ -165,27 +165,27 @@ export default function CalculadoraProducao() {
 
               {prodGram && kgNum > 0 && (
                 <div className="bg-polo-navy rounded-xl p-4 text-white space-y-2">
-                  <p className="text-[10px] uppercase tracking-wide text-polo-gold font-bold">Resultado</p>
+                  <p className="text-[11px] uppercase tracking-wide text-polo-gold font-bold">Resultado</p>
                   <div className={`grid ${(correcao > 0 || coccao > 0) ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5 text-center`}>
                     <div className="bg-white/10 rounded-lg p-2.5">
                       <div className="text-base font-bold">{fmtNum(kgNum)} kg</div>
-                      <div className="text-[9px] opacity-70">bruto</div>
+                      <div className="text-[11px] opacity-70">bruto</div>
                     </div>
                     {(correcao > 0 || coccao > 0) && (
                       <div className="bg-white/10 rounded-lg p-2.5">
                         <div className="text-base font-bold">{fmtNum(kgServido)} kg</div>
-                        <div className="text-[9px] opacity-70">
+                        <div className="text-[11px] opacity-70">
                           líquido{correcao > 0 ? ` −${correcao}%` : ''}{coccao > 0 ? ` 🔥−${coccao}%` : ''}
                         </div>
                       </div>
                     )}
                     <div className="bg-polo-gold text-polo-navy rounded-lg p-2.5">
                       <div className="text-base font-bold">{porcoesResultado}</div>
-                      <div className="text-[9px] font-semibold">porções de {prodGram.gramatura} g</div>
+                      <div className="text-[11px] font-semibold">porções de {prodGram.gramatura} g</div>
                     </div>
                   </div>
                   {coccao > 0 && (
-                    <p className="text-[10px] opacity-60 text-center">
+                    <p className="text-[11px] opacity-60 text-center">
                       Já considerando cocção de {coccao}% ({prodGram.nome})
                     </p>
                   )}
@@ -193,7 +193,7 @@ export default function CalculadoraProducao() {
               )}
 
               {prodGram && kgNum === 0 && (
-                <p className="text-xs text-gray-400 text-center pt-1">
+                <p className="text-xs text-gray-600 text-center pt-1">
                   Digite a quantidade disponível para ver as porções.
                 </p>
               )}

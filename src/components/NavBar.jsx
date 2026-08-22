@@ -81,13 +81,13 @@ export default function NavBar() {
                 <span className="leading-none tracking-wide">{label}</span>
                 {to === '/' && alertas > 0 && (
                   <span aria-label={`${alertas} produtos abaixo do mínimo`}
-                    className="absolute top-0.5 right-1/4 bg-red-500 text-white text-[9px] rounded-full min-w-4 h-4 px-0.5 flex items-center justify-center font-bold ring-2 ring-polo-navy">
+                    className="absolute top-0.5 right-1/4 bg-red-500 text-white text-[11px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold ring-2 ring-polo-navy">
                     {alertas > 9 ? '9+' : alertas}
                   </span>
                 )}
                 {to === '/' && precisaProduzir > 0 && (
                   <span aria-label={`${precisaProduzir} receita(s) precisam ser produzidas`}
-                    className="absolute top-0.5 left-1/4 bg-amber-500 text-white text-[9px] rounded-full min-w-4 h-4 px-0.5 flex items-center justify-center font-bold ring-2 ring-polo-navy">
+                    className="absolute top-0.5 left-1/4 bg-amber-500 text-white text-[11px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold ring-2 ring-polo-navy">
                     🍲
                   </span>
                 )}

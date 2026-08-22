@@ -47,9 +47,9 @@ export default function NovidadesPopup() {
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-1">
           <h2 className="font-bold text-polo-navy">✨ O que há de novo</h2>
-          <button onClick={fechar} aria-label="Fechar" className="text-gray-400 text-xl leading-none">✕</button>
+          <button onClick={fechar} aria-label="Fechar" className="text-gray-600 text-xl leading-none">✕</button>
         </div>
-        <p className="text-[11px] text-gray-400 mb-3">{ultimoRelease.titulo} · {ultimoRelease.data}</p>
+        <p className="text-[11px] text-gray-600 mb-3">{ultimoRelease.titulo} · {ultimoRelease.data}</p>
         <ul className="space-y-2">
           {ultimoRelease.itens.map((it, i) => (
             <li key={i} className="text-sm text-gray-700 flex gap-2">

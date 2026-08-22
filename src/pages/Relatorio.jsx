@@ -158,7 +158,7 @@ export default function Relatorio() {
   const rendItens = useMemo(() => rendimentoPorItem(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
   const prodItens = useMemo(() => producaoPorItem(entradasF, produtos), [entradasF, produtos]);
 
-  const corRend = (pct) => pct == null ? 'text-gray-400' : pct >= 90 ? 'text-green-700' : pct >= 80 ? 'text-amber-600' : 'text-red-600';
+  const corRend = (pct) => pct == null ? 'text-gray-600' : pct >= 90 ? 'text-green-700' : pct >= 80 ? 'text-amber-600' : 'text-red-600';
   const nomeRest = sessao?.restauranteNome || '';
 
   return (
@@ -217,7 +217,7 @@ export default function Relatorio() {
             )}
           </div>
         ) : (
-          <p className="text-[11px] text-gray-400 mt-1">{fmtData(rIni)} a {fmtData(rFim)}</p>
+          <p className="text-[11px] text-gray-600 mt-1">{fmtData(rIni)} a {fmtData(rFim)}</p>
         )}
       </div>
 
@@ -247,7 +247,7 @@ export default function Relatorio() {
                       {l.celulas.map(c => (
                         <td key={c.estoqueId} className="py-1.5 px-2 text-right whitespace-nowrap">
                           {Object.keys(c.aparas).length === 0 && Object.keys(c.perdas).length === 0 ? (
-                            <span className="text-gray-400">—</span>
+                            <span className="text-gray-600">—</span>
                           ) : (
                             <>
                               {Object.keys(c.aparas).length > 0 && (
@@ -270,7 +270,7 @@ export default function Relatorio() {
                       <td key={t.estoqueId} className="py-2 px-2 text-right whitespace-nowrap">
                         {Object.keys(t.aparas).length > 0 && <div className="text-amber-800">apara {fmtUn(t.aparas)}</div>}
                         {Object.keys(t.perdas).length > 0 && <div className="text-red-700">perda {fmtUn(t.perdas)}</div>}
-                        {Object.keys(t.aparas).length === 0 && Object.keys(t.perdas).length === 0 && <span className="text-gray-400">—</span>}
+                        {Object.keys(t.aparas).length === 0 && Object.keys(t.perdas).length === 0 && <span className="text-gray-600">—</span>}
                       </td>
                     ))}
                   </tr>
@@ -310,7 +310,7 @@ export default function Relatorio() {
         <p className="text-sm font-bold text-polo-navy mb-1">📊 Rendimento por item</p>
         <p className="text-[11px] text-gray-500 mb-3">Quanto de cada matéria-prima chegou e quanto virou apara/perda. Rendimento = o que sobrou aproveitável.</p>
         {rendItens.length === 0 ? (
-          <div className="text-center text-gray-400 py-6 text-sm">Nenhuma compra registrada neste período.</div>
+          <div className="text-center text-gray-600 py-6 text-sm">Nenhuma compra registrada neste período.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -331,7 +331,7 @@ export default function Relatorio() {
                     <td className="py-1.5 text-gray-800">
                       {it.item}
                       {it.avisoUnidade && (
-                        <span className="ml-1 text-[10px] text-amber-700" title={`${fmtNum(it.incompativel)} de apara/perda em unidade diferente de ${it.unidade}`}>
+                        <span className="ml-1 text-[11px] text-amber-700" title={`${fmtNum(it.incompativel)} de apara/perda em unidade diferente de ${it.unidade}`}>
                           unidade diferente
                         </span>
                       )}
@@ -346,7 +346,7 @@ export default function Relatorio() {
                 ))}
               </tbody>
             </table>
-            <p className="text-[10px] text-gray-400 pt-2">Rendimento = 100% − (aparas + perdas associadas à compra ÷ total que chegou). Verde ≥ 90%, âmbar ≥ 80%, vermelho abaixo.</p>
+            <p className="text-[11px] text-gray-600 pt-2">Rendimento = 100% − (aparas + perdas associadas à compra ÷ total que chegou). Verde ≥ 90%, âmbar ≥ 80%, vermelho abaixo.</p>
           </div>
         )}
       </div>
@@ -358,7 +358,7 @@ export default function Relatorio() {
         <p className="text-sm font-bold text-polo-navy mb-1">🍲 Produção por item</p>
         <p className="text-[11px] text-gray-500 mb-3">Quanto de cada item produzido saiu da cozinha no período.</p>
         {prodItens.length === 0 ? (
-          <div className="text-center text-gray-400 py-6 text-sm">Nenhuma produção registrada neste período.</div>
+          <div className="text-center text-gray-600 py-6 text-sm">Nenhuma produção registrada neste período.</div>
         ) : (
           <ul className="text-xs text-gray-700 space-y-1">
             {prodItens.map(it => (
@@ -427,7 +427,7 @@ export default function Relatorio() {
                     roda só na dominante — dizer isso é melhor que somar cx com
                     kg e imprimir um número que parece nota do fornecedor. */}
                 {f.itensDeFora > 0 && (
-                  <p className="text-[10px] text-gray-600 mt-0.5">
+                  <p className="text-[11px] text-gray-600 mt-0.5">
                     Calculado sobre {f.itensNaConta} {f.itensNaConta === 1 ? 'item' : 'itens'} em {f.unidade}.
                     {' '}{f.itensDeFora} {f.itensDeFora === 1 ? 'item ficou' : 'itens ficaram'} de fora por estar em outra unidade.
                   </p>
@@ -472,7 +472,7 @@ export default function Relatorio() {
               if (!linhas.length) return null;
               return [
                 <tr key={cat} className="bg-gray-50/60">
-                  <td colSpan={colCount} className="px-4 py-1.5 font-bold text-gray-500 text-[10px] uppercase tracking-wide">{cat}</td>
+                  <td colSpan={colCount} className="px-4 py-1.5 font-bold text-gray-500 text-[11px] uppercase tracking-wide">{cat}</td>
                 </tr>,
                 ...linhas.map(({ p, e, porLocal }) => (
                   <tr key={p.id} className="border-t border-gray-50">
@@ -498,14 +498,14 @@ export default function Relatorio() {
         <p className="text-sm font-bold text-polo-navy mb-1">🎯 Saídas por destino (por dia)</p>
         <p className="text-[11px] text-gray-500 mb-3">O que foi enviado para cada unidade, dia a dia. Cada destino é separado.</p>
         {porDestinoDia.length === 0 ? (
-          <div className="text-center text-gray-400 py-6 text-sm">Nenhuma saída para unidades neste período.</div>
+          <div className="text-center text-gray-600 py-6 text-sm">Nenhuma saída para unidades neste período.</div>
         ) : (
           <div className="space-y-3">
             {porDestinoDia.map(d => (
               <details key={d.destinoId} className="border border-gray-100 rounded-lg">
                 <summary className="cursor-pointer px-3 py-2 font-semibold text-sm text-polo-navy flex justify-between">
                   <span>📤 {d.destinoNome}</span>
-                  <span className="text-[11px] text-gray-400 font-normal">{d.dias.length} dia(s)</span>
+                  <span className="text-[11px] text-gray-600 font-normal">{d.dias.length} dia(s)</span>
                 </summary>
                 <div className="px-3 pb-3 space-y-2">
                   {d.dias.map(dia => (
@@ -578,7 +578,7 @@ export default function Relatorio() {
         <p className="text-sm font-bold text-polo-navy mb-1">📦 Chegadas por dia</p>
         <p className="text-[11px] text-gray-500 mb-3">O que chegou em cada data, com o peso total do dia (itens em kg).</p>
         {chegadas.length === 0 ? (
-          <div className="text-center text-gray-400 py-6 text-sm">Nenhuma compra recebida neste período.</div>
+          <div className="text-center text-gray-600 py-6 text-sm">Nenhuma compra recebida neste período.</div>
         ) : (
           <div className="space-y-2">
             {chegadas.map(c => (

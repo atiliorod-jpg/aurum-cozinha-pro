@@ -111,7 +111,7 @@ export default function FecharTurno() {
           </div>
           <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
           {aberto.aberturaEm && (
-            <p className="text-[11px] text-gray-400">
+            <p className="text-[11px] text-gray-600">
               Turno aberto desde o último fechamento ({fmtData(aberto.aberturaEm)}).
             </p>
           )}
@@ -120,7 +120,7 @@ export default function FecharTurno() {
         {!aberto.linhas.length ? (
           <div className="bg-white rounded-xl p-6 text-center">
             <p className="text-sm text-gray-500">Nada recebido da produção ainda neste turno.</p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-600 mt-1">
               Assim que a produção registrar uma saída com destino <strong>Cozinha de Finalização</strong>,
               os itens aparecem aqui sozinhos.
             </p>
@@ -147,7 +147,7 @@ export default function FecharTurno() {
                         value={sobras[l.produtoId] ?? ''} onChange={e => setSobra(l.produtoId, e.target.value)}
                         aria-label={`Sobra de ${l.nome}`} placeholder="0"
                         className="w-20 text-center border border-gray-200 rounded-lg py-2 text-sm font-semibold" />
-                      <span className="text-[10px] text-gray-400 w-8">{l.unidade}</span>
+                      <span className="text-[11px] text-gray-600 w-8">{l.unidade}</span>
                     </div>
                   </div>
                   <p className={`text-[11px] mt-1.5 font-semibold ${l.inconsistente ? 'text-orange-700' : 'text-polo-navy'}`}>
@@ -171,7 +171,7 @@ export default function FecharTurno() {
               {fechados.map(f => (
                 <li key={f.id} className="text-xs text-gray-600 flex justify-between gap-2 border-b border-gray-50 pb-1.5">
                   <span>{fmtData(f.data)} · {f.turno || '—'}{f.responsavel ? ` · ${f.responsavel}` : ''}</span>
-                  <span className="text-gray-400 flex-shrink-0">{(f.itens || []).length} item(ns)</span>
+                  <span className="text-gray-600 flex-shrink-0">{(f.itens || []).length} item(ns)</span>
                 </li>
               ))}
             </ul>

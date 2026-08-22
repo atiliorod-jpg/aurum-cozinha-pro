@@ -20,7 +20,7 @@ function Cartao({ titulo, valor, detalhe, tom = 'normal' }) {
     <div className="bg-white rounded-xl border border-gray-100 p-4">
       <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">{titulo}</p>
       <p className={`text-2xl font-bold ${cor} mt-1`}>{valor}</p>
-      {detalhe && <p className="text-[11px] text-gray-400 mt-0.5">{detalhe}</p>}
+      {detalhe && <p className="text-[11px] text-gray-600 mt-0.5">{detalhe}</p>}
     </div>
   );
 }
@@ -122,11 +122,11 @@ export default function Financeiro() {
             </p>
             <div className="mt-1.5 flex flex-wrap gap-1">
               {est.semCusto.slice(0, 12).map(i => (
-                <span key={i.id} className="text-[10px] bg-white border border-amber-200 rounded-full px-2 py-0.5 text-amber-800">
+                <span key={i.id} className="text-[11px] bg-white border border-amber-200 rounded-full px-2 py-0.5 text-amber-800">
                   {i.nome} ({fmtNum(i.quantidade)} {i.unidade})
                 </span>
               ))}
-              {semPreco > 12 && <span className="text-[10px] text-amber-700">+{semPreco - 12}</span>}
+              {semPreco > 12 && <span className="text-[11px] text-amber-700">+{semPreco - 12}</span>}
             </div>
           </div>
         )}
@@ -134,7 +134,7 @@ export default function Financeiro() {
         <div>
           <div className="mb-2 px-1">
             <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Onde está o dinheiro</p>
-            <p className="text-[11px] text-gray-400">
+            <p className="text-[11px] text-gray-600">
               Classe A concentra os primeiros 80% do valor — é onde vale contar com mais frequência
             </p>
           </div>
@@ -147,16 +147,16 @@ export default function Financeiro() {
             <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
               {abc.slice(0, 25).map(i => (
                 <div key={i.id} className="px-3 py-2 flex items-center gap-2">
-                  <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 flex-shrink-0 ${CORES_CLASSE[i.classe]}`}>{i.classe}</span>
+                  <span className={`text-[11px] font-bold rounded px-1.5 py-0.5 flex-shrink-0 ${CORES_CLASSE[i.classe]}`}>{i.classe}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-gray-800 truncate">{i.nome}</p>
-                    <p className="text-[10px] text-gray-400">
+                    <p className="text-[11px] text-gray-600">
                       {fmtNum(i.quantidade)} {i.unidade} × {brl(i.custoUnit)}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-xs font-bold text-polo-navy">{brl(i.valor)}</p>
-                    <p className="text-[10px] text-gray-400">{fmtNum(i.pct)}%</p>
+                    <p className="text-[11px] text-gray-600">{fmtNum(i.pct)}%</p>
                   </div>
                 </div>
               ))}
@@ -178,7 +178,7 @@ export default function Financeiro() {
           </div>
         )}
 
-        <p className="text-[11px] text-gray-400 px-1 leading-relaxed">
+        <p className="text-[11px] text-gray-600 px-1 leading-relaxed">
           Números de <strong>{nomeDoEstoque}</strong>. O custo usado é o da{' '}
           <strong>última compra</strong> registrada de cada item.
         </p>

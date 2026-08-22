@@ -161,7 +161,7 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
       <div className="flex items-center justify-between border-t border-gray-100 pt-3">
         <div>
           <p className="text-xs font-semibold text-gray-600">QR code na etiqueta</p>
-          <p className="text-[11px] text-gray-400">Código com produto e validade (para leitura futura).</p>
+          <p className="text-[11px] text-gray-600">Código com produto e validade (para leitura futura).</p>
         </div>
         <button role="switch" aria-checked={!!cfg.incluirQR}
           onClick={() => { salvar({ incluirQR: !cfg.incluirQR }); toast(!cfg.incluirQR ? 'QR code LIGADO nas etiquetas.' : 'QR code desligado.', 'sucesso'); }}
@@ -190,32 +190,32 @@ function CartaoEtiquetas({ prefs, setPref, toast }) {
             </label>
           ))}
         </div>
-        <p className="text-[11px] text-gray-400 mt-2">O nome do produto sempre aparece.</p>
+        <p className="text-[11px] text-gray-600 mt-2">O nome do produto sempre aparece.</p>
       </div>
       <div className="border-t border-gray-100 pt-3 space-y-2">
         <p className="text-xs font-semibold text-gray-600">Dados do estabelecimento (rodapé da etiqueta)</p>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label htmlFor="est-cnpj" className="block text-[10px] text-gray-500 mb-0.5">CNPJ</label>
+            <label htmlFor="est-cnpj" className="block text-[11px] text-gray-500 mb-0.5">CNPJ</label>
             <input id="est-cnpj" type="text" value={estLocal.cnpj || ''} placeholder="00.000.000/0001-00"
               onChange={e => setEstLocal(p => ({ ...p, cnpj: e.target.value }))}
               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
           </div>
           <div>
-            <label htmlFor="est-cep" className="block text-[10px] text-gray-500 mb-0.5">CEP</label>
+            <label htmlFor="est-cep" className="block text-[11px] text-gray-500 mb-0.5">CEP</label>
             <input id="est-cep" type="text" value={estLocal.cep || ''} placeholder="00000-000"
               onChange={e => setEstLocal(p => ({ ...p, cep: e.target.value }))}
               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
           </div>
         </div>
         <div>
-          <label htmlFor="est-end" className="block text-[10px] text-gray-500 mb-0.5">Endereço</label>
+          <label htmlFor="est-end" className="block text-[11px] text-gray-500 mb-0.5">Endereço</label>
           <input id="est-end" type="text" value={estLocal.endereco || ''} placeholder="Rua, número"
             onChange={e => setEstLocal(p => ({ ...p, endereco: e.target.value }))}
             className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
         </div>
         <div>
-          <label htmlFor="est-cid" className="block text-[10px] text-gray-500 mb-0.5">Cidade - UF</label>
+          <label htmlFor="est-cid" className="block text-[11px] text-gray-500 mb-0.5">Cidade - UF</label>
           <input id="est-cid" type="text" value={estLocal.cidade || ''} placeholder="Recife - PE"
             onChange={e => setEstLocal(p => ({ ...p, cidade: e.target.value }))}
             className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
@@ -269,9 +269,9 @@ function CartaoCatalogoChips({ titulo, descricao, placeholder, valor, onValor, o
             className="inline-flex items-center gap-1.5 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-sm font-medium text-polo-navy">
             {item.rotulo}
             {item.fixo
-              ? <span className="text-gray-500 text-[9px]">(fixo)</span>
+              ? <span className="text-gray-500 text-[11px]">(fixo)</span>
               : <button onClick={() => remover(item)} aria-label={`Remover ${item.nomeParaConfirmar}`}
-                  className="text-red-400 font-bold text-base leading-none">×</button>}
+                  className="text-red-700 font-bold text-base leading-none">×</button>}
           </span>
         ))}
       </div>
@@ -400,7 +400,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
             {naoVinc.length > 0 && ` • ${naoVinc.length} sem vínculo`} — toque para {aberto ? 'recolher' : 'abrir'}
           </p>
         </div>
-        <span className={`text-gray-400 text-lg transition-transform flex-shrink-0 ${aberto ? 'rotate-180' : ''}`}>⌄</span>
+        <span className={`text-gray-600 text-lg transition-transform flex-shrink-0 ${aberto ? 'rotate-180' : ''}`}>⌄</span>
       </button>
 
       {aberto && (
@@ -436,14 +436,14 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                       <button onClick={() => renomearProduto(produto, nomeEdit.nome)}
                         className="text-[11px] font-bold text-polo-gold bg-polo-navy px-2 py-1.5 rounded-lg flex-shrink-0">✓</button>
                       <button onClick={() => setNomeEdit(null)}
-                        className="text-[11px] text-gray-400 flex-shrink-0">✕</button>
+                        className="text-[11px] text-gray-600 flex-shrink-0">✕</button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <p className="font-semibold text-sm text-polo-navy">{produto.nome}</p>
                       <button
                         onClick={() => { setFcEdit(null); setNomeEdit({ id: produto.id, nome: produto.nome }); }}
-                        className="text-[11px] text-gray-400 hover:text-polo-navy transition-colors flex-shrink-0"
+                        className="text-[11px] text-gray-600 hover:text-polo-navy transition-colors flex-shrink-0"
                         aria-label={`Renomear ${produto.nome}`}
                         title="Renomear ingrediente"
                       >✏️</button>
@@ -456,7 +456,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                       ) : fcAuto != null ? (
                         <span className="text-gray-600">FC automático: <strong className="text-polo-navy">{Math.round(fcAuto * 100)}%</strong> (aparas + perdas)</span>
                       ) : (
-                        <span className="text-gray-400">Sem FC ainda — registre aparas/perdas ligadas às compras deste item</span>
+                        <span className="text-gray-600">Sem FC ainda — registre aparas/perdas ligadas às compras deste item</span>
                       )}
                     </p>
                   )}
@@ -481,7 +481,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                       <button onClick={() => voltarAutomatico(produto)}
                         className="text-xs font-semibold text-gray-600 underline">voltar ao automático</button>
                     )}
-                    <button onClick={() => setFcEdit(null)} className="text-xs text-gray-400 ml-auto">cancelar</button>
+                    <button onClick={() => setFcEdit(null)} className="text-xs text-gray-600 ml-auto">cancelar</button>
                   </div>
                 </div>
               )}
@@ -489,7 +489,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
               {/* Matéria-prima de compra — unifica produtos na lista de compras */}
               {nomeEdit?.id !== produto.id && (
                 <div className="mt-2 bg-polo-beige/40 rounded-lg px-2.5 py-2">
-                  <label className="block text-[10px] font-semibold text-gray-500 mb-1">
+                  <label className="block text-[11px] font-semibold text-gray-500 mb-1">
                     Comprado como
                   </label>
                   <input
@@ -528,7 +528,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
             <div className="space-y-1">
               {naoVinc.map(f => (
                 <div key={f.id} className="flex items-center justify-between gap-2 bg-white rounded-lg px-2.5 py-1.5">
-                  <span className="text-xs text-gray-700 min-w-0 truncate">{f.preparacao} <span className="text-gray-400">({f.materiaPrima})</span></span>
+                  <span className="text-xs text-gray-700 min-w-0 truncate">{f.preparacao} <span className="text-gray-600">({f.materiaPrima})</span></span>
                   <select value="" onChange={e => moverFicha(f, e.target.value)}
                     aria-label={`Vincular preparação ${f.preparacao} a um ingrediente`}
                     className="text-[11px] border border-gray-200 rounded px-1.5 py-1 bg-white max-w-[45%]">
@@ -575,7 +575,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
       <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
         <div className="flex justify-between items-center">
           <h2 id="modal-produto-titulo" className="font-bold text-lg text-polo-navy">{produto ? 'Editar Produto' : 'Novo Produto'}</h2>
-          <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-400 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
+          <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-600 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
         </div>
 
         <div>
@@ -734,7 +734,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
           <div className="flex items-center gap-3 bg-orange-50 rounded-lg p-2.5">
             <div className="flex-1">
               <p className="text-xs font-semibold text-gray-700">Entra no estoque já cozido?</p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Ex: cupim cozido, carne de sol desfiada — já entram prontos. Filé de frango entra cru (deixe desligado).</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">Ex: cupim cozido, carne de sol desfiada — já entram prontos. Filé de frango entra cru (deixe desligado).</p>
             </div>
             <button type="button" onClick={() => set('entradaCozida', !form.entradaCozida)}
               className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${form.entradaCozida ? 'bg-orange-500' : 'bg-gray-300'}`}>
@@ -748,7 +748,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
                 placeholder="Ex: 30"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               {form.coccao && (
-                <p className="text-[10px] text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5 mt-1">
+                <p className="text-[11px] text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5 mt-1">
                   ✔ Na lista de compras você compra mais cru ({form.coccao}% a mais) para chegar ao kg cozido necessário.
                 </p>
               )}
@@ -767,12 +767,12 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
           <datalist id="lista-subgrupos">
             {subgruposExistentes.map(sg => <option key={sg} value={sg} />)}
           </datalist>
-          <p className="text-[10px] text-gray-400 mt-1">
+          <p className="text-[11px] text-gray-600 mt-1">
             Divide uma categoria grande em partes (PROTEÍNAS → Bovinos, Aves, Peixes). Deixe vazio se não precisar.
           </p>
         </div>
 
-        <p className="text-[10px] text-gray-400 -mt-1">
+        <p className="text-[11px] text-gray-600 -mt-1">
           🎯 O fator de correção (rendimento) deste item é configurado em <strong>Sistema → Rendimento por ingrediente</strong>.
         </p>
 
@@ -845,7 +845,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
       <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
         <div className="flex justify-between items-center">
           <h2 id="modal-producao-titulo" className="font-bold text-lg text-polo-navy">{receita ? 'Editar Receita' : 'Nova Receita de Produção'}</h2>
-          <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-400 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
+          <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-600 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Nome da receita</label>
@@ -921,7 +921,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                     </select>
                   )}
                   <button onClick={() => removeIng(i)} aria-label="Remover ingrediente"
-                    className="text-red-400 font-bold text-lg w-6 flex-shrink-0 flex items-center justify-center">×</button>
+                    className="text-red-700 font-bold text-lg w-6 flex-shrink-0 flex items-center justify-center">×</button>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id={`abate-${i}`} checked={ing.abate || false} onChange={e => setIng(i, 'abate', e.target.checked)}
@@ -1453,12 +1453,12 @@ ${linkConvite(conviteGerado.token)}
               </div>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 {p.gramatura > 0 && (
-                  <span className="text-[10px] font-semibold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
+                  <span className="text-[11px] font-semibold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
                     🍽️ {p.gramatura}g/porção{p.coccao > 0 ? ` · 🔥−${p.coccao}%` : ''}{p.entradaCozida ? ' · cozido' : ''}
                   </span>
                 )}
                 {pendenciasDoProduto(p).length > 0 && (
-                  <span className="text-[10px] font-semibold text-amber-600">
+                  <span className="text-[11px] font-semibold text-amber-600">
                     ⚠️ falta: {pendenciasDoProduto(p).join(', ')}
                   </span>
                 )}
@@ -1506,7 +1506,7 @@ ${linkConvite(conviteGerado.token)}
               <span key={c} className="inline-flex items-center gap-1.5 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-xs font-medium text-polo-navy">
                 {c} <span className="text-gray-500">({n})</span>
                 <button onClick={() => handleRemoveCategoria(c)} aria-label={`Remover categoria ${c}`}
-                  className="text-red-400 font-bold text-sm leading-none">×</button>
+                  className="text-red-700 font-bold text-sm leading-none">×</button>
               </span>
             );
           })}
@@ -1543,7 +1543,7 @@ ${linkConvite(conviteGerado.token)}
                         const ok = await confirm({ titulo: 'Excluir receita', mensagem: `Excluir "${r.nome}"?`, perigo: true, confirmar: 'Excluir' });
                         if (ok) { setProducoes(producoes.filter(x => x.id !== r.id)); logAudit('excluiu receita de produção', r.nome); toast('Receita excluída.', 'sucesso'); }
                       }} aria-label={`Excluir receita ${r.nome}`}
-                      className="text-xs text-red-400 font-semibold px-2 py-1 rounded bg-red-50">×</button>
+                      className="text-xs text-red-700 font-semibold px-2 py-1 rounded bg-red-50">×</button>
                   </div>
                 </div>
               </div>
@@ -1694,7 +1694,7 @@ ${linkConvite(conviteGerado.token)}
               </div>
             </div>
           </div>
-          <p className="text-[11px] text-gray-400 mt-2">
+          <p className="text-[11px] text-gray-600 mt-2">
             Ex: mín 3 dias → alerta quando o estoque não cobre ~3 dias de saída no ritmo atual.
             Máx 6 dias → repor/produzir até cobrir ~6 dias de operação.
           </p>
@@ -1811,7 +1811,7 @@ ${linkConvite(conviteGerado.token)}
                   const ok = await confirm({ titulo: 'Remover pessoa', mensagem: `Remover ${p} da equipe? Registros antigos não mudam.`, perigo: true, confirmar: 'Remover' });
                   if (ok) { removePessoa(p); toast('Pessoa removida.', 'sucesso'); }
                 }}
-                className="text-red-400 font-bold text-base leading-none">×</button>
+                className="text-red-700 font-bold text-base leading-none">×</button>
             </span>
           ))}
         </div>
@@ -1870,7 +1870,7 @@ ${linkConvite(conviteGerado.token)}
               <div key={c.token} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <div className="min-w-0">
                   <code className="text-xs font-bold tracking-wider text-polo-navy">{c.token}</code>
-                  <span className="text-[10px] text-gray-500 ml-2">{CARGOS.find(x => x.id === c.cargo)?.label || c.cargo}</span>
+                  <span className="text-[11px] text-gray-500 ml-2">{CARGOS.find(x => x.id === c.cargo)?.label || c.cargo}</span>
                 </div>
                 <button onClick={() => handleRevogarConvite(c.token)}
                   aria-label={`Revogar convite ${c.token}`}
@@ -1888,11 +1888,11 @@ ${linkConvite(conviteGerado.token)}
               <div key={u.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2">
                 <div className="min-w-0">
                   <span className="text-sm font-semibold text-gray-800">{u.nome}</span>
-                  {euMesmo && <span className="text-[10px] text-green-600 font-semibold ml-1.5">• você</span>}
+                  {euMesmo && <span className="text-[11px] text-green-600 font-semibold ml-1.5">• você</span>}
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {euMesmo ? (
-                    <span className="text-[10px] font-bold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
+                    <span className="text-[11px] font-bold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
                       {CARGOS.find(c => c.id === u.cargo)?.label}
                     </span>
                   ) : (
@@ -1917,7 +1917,7 @@ ${linkConvite(conviteGerado.token)}
                           toast(`Acesso de ${u.nome} desativado.`, 'sucesso');
                         }}
                         aria-label={`Desativar acesso de ${u.nome}`}
-                        className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">Desativar</button>
+                        className="text-red-700 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">Desativar</button>
                     </>
                   )}
                 </div>
@@ -1937,7 +1937,7 @@ ${linkConvite(conviteGerado.token)}
                 <div key={u.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2 opacity-70">
                   <div className="min-w-0">
                     <span className="text-sm font-semibold text-gray-700">{u.nome}</span>
-                    <span className="text-[10px] text-gray-400 ml-1.5">{CARGOS.find(c => c.id === u.cargo)?.label} · inativo</span>
+                    <span className="text-[11px] text-gray-600 ml-1.5">{CARGOS.find(c => c.id === u.cargo)?.label} · inativo</span>
                   </div>
                   <button onClick={async () => {
                       const erro = await reativarUsuario(u.id);
@@ -1978,7 +1978,7 @@ ${linkConvite(conviteGerado.token)}
                   <tr key={cap.id} className="border-t border-gray-100 align-top">
                     <td className="py-2 pr-2">
                       <span className="font-semibold text-gray-800">{cap.label}</span>
-                      <span className="block text-[10px] text-gray-400 leading-snug">{cap.desc}</span>
+                      <span className="block text-[11px] text-gray-600 leading-snug">{cap.desc}</span>
                     </td>
                     {['cozinha', 'gerencia'].map(cargo => (
                       <td key={cargo} className="text-center px-2 py-2">
@@ -1993,7 +1993,7 @@ ${linkConvite(conviteGerado.token)}
               </tbody>
             </table>
           </div>
-          <p className="text-[10px] text-gray-400">
+          <p className="text-[11px] text-gray-600">
             Criar convites e trocar cargos continua sendo só da diretoria. As mudanças valem para todos os aparelhos.
           </p>
         </div>

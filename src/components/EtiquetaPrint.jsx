@@ -332,7 +332,7 @@ export default function EtiquetaPrint() {
           <div className="flex items-start justify-between">
             <h2 id="etq-titulo" className="font-bold text-polo-navy text-lg">🏷️ Imprimir etiquetas</h2>
             <button onClick={fecharEtiquetas} aria-label="Fechar"
-              className="text-gray-400 text-2xl leading-none px-1 -mt-1">×</button>
+              className="text-gray-600 text-2xl leading-none px-1 -mt-1">×</button>
           </div>
 
           <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
@@ -359,7 +359,7 @@ export default function EtiquetaPrint() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">
+                      <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
                         {item.tipoData === 'abertura' ? 'Data de abertura' : 'Data de manipulação'}
                       </label>
                       <input type="date" value={item.dataFabricacao} max={hoje()}
@@ -367,7 +367,7 @@ export default function EtiquetaPrint() {
                     </div>
                     {comArmazenamento && item.armazenamento !== null ? (
                       <div>
-                        <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">Armazenamento</label>
+                        <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Armazenamento</label>
                         <select value={item.armazenamento || 'congelado'}
                           onChange={e => setItem(idx, { armazenamento: e.target.value })}
                           className={`${inputCls} bg-white`}>
@@ -377,7 +377,7 @@ export default function EtiquetaPrint() {
                       </div>
                     ) : (
                       <div>
-                        <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
+                        <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
                         <input type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
                           onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
                       </div>
@@ -386,13 +386,13 @@ export default function EtiquetaPrint() {
                   <div className="grid grid-cols-2 gap-2">
                     {comArmazenamento && item.armazenamento !== null && (
                       <div>
-                        <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
+                        <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
                         <input type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
                           onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
                       </div>
                     )}
                     <div>
-                      <label className="block text-[10px] font-semibold text-gray-500 mb-0.5">Val. original (fornecedor)</label>
+                      <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Val. original (fornecedor)</label>
                       <input type="date" value={item.valOriginal}
                         onChange={e => setItem(idx, { valOriginal: e.target.value })} className={inputCls} />
                     </div>
@@ -408,7 +408,7 @@ export default function EtiquetaPrint() {
             })}
           </div>
 
-          <div className="text-[11px] text-gray-400">
+          <div className="text-[11px] text-gray-600">
             Tamanho: {config.larguraMm}×{config.alturaMm}mm · impressão {horaImpressao}
             .
           </div>

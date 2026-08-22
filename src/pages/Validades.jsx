@@ -105,7 +105,7 @@ export default function Validades() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
           )}
-          <p className="text-[11px] text-gray-400 mt-1.5">
+          <p className="text-[11px] text-gray-600 mt-1.5">
             {soVencidos ? 'Itens que já passaram da validade.' : `De ${fmtData(hj)} até ${fmtData(limite)}.`}
           </p>
         </div>
@@ -148,7 +148,7 @@ export default function Validades() {
           linhasEtiquetas.length === 0 ? (
             <div className="bg-white rounded-xl p-8 text-center">
               <p className="text-sm text-gray-500">Nenhuma etiqueta {soVencidos ? 'vencida' : 'vencendo neste período'}.</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-600 mt-1">
                 As etiquetas aparecem aqui depois de impressas com QR ligado (Config → Sistema → Etiquetas).
               </p>
             </div>
@@ -173,14 +173,19 @@ export default function Validades() {
                         <p className={`text-[11px] font-semibold ${corDias(d)}`}>{textoDias(d)}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${st.cor}`}>{st.label}</span>
+                    {/* ⚠️ Eram dois links de texto puro, ~17 px de altura, a 8 px um
+                        do outro. "Descartada" muda o estado do lote de um jeito que
+                        só se desfaz reimprimindo a etiqueta — e ficava colado no
+                        botão inofensivo. Agora são alvos de 44 px, e o de risco fica
+                        empurrado para a direita. */}
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
+                      <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${st.cor}`}>{st.label}</span>
                       <button onClick={() => marcar(e, 'consumida')}
-                        className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">
+                        className="min-h-11 px-4 rounded-lg text-sm font-semibold text-polo-navy bg-gray-100 active:bg-gray-200">
                         Marcar consumida
                       </button>
                       <button onClick={() => marcar(e, 'descartada')}
-                        className="text-[11px] font-semibold text-orange-700 underline underline-offset-2">
+                        className="min-h-11 px-4 rounded-lg text-sm font-semibold text-orange-800 bg-orange-50 border border-orange-200 ml-auto">
                         Descartada
                       </button>
                     </div>

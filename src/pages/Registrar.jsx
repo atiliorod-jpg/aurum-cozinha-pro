@@ -101,7 +101,7 @@ export default function Registrar() {
           <div key={s.label}>
             <div className="mb-2 px-1">
               <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">{s.label}</p>
-              <p className="text-[11px] text-gray-400">{s.desc}</p>
+              <p className="text-[11px] text-gray-600">{s.desc}</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {s.acoes.map(a => (

@@ -325,7 +325,7 @@ export default function Dashboard() {
 
       {/* Conta nova: explica por que ainda não há sugestões de mín/máx (gate de ~15 dias) */}
       {!prefs.autoMinMax && divergentes.length === 0 && Object.keys(sugestoes).length === 0 && produtosAtivos.length > 0 && (
-        <p className="text-[11px] text-gray-400 px-1 mb-4">
+        <p className="text-[11px] text-gray-600 px-1 mb-4">
           💡 Sugestões automáticas de mín/máx aparecem após ~15 dias de saídas registradas.
         </p>
       )}
@@ -389,12 +389,12 @@ export default function Dashboard() {
                       <span className="font-semibold text-sm text-gray-800 flex items-center gap-1 flex-wrap">
                         {p.nome}
                         {produtoFinalIds.has(p.id) && (
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
                             🍲 produzido
                           </span>
                         )}
                         {lotesProduto.length > 0 && (
-                          <span className="text-[10px] font-bold text-polo-navy bg-white/70 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[11px] font-bold text-polo-navy bg-white/70 px-1.5 py-0.5 rounded-full">
                             🏷️ {lotesProduto.length} lote{lotesProduto.length > 1 ? 's' : ''} {aberto ? '▾' : '▸'}
                           </span>
                         )}
@@ -431,7 +431,7 @@ export default function Dashboard() {
                         DAQUELE item, para não arriscar uma média com dois
                         lançamentos e sugerir compra errada. */}
                     {medias[p.id] > 0 && (
-                      <div className="flex justify-between text-[11px] text-gray-400 mt-0.5">
+                      <div className="flex justify-between text-[11px] text-gray-600 mt-0.5">
                         <span>Consumo: {fmtNum(Math.round(medias[p.id] * 10) / 10)} {p.unidade}/dia</span>
                         {medias[p.id] > 0 && atual > 0 && (
                           <span>dura ~{Math.floor(atual / medias[p.id])} dia(s)</span>

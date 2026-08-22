@@ -133,7 +133,7 @@ export default function Pagamento() {
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-polo-navy">{p.label}</span>
                     {p.desconto > 0 && (
-                      <span className="text-[10px] font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">
+                      <span className="text-[11px] font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">
                         −{Math.round(p.desconto * 100)}%
                       </span>
                     )}
@@ -146,7 +146,7 @@ export default function Pagamento() {
                 <div className="text-right flex items-center gap-2">
                   <div>
                     <span className="text-lg font-bold text-polo-navy">{brl(total)}</span>
-                    <span className="block text-[10px] text-gray-500">
+                    <span className="block text-[11px] text-gray-500">
                       {p.meses === 1 ? 'por mês' : `a cada ${p.meses} meses`}
                     </span>
                   </div>
@@ -218,7 +218,7 @@ export default function Pagamento() {
               </button>
             </div>
           )}
-          <p className="text-[11px] text-gray-400 text-center mt-1.5">
+          <p className="text-[11px] text-gray-600 text-center mt-1.5">
             Ao confirmar, a equipe Aurum é avisada (com o nome e o horário) e o WhatsApp abre para você
             anexar o comprovante. A ativação sai em até 24h úteis.
           </p>

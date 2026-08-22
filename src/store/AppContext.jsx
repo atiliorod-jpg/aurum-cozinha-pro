@@ -1230,6 +1230,9 @@ export function AppProvider({ children }) {
       limparTudo, resetarProdutos,
       exportarBackup, importarBackup,
       soLeitura,
+      // id do restaurante — as telas precisam dele para gravar rascunho local
+      // na MESMA convenção de chave do resto do app (pe::<rid>::…)
+      rid,
       pendencias, online,
       mortos, retentarMortos, descartarMortos,
     }}>

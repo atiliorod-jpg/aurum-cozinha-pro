@@ -402,7 +402,7 @@ export default function AparasPerdas() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded
+                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded
                         ${ehApara ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
                         {ehApara ? '✂️ APARA' : '🗑️ PERDA'}
                       </span>
@@ -423,7 +423,7 @@ export default function AparasPerdas() {
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${corMotivo}`}>
                             {r.motivo} — {motivo?.label}
                           </span>
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded
+                          <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded
                             ${r.origem === 'estoque' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
                             {r.origem === 'estoque' ? 'Abateu estoque' : 'Recebimento'}
                           </span>

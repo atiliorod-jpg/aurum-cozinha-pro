@@ -35,12 +35,12 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
         className="w-full flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-left">
         <span className="text-lg flex-shrink-0" aria-hidden="true">{atual.icone}</span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Mostrando</span>
+          <span className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Mostrando</span>
           <span className="block text-sm font-bold text-polo-navy truncate">
             {atual.nome}{atual.estabelecimento ? ` · ${atual.estabelecimento}` : ''}
           </span>
         </span>
-        <span className="text-gray-400 text-xs" aria-hidden="true">▾</span>
+        <span className="text-gray-600 text-xs" aria-hidden="true">▾</span>
       </button>
 
       {aberto && (
@@ -56,7 +56,7 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
                 <span className="text-lg flex-shrink-0" aria-hidden="true">{e.icone}</span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-polo-navy truncate">{e.nome}</span>
-                  {e.estabelecimento && <span className="block text-[11px] text-gray-400 truncate">{e.estabelecimento}</span>}
+                  {e.estabelecimento && <span className="block text-[11px] text-gray-600 truncate">{e.estabelecimento}</span>}
                 </span>
               </button>
             ))}

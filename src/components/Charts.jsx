@@ -105,7 +105,7 @@ export function LinhaDias({ dados }) {
           <circle key={d.data} cx={x(i)} cy={y(d.total)} r="2.6" fill="#C9A24B" stroke="#1B2A41" strokeWidth="1" />
         ))}
       </svg>
-      <div className="flex justify-between text-[10px] text-gray-500 px-1">
+      <div className="flex justify-between text-[11px] text-gray-500 px-1">
         <span>{dados[0]?.data?.slice(5).split('-').reverse().join('/') || '—'}</span>
         <span>pico: {fmt(max)}</span>
         <span>{dados[dados.length - 1]?.data?.slice(5).split('-').reverse().join('/') || '—'}</span>

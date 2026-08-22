@@ -77,7 +77,7 @@ function GuiaImpressora() {
             <ol className="space-y-2">
               {t.passos.map((p, i) => (
                 <li key={i} className="flex gap-2 text-xs text-gray-700">
-                  <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-[10px]">{i + 1}</span>
+                  <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-[11px]">{i + 1}</span>
                   <span className="pt-0.5">{p}</span>
                 </li>
               ))}
@@ -290,7 +290,7 @@ export default function Etiquetas() {
                   🏷️ Imprimir
                 </button>
                 <button onClick={() => removerAvulsa(e)} aria-label={`Remover etiqueta ${e.nome}`}
-                  className="text-red-400 text-lg font-bold px-1.5 flex-shrink-0">×</button>
+                  className="text-red-700 text-lg font-bold px-1.5 flex-shrink-0">×</button>
               </div>
             ))}
           </div>

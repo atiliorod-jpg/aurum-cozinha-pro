@@ -69,7 +69,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           <div className="min-w-0 leading-tight">
             <h1 className="text-base font-bold text-polo-gold tracking-wide truncate">{title}</h1>
             {sessao?.restauranteNome && (
-              <p className="text-[10px] text-white/80 truncate">{sessao.restauranteNome}</p>
+              <p className="text-[11px] text-white/80 truncate">{sessao.restauranteNome}</p>
             )}
           </div>
         </div>
@@ -81,8 +81,8 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1
                      min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
           <span aria-hidden="true">{mod.icone}</span>
-          <span className="text-[10px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
-          <span className="text-white/50 text-[9px]" aria-hidden="true">▾</span>
+          <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
+          <span className="text-white/50 text-[11px]" aria-hidden="true">▾</span>
         </button>
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Status de sincronização: avisa quando há dados ainda não enviados ou sem internet */}
@@ -91,7 +91,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
               role="status"
               aria-label={!online ? `Sem internet, ${pendencias} alteração(ões) pendente(s)` : `${pendencias} alteração(ões) aguardando sincronização`}
               title={!online ? 'Sem internet — as alterações sobem quando reconectar' : 'Alterações aguardando sincronização'}
-              className="flex items-center gap-1 bg-amber-400/90 text-polo-navy text-[10px] font-bold rounded-full px-2 py-1">
+              className="flex items-center gap-1 bg-amber-400/90 text-polo-navy text-[11px] font-bold rounded-full px-2 py-1">
               {!online ? '⚡ offline' : '⏳'}{pendencias > 0 && ` ${pendencias}`}
             </span>
           )}
@@ -108,10 +108,10 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
                 className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform
                            focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
                 <span className="flex items-center gap-1.5 bg-white/10 rounded-full pl-2.5 pr-3 py-1.5">
-                  <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-[10px] font-bold flex items-center justify-center">
+                  <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-[11px] font-bold flex items-center justify-center">
                     {nomeExibicao.slice(0, 1).toUpperCase()}
                   </span>
-                  <span className="text-[10px] font-semibold text-white/90 max-w-16 truncate">{nomeExibicao.split(' ')[0]}</span>
+                  <span className="text-[11px] font-semibold text-white/90 max-w-16 truncate">{nomeExibicao.split(' ')[0]}</span>
                 </span>
                 <span className="text-[8px] leading-none font-semibold text-white/70">Sair</span>
               </button>
@@ -132,7 +132,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
                   E a Administração, que não é estoque. */}
               <h2 id="troca-mod" className="font-bold text-polo-navy">Ir para</h2>
               <button onClick={() => setTrocandoModulo(false)} aria-label="Fechar"
-                className="text-gray-400 text-2xl leading-none px-1 -mt-1 min-w-11 min-h-11">×</button>
+                className="text-gray-600 text-2xl leading-none px-1 -mt-1 min-w-11 min-h-11">×</button>
             </div>
             <SeletorModulo aoEscolher={(id) => {
               setTrocandoModulo(false);
@@ -141,7 +141,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
               // mesma tela de gestão, achando que o toque não funcionou.
               if (emAdmin && id !== 'administracao') navigate('/');
             }} />
-            <p className="text-[11px] text-gray-400">A escolha fica guardada neste aparelho.</p>
+            <p className="text-[11px] text-gray-600">A escolha fica guardada neste aparelho.</p>
           </div>
         </div>
       )}

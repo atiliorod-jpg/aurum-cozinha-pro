@@ -207,12 +207,12 @@ export default function Entradas() {
                   <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
                   <div className="text-xs text-gray-500">{p.unidade}</div>
                   {temQtd && diasVal > 0 && (
-                    <div className="text-[10px] font-semibold text-polo-navy bg-polo-beige rounded px-1.5 py-0.5 mt-1 inline-block">
+                    <div className="text-[11px] font-semibold text-polo-navy bg-polo-beige rounded px-1.5 py-0.5 mt-1 inline-block">
                       🏷️ Etiqueta: fab. {fmtData(data)} • venc. {fmtData(addDias(data, diasVal))}
                     </div>
                   )}
                   {temQtd && diasVal === 0 && (
-                    <div className="text-[10px] text-gray-500 mt-0.5">sem prazo de validade cadastrado (Config → produto)</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">sem prazo de validade cadastrado (Config → produto)</div>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -282,7 +282,7 @@ export default function Entradas() {
                       toast('Entrada removida.', 'sucesso', { acao: { label: 'Desfazer', onClick: () => restaurarRegistro('entrada', e) } });
                     }
                   }}
-                  className="text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">
+                  className="text-red-700 text-xs font-semibold px-2 py-1 rounded hover:bg-red-50">
                   Remover
                 </button>
                 )}

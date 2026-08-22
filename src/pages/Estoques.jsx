@@ -127,7 +127,7 @@ export default function Estoques() {
                           <input className={campo} value={rascunho.estabelecimento}
                             placeholder={prefs?.estabelecimento || 'usa o nome da conta'}
                             onChange={ev => setRascunho(r => ({ ...r, estabelecimento: ev.target.value }))} />
-                          <span className="block text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                          <span className="block text-[11px] text-gray-600 mt-0.5 leading-relaxed">
                             Deixe vazio para usar o nome da conta. Preencha só se este estoque for de
                             outra casa — é o nome que sai impresso no pote.
                           </span>
@@ -144,10 +144,10 @@ export default function Estoques() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold text-polo-navy truncate">
                             {e.nome}
-                            {e.raiz && <span className="ml-1.5 text-[10px] font-semibold text-gray-400">principal</span>}
-                            {e.arquivado && <span className="ml-1.5 text-[10px] font-bold text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">arquivado</span>}
+                            {e.raiz && <span className="ml-1.5 text-[11px] font-semibold text-gray-600">principal</span>}
+                            {e.arquivado && <span className="ml-1.5 text-[11px] font-bold text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">arquivado</span>}
                           </p>
-                          <p className="text-[11px] text-gray-400 truncate">
+                          <p className="text-[11px] text-gray-600 truncate">
                             {e.estabelecimento
                               ? `etiqueta: ${e.estabelecimento}`
                               : `etiqueta: ${prefs?.estabelecimento || 'nome da conta'}`}

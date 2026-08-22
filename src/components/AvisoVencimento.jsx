@@ -40,7 +40,7 @@ export default function AvisoVencimento() {
     <div className="fixed bottom-20 right-3 z-40 max-w-[15rem] print:hidden">
       <div className="relative bg-white border border-polo-gold shadow-lg rounded-xl p-3 pr-8">
         <button onClick={dispensar} aria-label="Dispensar aviso"
-          className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center text-gray-400 rounded-full hover:bg-gray-100">✕</button>
+          className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center text-gray-600 rounded-full hover:bg-gray-100">✕</button>
         <p className="text-xs font-bold text-polo-navy">
           {st.tipo === 'teste' ? '⏳ Seu teste ' : '💳 Sua assinatura '}{quando}
         </p>

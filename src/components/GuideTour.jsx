@@ -103,7 +103,7 @@ export default function GuideTour() {
                   ? 'bg-green-50 text-green-700 border-green-200'
                   : isProximo
                     ? 'bg-polo-navy text-polo-gold border-polo-navy ring-2 ring-polo-gold/40'
-                    : 'bg-white text-gray-400 border-gray-200'}`}>
+                    : 'bg-white text-gray-600 border-gray-200'}`}>
               <span>{feito ? '✅' : p.icon}</span>
               <span>{p.label}</span>
             </Link>
@@ -115,7 +115,7 @@ export default function GuideTour() {
           return (
             <Link key={p.key} to={p.rota} title={p.hint}
               className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] border border-dashed transition-colors
-                ${feito ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white/60 text-gray-400 border-gray-300'}`}>
+                ${feito ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white/60 text-gray-600 border-gray-300'}`}>
               <span>{feito ? '✅' : p.icon}</span>
               <span>{p.label}{naoSeAplica ? ' (se houver)' : ''}</span>
             </Link>

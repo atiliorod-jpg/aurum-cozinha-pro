@@ -144,7 +144,7 @@ export default function Producao() {
             </p>
             {podeCriarFicha
               ? <Link to="/configuracoes" className="inline-block mt-2 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">Criar ficha de produção</Link>
-              : <p className="text-xs text-gray-400 mt-2">Peça à gerência para cadastrar as receitas em Configurações.</p>}
+              : <p className="text-xs text-gray-600 mt-2">Peça à gerência para cadastrar as receitas em Configurações.</p>}
           </div>
         ) : (
           <div className="space-y-4">
@@ -172,7 +172,7 @@ export default function Producao() {
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   {receita && !quantidade && (
                     <button type="button" onClick={() => setQuantidade(String(receita.rendimentoBase))}
-                      className="text-[10px] text-polo-navy font-semibold underline underline-offset-2 mt-0.5">
+                      className="text-[11px] text-polo-navy font-semibold underline underline-offset-2 mt-0.5">
                       Usar rendimento da ficha ({fmtNum(receita.rendimentoBase)})
                     </button>
                   )}
@@ -235,7 +235,7 @@ export default function Producao() {
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                     📋 Ingredientes {mostraIngredientes ? '▼' : '▶'}
                   </p>
-                  <span className="text-[11px] text-gray-400">{plano.itens.length} item(ns)</span>
+                  <span className="text-[11px] text-gray-600">{plano.itens.length} item(ns)</span>
                 </button>
                 {mostraIngredientes && (
                   <div className="border-t border-gray-100 divide-y divide-gray-100">
@@ -244,7 +244,7 @@ export default function Producao() {
                         <div className="min-w-0">
                           <div className="font-medium text-sm text-gray-800 truncate">
                             {i.abate ? prodNome(i.produtoId) : i.nome}
-                            {!i.abate && <span className="ml-1.5 text-[10px] font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">não controlado</span>}
+                            {!i.abate && <span className="ml-1.5 text-[11px] font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">não controlado</span>}
                           </div>
                           {i.abate ? (
                             <div className="text-xs text-gray-500">

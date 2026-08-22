@@ -54,7 +54,7 @@ export default function Balanco() {
               <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">
                 {moduloPorId(f.tipo).icone} {moduloPorId(f.tipo).label}
               </p>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-gray-600">
                 {f.estoques.map(e => e.nome).join(' · ')}
               </p>
             </div>
@@ -72,7 +72,7 @@ export default function Balanco() {
                       {f.estoques.map(e => (
                         <th key={e.id} className="text-right font-semibold text-gray-500 px-2 py-2 whitespace-nowrap">
                           {e.estabelecimento || e.nome}
-                          {e.arquivado && <span className="block text-[9px] font-normal text-gray-400">arquivado</span>}
+                          {e.arquivado && <span className="block text-[11px] font-normal text-gray-600">arquivado</span>}
                         </th>
                       ))}
                       <th className="text-right font-bold text-polo-navy px-3 py-2">Total</th>
