@@ -13,12 +13,19 @@ import { estoquesAtivos } from '../utils/instancias';
  * Aparece apenas quando há mais de um estoque — com um só, seria um seletor de
  * uma opção, que é ruído.
  */
-export default function SeletorVisao({ valor, aoTrocar }) {
+// Opção extra para COMPARAR os estoques lado a lado, em vez de olhar um por
+// vez. Só aparece com `comTodos` e mais de um estoque ativo — com um só não há
+// o que comparar.
+export const TODOS = 'todos';
+const OPCAO_TODOS = { id: TODOS, icone: '📊', nome: 'Todas as cozinhas', estabelecimento: '' };
+
+export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
   const { estoques } = useApp();
   const [aberto, setAberto] = useState(false);
-  const visiveis = estoquesAtivos(estoques);
-  if (visiveis.length <= 1) return null;
+  const ativos = estoquesAtivos(estoques);
+  if (ativos.length <= 1) return null;
 
+  const visiveis = comTodos ? [OPCAO_TODOS, ...ativos] : ativos;
   const atual = visiveis.find(e => e.id === valor) || visiveis[0];
 
   return (

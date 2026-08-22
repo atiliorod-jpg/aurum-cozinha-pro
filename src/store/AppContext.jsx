@@ -673,8 +673,14 @@ export function AppProvider({ children }) {
       // colocá-lo nas deps deste efeito já causou laço infinito de render uma
       // vez (o efeito grava estado que muda o array que dispara o efeito).
       estoquesRef.current.forEach(e => {
+        // ⚠️ O SEED entra como queda, igual à hidratação do estoque aberto.
+        // O seed alimenta o estado por fallback do cacheGet mas NÃO é gravado
+        // no cache, e este laço lia só o cache — então a operação mostrava as
+        // compras de exemplo e a Administração não mostrava nenhuma. Na demo,
+        // que é a tela de venda do app, isso fazia o relatório parecer quebrado.
+        const seedE = ehIdInstancia(e.id) ? {} : gerarDemoSeed(tipoBase(e.id)).registros;
         Object.entries(LISTA_PARA_TIPO).forEach(([lista, tipo]) => {
-          cacheGet(rid, chaveModulo(e.id, lista), []).forEach(reg => {
+          cacheGet(rid, chaveModulo(e.id, lista), seedE[lista] || []).forEach(reg => {
             const { id, ts, ...dados } = reg;
             regsDemo.push({ id, ts, tipo: tipoModulo(e.id, tipo), dados, deleted: false });
           });

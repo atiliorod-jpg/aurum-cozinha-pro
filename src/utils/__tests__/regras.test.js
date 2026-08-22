@@ -21,7 +21,7 @@ import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { crc16, montarPixBRCode } from '../pix';
-import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade } from '../relatorios';
+import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../relatorios';
 import { turnoAberto, consumoDoTurno } from '../turno';
 
 const P = (id, extra = {}) => ({ id, nome: id, unidade: 'kg', ativo: true, min: 0, max: 0, estoqueInicial: 0, ...extra });
@@ -767,6 +767,89 @@ describe('custoDosRegistros — perda de recebimento nao some mais', () => {
       { compras: [{ id: 'c2', quantidade: 2, unidade: 'cx', valorTotal: 200 }] });
     expect(r.total).toBe(0);
     expect(r.semCusto).toBe(1);
+  });
+});
+
+// O pedido do dono: "que fique claro em um relatorio os desperdicios e aparas
+// DIARIOS de cada cozinha". O relatorio tinha "por dia" para saidas e chegadas,
+// mas apara e perda so apareciam como total do periodo em dois donuts.
+describe('desperdicioPorDia — quanto se perdeu em cada dia', () => {
+  const compras = [{ id: 'c1', item: 'File Mignon', fornecedor: 'Boi Bom' }];
+  const aparas = [
+    { id: 'a1', data: '2026-08-20', quantidade: 2, unidade: 'kg', compraId: 'c1' },
+    { id: 'a2', data: '2026-08-18', quantidade: 1, unidade: 'kg' },
+  ];
+  const perdas = [
+    { id: 'p1', data: '2026-08-20', quantidade: 3, unidade: 'unid', motivo: 'D1' },
+    { id: 'p2', data: '2026-08-20', quantidade: 0.5, unidade: 'kg' },
+  ];
+
+  it('agrupa por dia, do mais recente para o mais antigo', () => {
+    const r = desperdicioPorDia(aparas, perdas, compras);
+    expect(r.map(d => d.data)).toEqual(['2026-08-20', '2026-08-18']);
+  });
+
+  it('quebra o total do dia por unidade, sem somar kg com unid', () => {
+    const [dia20] = desperdicioPorDia(aparas, perdas, compras);
+    expect(dia20.totalAparas).toEqual({ kg: 2 });
+    expect(dia20.totalPerdas).toEqual({ unid: 3, kg: 0.5 });
+  });
+
+  it('leva o item e o fornecedor da compra associada', () => {
+    const [dia20] = desperdicioPorDia(aparas, perdas, compras);
+    expect(dia20.aparas[0].compraItem).toBe('File Mignon');
+    expect(dia20.aparas[0].compraFornecedor).toBe('Boi Bom');
+    const [, dia18] = desperdicioPorDia(aparas, perdas, compras);
+    expect(dia18.aparas[0].compraItem).toBe(null);   // sem compraId
+  });
+
+  it('dia sem lancamento nao aparece', () => {
+    expect(desperdicioPorDia([], [], []).length).toBe(0);
+  });
+});
+
+// R6: comparar o desperdicio de DUAS cozinhas. O relatorio mostrava um estoque
+// por vez, entao o dono tinha que ler, trocar no seletor, ler de novo e
+// comparar de cabeca — e o PDF saia de um estoque so.
+describe('desperdicioPorEstoqueDia — comparacao entre cozinhas', () => {
+  const visoes = {
+    producao: {
+      aparas: [{ id: 'a1', data: '2026-08-20', quantidade: 2, unidade: 'kg' }],
+      desperdicio: [{ id: 'p1', data: '2026-08-20', quantidade: 1, unidade: 'kg' }],
+    },
+    'producao#ab12': {
+      aparas: [],
+      desperdicio: [{ id: 'p2', data: '2026-08-19', quantidade: 4, unidade: 'unid' }],
+    },
+  };
+
+  it('uma coluna por estoque, uma linha por dia', () => {
+    const r = desperdicioPorEstoqueDia(visoes, ['producao', 'producao#ab12']);
+    expect(r.colunas).toEqual(['producao', 'producao#ab12']);
+    expect(r.linhas.map(l => l.data)).toEqual(['2026-08-20', '2026-08-19']);
+  });
+
+  it('nao mistura o desperdicio de um restaurante com o do outro', () => {
+    const r = desperdicioPorEstoqueDia(visoes, ['producao', 'producao#ab12']);
+    const dia20 = r.linhas.find(l => l.data === '2026-08-20');
+    expect(dia20.celulas[0].aparas).toEqual({ kg: 2 });
+    expect(dia20.celulas[1].aparas).toEqual({});     // a instancia nao teve apara
+    const dia19 = r.linhas.find(l => l.data === '2026-08-19');
+    expect(dia19.celulas[0].perdas).toEqual({});
+    expect(dia19.celulas[1].perdas).toEqual({ unid: 4 });
+  });
+
+  it('o total do periodo tambem e por estoque e por unidade', () => {
+    const r = desperdicioPorEstoqueDia(visoes, ['producao', 'producao#ab12']);
+    expect(r.totais[0].perdas).toEqual({ kg: 1 });
+    expect(r.totais[1].perdas).toEqual({ unid: 4 });
+  });
+
+  it('respeita o filtro de periodo recebido', () => {
+    const soDia19 = (lista) => lista.filter(r => r.data === '2026-08-19');
+    const r = desperdicioPorEstoqueDia(visoes, ['producao', 'producao#ab12'], soDia19);
+    expect(r.linhas.map(l => l.data)).toEqual(['2026-08-19']);
+    expect(r.totais[0].aparas).toEqual({});
   });
 });
 

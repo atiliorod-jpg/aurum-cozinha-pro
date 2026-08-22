@@ -1,12 +1,12 @@
 import { useState, useMemo, useCallback } from 'react';
 import Layout from '../components/Layout';
-import SeletorVisao from '../components/SeletorVisao';
+import SeletorVisao, { TODOS } from '../components/SeletorVisao';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
 import { filtrarPorPeriodo, totalPorProduto } from '../utils/calculos';
 import { saidasPorDia, topProdutosSaida, somaPorCampo, unidadesPresentes, rendimentoPorFornecedor } from '../utils/analise';
-import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade } from '../utils/relatorios';
+import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../utils/relatorios';
 import { fmtData, fmtNum, hoje } from '../utils/formatters';
 import { addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
@@ -133,6 +133,27 @@ export default function Relatorio() {
     return partes.length ? partes.map(([u, q]) => `${fmtNum(q)} ${u}`).join(' · ') : '0';
   };
 
+  // Modo COMPARAÇÃO: em vez de um estoque por vez, todas as cozinhas lado a
+  // lado. Sai de graça — visoesPorEstoque já está na memória e os lançamentos
+  // já vêm fatiados por instância.
+  const comparando = vendo === TODOS;
+  const idsAtivos = useMemo(() => estoques.filter(e => !e.arquivado).map(e => e.id), [estoques]);
+  const comparativo = useMemo(
+    () => (comparando
+      ? desperdicioPorEstoqueDia(visoesPorEstoque, idsAtivos, (l) => filtrarPorPeriodo(l, rIni, rFim))
+      : null),
+    [comparando, visoesPorEstoque, idsAtivos, rIni, rFim]);
+  const nomeEstoque = useCallback(
+    (id) => estoques.find(e => e.id === id)?.nome || id, [estoques]);
+
+  // Desperdício e apara DIA A DIA, com a compra de origem quando existe.
+  const porDiaDesperdicio = useMemo(
+    () => desperdicioPorDia(temApara ? aparasF : [], perdasF, compras),
+    [aparasF, perdasF, compras, temApara]);
+  // Nome do produto para a perda lançada por produtoId (a de estoque).
+  const nomeProdutoRel = useCallback(
+    (id) => produtos.find(p => p.id === id)?.nome || (id ? id : 'item não informado'), [produtos]);
+
   // Novas visões "por item": rendimento (chegou → aparas/perdas → %) e produção
   const rendItens = useMemo(() => rendimentoPorItem(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
   const prodItens = useMemo(() => producaoPorItem(entradasF, produtos), [entradasF, produtos]);
@@ -152,7 +173,7 @@ export default function Relatorio() {
       }
     >
       <div className="mb-4 print:hidden">
-        <SeletorVisao valor={vendo} aoTrocar={setVendo} />
+        <SeletorVisao valor={vendo} aoTrocar={setVendo} comTodos />
       </div>
 
       {/* Cabeçalho que só aparece na impressão/PDF (o header do app some no print) */}
@@ -161,7 +182,7 @@ export default function Relatorio() {
         {/* O nome do ESTOQUE entra no PDF impresso: com vários estoques na
             conta, um relatório sem essa linha não diz de qual é — e ele
             costuma ser impresso e passado adiante. */}
-        <p className="text-xs text-gray-500">{nomeDoEstoque}</p>
+        <p className="text-xs text-gray-500">{comparando ? 'Todas as cozinhas' : nomeDoEstoque}</p>
         <p className="text-xs text-gray-500">Período: {fmtData(rIni)} a {fmtData(rFim)} · gerado em {fmtData(hj)}</p>
       </div>
       {/* Seletor único de período */}
@@ -200,6 +221,67 @@ export default function Relatorio() {
         )}
       </div>
 
+      {comparando && (
+        <div className="bg-white rounded-xl p-4 mb-4">
+          <p className="text-sm font-bold text-polo-navy mb-1">Desperdício por cozinha, dia a dia</p>
+          <p className="text-xs text-gray-600 mb-3">
+            Cada coluna é uma cozinha. Quantidades separadas por unidade — kg e unid não somam.
+          </p>
+          {comparativo.linhas.length === 0 ? (
+            <div className="text-center text-gray-500 py-6 text-sm">Nada descartado neste período.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-200 text-gray-600">
+                    <th className="text-left py-1.5 font-semibold">Dia</th>
+                    {comparativo.colunas.map(id => (
+                      <th key={id} className="text-right py-1.5 font-semibold px-2">{nomeEstoque(id)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparativo.linhas.map(l => (
+                    <tr key={l.data} className="border-b border-gray-50">
+                      <td className="py-1.5 text-gray-800 whitespace-nowrap">{fmtData(l.data)}</td>
+                      {l.celulas.map(c => (
+                        <td key={c.estoqueId} className="py-1.5 px-2 text-right whitespace-nowrap">
+                          {Object.keys(c.aparas).length === 0 && Object.keys(c.perdas).length === 0 ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
+                            <>
+                              {Object.keys(c.aparas).length > 0 && (
+                                <div className="text-amber-800">apara {fmtUn(c.aparas)}</div>
+                              )}
+                              {Object.keys(c.perdas).length > 0 && (
+                                <div className="text-red-700">perda {fmtUn(c.perdas)}</div>
+                              )}
+                            </>
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-gray-300 font-semibold">
+                    <td className="py-2 text-gray-800">Total do período</td>
+                    {comparativo.totais.map(t => (
+                      <td key={t.estoqueId} className="py-2 px-2 text-right whitespace-nowrap">
+                        {Object.keys(t.aparas).length > 0 && <div className="text-amber-800">apara {fmtUn(t.aparas)}</div>}
+                        {Object.keys(t.perdas).length > 0 && <div className="text-red-700">perda {fmtUn(t.perdas)}</div>}
+                        {Object.keys(t.aparas).length === 0 && Object.keys(t.perdas).length === 0 && <span className="text-gray-400">—</span>}
+                      </td>
+                    ))}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!comparando && (<>
       {/* Cards resumo */}
       <div className="grid grid-cols-2 gap-2 mb-4">
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-center">
@@ -441,6 +523,56 @@ export default function Relatorio() {
         )}
       </div>
 
+      {/* Desperdício e apara DIA A DIA — o controle diário que faltava. Antes
+          apara e perda só existiam como total do período em dois donuts, e não
+          havia como responder "quanto se perdeu na terça". */}
+      <div className="bg-white rounded-xl p-4 mb-4">
+        <p className="text-sm font-bold text-polo-navy mb-1">Desperdício e aparas, dia a dia</p>
+        <p className="text-xs text-gray-600 mb-3">O que foi descartado em cada data, e de qual compra veio.</p>
+        {porDiaDesperdicio.length === 0 ? (
+          <div className="text-center text-gray-500 py-6 text-sm">Nada descartado neste período.</div>
+        ) : (
+          <div className="space-y-3">
+            {porDiaDesperdicio.map(d => (
+              <div key={d.data} className="border-t border-gray-100 pt-2 first:border-0 first:pt-0">
+                <p className="text-xs font-semibold text-gray-700 flex justify-between gap-2 flex-wrap">
+                  <span>{fmtData(d.data)}</span>
+                  <span className="text-right">
+                    {temApara && Object.keys(d.totalAparas).length > 0 && (
+                      <span className="text-amber-800">apara {fmtUn(d.totalAparas)}</span>
+                    )}
+                    {temApara && Object.keys(d.totalAparas).length > 0 && Object.keys(d.totalPerdas).length > 0 && ' · '}
+                    {Object.keys(d.totalPerdas).length > 0 && (
+                      <span className="text-red-700">perda {fmtUn(d.totalPerdas)}</span>
+                    )}
+                  </span>
+                </p>
+                <ul className="text-xs text-gray-700 mt-1 space-y-0.5">
+                  {[...(temApara ? d.aparas.map(r => ({ r, tipo: 'Apara' })) : []),
+                    ...d.perdas.map(r => ({ r, tipo: 'Perda' }))].map(({ r, tipo }) => (
+                    <li key={`${tipo}-${r.id}`} className="flex gap-1.5">
+                      <span className={`font-semibold flex-shrink-0 ${tipo === 'Apara' ? 'text-amber-800' : 'text-red-700'}`}>{tipo}</span>
+                      <span className="min-w-0">
+                        {fmtNum(r.quantidade)} {r.unidade} — {r.item || nomeProdutoRel(r.produtoId)}
+                        {r.motivo && ` · ${rotuloMotivo(r.motivo)}`}
+                        {r.destino && ` · ${rotuloDestino(r.destino)}`}
+                        {/* a ligação com a compra é o que o dono pediu: mostra de
+                            qual recebimento aquele desperdício saiu */}
+                        {r.compraItem && (
+                          <span className="text-gray-600"> · da compra de {r.compraItem}
+                            {r.compraFornecedor ? ` (${r.compraFornecedor})` : ''}</span>
+                        )}
+                        {r.responsavel && <span className="text-gray-500"> · {r.responsavel}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Chegadas por dia (controle diário do que entrou) */}
       <div className="bg-white rounded-xl p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">📦 Chegadas por dia</p>
@@ -464,9 +596,11 @@ export default function Relatorio() {
         )}
       </div>
 
+      </>)}
+
       <button onClick={() => window.print()}
         className="w-full bg-gray-100 text-gray-600 font-semibold py-3 rounded-xl text-sm mb-2">
-        🖨️ Imprimir / Salvar PDF
+        Imprimir / Salvar PDF
       </button>
     </Layout>
   );

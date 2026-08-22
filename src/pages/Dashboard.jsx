@@ -10,6 +10,7 @@ import { diasAte } from '../utils/datas';
 import { calcLotes, lotesVencendo } from '../utils/lotes';
 import { producoesIncompletas } from '../utils/producao';
 import { fmtNum, fmtData, hoje } from '../utils/formatters';
+import { somaPorUnidade } from '../utils/relatorios';
 import CalculadoraProducao from '../components/CalculadoraProducao';
 import { temRecurso } from '../utils/modulos';
 
@@ -110,6 +111,18 @@ export default function Dashboard() {
     excesso: produtosAtivos.filter(p => statusEstoque(estoque[p.id] ?? 0, p.min, p.max) === 'excesso').length,
   };
 
+  // O que foi descartado HOJE, na tela de quem descartou. Antes apara e perda
+  // eram lidas aqui só como insumo do fator de correção da lista de compras:
+  // a equipe registrava e o número sumia de vista até alguém abrir a
+  // Administração.
+  const descarteHoje = useMemo(() => {
+    const ap = temRecurso(modulo, 'aparas') ? (aparas || []).filter(r => r.data === dataHoje) : [];
+    const pe = (desperdicio || []).filter(r => r.data === dataHoje);
+    return { aparas: somaPorUnidade(ap), perdas: somaPorUnidade(pe), houve: ap.length + pe.length > 0 };
+  }, [aparas, desperdicio, dataHoje, modulo]);
+  const fmtUn = (m) => Object.entries(m).sort((a, b) => b[1] - a[1])
+    .map(([u, q]) => `${fmtNum(q)} ${u}`).join(' · ');
+
   const cats = ['TODOS', ...categorias];
 
   return (
@@ -117,6 +130,23 @@ export default function Dashboard() {
       {/* Resumo do dia */}
       <div className="mb-4">
         <p className="text-xs text-gray-500 mb-2">Atualizado em: {fmtData(dataHoje)}</p>
+        {descarteHoje.houve && (
+          <button onClick={() => navigate('/aparas')}
+            className="w-full text-left mb-2 min-h-11 px-3 py-2 rounded-xl bg-white border border-gray-200
+                       flex items-center justify-between gap-2 active:scale-[0.99] transition-transform
+                       focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+            <span className="text-xs font-semibold text-gray-700">Descartado hoje</span>
+            <span className="text-xs text-right">
+              {Object.keys(descarteHoje.aparas).length > 0 && (
+                <span className="text-amber-800">apara {fmtUn(descarteHoje.aparas)}</span>
+              )}
+              {Object.keys(descarteHoje.aparas).length > 0 && Object.keys(descarteHoje.perdas).length > 0 && ' · '}
+              {Object.keys(descarteHoje.perdas).length > 0 && (
+                <span className="text-red-700">perda {fmtUn(descarteHoje.perdas)}</span>
+              )}
+            </span>
+          </button>
+        )}
         <div className="grid grid-cols-3 gap-2 mb-2">
           <div className="bg-green-600 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.ok}</div>
