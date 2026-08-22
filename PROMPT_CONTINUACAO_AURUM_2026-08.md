@@ -1,4 +1,4 @@
-# Aurum Cozinha Pro — continuação (reescrito em 21/08/2026)
+# Aurum Cozinha Pro — continuação (reescrito em 22/08/2026)
 
 Cole este arquivo inteiro na primeira mensagem da nova conversa.
 
@@ -181,57 +181,102 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (21/08/2026)
+## Onde paramos (22/08/2026)
 
-Sessão longa. Segurança, Fases 0 a 4 completas.
+Auditoria multi-agente do app inteiro (sete especialistas: texto de interface,
+navegação, corretude, relatórios, acessibilidade, design e segurança
+multi-conta), com um segundo agente conferindo cada achado grave contra o
+código. **171 achados**, salvos em `AUDITORIA_2026-08-22.json` na raiz.
+
+**Os sete lotes foram aplicados.** Nove commits, um por lote:
 
 ```
-8fe9965  Estoque Seco simplificado + consumo medio diario nas tres areas
-f3ec601  Corrige o numero errado da Finalizacao + tira repeticao e temperatura do seco
-1442552  Fecha a Fase 4: balanco consolidado, etiqueta por estoque, erro que nao mente
-e92e75a  Administracao vira area de verdade + min/max por estoque (Fase 3)
-8b02c3c  Multi-instancia funcionando: criar estoques, saldo separado, catalogo comum
-3c8c183  Base para multi-instancia + Admin fora da barra
-2feac0e  Financeiro: tela de custos na Administracao + captura do custo na compra
-f8e7149  Perda em R$ para a equipe, sem entregar o custo de cada insumo
-6d6ab65  Fase 2: financeiro travado NO BANCO, antes de existir tela de preco
-b869dde  Fase 2: Administracao unificada como 4a opcao do seletor
-48d59e2  SEGURANCA: logout de conta real nao apagava NADA do cache
-416add3  Fase 1: cada estoque passa a dizer a verdade sobre o que ele e
-d6ddec1  SEGURANCA: a trava de super-admin nunca travou (NULL nao e FALSE)
+b6df173  Lote 4: um destino, um caminho — atalhos repetidos e avisos mortos
+86975e2  Lote 7: seis privilegios demais dentro da conta (migracao 23 aplicada)
+4438489  Lote 6: icones desenhados, botao unico, etiqueta que cortava o QR
+093662c  Lote 5: legivel e tocavel numa bancada de cozinha
+56ab999  Lote 3: desperdicio dia a dia, por cozinha, ligado a compra
+282fd7b  Lote 2: o texto deixa de explicar o sistema e passa a instruir a tarefa
+0a12a34  Lote 1 (2/2): seis numeros errados no relatorio e no financeiro
+8f809ae  Lote 1: dois numeros errados que a tela mostrava como certos
+3772577  Administracao: o seletor do cabecalho vira a porta unica entre as areas
 ```
 
-**Estado:** 220 testes, lint 0 erros, build ok, deploy verde, e2e 48/48,
-pentest financeiro 18/18, auditoria 26/26, banco de produção limpo.
+**Estado:** 243 testes (eram 220), lint 0 erros, build ok, audit-check ok.
+Contra o BANCO: auditoria 26/26, pentest financeiro 18/18, e2e 48/48, contas de
+teste limpas.
 
-**Fases 0 a 4 concluídas.** O que o dono pediu e foi entregue: correções de
-rótulo e fluxo, Administração unificada como área separada, financeiro travado
-no banco, multi-instância com catálogo compartilhado e saldo/mín-máx próprios,
-balanço consolidado, e o Estoque Seco simplificado.
+### O que mudou e você precisa saber antes de mexer
 
-⚠️ "Validade após aberto" na Finalização **já existe** — são as etiquetas
-avulsas (`tipoData: 'abertura'`). O dono confirmou que é isso mesmo e que não
-precisa construir nada.
+**Migração 23 está aplicada.** Fechou seis brechas de privilégio DENTRO da
+mesma conta (nenhuma vazava entre restaurantes): token de convite legível por
+qualquer membro, convites legados de 8 hex, DELETE de documentos sem trava de
+chave, DELETE físico de registros por qualquer membro, `p_versao` NULL
+desligando o controle de conflito, e `alterar_cargo` lendo `perfis` cru em vez
+das helpers endurecidas pela M18.
 
----
+**`separarMetas` agora RECUSA chamada sem catálogo.** Não é validação de dado:
+o catálogo nunca é undefined, então undefined ali só pode ser chamador
+esquecido — foi exatamente o bug que matou o mín/máx por instância.
+
+**A ponte Produção→Finalização exige destino de finalização E diferente da
+origem.** Sem as duas travas, a baixa de ingrediente da receita (destino
+'producao') voltava como recebimento do próprio estoque e se anulava.
+
+**Toda quantidade de apara/perda é quebrada POR UNIDADE.** `somaPorUnidade`,
+`rendimentoPorItem` e `somaPorCampo` nunca somam kg com unid. Correção em
+unidade incompatível fica FORA da conta e o rendimento vira null — número
+errado com cara de certo é pior que um traço.
+
+**Emoji não é mais ícone.** Todo ícone de interface sai de `Icons.jsx` (33
+desenhos). O campo `icone` de `MODULOS` guarda NOME DE ÍCONE, com teste
+travando. Emoji só sobrevive em texto corrido de ajuda.
+
+**Existe `Botao.jsx`.** Variantes fechadas. Vermelho é só para DESTRUIR.
+
+**O guia do turno vive no Dashboard**, não no Layout — lá ele aparecia em toda
+tela, inclusive na Administração.
+
+**A Administração não tem barra inferior.** O seletor do cabeçalho é a porta
+única entre as áreas, nos dois sentidos, e escolher uma cozinha lá NAVEGA.
+
+### Armadilha de ambiente que custou tempo
+
+O dev server do Vite envenena o grafo de módulos depois de muitos hot-reloads
+("Could not Fast Refresh"), e aí o console mostra erros que NÃO existem no
+código — `useApp() is null`, `Icon is not defined`, até tela branca. Antes de
+investigar erro de console, **abra uma aba nova** (`tabs_create`) ou reinicie o
+servidor. Errei nisso duas vezes nesta sessão, uma delas chegando a usar
+`git stash` atrás de uma regressão que não existia.
 
 ## Achados registrados e NÃO corrigidos
 
 Ordem sugerida. **Escolha com o Atílio antes de implementar.**
 
-### Segurança / dados
-1. **Drift entre repositório e banco.** `alterar_cargo` em produção pode ser
-   mais antiga que o arquivo do repo. Levante o que está lá:
-   `select prosrc from pg_proc where proname = 'alterar_cargo';`
-2. **Convites legados de 8 caracteres** (32 bits) são varríveis por força bruta:
-   `update convites set expira_em = now() where length(token) = 8 and usado = false;`
-3. **`importarBackup` aplica `prefs` sem whitelist** — backup adulterado
-   reescreve permissões.
-4. **`exportarBackup` não carimba de qual estoque veio**, e `importarBackup`
+### Segurança / dados — o que a migração 23 NÃO cobriu
+
+Os itens 1, 2 e 3 da lista antiga (drift do `alterar_cargo`, convites legados,
+`importarBackup` sem whitelist) foram **corrigidos** em 22/08. Sobrou:
+
+1. **`exportarBackup` não carimba de qual estoque veio**, e `importarBackup`
    aplica no aberto. Com várias instâncias, restaurar no lugar errado
    sobrescreve dado bom.
-5. **Webhook Stripe desbloqueia conta suspensa** (inerte hoje).
-6. **`registrar_auditoria` sem rate limit.**
+2. **Webhook Stripe desbloqueia conta suspensa** (inerte hoje).
+3. **`registrar_auditoria` sem rate limit.**
+4. **Nenhum REVOKE em todo o projeto** — no Postgres, EXECUTE de função é
+   concedido a PUBLIC por padrão, e o Supabase expõe o schema `public` para
+   `anon`. Toda RPC nasce chamável sem login; é a raiz da falha da M19. O certo
+   é deny-by-default (`revoke execute on all functions ... from anon, public`)
+   e depois `grant` uma a uma. **Não apliquei: errar a lista derruba o app.**
+   Precisa de uma passada cuidadosa enumerando cada RPC.
+5. **`perda_em_reais` permite reconstruir o custo unitário** com janelas de 1
+   dia e 1 item — `p_de`/`p_ate` são livres. Precisa de janela mínima.
+6. **`sou_super_admin()` compara claim de e-mail**, não `auth.uid()`. O claim
+   muda por fluxo de troca de e-mail. Amarrar no uuid imutável (preciso do seu
+   uuid para escrever isso).
+7. **O super-admin lê os dados de todos os clientes o tempo todo**, sem passar
+   por `suporte_pode_editar()` e sem trilha — contradiz o texto de privacidade
+   mostrado ao cliente. Decisão de produto, não só técnica.
 
 ### Lógica / integridade
 7. **`pe::modulo` é do aparelho.** Já cai para a raiz quando o id não serve
