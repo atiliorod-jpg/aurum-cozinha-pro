@@ -125,7 +125,7 @@ export default function Inventario() {
       {tab === 'novo' ? (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-            O estoque é <strong>calculado automaticamente</strong> (estoque inicial + entradas − saídas − perdas do estoque). As aparas <strong>não</strong> abatem o estoque. Use esta tela só quando <strong>conferir fisicamente</strong> e o valor real divergir: a contagem digitada vira a nova base a partir de agora.
+            Conte o que existe na prateleira. O valor digitado substitui o saldo do sistema.
           </div>
 
           <div className="bg-white rounded-xl p-4 space-y-3">

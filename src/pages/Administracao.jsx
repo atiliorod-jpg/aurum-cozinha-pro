@@ -30,7 +30,7 @@ export default function Administracao() {
   const cartoes = [
     can('verRelatorio') && {
       to: '/relatorio', emoji: '📊', titulo: 'Relatórios',
-      desc: 'Consumo, giro e lista de compras — o estoque se escolhe na própria tela',
+      desc: 'Consumo, giro e lista de compras.',
     },
     can('verFinanceiro') && {
       to: '/financeiro', emoji: '💰', titulo: 'Custos e valor do estoque',
@@ -69,11 +69,8 @@ export default function Administracao() {
   return (
     <Layout title="Administração" area="admin">
       <div className="space-y-2.5">
-        <p className="text-[11px] text-gray-500 px-1 leading-relaxed">
-          Tudo aqui vale para a conta inteira. Nada nesta área muda o estoque que a equipe
-          está usando.
-        </p>
-
+        {/* A linha de abertura saiu: explicava a arquitetura da área, e os
+            oito cartões logo abaixo já dizem o que ela é. */}
         {cartoes.map(c => (
           <Link key={c.to} to={c.to}
             className="bg-white rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-transform

@@ -84,7 +84,7 @@ export default function AparasPerdas() {
     if (formApara.responsavel) setPref('responsavel', formApara.responsavel);
     setPref('turno', formApara.turno);
     setFormApara(prev => ({ ...prev, compraId: '', produtoId: '', item: '', quantidade: '', destinoOutro: '' }));
-    toast('Apara registrada! Vai para o freezer de reaproveitamento.', 'sucesso');
+    toast('Apara registrada.', 'sucesso');
   };
 
   const salvarPerda = async () => {
@@ -204,8 +204,8 @@ export default function AparasPerdas() {
                 ✓ Registrar Apara
               </button>
 
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800">
-                <strong>Apara</strong> é a sobra aproveitável da limpeza/porcionamento (ex: apara de filé → strogonoff, hambúrguer). Vai para o freezer e <strong>não mexe no estoque</strong> — serve para medir o rendimento da matéria-prima.
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900">
+                Sobra aproveitável da limpeza. Não abate o estoque.
               </div>
 
               <div className="bg-white rounded-xl p-4 space-y-3">
@@ -237,7 +237,7 @@ export default function AparasPerdas() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Produto (para FC automático)</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Produto de origem (opcional)</label>
                   <select value={formApara.produtoId} onChange={e => setA('produtoId', e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="">— Não vincular —</option>
@@ -304,10 +304,10 @@ export default function AparasPerdas() {
                 ✓ Registrar Perda
               </button>
 
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800">
-                <strong>Perda</strong> vai direto para o <strong>lixo</strong> (POP-07). No <strong>recebimento</strong> (matéria-prima chegou ruim) não mexe no estoque; de item já <strong>no estoque</strong> (estragou no freezer) abate automaticamente.
-              </div>
-
+              {/* O bloco saiu inteiro: citava "POP-07" (jargão de consultoria,
+                  sem significado para quem opera) e explicava em três frases o
+                  que os botões de origem logo abaixo já dizem no momento da
+                  escolha. */}
               <div className="bg-white rounded-xl p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>

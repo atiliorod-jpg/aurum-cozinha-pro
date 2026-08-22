@@ -166,8 +166,7 @@ export default function Pagamento() {
         <div className="border-2 border-polo-gold bg-white rounded-2xl p-5 mb-5">
           <p className="font-bold text-polo-navy">💠 Pague por Pix — {brl(valor)}</p>
           <p className="text-xs text-gray-500 mt-0.5 mb-3">
-            Plano {plano.label}. <strong>O valor já vem preenchido</strong> ao escanear o QR ou colar o código —
-            você não precisa digitar o valor. É só confirmar {brl(valor)} no seu banco.
+            Plano {plano.label}. O valor já vem preenchido no QR e no código.
           </p>
 
           {qr && (

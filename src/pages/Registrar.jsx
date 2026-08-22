@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { pode } from '../utils/permissoes';
-import { temRecurso, MODULO_PADRAO } from '../utils/modulos';
+import { temRecurso, tipoBase } from '../utils/modulos';
 
 const SECOES = [
   {
@@ -18,7 +18,7 @@ const SECOES = [
     label: 'Estoque interno',
     desc: 'Produção e entradas que alimentam o estoque',
     acoes: [
-      { to: '/producao', emoji: '🍲', titulo: 'Produção', recurso: 'producao', desc: 'Executar ficha — baixa ingredientes e entra a porção/semiacabado' },
+      { to: '/producao', emoji: '🍲', titulo: 'Produção', recurso: 'producao', desc: 'Executar uma ficha técnica' },
       { to: '/entradas', emoji: '📥', titulo: 'Entrada avulsa', recurso: 'entradas', desc: 'Item só porcionado, sem receita (ex.: picanha cortada e embalada)',
         descSeco: 'Dar entrada de mantimento no estoque' },
     ],
@@ -54,16 +54,16 @@ const SECOES = [
       // as telas". Mentia sobre o escopo: a tela filtra pelo MÓDULO aberto, e
       // quem procurava um lançamento de outro estoque não achava e concluía que
       // o app tinha perdido. Quem é global de verdade é a Auditoria.
-      { to: '/historico', emoji: '📋', titulo: 'Movimentações deste estoque',
-        desc: 'Tudo que foi lançado neste estoque, das várias telas, num lugar só' },
+      { to: '/historico', emoji: '📋', titulo: 'Histórico',
+        desc: 'Tudo que foi lançado neste estoque' },
     ],
   },
   {
     label: 'Fim do turno',
-    desc: 'Conte a sobra da bancada — o consumo é calculado sozinho',
+    desc: 'Conte a sobra no fim do serviço',
     acoes: [
       { to: '/fechar-turno', emoji: '🍳', titulo: 'Fechar turno', recurso: 'fecharTurno',
-        desc: 'Contagem da sobra: recebido − sobra − perdas = consumo do turno' },
+        desc: 'Conte a sobra no fim do serviço' },
     ],
   },
   {
@@ -85,7 +85,11 @@ export default function Registrar() {
   // Variante do card quando o módulo não tem apara — título, emoji e descrição
   // trocam juntos, senão sobra tesoura com texto de perda.
   const comVariante = (a) => (a.semApara && !temRecurso(modulo, 'aparas')) ? { ...a, ...a.semApara } : a;
-  const texto = (a) => (modulo !== MODULO_PADRAO && a.descSeco) ? a.descSeco : a.desc;
+  // ⚠️ Pelo TIPO, não por "diferente da produção raiz". `modulo !== MODULO_PADRAO`
+  // era verdadeiro para a Finalização e para toda INSTÂNCIA de produção
+  // ('producao#ab12'), então uma segunda cozinha de produção mostrava a
+  // descrição do Estoque Seco nos cards.
+  const texto = (a) => (tipoBase(modulo) === 'seco' && a.descSeco) ? a.descSeco : a.desc;
   const secoes = SECOES
     .map(s => ({ ...s, acoes: s.acoes.filter(a => podeAcao(a) && noModulo(a)).map(comVariante) }))
     .filter(s => s.acoes.length > 0);

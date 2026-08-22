@@ -80,8 +80,7 @@ export default function FecharTurno() {
         <div className="bg-polo-navy text-white rounded-2xl p-4">
           <p className="text-polo-gold font-bold text-sm">🍳 Fechamento do turno</p>
           <p className="text-xs text-white/80 mt-1">
-            Conte o que <strong>sobrou na bancada</strong>. O consumo é calculado sozinho:
-            recebido + sobra do turno anterior − perdas − o que você contar agora.
+            Conte o que <strong>sobrou na bancada</strong>.
           </p>
         </div>
 

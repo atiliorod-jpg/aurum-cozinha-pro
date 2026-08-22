@@ -69,7 +69,7 @@ export default function Validades() {
     const rotulo = status === 'consumida' ? 'consumida' : 'descartada';
     const ok = await confirm({
       titulo: `Marcar como ${rotulo}`,
-      mensagem: `"${etq.nome}" (lote ${etq.id}) sai da lista de potes na prateleira. Isso não mexe no estoque — se você descartou, registre a perda também.`,
+      mensagem: `Tirar "${etq.nome}" da lista de potes? O estoque não muda.`,
       confirmar: `Marcar ${rotulo}`,
     });
     if (!ok) return;

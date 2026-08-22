@@ -244,7 +244,7 @@ export default function Producao() {
                         <div className="min-w-0">
                           <div className="font-medium text-sm text-gray-800 truncate">
                             {i.abate ? prodNome(i.produtoId) : i.nome}
-                            {!i.abate && <span className="ml-1.5 text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">só monitora</span>}
+                            {!i.abate && <span className="ml-1.5 text-[10px] font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">não controlado</span>}
                           </div>
                           {i.abate ? (
                             <div className="text-xs text-gray-500">
@@ -252,7 +252,7 @@ export default function Producao() {
                               {!i.suficiente && <span className="text-red-500 font-semibold"> • falta {fmtNum(i.falta)}</span>}
                             </div>
                           ) : (
-                            <div className="text-xs text-gray-400">Estoque seco — não dá baixa</div>
+                            <div className="text-xs text-gray-500">Não controlado — só registra o uso.</div>
                           )}
                         </div>
                         <div className="text-sm font-bold text-polo-navy whitespace-nowrap">{fmtNum(i.quantidade)} {i.abate ? prodUnid(i.produtoId) : (i.unidade || '')}</div>
@@ -311,11 +311,8 @@ export default function Producao() {
               className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base active:scale-95 transition-transform disabled:opacity-60">
               {salvando ? 'Registrando…' : '✓ Registrar Produção'}
             </button>
-            <p className="text-[11px] text-gray-400 text-center -mt-1">
-              {receita && plano.itens.some(i => i.abate)
-                ? 'Isso dá entrada no produto e abate os ingredientes automaticamente.'
-                : 'Isso registra a produção e atualiza o estoque.'}
-            </p>
+            {/* O rodapé saiu: explicava o que o sistema faz por dentro, e a
+                própria tela já mostra o efeito em números logo acima. */}
           </div>
         )
       }

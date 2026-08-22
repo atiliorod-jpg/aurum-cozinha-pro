@@ -67,8 +67,8 @@ export default function Financeiro() {
           <p className="text-4xl mb-2" aria-hidden="true">🔒</p>
           <p className="text-sm font-bold text-polo-navy">Sem acesso aos custos</p>
           <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-            Os valores de custo não são enviados para o seu acesso. Quem cuida da diretoria
-            pode liberar em Administração → Equipe e acessos.
+            Você não tem permissão para ver custos. Peça à diretoria em
+            Administração → Equipe e acessos.
           </p>
         </div>
       </Layout>

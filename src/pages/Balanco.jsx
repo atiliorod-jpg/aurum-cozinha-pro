@@ -44,10 +44,8 @@ export default function Balanco() {
   return (
     <Layout title="Balanço" area="admin">
       <div className="space-y-5">
-        <p className="text-[11px] text-gray-500 px-1 leading-relaxed">
-          Soma de estoques do <strong>mesmo tipo</strong>. Não somamos tipos diferentes: "Queijo"
-          na Produção e "Queijo" no Seco são cadastros distintos, e casar por nome daria um
-          número errado com cara de certo.
+        <p className="text-xs text-gray-600 px-1">
+          Soma dos estoques do mesmo tipo.
         </p>
 
         {familias.map(f => (
@@ -101,9 +99,8 @@ export default function Balanco() {
           </div>
         ))}
 
-        <p className="text-[11px] text-gray-400 px-1 leading-relaxed">
-          Estoque arquivado continua somando: ele saiu do seletor, mas o que está lá dentro
-          continua sendo mercadoria da casa.
+        <p className="text-xs text-gray-600 px-1">
+          Estoques arquivados entram na soma.
         </p>
       </div>
     </Layout>

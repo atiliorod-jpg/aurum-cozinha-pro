@@ -57,7 +57,7 @@ export default function BotaoFeedback() {
     const { error } = await supabase.rpc('enviar_feedback', { p_tipo: tipo, p_dados: dados, p_contexto: contexto });
     setEnviando(false);
     if (error) { toast('Não consegui enviar agora. Tente de novo em instantes.', 'erro'); return; }
-    toast('Enviado! A equipe Aurum vai analisar. Obrigado 🙏', 'sucesso', { duracao: 6000 });
+    toast('Enviado. A equipe Aurum responde pelo WhatsApp.', 'sucesso', { duracao: 6000 });
     limpar();
     setAberto(false);
   };
@@ -110,24 +110,21 @@ export default function BotaoFeedback() {
                   Quanto mais detalhes, mais rápido a gente resolve. Preencha o que der:
                 </p>
                 <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">📍 Em qual tela/botão aconteceu?</span>
+                  <span className="text-xs font-semibold text-gray-600">Onde aconteceu</span>
                   <input className={campo} value={onde} onChange={e => setOnde(e.target.value)} placeholder="Ex.: Registrar → Produção" />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">🎯 O que você esperava que acontecesse?</span>
+                  <span className="text-xs font-semibold text-gray-600">O que você esperava</span>
                   <textarea className={campo} rows={2} value={esperava} onChange={e => setEsperava(e.target.value)} placeholder="Ex.: salvar a produção" />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">⚠️ O que aconteceu de verdade?</span>
+                  <span className="text-xs font-semibold text-gray-600">O que aconteceu</span>
                   <textarea className={campo} rows={2} value={aconteceu} onChange={e => setAconteceu(e.target.value)} placeholder="Ex.: deu erro / travou / salvou duplicado" />
                 </label>
                 <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">🔁 Como repetir? (passo a passo)</span>
+                  <span className="text-xs font-semibold text-gray-600">Como repetir</span>
                   <textarea className={campo} rows={2} value={repetir} onChange={e => setRepetir(e.target.value)} placeholder="Ex.: 1) abri Produção 2) toquei em salvar 3) ..." />
                 </label>
-                <p className="text-[11px] text-gray-400">
-                  Dica: descreva o <strong>passo a passo</strong> — quanto mais claro, mais rápido a gente resolve.
-                </p>
               </div>
             ) : (
               <div className="space-y-3">

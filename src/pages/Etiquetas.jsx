@@ -13,7 +13,7 @@ const TIPOS_IMPRESSORA = [
     id: 'termica-usb',
     titulo: '✅ Térmica de etiquetas com USB (recomendada)',
     resumo: 'Zebra ZD220 TT, Argox OS-214 Plus, Elgin L42 Pro e similares — ligadas ao computador ou notebook.',
-    comoFica: 'Cada etiqueta sai no tamanho exato do rolo (ex.: 60×40mm), uma por vez, já cortadinha no picote. É a experiência completa.',
+    comoFica: 'Uma etiqueta por vez, no tamanho do rolo.',
     passos: [
       'Compre o modelo com TRANSFERÊNCIA TÉRMICA (usa fita/ribbon de resina) e etiquetas BOPP — são as que não desbotam no congelador nem com água. Térmica direta (sem ribbon) desbota com o tempo.',
       'Instale o driver do fabricante no computador: Zebra → zebra.com/suporte (busque ZD220) · Argox → argox.com · Elgin → elgin.com.br/automacao (área de drivers).',
@@ -26,24 +26,16 @@ const TIPOS_IMPRESSORA = [
     id: 'tablet',
     titulo: '📱 Pelo tablet ou celular Android',
     resumo: 'Impressora térmica com Wi-Fi/rede, ou compartilhada pelo computador.',
-    comoFica: 'Igual ao computador: o Android abre a janela de impressão e a etiqueta sai no tamanho do rolo.',
+    comoFica: 'O Android abre a janela de impressão e a etiqueta sai no tamanho do rolo.',
     passos: [
       'Instale o serviço de impressão do fabricante na Play Store (ex.: "Zebra Print Station" / serviço de impressão da marca) OU deixe a impressora ligada num computador da rede com o driver instalado e compartilhada.',
       'No tablet: Configurações → Dispositivos conectados → Impressão → ative o serviço.',
       'No app, clique Imprimir → escolha a impressora na janela do Android.',
     ],
   },
-  {
-    id: 'automatica',
-    titulo: '⚡ Impressão automática sem janela (1 clique) — em breve',
-    resumo: 'Como os sistemas profissionais de etiquetagem funcionam com impressora dedicada.',
-    comoFica: 'Clicou em Imprimir → as etiquetas saem DIRETO na impressora, sem janela nenhuma, na quantidade pedida.',
-    passos: [
-      'Isso exige um programinha instalado uma única vez no computador/tablet: Zebra Browser Print (zebra.com → busque "Browser Print") para impressoras Zebra, ou QZ Tray (qz.io) para qualquer marca.',
-      'A integração do app com esses programas é a próxima fase do módulo de etiquetas — será ativada quando a impressora física estiver definida.',
-      'Enquanto isso, o caminho normal (janela de impressão) funciona com qualquer impressora — é só 1 clique a mais.',
-    ],
-  },
+  // O bloco "Impressão automática sem janela — em breve" saiu. Anunciava um
+  // recurso que não existe e prometia data ("próxima fase do módulo de
+  // etiquetas"). Quando existir, ele aparece sozinho.
   {
     id: 'comum',
     titulo: '🖨️ Impressora comum (A4) — só para testar',

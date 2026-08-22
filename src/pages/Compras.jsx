@@ -218,7 +218,7 @@ export default function Compras() {
   };
 
   return (
-    <Layout title="Compras / Recebimento">
+    <Layout title="Compras">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {[
           ['novo', '+ Nova compra'],
@@ -353,7 +353,7 @@ export default function Compras() {
                               ${urgencia === 'zerado' ? 'bg-red-600 text-white'
                                 : urgencia === 'critico' ? 'bg-orange-500 text-white'
                                 : 'bg-yellow-400 text-yellow-950'}`}>
-                              {urgencia === 'zerado' ? 'Zerado' : urgencia === 'critico' ? 'Crítico' : 'Alerta'}
+                              {urgencia === 'zerado' ? 'Zerado' : 'Abaixo do mínimo'}
                             </span>
                             <span className="text-[10px] text-gray-500 flex-shrink-0">{p.categoria}</span>
                           </div>
@@ -489,8 +489,15 @@ export default function Compras() {
 
       {tab === 'novo' ? (
         <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-            Registre o que <strong>chegou bruto</strong> do fornecedor (ex: 25 kg de filé). Isso <strong>não entra no estoque</strong> automaticamente — serve para monitorar compras e o rendimento (aparas/perdas de limpeza associadas a este recebimento).
+          {/* ⚠️ Condicionado ao recurso. O texto fixo dizia "não entra no
+              estoque automaticamente" nos três estoques, mas no Seco
+              `compraEntraNoEstoque` é true e o saldo mexe — o app afirmava o
+              contrário do que fazia, e quem lia ia procurar uma tela de entrada
+              que não existe ali, ou lançar em duplicidade em outro lugar. */}
+          <div className="bg-blue-50 border border-blue-300 rounded-xl p-3 text-xs text-blue-900">
+            {temRecurso(modulo, 'compraEntraNoEstoque')
+              ? 'O que chegou entra no estoque ao salvar.'
+              : 'Registre o que chegou cru. O estoque só muda quando a porção for produzida.'}
           </div>
 
           <div className="bg-white rounded-xl p-4 space-y-3">
@@ -532,12 +539,12 @@ export default function Compras() {
                 <div className="mt-2 bg-polo-beige border border-polo-gold/50 rounded-xl p-3 space-y-2">
                   {itemInfo.fc > 0 ? (
                     <p className="text-xs text-polo-navy">
-                      🎯 Rendimento de <strong>{itemInfo.prodNome}</strong>: o sistema desconta{' '}
-                      <strong>{Math.round(itemInfo.fc * 100)}%</strong> de apara/perda — você compra mais bruto na lista para sobrar o líquido certo.
+                      <strong>{itemInfo.prodNome}</strong> perde{' '}
+                      <strong>{Math.round(itemInfo.fc * 100)}%</strong> na limpeza. A lista de compras já pede a mais.
                     </p>
                   ) : (
                     <p className="text-xs text-polo-navy/80">
-                      🎯 Ainda sem fator de correção para <strong>{itemInfo.prodNome}</strong>. Registre uma apara vinculada a este produto (em ✂️ Aparas) para o FC ser calculado sozinho.
+                      Sem perda de limpeza registrada para <strong>{itemInfo.prodNome}</strong>. Registre uma apara deste produto para a lista de compras acertar a quantidade.
                     </p>
                   )}
                   {itemInfo.preparacoes.length > 0 && (
@@ -585,7 +592,11 @@ export default function Compras() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Quantidade bruta</label>
+                {/* "bruta" só faz sentido onde existe limpeza/porcionamento
+                    depois. No Seco o pacote chega e é o item do estoque. */}
+                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                  {temRecurso(modulo, 'aparas') ? 'Quantidade bruta' : 'Quantidade'}
+                </label>
                 <input type="number" inputMode="decimal" min="0" step="0.1" value={form.quantidade} onChange={e => set('quantidade', e.target.value)}
                   placeholder="0"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />

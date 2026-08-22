@@ -192,10 +192,9 @@ export default function Estoques() {
           );
         })}
 
-        <p className="text-[11px] text-gray-400 px-1 leading-relaxed">
-          Não existe apagar estoque, só arquivar. Apagar deixaria os lançamentos órfãos —
-          eles sumiriam de toda tela e ainda assim entrariam no balanço da conta.
-        </p>
+        {/* O parágrafo saiu: justificava ao usuário uma decisão de
+            modelagem. O botão "Arquivar" e a confirmação dele já explicam o
+            efeito no momento em que a pessoa vai agir. */}
       </div>
     </Layout>
   );

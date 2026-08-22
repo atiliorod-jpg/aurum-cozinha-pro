@@ -120,15 +120,15 @@ export default function Dashboard() {
         <div className="grid grid-cols-3 gap-2 mb-2">
           <div className="bg-green-600 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.ok}</div>
-            <div className="text-xs">Em nível OK</div>
+            <div className="text-xs">Normal</div>
           </div>
           <div className="bg-orange-500 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.critico}</div>
-            <div className="text-xs">Abaixo / Zerado</div>
+            <div className="text-xs">Abaixo do mínimo</div>
           </div>
           <div className="bg-blue-500 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.excesso}</div>
-            <div className="text-xs">Excesso</div>
+            <div className="text-xs">Acima do máximo</div>
           </div>
         </div>
       </div>
@@ -214,11 +214,12 @@ export default function Dashboard() {
       {/* Produção incompleta — ingredientes baixados sem entrada do produto final */}
       {temRecurso(modulo, 'producao') && prodIncompletas.length > 0 && (
         <div className="bg-red-50 border border-red-300 rounded-xl p-3 mb-4">
-          <p className="text-xs font-bold text-red-700 mb-1">⚠️ Produção incompleta detectada</p>
-          <p className="text-[11px] text-red-600 mb-2">
-            {prodIncompletas.length} produção(ões) baixaram ingredientes mas a entrada do item produzido não foi gravada
-            (provável falha de conexão no meio do registro). Confira no Histórico: remova a saída interna órfã
-            (o Desfazer devolve os ingredientes) e registre a produção de novo.
+          <p className="text-xs font-bold text-red-800 mb-1">Produção pela metade</p>
+          <p className="text-xs text-red-700 mb-2">
+            {prodIncompletas.length === 1
+              ? '1 produção ficou pela metade: os ingredientes saíram, o item produzido não entrou.'
+              : `${prodIncompletas.length} produções ficaram pela metade: os ingredientes saíram, o item produzido não entrou.`}
+            {' '}Remova no Histórico e registre de novo.
           </p>
           <button onClick={() => navigate('/historico')}
             className="text-[11px] font-bold text-red-50 bg-red-600 rounded-lg px-2.5 py-1.5">

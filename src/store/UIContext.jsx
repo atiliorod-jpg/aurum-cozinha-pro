@@ -85,7 +85,7 @@ export function UIProvider({ children }) {
       const ehTipo = /violates check constraint/i.test(detalhe);
       toast(
         ehTipo
-          ? 'Este estoque ainda não foi habilitado no servidor. O lançamento NÃO foi salvo — avise o administrador.'
+          ? 'Não foi possível salvar neste estoque. Avise a diretoria antes de continuar lançando.'
           : 'O servidor recusou este lançamento e ele não foi salvo. Confira os dados e tente de novo.',
         'erro',
         { duracao: 10000 },
@@ -106,7 +106,7 @@ export function UIProvider({ children }) {
     };
     const handler = (e) => {
       const rotulo = ROTULOS[e.detail?.chave] || 'este catálogo';
-      toast(`Outro aparelho alterou ${rotulo} agora há pouco — a tela foi atualizada com a versão mais recente. Refaça sua alteração se ainda precisar.`, 'aviso', { duracao: 7000 });
+      toast(`Outro tablet alterou ${rotulo}. Refaça sua alteração.`, 'aviso', { duracao: 7000 });
     };
     window.addEventListener('catalogo-conflito', handler);
     return () => window.removeEventListener('catalogo-conflito', handler);

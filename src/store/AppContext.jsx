@@ -1122,7 +1122,7 @@ export function AppProvider({ children }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `backup_polo_estoque_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `aurum-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, []);
@@ -1137,7 +1137,7 @@ export function AppProvider({ children }) {
                     'compras', 'entradas', 'saidas', 'aparas', 'desperdicio', 'ajustes', 'auditoria'];
     for (const k of listas) {
       if (dados[k] != null && !Array.isArray(dados[k])) {
-        throw new Error(`Arquivo inválido: "${k}" deveria ser uma lista.`);
+        throw new Error('Este arquivo não é uma cópia de segurança válida. Use um arquivo exportado pelo próprio app.');
       }
     }
     if (dados.prefs != null && (typeof dados.prefs !== 'object' || Array.isArray(dados.prefs))) {

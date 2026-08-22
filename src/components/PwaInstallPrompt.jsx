@@ -21,7 +21,7 @@ export default function PwaInstallPrompt() {
         <div className="flex items-start gap-3">
           <img src={`${import.meta.env.BASE_URL}pwa-192.png`} alt="Aurum" className="w-10 h-10 rounded-xl flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-polo-gold font-bold text-sm">Instalar Aurum Cozinha</p>
+            <p className="text-polo-gold font-bold text-sm">Instalar Aurum Cozinha Pro</p>
             <p className="text-white/70 text-xs mt-1">
               Toque em <span className="text-polo-gold font-bold">⎙ Compartilhar</span> depois em{' '}
               <span className="text-polo-gold font-bold">"Adicionar à Tela de Início"</span>

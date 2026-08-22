@@ -48,7 +48,7 @@ export default function Historico() {
     ...saidas.filter(s => s.destino === 'producao' && s.producaoId &&
         !entradas.some(e => e.producaoId === s.producaoId))
       .map(r => ({ id: r.id, grupo: 'producao', icon: '⚠️', cor: 'text-red-600', r,
-        resumo: `PRODUÇÃO INCOMPLETA — ingredientes baixados sem o item produzido: ${itensTxt(r)}`,
+        resumo: `Produção incompleta — o item produzido não entrou. Remova e registre de novo: ${itensTxt(r)}`,
         remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
     ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: '✂️', cor: 'text-teal-600', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,

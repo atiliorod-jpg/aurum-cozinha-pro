@@ -410,7 +410,7 @@ export default function EtiquetaPrint() {
 
           <div className="text-[11px] text-gray-400">
             Tamanho: {config.larguraMm}×{config.alturaMm}mm · impressão {horaImpressao}
-            — ajuste campos e tamanho em Config → Sistema → 🏷️ Etiquetas.
+            .
           </div>
 
           <div className="flex gap-3">

@@ -124,7 +124,7 @@ export default function Saidas() {
     [saidas, buscaHist, produtos]);
 
   return (
-    <Layout title="Saídas para Restaurantes">
+    <Layout title="Saídas">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {[['novo', '+ Nova saída'], ['historico', '📋 Histórico']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}

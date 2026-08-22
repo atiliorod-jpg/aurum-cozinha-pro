@@ -8,11 +8,16 @@ export const statusEstoque = (atual, min, max) => {
   return 'ok';
 };
 
+// ⚠️ VOCABULÁRIO ÚNICO do estado de estoque. O app tinha três conjuntos
+// concorrentes para a mesma coisa — ZERADO/BAIXO/OK/EXCESSO aqui,
+// Zerado/Crítico/Alerta em Compras e "Em nível OK"/"Abaixo / Zerado" no Início.
+// Três nomes para um estado é o que faz a equipe achar que são coisas
+// diferentes. Estas são as palavras; quem exibe usa `label`, nunca as suas.
 export const corStatus = (status) => ({
-  'zerado':   { bg: 'bg-red-100',    text: 'text-red-700',    badge: 'bg-red-600 text-white',    label: 'ZERADO' },
-  'critico':  { bg: 'bg-orange-100', text: 'text-orange-700', badge: 'bg-orange-500 text-white', label: 'BAIXO' },
-  'ok':       { bg: 'bg-green-50',   text: 'text-green-700',  badge: 'bg-green-600 text-white',  label: 'OK' },
-  'excesso':  { bg: 'bg-blue-50',    text: 'text-blue-700',   badge: 'bg-blue-500 text-white',   label: 'EXCESSO' },
+  'zerado':   { bg: 'bg-red-100',    text: 'text-red-800',    badge: 'bg-red-700 text-white',    label: 'Zerado' },
+  'critico':  { bg: 'bg-orange-100', text: 'text-orange-800', badge: 'bg-orange-700 text-white', label: 'Abaixo do mínimo' },
+  'ok':       { bg: 'bg-green-50',   text: 'text-green-800',  badge: 'bg-green-700 text-white',  label: 'Normal' },
+  'excesso':  { bg: 'bg-blue-50',    text: 'text-blue-800',   badge: 'bg-blue-700 text-white',   label: 'Acima do máximo' },
   'sem-meta': { bg: 'bg-gray-50',    text: 'text-gray-600',   badge: 'bg-gray-400 text-white',   label: '—' },
 })[status] || { bg: 'bg-gray-50', text: 'text-gray-600', badge: 'bg-gray-400 text-white', label: '—' };
 

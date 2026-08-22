@@ -72,7 +72,7 @@ export default function Login() {
     if (!nomeRest.trim()) { setErro('Digite o nome do restaurante.'); return; }
     if (!/.+@.+\..+/.test(email)) { setErro('Digite um e-mail válido.'); return; }
     if (senha.length < 8) { setErro('A senha deve ter pelo menos 8 caracteres.'); return; }
-    if (!aceitouTermos) { setErro('Confirme que leu para que serve o sistema (caixinha acima do botão).'); return; }
+    if (!aceitouTermos) { setErro('Marque a confirmação acima para continuar.'); return; }
     setCarregando(true);
     const err = await criarPrimeiroAdmin({ nome: nome.trim(), email: email.trim(), senha, nomeRestaurante: nomeRest.trim() });
     setCarregando(false);
@@ -119,7 +119,7 @@ export default function Login() {
               🎬 Ver demonstração — sem cadastro
             </button>
             <p className="text-[10px] text-gray-400 text-center -mt-1">
-              Restaurante de exemplo já preenchido. Mexa à vontade: nada é salvo e tudo reseta ao sair.
+              Restaurante de exemplo. Nada é salvo: os dados voltam ao início quando você sair.
             </p>
           </>}
 

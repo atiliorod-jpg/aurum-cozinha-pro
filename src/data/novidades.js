@@ -13,7 +13,7 @@ export const NOVIDADES = [
     itens: [
       'Pagamento por Pix: o QR já vem com o valor preenchido, e agora há planos mensal, semestral (−10%) e anual (−20%).',
       'Botão de Ajuda no topo para você relatar um problema ou sugerir uma melhoria — com um passo a passo de como descrever.',
-      'Aviso no cantinho quando a sua assinatura ou teste está perto de vencer.',
+      'Aviso quando o teste ou a assinatura está perto de vencer.',
       'A diretoria pode escolher o que cada função (cozinha e gerência) pode fazer no app.',
       'Textos revisados e a descrição da "entrada avulsa" ficou mais clara (item só porcionado, sem receita).',
     ],

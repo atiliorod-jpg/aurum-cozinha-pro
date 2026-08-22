@@ -34,10 +34,9 @@ export default function Auditoria() {
 
   return (
     <Layout title="Histórico de Mudanças" area="admin">
-      <div className="bg-polo-beige border border-polo-gold/40 rounded-xl p-3 text-xs text-polo-navy mb-4">
-        🔍 Registro automático de tudo que cada usuário fez no sistema. Visível apenas para Gerência e Diretoria.
-      </div>
-
+      {/* O aviso saiu: o título da tela já diz o que ela é, e a afirmação
+          "visível apenas para Gerência e Diretoria" ficou FALSA quando a matriz
+          de permissões passou a permitir liberar a trilha para a cozinha. */}
       <div className="space-y-2 mb-4">
         <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
           placeholder="🔍 Buscar ação ou item..."

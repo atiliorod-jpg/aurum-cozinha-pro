@@ -118,7 +118,7 @@ export default function Entradas() {
     [entradas, buscaHist, produtos]);
 
   return (
-    <Layout title="Entrada de Mercadoria">
+    <Layout title="Entrada avulsa">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {[['novo', '+ Nova entrada'], ['historico', '📋 Histórico']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}

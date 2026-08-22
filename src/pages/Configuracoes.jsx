@@ -6,7 +6,7 @@ import { useAuth, CARGOS, nivelDoCargo } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import NovaSenha from './NovaSenha';
 import { calcSugestoesMinMax } from '../utils/sugestoes';
-import { fmtNum } from '../utils/formatters';
+import { fmtNum, fmtData } from '../utils/formatters';
 import { POLO_PRESET } from '../data/presetPolo';
 import { fatorCorrecaoProduto } from '../utils/analise';
 import { pode, CAPACIDADES, permissoesEfetivas } from '../utils/permissoes';
@@ -22,6 +22,13 @@ const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
 // 'produtos' quando a query traz lixo — sem isto um ?secao=xpto deixaria a
 // tela sem nenhuma aba ativa.
 const ABAS_VALIDAS = ['produtos', 'receitas', 'acessos', 'sistema'];
+
+// A fila de erro mostrava `kind`/`op` crus — nomes internos do banco. Quem lê
+// precisa reconhecer o lançamento, não o esquema.
+const ROTULO_FILA = {
+  compra: 'Compra', entrada: 'Entrada', saida: 'Saída',
+  apara: 'Apara', perda: 'Perda', ajuste: 'Contagem', doc: 'Cadastro',
+};
 
 // Fecha o modal com a tecla Escape (acessibilidade — WCAG 2.1.2)
 function useEscClose(onFechar) {
@@ -399,9 +406,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
       {aberto && (
       <div className="px-4 pb-4">
       <p className="text-xs text-gray-500 mb-3">
-        Cada ingrediente reúne as preparações que o usam. O <strong>fator de correção</strong> (apara/perda na limpeza) é
-        calculado sozinho pelas aparas e perdas ligadas às compras — um único FC vale para todas as preparações.
-        Use <strong>✏️</strong> para renomear o ingrediente, <strong>"mover"</strong> para corrigir um vínculo errado, ou ajuste o FC à mão.
+        O rendimento é calculado pelas aparas e perdas ligadas às compras.
       </p>
 
       {grupos.length === 0 && naoVinc.length === 0 && (
@@ -485,7 +490,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
               {nomeEdit?.id !== produto.id && (
                 <div className="mt-2 bg-polo-beige/40 rounded-lg px-2.5 py-2">
                   <label className="block text-[10px] font-semibold text-gray-500 mb-1">
-                    🛒 Compra como (matéria-prima) — produtos com o mesmo nome viram 1 linha na lista de compras
+                    Comprado como
                   </label>
                   <input
                     type="text"
@@ -922,7 +927,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                   <input type="checkbox" id={`abate-${i}`} checked={ing.abate || false} onChange={e => setIng(i, 'abate', e.target.checked)}
                     className="w-4 h-4 cursor-pointer" />
                   <label htmlFor={`abate-${i}`} className="text-xs text-gray-600 cursor-pointer">
-                    ☑️ Este item tem estoque controlado (dá baixa)
+                    Controlado no estoque (dá baixa ao produzir)
                   </label>
                 </div>
               </div>
@@ -1558,7 +1563,7 @@ ${linkConvite(conviteGerado.token)}
           </p>
           <ul className="text-[11px] text-red-600/80 mt-1.5 space-y-0.5 max-h-24 overflow-y-auto">
             {mortos.slice(0, 6).map((m, i) => (
-              <li key={m.id || i}>• {m.kind}/{m.op}{m._ultimoErro ? ` — ${m._ultimoErro}` : ''}</li>
+              <li key={m.id || i}>• {ROTULO_FILA[m.kind] || 'Lançamento'}{m.dados?.data ? ` de ${fmtData(m.dados.data)}` : ''}</li>
             ))}
           </ul>
           <div className="flex gap-2 mt-2">
@@ -1705,12 +1710,8 @@ ${linkConvite(conviteGerado.token)}
                 </p>
                 <details className="mt-1.5">
                   <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">❓ Quando ligar</summary>
-                  <div className="text-[11px] text-gray-600 mt-1.5 space-y-1 leading-snug">
-                    <p>• <strong>Ligue</strong> se a casa tem pico real por dia da semana (ex.: sex–dom bem
-                    mais fortes) — o mínimo sobe antes do pico usando o histórico de cada dia.</p>
-                    <p>• <strong>Deixe desligado</strong> se a demanda é estável de seg a sex — evita o
-                    mínimo "dançar" todo dia.</p>
-                    <p>• Com poucas semanas de histórico a média por dia pode oscilar — é normal no começo.</p>
+                  <div className="text-[11px] text-gray-600 mt-1.5 leading-snug">
+                    <p>Ligue se sexta a domingo vendem bem mais que o resto da semana.</p>
                   </div>
                 </details>
               </div>
@@ -2068,12 +2069,11 @@ ${linkConvite(conviteGerado.token)}
         <div>
           <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🛟 Cópia de segurança</p>
           <p className="text-xs text-gray-500 mt-1">
-            Seus dados já ficam na nuvem e sincronizam entre tablets. Esta cópia é uma rede de segurança extra:
-            exporte de vez em quando para conseguir voltar atrás caso alguém apague tudo por engano, ou para clonar o restaurante (com receitas) em outra conta.
+            Baixe uma cópia dos dados para poder restaurar depois.
           </p>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => { exportarBackup(); toast('Cópia de segurança exportada!', 'sucesso'); }}
+          <button onClick={() => { exportarBackup(); toast('Cópia de segurança baixada.', 'sucesso'); }}
             className="flex-1 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm">
             ↓ Exportar cópia
           </button>

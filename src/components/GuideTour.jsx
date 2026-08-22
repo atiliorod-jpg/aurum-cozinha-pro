@@ -13,7 +13,7 @@ const ESSENCIAIS = [
     label: 'Produção / entrada',
     icon: '🍲',
     rota: '/registrar',
-    hint: 'Execute as receitas de porcionamento/semiacabados do turno (ou registre a entrada de itens prontos).',
+    hint: 'Registre o que foi produzido hoje.',
   },
   {
     key: 'saida',
@@ -125,7 +125,7 @@ export default function GuideTour() {
 
       {completos ? (
         <p className="text-[11px] text-green-700 font-semibold mt-2 leading-tight">
-          🎉 Essenciais do turno ok! Etiquetas e aparas ficam ao lado se precisar.
+          Turno em dia.
         </p>
       ) : (
         <div className="flex items-center justify-between gap-2 mt-2">
