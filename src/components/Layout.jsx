@@ -146,7 +146,11 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
         </div>
       )}
       <main className="flex-1 p-4 max-w-2xl lg:max-w-4xl mx-auto w-full relative">
-        <GuideTour />
+        {/* O guia ensina o FLUXO DO TURNO (produção → saídas → etiquetas →
+            aparas) e todos os seus atalhos entram num estoque. Rodando na
+            Administração, ele oferecia quatro links que jogavam a pessoa
+            dentro de uma cozinha a partir de uma tela de gestão. */}
+        {!emAdmin && <GuideTour />}
         {children}
       </main>
       {/* Só a operação tem barra. A da Administração tinha dois itens — "Início"

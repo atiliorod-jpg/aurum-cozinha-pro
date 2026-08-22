@@ -221,7 +221,12 @@ export function AppProvider({ children }) {
   const [brutos, setBrutos] = useState({ registros: [], docs: {} });
 
   const dadosRef = useRef({});
-  dadosRef.current = { produtos, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
+  // ⚠️ produtosCat e metas PRECISAM estar aqui: setProdutos lê os dois deste
+  // espelho. Sem eles, separarMetas recebia (undefined, lista, undefined),
+  // devolvia sempre { catalogo: <lista com mín/máx dentro>, metas: null }, e o
+  // documento `metas` nunca era gravado — o mín/máx de um restaurante ia para a
+  // chave compartilhada por tipo e sobrescrevia o do outro, em silêncio.
+  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
   /* eslint-enable react-hooks/refs */
 
   // Só lê refs (estáveis) — identidade fixa para entrar nos deps dos callbacks.

@@ -1671,6 +1671,16 @@ describe('metas por estoque — mesmo produto, alvos diferentes', () => {
 });
 
 describe('separarMetas — a gravacao vai para o lugar certo sozinha', () => {
+  // O dadosRef do AppContext nao expunha produtosCat nem metas, entao a chamada
+  // real era separarMetas(undefined, lista, undefined): devolvia sempre
+  // { catalogo: <lista COM min/max dentro>, metas: null }, o documento `metas`
+  // nunca era gravado, e o minimo de um restaurante ia para a chave
+  // compartilhada por tipo, por cima do outro. Nada disso dava erro na tela.
+  it('recusa a chamada sem catalogo em vez de mandar o min/max para o lugar errado', () => {
+    expect(() => separarMetas(undefined, [{ id: 'arroz', min: 20, max: 40 }], undefined))
+      .toThrow(/catálogo atual não foi passado/);
+  });
+
   const catalogo = [
     { id: 'arroz', nome: 'Arroz', unidade: 'unid', min: 4, max: 12, ativo: true },
   ];
@@ -1753,6 +1763,35 @@ describe('visao de um estoque sem trocar o que esta aberto', () => {
     const f = fatiarPorEstoque(comPonte, ['finalizacao', 'finalizacao#b3nq'], conv);
     expect(f['finalizacao#b3nq'].recebimentos.map(r => r.id)).toEqual(['e']);
     expect(f['finalizacao'].recebimentos.map(r => r.id)).toEqual(['f']);
+  });
+
+  // A ponte aceitava QUALQUER destino que fosse id de estoque. A baixa de
+  // ingrediente da receita grava destino 'producao' (Producao.jsx), que sempre
+  // existe, entao ela voltava como recebimento do proprio estoque e anulava a
+  // saida: a Administracao mostrava 20 kg onde a operacao mostrava 15.
+  it('saida INTERNA de receita nao vira recebimento do proprio estoque', () => {
+    const internas = [
+      linha('g', 'entrada', { data: '2026-08-01', itens: [{ produtoId: 'file', quantidade: 20 }] }),
+      linha('h', 'saida',   { data: '2026-08-02', destino: 'producao', itens: [{ produtoId: 'file', quantidade: 5 }] }),
+    ];
+    const f = fatiarPorEstoque(internas, ['producao', 'finalizacao'], conv);
+    expect(f['producao'].recebimentos).toEqual([]);
+    expect(f['producao'].saidas.map(r => r.id)).toEqual(['h']);
+
+    const docs = { produtos: [{ id: 'file', nome: 'File', unidade: 'kg', min: 0, max: 0, ativo: true }] };
+    const v = visaoDoEstoque({ id: 'producao', docs, registrosFatiados: f, aplicarMetas: comMetas });
+    expect(v.estoque.file).toBe(15);   // 20 entraram, 5 sairam para a receita
+  });
+
+  // Com instancias era pior: a saida interna de 'producao#ab12' tem destino
+  // 'producao' (a raiz), entao o ingrediente de um restaurante era somado como
+  // recebimento no estoque de OUTRO.
+  it('saida interna de uma INSTANCIA nao credita a raiz do mesmo tipo', () => {
+    const f = fatiarPorEstoque(
+      [linha('i', 'producao#ab12:saida', { data: '2026-08-02', destino: 'producao', itens: [{ produtoId: 'file', quantidade: 5 }] })],
+      ['producao', 'producao#ab12'], conv);
+    expect(f['producao'].recebimentos).toEqual([]);
+    expect(f['producao#ab12'].saidas.map(r => r.id)).toEqual(['i']);
   });
 
   it('SALDO separado com CATALOGO compartilhado — o pedido do dono', () => {

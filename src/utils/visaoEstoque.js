@@ -43,7 +43,18 @@ export function fatiarPorEstoque(linhas, idsDosEstoques, linhaParaRegistro) {
     // A saída da produção destinada a uma finalização É o recebimento dela.
     // Fonte única: corrigir ou apagar a saída acompanha do outro lado, porque
     // não existe uma segunda linha para dessincronizar.
-    if (tipoBase(mod) === MODULO_PADRAO && tipo === 'saida' && porEstoque[reg.destino]) {
+    //
+    // ⚠️ As duas travas do `if` não são zelo: sem elas a baixa de ingrediente
+    // da receita (Producao.jsx grava destino 'producao') virava recebimento do
+    // PRÓPRIO estoque que a produziu — 'producao' é sempre um id válido — e a
+    // baixa se anulava contra a própria entrada. A Administração mostrava 20 kg
+    // onde a tela de operação mostrava 15. Com instâncias era pior: a saída
+    // interna de 'producao#ab12' tem destino 'producao' (a raiz), então o
+    // ingrediente de um restaurante era somado no estoque de outro.
+    if (tipoBase(mod) === MODULO_PADRAO && tipo === 'saida'
+        && reg.destino !== mod                              // nunca o próprio estoque
+        && tipoBase(reg.destino) === 'finalizacao'           // só quem de fato recebe
+        && porEstoque[reg.destino]) {
       porEstoque[reg.destino].recebimentos.push(reg);
     }
 
@@ -167,6 +178,16 @@ export function comMetas(catalogo, metas) {
  * Devolve `{ catalogo, metas }`, cada um `null` quando não mudou nada.
  */
 export function separarMetas(catalogoAtual, novaLista, metasAtuais) {
+  // ⚠️ Trava de chamador, não validação de dado. O catálogo nasce de
+  // PRODUTOS_BASE e nunca é undefined; receber undefined aqui só acontece se
+  // quem chamou não passou o argumento. Foi exatamente esse o bug: com
+  // undefined, `atual` virava [], todo produto caía em "produto novo", e o
+  // mín/máx voltava para o catálogo COMPARTILHADO em vez das metas da
+  // instância — o mínimo de um restaurante sobrescrevia o do outro, sem erro
+  // nenhum na tela. Falhar alto é o que impede isso de voltar em silêncio.
+  if (catalogoAtual === undefined) {
+    throw new Error('separarMetas: catálogo atual não foi passado — o mín/máx iria para a chave compartilhada.');
+  }
   const atual = Array.isArray(catalogoAtual) ? catalogoAtual : [];
   const nova = Array.isArray(novaLista) ? novaLista : [];
   const porIdAtual = new Map(atual.map(p => [p.id, p]));
