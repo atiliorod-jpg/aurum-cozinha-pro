@@ -144,7 +144,7 @@ export default function Producao() {
               (ex.: empanado porcionado, molho base) — baixa os ingredientes e dá entrada no item produzido.
             </p>
             {podeCriarFicha
-              ? <Link to="/configuracoes" className="inline-block mt-2 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">Criar ficha de produção</Link>
+              ? <Link to="/configuracoes?secao=receitas" className="inline-block mt-2 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">Criar ficha de produção</Link>
               : <p className="text-xs text-gray-600 mt-2">Peça à gerência para cadastrar as receitas em Configurações.</p>}
           </div>
         ) : (

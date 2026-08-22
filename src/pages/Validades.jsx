@@ -6,6 +6,7 @@ import { fmtData, fmtNum, hoje } from '../utils/formatters';
 import { addDias, diasAte } from '../utils/datas';
 import { calcLotes } from '../utils/lotes';
 import { STATUS_ETIQUETA, statusEtiqueta } from '../utils/etiquetas';
+import { temRecurso } from '../utils/modulos';
 
 const FILTROS = [
   ['hoje', 'Vence hoje', 0],
@@ -25,7 +26,7 @@ const FILTROS = [
  * permite achar o pote específico na prateleira.
  */
 export default function Validades() {
-  const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, setEtiquetasImpressas } = useApp();
+  const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, setEtiquetasImpressas, modulo } = useApp();
   const { toast, confirm } = useUI();
   const [filtro, setFiltro] = useState('7d');
   const [ate, setAte] = useState(addDias(hoje(), 7));
@@ -111,7 +112,12 @@ export default function Validades() {
         </div>
 
         <div className="flex bg-white rounded-xl p-1 gap-1">
-          {[['lotes', `📦 Lotes (${linhasLotes.length})`], ['etiquetas', `🏷️ Etiquetas (${linhasEtiquetas.length})`]].map(([v, l]) => (
+          {/* No Estoque Seco nao existe etiqueta (o mantimento chega lacrado e
+              ja etiquetado pelo fabricante), entao a aba abria sempre vazia. */}
+          {(temRecurso(modulo, 'etiquetas')
+            ? [['lotes', `Lotes (${linhasLotes.length})`], ['etiquetas', `Etiquetas (${linhasEtiquetas.length})`]]
+            : [['lotes', `Lotes (${linhasLotes.length})`]]
+          ).map(([v, l]) => (
             <button key={v} onClick={() => setAba(v)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors
                 ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>

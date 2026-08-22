@@ -16,7 +16,7 @@ export default function ResponsavelSelect({ value, onChange, label = 'Responsáv
       ) : (
         <div className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
           Nenhuma pessoa cadastrada.{' '}
-          <Link to="/configuracoes" className="text-polo-navy font-semibold underline">Cadastrar equipe</Link>
+          <Link to="/configuracoes?secao=acessos" className="text-polo-navy font-semibold underline">Cadastrar equipe</Link>
         </div>
       )}
     </div>

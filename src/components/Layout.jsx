@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import NavBar from './NavBar';
-import GuideTour from './GuideTour';
 import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
@@ -147,11 +146,11 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
         </div>
       )}
       <main className="flex-1 p-4 max-w-2xl lg:max-w-4xl mx-auto w-full relative">
-        {/* O guia ensina o FLUXO DO TURNO (produção → saídas → etiquetas →
-            aparas) e todos os seus atalhos entram num estoque. Rodando na
-            Administração, ele oferecia quatro links que jogavam a pessoa
-            dentro de uma cozinha a partir de uma tela de gestão. */}
-        {!emAdmin && <GuideTour />}
+        {/* O guia saiu daqui e passou a ser chamado só pelo Dashboard: ele é o
+            PROGRESSO DO TURNO, pertence ao Início. No Layout ele aparecia em
+            TODA tela — inclusive na Administração, oferecendo quatro links que
+            jogavam a pessoa dentro de uma cozinha a partir da gestão — e
+            repetia, dentro de Registrar, os mesmos destinos dos cartões. */}
         {children}
       </main>
       {/* Só a operação tem barra. A da Administração tinha dois itens — "Início"

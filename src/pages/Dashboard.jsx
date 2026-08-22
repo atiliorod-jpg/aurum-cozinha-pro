@@ -12,6 +12,7 @@ import { producoesIncompletas } from '../utils/producao';
 import { fmtNum, fmtData, hoje } from '../utils/formatters';
 import { somaPorUnidade } from '../utils/relatorios';
 import CalculadoraProducao from '../components/CalculadoraProducao';
+import GuideTour from '../components/GuideTour';
 import { temRecurso } from '../utils/modulos';
 
 export default function Dashboard() {
@@ -127,6 +128,8 @@ export default function Dashboard() {
 
   return (
     <Layout title="Início">
+      {/* O guia do turno vive AQUI, não no Layout: é o progresso do dia. */}
+      <GuideTour />
       {/* Resumo do dia */}
       <div className="mb-4">
         <p className="text-xs text-gray-500 mb-2">Atualizado em: {fmtData(dataHoje)}</p>
@@ -186,7 +189,9 @@ export default function Dashboard() {
       {temRecurso(modulo, 'receitas') && <CalculadoraProducao />}
 
       {/* Lista de compras (automática + manual) */}
-      {(lista.length > 0 || listaManual.length > 0) && (
+      {/* gate pelo recurso: a Finalizacao nao tem lista de compras, e o botao
+          levava para uma tela que nao existe ali */}
+      {temRecurso(modulo, 'listaCompras') && (lista.length > 0 || listaManual.length > 0) && (
         <button onClick={() => navigate('/compras', { state: { tab: 'lista' } })}
           className="w-full flex items-center justify-between bg-polo-navy text-white rounded-xl px-4 py-3 mb-4 active:scale-[0.99] transition-transform">
           <span className="text-sm font-semibold text-left">
@@ -225,9 +230,16 @@ export default function Dashboard() {
       )}
 
       {/* Previsão de ruptura — ritmo atual de consumo */}
+      {/* Era um aviso MORTO: mostrava o problema e não levava a lugar nenhum.
+          Quem vê "acaba hoje" quer comprar — o destino é a lista de compras. */}
       {emRisco.length > 0 && (
-        <div className="bg-red-50 border border-red-300 rounded-xl p-3 mb-4">
-          <p className="text-xs font-bold text-red-700 mb-2">Risco de faltar (no ritmo atual de saídas)</p>
+        <Link to="/compras" state={{ tab: 'lista' }}
+          className="block bg-red-50 border border-red-300 rounded-xl p-3 mb-4 active:scale-[0.99] transition-transform
+                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+          <p className="text-xs font-bold text-red-800 mb-2 flex items-center justify-between">
+            <span>Risco de faltar (no ritmo atual de saídas)</span>
+            <span aria-hidden="true">›</span>
+          </p>
           <div className="space-y-1">
             {emRisco.map(({ p, dias }) => (
               <div key={p.id} className="flex justify-between items-center text-xs">
@@ -238,7 +250,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </Link>
       )}
 
       {/* Produção incompleta — ingredientes baixados sem entrada do produto final */}

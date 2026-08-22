@@ -49,15 +49,19 @@ export default function Administracao() {
       to: '/estoques', icone: 'estabelecimento', titulo: 'Estoques da conta',
       desc: 'Criar, renomear e arquivar — e o nome que sai na etiqueta de cada um',
     },
-    {
+    // ⚠️ Cada cartão gateado pela MESMA condição da aba que ele abre
+    // (espelha Configuracoes). Sem isso os três apareciam para todo mundo e,
+    // ao tocar, Configurações abria noutra aba ou barrava — um cartão que
+    // some ao ser tocado é pior que cartão nenhum.
+    can('gerenciarProdutos') && {
       to: '/configuracoes?secao=produtos', icone: 'caixa', titulo: 'Cadastros',
       desc: 'Produtos, receitas e destinos de saída',
     },
-    {
+    (eDiretoria || sessao?.cargo === 'gerencia') && {
       to: '/configuracoes?secao=acessos', icone: 'equipe', titulo: 'Equipe e acessos',
       desc: 'Convites, cargos e o que cada função pode fazer',
     },
-    {
+    can('configurarSistema') && {
       to: '/configuracoes?secao=sistema', icone: 'config', titulo: 'Sistema e backup',
       desc: 'Etiqueta, preferências, exportar e importar',
     },

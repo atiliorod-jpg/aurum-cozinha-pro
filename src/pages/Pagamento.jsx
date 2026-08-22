@@ -86,7 +86,7 @@ export default function Pagamento() {
   };
 
   return (
-    <Layout title="Assinatura">
+    <Layout title="Assinatura" area="admin">
       {/* Situação atual */}
       <div className={`rounded-2xl p-5 mb-6 flex items-center gap-4 ${st.tipo === 'vencido' ? 'bg-red-700' : 'bg-polo-navy'}`}>
         <div className="w-14 h-14 bg-polo-gold/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">

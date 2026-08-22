@@ -192,7 +192,7 @@ export default function Admin() {
 
   if (!sessao?.eSuperAdmin) {
     return (
-      <Layout title="Admin">
+      <Layout title="Admin" area="admin">
         <div className="bg-white rounded-xl p-8 text-center">
           <p className="text-2xl mb-2">🚫</p>
           <p className="text-sm font-semibold text-gray-700">Acesso restrito</p>
@@ -203,7 +203,7 @@ export default function Admin() {
   }
 
   return (
-    <Layout title="Admin — Visão geral">
+    <Layout title="Admin — Visão geral" area="admin">
       <div className="space-y-4">
         {/* Cabeçalho */}
         <div className="bg-polo-navy rounded-xl p-4 text-polo-gold">
