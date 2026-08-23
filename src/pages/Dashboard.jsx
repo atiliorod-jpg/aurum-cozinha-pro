@@ -14,10 +14,13 @@ import { somaPorUnidade } from '../utils/relatorios';
 import CalculadoraProducao from '../components/CalculadoraProducao';
 import GuideTour from '../components/GuideTour';
 import { temRecurso } from '../utils/modulos';
+import { pode } from '../utils/permissoes';
+import { useAuth } from '../store/AuthContext';
 
 export default function Dashboard() {
-  const { produtos, setProdutos, saidas, saidasParaConsumo, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs, modulo } = useApp();
+  const { produtos, setProdutos, saidas, saidasParaConsumo, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs, modulo, permissoes } = useApp();
   const { toast } = useUI();
+  const { sessao } = useAuth();
   const navigate = useNavigate();
   const [catAtiva, setCatAtiva] = useState('TODOS');
   const [subAtivo, setSubAtivo] = useState('TODOS');
@@ -477,7 +480,21 @@ export default function Dashboard() {
       </div>
 
       {produtosFiltrados.length === 0 && (
-        <div className="text-center text-gray-500 py-12">Nenhum produto nesta categoria.</div>
+        <div className="text-center text-gray-500 py-12 space-y-3">
+          {/* Estoque ZERADO de cadastro era um beco: a tela dizia "nenhum
+              produto" e não oferecia caminho nenhum para criar o primeiro —
+              quem abria um Estoque Seco novo ficava parado aqui. */}
+          <p>{produtosAtivos.length === 0
+            ? 'Este estoque ainda não tem nenhum produto cadastrado.'
+            : 'Nenhum produto nesta categoria.'}</p>
+          {produtosAtivos.length === 0 && pode(sessao, permissoes, 'gerenciarProdutos') && (
+            <Link to="/configuracoes?secao=produtos"
+              className="inline-block min-h-11 px-5 py-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm
+                         active:scale-95 transition-transform">
+              Cadastrar o primeiro produto
+            </Link>
+          )}
+        </div>
       )}
     </Layout>
   );

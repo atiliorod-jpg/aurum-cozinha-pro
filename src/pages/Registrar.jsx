@@ -75,6 +75,23 @@ const SECOES = [
       { to: '/inventario', icone: 'contagem', titulo: 'Contagem física', recurso: 'inventario', desc: 'Corrige o estoque para o valor contado na prateleira', cap: 'inventario' },
     ],
   },
+  {
+    label: 'Cadastro',
+    desc: 'O que este estoque controla',
+    acoes: [
+      // ⚠️ Isto FALTAVA, e era o buraco que fazia o dono não achar como
+      // cadastrar arroz no Seco: a área operacional não tinha NENHUM caminho
+      // para o cadastro de produtos. O único era seletor → Administração →
+      // Cadastros — quatro toques, e só para quem já sabia que estava lá.
+      //
+      // Não é destino repetido: a Administração é outra ÁREA, e o app já usa
+      // esse mesmo atalho contextual em ResponsavelSelect ("Cadastrar equipe")
+      // e em Produção ("Criar ficha"). Quem está com a mercadoria na mão
+      // precisa cadastrar dali, não de outra área.
+      { to: '/configuracoes?secao=produtos', icone: 'caixa', titulo: 'Produtos do estoque',
+        desc: 'Cadastrar item novo, mínimo e máximo', cap: 'gerenciarProdutos' },
+    ],
+  },
 ];
 
 export default function Registrar() {

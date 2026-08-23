@@ -24,11 +24,13 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
   // preso na fila offline. É o mesmo buraco que segurou o Estoque Seco antes
   // da migração 17.
   const podeAdmin = podeAbrirAdministracao(sessao, permissoes);
-  // Mesmo gate de /estoques (Estoques.jsx) — mostrar o atalho para quem cai
-  // num cadeado é pior que não mostrar. Criar estoque só era alcançável pela
-  // Administração, mas é AQUI que a pessoa vem procurar: este é o painel que
-  // ela abre justamente quando quer "outro estoque".
-  const eDiretoria = sessao?.eSuperAdmin || sessao?.cargo === 'diretoria';
+  // ⚠️ Este painel NÃO ganha atalho de "criar estoque". Cheguei a pôr um e o
+  // dono derrubou, com razão: criar estoque já é o cartão "Estoques da conta"
+  // da Administração, e ter o mesmo destino nos dois lugares é o defeito que
+  // este app vem corrigindo desde o "Voltar ao estoque". Um destino, um
+  // caminho — e um painel de ESCOLHER onde trabalhar não é lugar de ação de
+  // configuração: quem toca ali espera trocar de estoque, não ser jogado
+  // noutra tela.
 
   // Só os ativos: estoque arquivado sai do seletor, mas os lançamentos dele
   // continuam no histórico e no balanço.
@@ -78,22 +80,6 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
         </Link>
       )}
 
-      {eDiretoria && (
-        <Link to="/estoques" onClick={() => aoEscolher?.('estoques')}
-          className="w-full text-left rounded-2xl p-4 border-2 border-dashed border-polo-navy/25 bg-white
-                     flex items-start gap-3 active:scale-[0.99] transition-transform
-                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
-          <span className="w-11 h-11 rounded-xl bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
-            <Icon name="estabelecimento" size={24} />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-bold text-polo-navy">Criar novo estoque</span>
-            <span className="block text-xs text-gray-500 mt-0.5">
-              Outra cozinha, outra casa ou outra área de controle.
-            </span>
-          </span>
-        </Link>
-      )}
     </div>
   );
 
