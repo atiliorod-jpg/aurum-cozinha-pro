@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useRascunho } from '../lib/useRascunho';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -11,7 +12,7 @@ import { validarDataRegistro, addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
 
 export default function Entradas() {
-  const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo, permissoes } = useApp();
+  const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo, permissoes, rid } = useApp();
   const { toast, confirm, abrirEtiquetas } = useUI();
   const { sessao } = useAuth();
   // Mesma trava do Histórico: sem isto o cozinheiro não via 'Remover' lá, mas
@@ -24,7 +25,9 @@ export default function Entradas() {
   // no estoque seco não há câmara fria: prazo único, sem rótulo de armazenamento
   const temArmazenamento = temRecurso(modulo, 'armazenamento');
   const armazenamentoReal = temArmazenamento ? armazenamento : null;
-  const [qtds, setQtds] = useState({});
+  // Rascunho: a entrada avulsa é multi-produto e leva tempo; sair da tela no
+  // meio apagava tudo sem aviso. Ver useRascunho.
+  const [qtds, setQtds, limparRascunho] = useRascunho(rid, `rascunho::entradas::${modulo}`, {});
   const [catAtiva, setCatAtiva] = useState('');
   const [busca, setBusca] = useState('');
   const [tab, setTab] = useState('novo'); // 'novo' | 'historico'
@@ -87,7 +90,7 @@ export default function Entradas() {
       }),
     });
     if (responsavel) setPref('responsavel', responsavel);
-    setQtds({});
+    limparRascunho({});   // só depois de gravar
     setObs('');
     toast(`Entrada de ${itensPreenchidos.length} item(ns) registrada!`, 'sucesso');
     // Oferece imprimir as etiquetas dos itens recém-registrados (opcional — dá pra pular)

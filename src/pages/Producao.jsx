@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useRascunho } from '../lib/useRascunho';
 import Layout from '../components/Layout';
 import Botao from '../components/Botao';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -12,7 +13,7 @@ import { planejarProducao } from '../utils/producao';
 import { pode } from '../utils/permissoes';
 
 export default function Producao() {
-  const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref, permissoes } = useApp();
+  const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref, permissoes, modulo, rid } = useApp();
   const { sessao } = useAuth();
   const podeCriarFicha = pode(sessao, permissoes, 'gerenciarProdutos');
   const { toast, confirm, abrirEtiquetas } = useUI();
@@ -30,7 +31,11 @@ export default function Producao() {
     const prodComReceita = produtos.find(p => p.ativo && producoes.some(r => r.produtoFinalId === p.id));
     return prodComReceita?.id || '';
   });
-  const [quantidade, setQuantidade] = useState('');
+  // Rascunho da produção em andamento: o que foi digitado sobrevive a sair da
+  // tela. Ver useRascunho.
+  const [rascunho, setRascunho, limparRascunho] = useRascunho(rid, `rascunho::producao::${modulo}`, {});
+  const quantidade = rascunho.quantidade || '';
+  const setQuantidade = (v) => setRascunho(r => ({ ...r, quantidade: v }));
   const [armazenamento, setArmazenamento] = useState(() => {
     if (rParam) {
       const receitaAlvo = producoes.find(r => r.id === rParam);
@@ -38,7 +43,8 @@ export default function Producao() {
     }
     return 'congelado';
   });
-  const [obs, setObs] = useState('');
+  const obs = rascunho.obs || '';
+  const setObs = (v) => setRascunho(r => ({ ...r, obs: v }));
   const [mostraIngredientes, setMostraIngredientes] = useState(false);
   // Trava anti-duplo-toque: sem ela, o 2º toque cai no fallback do rendimento
   // base (o 1º toque limpa o campo quantidade) e registra a produção DUAS vezes.
@@ -80,7 +86,7 @@ export default function Producao() {
       itens: [{ produtoId, quantidade: qtdFinal, ...(validade ? { validade } : {}) }],
     });
     if (responsavel) setPref('responsavel', responsavel);
-    setQuantidade(''); setObs('');
+    limparRascunho({});   // só depois de gravar
     toast(`Produção registrada: ${fmtNum(qtdFinal)} ${prodUnid(produtoId)} de ${prodNome(produtoId)}!`, 'sucesso');
     // Oferece imprimir as etiquetas dos potes/embalagens desta produção
     // (quantidade de etiquetas é escolhida no modal — não há relação fixa com a qtd produzida)

@@ -142,6 +142,26 @@ export default function Compras() {
   // Fator de correção do ingrediente que está sendo comprado + preparações que o usam.
   // O FC é do INGREDIENTE (matéria-prima), não de cada preparação: um único FC do filé
   // já cobre parmegiana, strogonoff, filé com fritas etc. — todas saem do mesmo estoque limpo.
+  // ⚠️ O vínculo com o catálogo é por nome EXATO (ver o `prodExato` de salvar).
+  // Isso decide coisas grandes e silenciosas: no Seco é o que faz a compra
+  // virar (ou não) saldo — a tela promete "o que chegou entra no estoque ao
+  // salvar" e quebrava a promessa sem avisar quando o nome não batia. Na
+  // Produção, é o que liga a compra ao rendimento e ao custo.
+  const vinculo = useMemo(() => {
+    const digitado = form.item.trim();
+    if (!digitado) return { estado: 'vazio' };
+    const exato = produtos.find(p => p.ativo && (p.nome || '').trim().toLowerCase() === digitado.toLowerCase());
+    if (exato) return { estado: 'ok', produto: exato };
+    // Sugere o mais parecido para a pessoa não ter que caçar o nome certo.
+    const alvo = digitado.toLowerCase();
+    const parecido = produtos.find(p => {
+      if (!p.ativo) return false;
+      const n = (p.nome || '').toLowerCase();
+      return n.includes(alvo) || alvo.includes(n);
+    });
+    return { estado: 'semVinculo', parecido };
+  }, [form.item, produtos]);
+
   const itemInfo = useMemo(() => {
     const item = form.item.trim();
     if (!item) return null;
@@ -535,6 +555,24 @@ export default function Compras() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
               />
               <p className="text-xs text-gray-500 mt-1">Digite e escolha da lista — o fornecedor do último recebimento deste item entra sozinho.</p>
+
+              {vinculo.estado === 'semVinculo' && (
+                <div className="mt-2 bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900">
+                  <p className="font-semibold">
+                    {temRecurso(modulo, 'compraEntraNoEstoque')
+                      ? 'Este item não está no catálogo — a compra NÃO vai entrar no estoque.'
+                      : 'Este item não está no catálogo — não dá para calcular rendimento nem custo dele.'}
+                  </p>
+                  {vinculo.parecido ? (
+                    <button type="button" onClick={() => onItemChange(vinculo.parecido.nome)}
+                      className="mt-1.5 min-h-11 px-3 rounded-lg bg-polo-navy text-polo-gold font-bold text-xs">
+                      Usar “{vinculo.parecido.nome}”
+                    </button>
+                  ) : (
+                    <p className="mt-1">Cadastre-o em Administração → Cadastros, ou salve assim mesmo para só registrar a compra.</p>
+                  )}
+                </div>
+              )}
 
               {itemInfo && (
                 <div className="mt-2 bg-polo-beige border border-polo-gold/50 rounded-xl p-3 space-y-2">

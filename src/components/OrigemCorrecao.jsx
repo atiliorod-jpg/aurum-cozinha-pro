@@ -26,12 +26,23 @@ import { temRecurso } from '../utils/modulos';
  * resposta gravada corresponda ao que de fato aconteceu.
  */
 export default function OrigemCorrecao({ form, onChange }) {
-  const { produtos, compras, categorias, modulo } = useApp();
+  const { produtos, compras, categorias, modulo, estoque } = useApp();
   const ativos = produtos.filter(p => p.ativo);
   const comprasRecentes = [...compras].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 30);
   // A Finalização não tem tela de Compras (`compras: false`), então o seletor
   // de compra ali seria uma caixa eternamente vazia.
   const temCompras = temRecurso(modulo, 'compras');
+
+  // ⚠️ A Finalização lê o catálogo da PRODUÇÃO (catalogoDe), e isso é
+  // deliberado: os ids precisam ser os mesmos dos dois lados, senão a ponte
+  // produção→finalização não casa. O efeito colateral é que o seletor de perda
+  // dela listava o catálogo inteiro, incluindo item que aquela bancada nunca
+  // recebeu. Não dá para separar o catálogo, mas dá para pôr na frente o que
+  // está de fato na bancada — sem esconder o resto, porque dá para precisar
+  // lançar a perda de algo que já zerou.
+  const agrupaPorSaldo = !temRecurso(modulo, 'producao') && !temRecurso(modulo, 'compras');
+  const naBancada = ativos.filter(p => (estoque?.[p.id] ?? 0) > 0);
+  const semSaldo = ativos.filter(p => (estoque?.[p.id] ?? 0) <= 0);
 
   const noEstoque = form.origem === 'estoque';
 
@@ -73,7 +84,18 @@ export default function OrigemCorrecao({ form, onChange }) {
             <select value={form.produtoId || ''} onChange={e => selecionarProduto(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm bg-white">
               <option value="">Selecione o produto...</option>
-              {categorias.map(cat => {
+              {agrupaPorSaldo ? (
+                <>
+                  <optgroup label="Na bancada agora">
+                    {naBancada.map(p => (
+                      <option key={p.id} value={p.id}>{p.nome} ({estoque[p.id]} {p.unidade})</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Sem saldo aqui">
+                    {semSaldo.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                  </optgroup>
+                </>
+              ) : categorias.map(cat => {
                 const prods = ativos.filter(p => p.categoria === cat);
                 if (!prods.length) return null;
                 return (
