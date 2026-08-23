@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import NavBar from './NavBar';
 import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
@@ -24,7 +24,14 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   const { sessao, logout } = useAuth();
   const { pendencias, online, estoqueAtual } = useApp();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const emAdmin = area === 'admin';
+  // ⚠️ Volta para o hub da Administração. Quando a barra de rodapé da
+  // Administração morreu, as telas de dentro dela (Relatório, Financeiro,
+  // Configurações…) ficaram sem saída visível: só dava para voltar abrindo o
+  // seletor do cabeçalho e escolhendo Administração de novo — dois toques e
+  // nada na tela dizendo que era esse o caminho.
+  const dentroDaAdmin = emAdmin && pathname !== '/administracao';
   // Onde a pessoa está agora. Num estoque é o nome da INSTÂNCIA, não o rótulo
   // do tipo: com dois restaurantes na conta, "Estoque Seco" sozinho não diz de
   // qual casa é, e o cabeçalho é onde se confere isso antes de lançar.
@@ -64,11 +71,26 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
     <div className={`min-h-screen flex flex-col bg-polo-beige ${emAdmin ? 'pb-6' : 'pb-24'}`}>
       <header className="bg-gradient-to-r from-polo-navy via-polo-navy to-[#24375456] bg-polo-navy text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-lg">
         <div className="flex items-center gap-2.5 min-w-0">
-          <img src={LOGO} alt="Aurum Serviços Gastronômicos"
-            className="w-9 h-9 rounded-xl ring-1 ring-polo-gold/40 object-cover flex-shrink-0" />
+          {dentroDaAdmin ? (
+            /* Dentro da Administração o logo dá lugar à volta: é o mesmo canto
+               da tela onde todo app põe o "voltar", e o logo não leva a lugar
+               nenhum. Alvo de 44 px porque é tablet. */
+            <button onClick={() => navigate('/administracao')}
+              aria-label="Voltar para a Administração"
+              className="w-11 h-11 rounded-xl bg-white/10 text-polo-gold flex items-center justify-center flex-shrink-0
+                         active:scale-95 transition-transform
+                         focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+              <span className="text-xl leading-none" aria-hidden="true">‹</span>
+            </button>
+          ) : (
+            <img src={LOGO} alt="Aurum Serviços Gastronômicos"
+              className="w-9 h-9 rounded-xl ring-1 ring-polo-gold/40 object-cover flex-shrink-0" />
+          )}
           <div className="min-w-0 leading-tight">
             <h1 className="text-base font-bold text-polo-gold tracking-wide truncate">{title}</h1>
-            {sessao?.restauranteNome && (
+            {dentroDaAdmin ? (
+              <p className="text-[11px] text-white/80 truncate">Administração</p>
+            ) : sessao?.restauranteNome && (
               <p className="text-[11px] text-white/80 truncate">{sessao.restauranteNome}</p>
             )}
           </div>

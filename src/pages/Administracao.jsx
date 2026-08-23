@@ -55,7 +55,7 @@ export default function Administracao() {
     // some ao ser tocado é pior que cartão nenhum.
     can('gerenciarProdutos') && {
       to: '/configuracoes?secao=produtos', icone: 'caixa', titulo: 'Cadastros',
-      desc: 'Produtos, receitas e destinos de saída',
+      desc: 'Produtos e categorias do estoque',
     },
     (eDiretoria || sessao?.cargo === 'gerencia') && {
       to: '/configuracoes?secao=acessos', icone: 'equipe', titulo: 'Equipe e acessos',

@@ -325,12 +325,18 @@ export default function AparasPerdas() {
 
                 <OrigemCorrecao form={formPerda} onChange={patchPerda} />
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Descrição do item</label>
-                  <input type="text" value={formPerda.item} onChange={e => setP('item', e.target.value)}
-                    placeholder="Ex: Filé mignon, Arroz, Molho..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
+                {/* Só quando o item NÃO é do catálogo. Com produto escolhido, o
+                    nome vem dele (selecionarProduto preenche `item`) — deixar o
+                    campo aberto ali criava um texto que se preenchia sozinho e
+                    podia divergir do produto que está sendo abatido. */}
+                {formPerda.origem !== 'estoque' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-600 mb-1">O que foi perdido</label>
+                    <input type="text" value={formPerda.item} onChange={e => setP('item', e.target.value)}
+                      placeholder="Ex: sobra de manipulação, pão do dia..."
+                      className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm" />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -422,9 +428,13 @@ export default function AparasPerdas() {
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${corMotivo}`}>
                             {r.motivo} — {motivo?.label}
                           </span>
+                          {/* "Recebimento" não descrevia o que o registro é —
+                              descrevia de onde alguém achou que ele vinha. O
+                              que importa para quem lê o histórico é se o saldo
+                              mexeu. */}
                           <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded
-                            ${r.origem === 'estoque' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
-                            {r.origem === 'estoque' ? 'Abateu estoque' : 'Recebimento'}
+                            ${r.origem === 'estoque' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {r.origem === 'estoque' ? 'Abateu estoque' : 'Só registro'}
                           </span>
                         </>
                       )}

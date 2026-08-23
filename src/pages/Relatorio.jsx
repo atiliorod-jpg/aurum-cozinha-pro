@@ -300,7 +300,9 @@ export default function Relatorio() {
         )}
         <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-center">
           <div className="text-lg font-bold text-red-700 leading-tight">{fmtUn(totalPerdas)}</div>
-          <div className="text-xs text-red-600">Perdas ({fmtUn(perdasEstoque)} do estoque)</div>
+          {/* "do estoque" = a parte que abateu saldo. O resto são perdas de
+              itens não controlados, que entram no relatório mas não no saldo. */}
+          <div className="text-xs text-red-600">Perdas ({fmtUn(perdasEstoque)} abateu saldo)</div>
         </div>
       </div>
 

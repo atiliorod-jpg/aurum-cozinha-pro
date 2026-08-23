@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
+import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useAuth, CARGOS, nivelDoCargo } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
@@ -1389,21 +1390,17 @@ ${linkConvite(conviteGerado.token)}
 
   return (
     <Layout
-      title="Configurações"
+      // ⚠️ O título segue a ABA. Ficava "Configurações" fixo, então quem vinha
+      // da Administração por três cartões diferentes (Cadastros, Equipe,
+      // Sistema) via sempre o mesmo cabeçalho e concluía que os três levavam
+      // ao mesmo lugar — a única pista de que a aba mudou era a cor de um
+      // botão pequeno mais abaixo.
+      title={`Configurações — ${ABAS.find(([v]) => v === secaoAtiva)?.[1] || ''}`}
       area="admin"
-      actions={
-        secaoAtiva === 'produtos' ? (
-          <button onClick={() => setCriando(true)} aria-label="Adicionar produto"
-            className="bg-polo-gold text-polo-navy text-xs font-bold px-3 py-1.5 rounded-lg">
-            + Produto
-          </button>
-        ) : secaoAtiva === 'receitas' ? (
-          <button onClick={() => setCriandoProducao(true)} aria-label="Adicionar receita de produção"
-            className="bg-polo-gold text-polo-navy text-xs font-bold px-3 py-1.5 rounded-lg">
-            + Receita
-          </button>
-        ) : null
-      }
+      // O "+ Produto"/"+ Receita" saiu do cabeçalho: era um botão text-xs
+      // espremido entre o seletor de estoque, o selo de sincronização e o
+      // menu do usuário — o dono simplesmente não achava como cadastrar. O
+      // CTA agora vive no corpo da aba, ao lado da busca e no estado vazio.
     >
       {/* Seções — abas conforme as permissões da função */}
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
@@ -1417,11 +1414,16 @@ ${linkConvite(conviteGerado.token)}
       </div>
 
       {secaoAtiva === 'produtos' && <>
-      {/* Busca */}
-      <div className="mb-3">
+      {/* Busca + o CTA de cadastrar, lado a lado. É aqui que a pessoa está
+          olhando quando conclui "não tem nenhum produto" — não no cabeçalho. */}
+      <div className="mb-3 flex gap-2">
         <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
           placeholder="Buscar produto..."
-          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+          className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+        <Botao variante="primario" tamanho="sm" largura="auto"
+          onClick={() => setCriando(true)} aria-label="Cadastrar novo produto">
+          + Produto
+        </Botao>
       </div>
 
       {/* Categorias */}
@@ -1476,7 +1478,17 @@ ${linkConvite(conviteGerado.token)}
           </div>
         ))}
         {produtosFiltrados.length === 0 && (
-          <div className="text-center text-gray-500 py-8 text-sm">Nenhum produto encontrado.</div>
+          <div className="text-center text-gray-500 py-8 text-sm space-y-3">
+            {/* Distinguir "não tem nada cadastrado" de "a busca não achou":
+                oferecer "adicionar o primeiro" quando o filtro é que zerou a
+                lista mandaria a pessoa cadastrar um item que já existe. */}
+            <p>{produtos.length === 0 ? 'Nenhum produto cadastrado ainda.' : 'Nenhum produto encontrado.'}</p>
+            {produtos.length === 0 && (
+              <Botao variante="primario" tamanho="sm" largura="auto" onClick={() => setCriando(true)}>
+                + Cadastrar o primeiro
+              </Botao>
+            )}
+          </div>
         )}
       </div>
 
@@ -1514,10 +1526,19 @@ ${linkConvite(conviteGerado.token)}
           Receitas de itens <strong>produzidos</strong> (molhos, caldos, refogados): vários ingredientes viram 1 produto com rendimento. A equipe executa em <strong>Registrar → Produção</strong>.
           <br />Gramatura por porção é configurada diretamente em cada <strong>Produto</strong>.
         </div>
+        <div className="mb-3">
+          <Botao variante="primario" tamanho="sm" largura="auto"
+            onClick={() => setCriandoProducao(true)} aria-label="Cadastrar nova receita de produção">
+            + Receita
+          </Botao>
+        </div>
         <div className="space-y-3 mb-4">
           {producoes.length === 0 && (
-            <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-500">
-              Nenhuma receita ainda. Crie a primeira com "+ Receita" acima.
+            <div className="bg-white rounded-xl p-6 text-center text-sm text-gray-500 space-y-3">
+              <p>Nenhuma receita cadastrada ainda.</p>
+              <Botao variante="primario" tamanho="sm" largura="auto" onClick={() => setCriandoProducao(true)}>
+                + Cadastrar a primeira
+              </Botao>
             </div>
           )}
           {producoes.map(r => {

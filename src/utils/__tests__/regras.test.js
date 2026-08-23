@@ -51,6 +51,45 @@ describe('calcEstoquePuro — regra central do estoque', () => {
     expect(r.charque).toBe(93);
   });
 
+  // ⚠️ O BUG DO SECO. Lá `compraEntraNoEstoque` e true: a compra JA e a
+  // entrada, o saldo sobe no ato. Com o seletor antigo ("Recebimento — nao
+  // abate estoque"), receber 10 kg de arroz e jogar 2 fora na doca deixava o
+  // sistema contando 10 kg que nao existiam — a opcao que PARECIA certa era a
+  // que criava saldo fantasma. A pergunta virou "este item e controlado no
+  // estoque?", e no Seco a resposta e sempre sim, entao grava origem='estoque'
+  // com produtoId e o saldo fecha.
+  it('Seco: perda de item do catalogo abate, mesmo tendo chegado ruim no recebimento', () => {
+    const r = calcEstoquePuro({
+      produtos: [P('arroz')],
+      // no Seco a compra vira entrada (comprasQueEntram)
+      entradas: [{ ts: 1, itens: [{ produtoId: 'arroz', quantidade: 10 }] }],
+      saidas: [],
+      ajustes: [],
+      desperdicio: [
+        // com o modelo novo isto grava origem 'estoque' + produtoId + compraId
+        { ts: 2, origem: 'estoque', produtoId: 'arroz', compraId: 'c1', quantidade: 2 },
+      ],
+    });
+    expect(r.arroz).toBe(8);   // antes ficava 10 — saldo fantasma
+  });
+
+  // O outro lado do mesmo seletor: perda de algo que NAO e controlado no
+  // estoque (sobra de manipulacao, item de uso interno) entra no relatorio mas
+  // nao pode mexer no saldo de produto nenhum.
+  it('perda de item NAO controlado nao abate saldo de ninguem', () => {
+    const r = calcEstoquePuro({
+      produtos: [P('arroz')],
+      entradas: [{ ts: 1, itens: [{ produtoId: 'arroz', quantidade: 10 }] }],
+      saidas: [],
+      ajustes: [],
+      desperdicio: [
+        // sem produtoId: e texto livre, so para constar
+        { ts: 2, origem: 'recebimento', item: 'sobra de manipulacao', quantidade: 3 },
+      ],
+    });
+    expect(r.arroz).toBe(10);
+  });
+
   it('contagem física vira a nova base e ignora movimentos anteriores', () => {
     const r = calcEstoquePuro({
       produtos: [P('charque', { estoqueInicial: 10 })],
