@@ -97,6 +97,24 @@ main .bg-white.rounded-xl {
     pointer-events: auto;
   }
   body.imprimindo-etiqueta .etiqueta-print-area * { visibility: visible !important; }
-  body.imprimindo-etiqueta .etiqueta-label { page-break-after: always; break-after: page; overflow: hidden; }
-  body.imprimindo-etiqueta .etiqueta-label:last-child { page-break-after: avoid; break-after: avoid; }
+
+  /* ⚠️ TESTE de orientação (24/08): a etiqueta é desenhada "deitada"
+     (larguraMm × alturaMm, ex.: 60×40 — mais larga que alta). Na primeira
+     impressão real na MDK-022 o conteúdo saiu atravessando a serrilha entre
+     duas etiquetas físicas — sinal de que o rolo está carregado com a
+     dimensão MENOR passando pelo sensor, e a etiqueta "deitada" não cabe
+     nessa largura.
+
+     `.etiqueta-pagina` é o tamanho FÍSICO da página, com largura e altura
+     TROCADAS (ver @page em EtiquetaPrint.jsx) — e centraliza dentro dele a
+     etiqueta original girada 90°. Se sair de cabeça para baixo (mas do
+     tamanho certo), o giro precisa virar -90deg. Se ainda vazar pra
+     etiqueta seguinte mesmo girado, a causa não é orientação — é
+     calibração de mídia/gap na própria impressora. */
+  body.imprimindo-etiqueta .etiqueta-pagina {
+    page-break-after: always; break-after: page; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  body.imprimindo-etiqueta .etiqueta-pagina:last-child { page-break-after: avoid; break-after: avoid; }
+  body.imprimindo-etiqueta .etiqueta-label { transform: rotate(90deg); flex-shrink: 0; }
 }

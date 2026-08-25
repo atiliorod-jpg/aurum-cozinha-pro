@@ -462,8 +462,13 @@ export default function EtiquetaPrint() {
         </div>
       </div>
 
-      {/* Tamanho físico da página de impressão (vem das prefs — Tailwind não expressa @page) */}
-      <style>{`@media print { @page { size: ${config.larguraMm}mm ${config.alturaMm}mm; margin: 0; } }`}</style>
+      {/* Tamanho físico da página de impressão (vem das prefs — Tailwind não expressa @page).
+          ⚠️ TESTE de orientação (24/08): largura e altura aqui saem TROCADAS
+          de propósito (alturaMm × larguraMm) — a etiqueta em si continua
+          60×40, só que girada 90° dentro dessa página (ver .etiqueta-pagina
+          e .etiqueta-label em index.css). Se a rotação se confirmar certa,
+          isto vira definitivo; se sair errado, é o primeiro lugar a reverter. */}
+      <style>{`@media print { @page { size: ${config.alturaMm}mm ${config.larguraMm}mm; margin: 0; } }`}</style>
 
       {/* ⚠️ PORTAL para o <body>, e isto NÃO é preferência de estilo.
           A área de impressão vivia dentro do #root, e o CSS escondia o resto do
@@ -483,8 +488,13 @@ export default function EtiquetaPrint() {
             Array.from({ length: limitarCopias(item.quantidade) }, (_, c) => {
               const lote = loteDaCopia(item, c);
               return (
-                <EtiquetaLabel key={`${idx}_${c}`} campos={camposDe(item, lote)} config={config}
-                  qr={qrs[payloadDe(item, lote)]} estabelecimento={estabelecimento} />
+                // ⚠️ invólucro do tamanho FÍSICO da página (trocado — ver @page
+                // acima), que centraliza a etiqueta girada 90° dentro dele.
+                <div key={`${idx}_${c}`} className="etiqueta-pagina"
+                  style={{ width: `${config.alturaMm}mm`, height: `${config.larguraMm}mm` }}>
+                  <EtiquetaLabel campos={camposDe(item, lote)} config={config}
+                    qr={qrs[payloadDe(item, lote)]} estabelecimento={estabelecimento} />
+                </div>
               );
             })
           )}
