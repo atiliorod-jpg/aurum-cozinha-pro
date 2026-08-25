@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
@@ -464,18 +465,32 @@ export default function EtiquetaPrint() {
       {/* Tamanho físico da página de impressão (vem das prefs — Tailwind não expressa @page) */}
       <style>{`@media print { @page { size: ${config.larguraMm}mm ${config.alturaMm}mm; margin: 0; } }`}</style>
 
-      {/* Área que realmente imprime: invisível na tela, visível só no print (CSS em index.css) */}
-      <div className="etiqueta-print-area" aria-hidden="true">
-        {itens.flatMap((item, idx) =>
-          Array.from({ length: limitarCopias(item.quantidade) }, (_, c) => {
-            const lote = loteDaCopia(item, c);
-            return (
-              <EtiquetaLabel key={`${idx}_${c}`} campos={camposDe(item, lote)} config={config}
-                qr={qrs[payloadDe(item, lote)]} estabelecimento={estabelecimento} />
-            );
-          })
-        )}
-      </div>
+      {/* ⚠️ PORTAL para o <body>, e isto NÃO é preferência de estilo.
+          A área de impressão vivia dentro do #root, e o CSS escondia o resto do
+          app com `visibility: hidden`. Só que `visibility` esconde SEM TIRAR DO
+          LAYOUT: o app inteiro continuava ocupando a altura dele, e o navegador
+          paginava essa altura em folhas do tamanho da etiqueta. Medido no
+          navegador: documento de 933 px ÷ etiqueta de 151 px = 7 folhas, uma com
+          a etiqueta e SEIS EM BRANCO — e numa tela com lista longa, muito mais.
+          Foi exatamente o que saiu na primeira impressão real.
+
+          Com o portal, a etiqueta é filha direta do <body> e o #root pode ser
+          `display: none` no print — aí ele sai do layout de verdade e sobra
+          só a etiqueta. */}
+      {createPortal(
+        <div className="etiqueta-print-area" aria-hidden="true">
+          {itens.flatMap((item, idx) =>
+            Array.from({ length: limitarCopias(item.quantidade) }, (_, c) => {
+              const lote = loteDaCopia(item, c);
+              return (
+                <EtiquetaLabel key={`${idx}_${c}`} campos={camposDe(item, lote)} config={config}
+                  qr={qrs[payloadDe(item, lote)]} estabelecimento={estabelecimento} />
+              );
+            })
+          )}
+        </div>,
+        document.body
+      )}
     </>
   );
 }

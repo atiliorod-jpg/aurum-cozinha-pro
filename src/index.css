@@ -72,10 +72,31 @@ main .bg-white.rounded-xl {
    para a regra global de esconder tudo não apagar a própria etiqueta. */
 .etiqueta-print-area { position: fixed; top: 0; left: 0; visibility: hidden; pointer-events: none; }
 @media print {
-  body.imprimindo-etiqueta * { visibility: hidden !important; }
-  body.imprimindo-etiqueta .etiqueta-print-area,
+  /* ⚠️ `display: none` no #root, NÃO `visibility: hidden` no mundo todo.
+     A versão anterior escondia tudo com `visibility`, que esconde mas NÃO
+     TIRA DO LAYOUT: o app seguia ocupando a altura inteira dele e o navegador
+     paginava isso em folhas do tamanho da etiqueta. Medido: 933 px de
+     documento ÷ 151 px de etiqueta = 7 folhas, SEIS delas em branco. Saiu
+     assim na primeira impressão de verdade, na MDK-022.
+
+     Isto só funciona porque a área de impressão é renderizada por PORTAL
+     direto no <body> (ver EtiquetaPrint.jsx) — se ela ainda estivesse dentro
+     do #root, sumiria junto. */
+  body.imprimindo-etiqueta #root { display: none !important; }
+  /* html/body não podem carregar altura de tela para dentro do print: qualquer
+     min-height sobrando vira folha extra em papel de 40 mm. */
+  html:has(body.imprimindo-etiqueta), body.imprimindo-etiqueta {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.imprimindo-etiqueta .etiqueta-print-area {
+    position: static;
+    visibility: visible !important;
+    pointer-events: auto;
+  }
   body.imprimindo-etiqueta .etiqueta-print-area * { visibility: visible !important; }
-  body.imprimindo-etiqueta .etiqueta-print-area { position: absolute; top: 0; left: 0; }
   body.imprimindo-etiqueta .etiqueta-label { page-break-after: always; break-after: page; overflow: hidden; }
   body.imprimindo-etiqueta .etiqueta-label:last-child { page-break-after: avoid; break-after: avoid; }
 }
