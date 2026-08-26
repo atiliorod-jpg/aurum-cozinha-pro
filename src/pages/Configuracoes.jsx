@@ -1626,6 +1626,15 @@ ${linkConvite(conviteGerado.token)}
       {/* Etiquetas impressas */}
       <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} />
 
+      {/* ⚠️ TEMPORÁRIO (24/08) — teste de diagnóstico pra decidir se dá pra
+          imprimir etiqueta direto do celular por Bluetooth. Ver TesteBluetooth.jsx.
+          Remover este cartão junto com a rota em App.jsx depois de decidido. */}
+      <Link to="/teste-bluetooth"
+        className="block bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
+        <p className="text-sm font-bold text-amber-900">🧪 Teste: imprimir etiqueta por Bluetooth</p>
+        <p className="text-xs text-amber-800 mt-1">Diagnóstico temporário — abra pelo Chrome do Android.</p>
+      </Link>
+
       {/* Rendimento / Fator de correção por ingrediente */}
       <TabelaRendimento produtos={produtos} fichas={fichas} setFichas={setFichas} setProdutos={setProdutos}
         compras={compras} aparas={aparas} desperdicio={desperdicio} toast={toast} />

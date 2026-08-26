@@ -30,6 +30,7 @@ import Etiquetas from './pages/Etiquetas';
 import FecharTurno from './pages/FecharTurno';
 import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
+import TesteBluetooth from './pages/TesteBluetooth';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 const Relatorio = lazy(() => import('./pages/Relatorio'));
 const Configuracoes = lazy(() => import('./pages/Configuracoes'));
@@ -252,6 +253,10 @@ function Rotas() {
       {/* fechamento de turno só existe na Cozinha de Finalização */}
       <Route path="/fechar-turno" element={temRecurso(modulo, 'fecharTurno') ? <FecharTurno /> : <Navigate to="/" replace />} />
       <Route path="/novidades" element={<Novidades />} />
+      {/* ⚠️ TEMPORÁRIO (24/08) — teste de diagnóstico Bluetooth, ver TesteBluetooth.jsx.
+          Remover esta rota e o link em Configurações depois que a dúvida
+          BLE-x-clássico da MDK-022 for respondida. */}
+      <Route path="/teste-bluetooth" element={<TesteBluetooth />} />
       <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
       <Route path="/fichas" element={<Navigate to="/compras" replace />} />
       {/* Contagem física NÃO existe na Finalização: lá o número de fechamento
