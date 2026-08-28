@@ -1,4 +1,4 @@
-// Regras do plano único (R$149/mês) + período de teste de 7 dias.
+// Regras comerciais: DOIS produtos + período de teste de 7 dias.
 // Sem webhook de pagamento: a ativação é manual (super-admin, RPC ativar_assinatura).
 // Desde a migração 10 o corte também vale no banco (restaurante_pode_escrever),
 // além do bloqueio visual no app.
@@ -6,8 +6,40 @@
 // ⚠️ PARIDADE: TESTE_DIAS precisa ser IGUAL ao "interval '7 days'" usado em
 // restaurante_pode_escrever (migration10). Mudou aqui, mude lá também — senão o
 // app diz "ok" e o banco nega a escrita (ou vice-versa).
+//
+// ⚠️ E o PRODUTO não entra nessa paridade, de propósito: o corte de teste/
+// assinatura/bloqueio é idêntico nos dois produtos, então a frase acima segue
+// verdadeira. Produto é o que a conta COMPROU (interface, ver utils/produto.js);
+// validade é se a conta PODE ESCREVER (acesso, espelhado no banco). Misturar os
+// dois aqui faria este comentário virar mentira.
 export const TESTE_DIAS = 7;
-export const PRECO_MES = 149;
+
+// ⚠️ DOIS EIXOS INDEPENDENTES, e os nomes existem para não confundi-los:
+//   PRODUTOS → O QUE a conta comprou   (etiquetas | completo)
+//   PLANOS   → POR QUANTO TEMPO pagou  (mensal | semestral | anual)
+// Existe "etiquetas anual" e "completo mensal". Antes disto havia produto único
+// (PRECO_MES = 149), que saiu junto com a criação do Aurum Etiquetas.
+export const PRODUTOS = {
+  etiquetas: {
+    id: 'etiquetas',
+    label: 'Aurum Etiquetas',
+    precoMes: 270,
+    resumo: 'Etiquetas de validade: imprimir, cadastrar itens e acompanhar o que vence.',
+  },
+  completo: {
+    id: 'completo',
+    label: 'Aurum Cozinha Pro',
+    precoMes: 500,
+    resumo: 'Estoque, compras, produção, receitas, relatórios — e as etiquetas junto.',
+  },
+};
+export const PRODUTO_PADRAO = 'completo';
+// Aceita tanto o id ('etiquetas') quanto a sessão inteira — as telas chamam dos
+// dois jeitos, e um `sessao.produto` indefinido tem que cair no completo.
+export const produtoDe = (produtoOuSessao) => {
+  const id = typeof produtoOuSessao === 'string' ? produtoOuSessao : produtoOuSessao?.produto;
+  return PRODUTOS[id] || PRODUTOS[PRODUTO_PADRAO];
+};
 
 // Planos de pagamento (Pix manual). Semestral -10%, anual -20%.
 // `dias` é quanto o super-admin adiciona ao ativar (30 dias = 1 mês, como o teste).
@@ -18,12 +50,13 @@ export const PLANOS = [
 ];
 
 const r2 = (n) => Math.round(n * 100) / 100;
+const mensalDe = (produto) => produtoDe(produto).precoMes;
 // Preço TOTAL do período, já com o desconto aplicado.
-export const precoPlano = (plano) => r2(PRECO_MES * plano.meses * (1 - plano.desconto));
+export const precoPlano = (plano, produto) => r2(mensalDe(produto) * plano.meses * (1 - plano.desconto));
 // Quanto sai por mês naquele plano (para mostrar "equivale a R$X/mês").
-export const precoMensalEquivalente = (plano) => r2(precoPlano(plano) / plano.meses);
+export const precoMensalEquivalente = (plano, produto) => r2(precoPlano(plano, produto) / plano.meses);
 // Quanto o cliente economiza vs. pagar mês a mês.
-export const economiaPlano = (plano) => r2(PRECO_MES * plano.meses - precoPlano(plano));
+export const economiaPlano = (plano, produto) => r2(mensalDe(produto) * plano.meses - precoPlano(plano, produto));
 export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
 
 /**

@@ -4,13 +4,17 @@ import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
-import { statusRestaurante, TESTE_DIAS, PLANOS } from '../utils/assinatura';
+import { statusRestaurante, TESTE_DIAS, PLANOS, produtoDe, precoPlano } from '../utils/assinatura';
 
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
 const dataBR = (v) => v ? new Date(v).toLocaleDateString('pt-BR') : '—';
 // com hora — usado no aviso de pagamento (o dono quer ver quando o cliente avisou)
 const dataBRHora = (v) => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+
+// Valor cheio, sem centavos — os preços dos planos são todos redondos e a
+// linha de botões fica apertada no celular.
+const brlAdmin = (v) => `R$ ${Math.round(v).toLocaleString('pt-BR')}`;
 
 // Badge de situação comercial do restaurante (mesma régua do app do cliente)
 function BadgeStatus({ st }) {
@@ -19,6 +23,18 @@ function BadgeStatus({ st }) {
     : st.tipo === 'bloqueado' ? ['Suspenso', 'bg-red-100 text-red-700']
     : ['🔴 Vencido', 'bg-red-100 text-red-700'];
   return <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${cfg[1]}`}>{cfg[0]}</span>;
+}
+
+// Qual PRODUTO esta conta contratou. Fica ao lado do status porque as duas
+// perguntas são diferentes: o status diz se está pagando, este diz pelo quê.
+function BadgeProduto({ produto }) {
+  const eEtiquetas = produto === 'etiquetas';
+  return (
+    <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0
+      ${eEtiquetas ? 'bg-polo-beige text-polo-navy' : 'bg-gray-100 text-gray-700'}`}>
+      {eEtiquetas ? 'Etiquetas' : 'Completo'}
+    </span>
+  );
 }
 
 export default function Admin() {
@@ -59,8 +75,16 @@ export default function Admin() {
     // select completo → fallback progressivo p/ bancos sem as colunas novas
     let { data: rests, error: errR } = await supabase
       .from('restaurantes')
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto')
       .order('created_at', { ascending: false });
+    if (errR) {
+      // banco sem a migração 27: cai para o select de antes e todo mundo
+      // aparece como 'completo' (produtoDe trata o undefined)
+      ({ data: rests, error: errR } = await supabase
+        .from('restaurantes')
+        .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome')
+        .order('created_at', { ascending: false }));
+    }
     if (errR) {
       ({ data: rests, error: errR } = await supabase
         .from('restaurantes')
@@ -158,6 +182,28 @@ export default function Admin() {
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, aviso_pagamento_em: null, aviso_pagamento_plano: null } : x));
     toast('Aviso dispensado.', 'sucesso');
+  };
+
+  // Upgrade/downgrade comercial. É a troca de UMA coluna: nada é copiado,
+  // movido ou apagado, porque o plano Etiquetas grava nas mesmas chaves que o
+  // app completo lê. O texto do confirm diz isso ao dono na hora de decidir —
+  // "downgrade apaga os dados?" é a primeira dúvida que aparece.
+  const mudarProduto = async (r, novo) => {
+    const atual = r.produto || 'completo';
+    if (novo === atual) return;
+    const paraEtiquetas = novo === 'etiquetas';
+    const ok = await confirm({
+      titulo: paraEtiquetas ? 'Mudar para Aurum Etiquetas' : 'Mudar para Aurum Cozinha Pro',
+      mensagem: paraEtiquetas
+        ? `"${r.nome}" passa a ver só as telas de etiqueta (R$ 270/mês).\n\nNENHUM dado é apagado: o estoque, as compras e o histórico continuam no banco e reaparecem inteiros se você voltar para o plano completo.`
+        : `"${r.nome}" passa a ver o app inteiro (R$ 500/mês).\n\nOs itens e as etiquetas que ele já cadastrou continuam onde estão — aparecem na Cozinha de Produção.`,
+      confirmar: paraEtiquetas ? 'Mudar para Etiquetas' : 'Mudar para Completo',
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('definir_produto', { p_restaurante: r.id, p_produto: novo });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, produto: novo } : x));
+    toast(`"${r.nome}" agora é ${paraEtiquetas ? 'Aurum Etiquetas' : 'Aurum Cozinha Pro'}.`, 'sucesso');
   };
 
   const mudarMax = async (r, novoMax) => {
@@ -347,7 +393,10 @@ export default function Admin() {
                       <p className="font-semibold text-sm text-gray-900 truncate">{r.nome}</p>
                       <p className="text-[11px] text-gray-600 mt-0.5">Criado em {dataBR(r.created_at)}</p>
                     </div>
-                    <BadgeStatus st={st} />
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <BadgeProduto produto={r.produto} />
+                      <BadgeStatus st={st} />
+                    </div>
                   </div>
 
                   {/* Aviso de pagamento (o cliente tocou "Já paguei") */}
@@ -387,14 +436,34 @@ export default function Admin() {
                     )}
                   </div>
 
+                  {/* Produto contratado (upgrade/downgrade comercial) */}
+                  <div className="px-4 py-2.5 border-b border-gray-50">
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Produto contratado</p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {['etiquetas', 'completo'].map(id => {
+                        const sel = (r.produto || 'completo') === id;
+                        return (
+                          <button key={id} onClick={() => mudarProduto(r, id)} disabled={sel}
+                            className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 border
+                              ${sel ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'text-polo-navy border-gray-300'}`}>
+                            {produtoDe(id).label} · R$ {produtoDe(id).precoMes}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {/* Ativar plano pago (após confirmar o Pix) */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Ativar plano pago</p>
                     <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                      {/* ⚠️ O preço mostrado é o DESTE restaurante. Com dois produtos,
+                          "Semestral" sozinho não diz se o Pix esperado é R$1.458 ou
+                          R$2.700 — e é aqui que o dono confere o que caiu na conta. */}
                       {PLANOS.map(p => (
                         <button key={p.id} onClick={() => liberarDias(r, p.dias)}
                           className="text-[11px] font-bold text-polo-gold bg-polo-navy rounded-lg px-2.5 py-1.5">
-                          {p.label} (+{p.dias}d)
+                          {p.label} (+{p.dias}d) · {brlAdmin(precoPlano(p, r.produto))}
                         </button>
                       ))}
                     </div>
@@ -452,7 +521,7 @@ export default function Admin() {
                   <div className="px-4 py-3">
                     {r.suporteAtivo ? (
                       <button
-                        onClick={() => { verComoRestaurante(r.id, r.nome, r.podeMexer); navigate('/'); }}
+                        onClick={() => { verComoRestaurante(r.id, r.nome, r.podeMexer, r.produto); navigate('/'); }}
                         className={`w-full font-bold text-xs py-2.5 rounded-lg ${r.podeMexer ? 'bg-red-600 text-white' : 'bg-polo-navy text-polo-gold'}`}>
                         {r.podeMexer ? '✏️ Entrar como este restaurante (pode EDITAR)' : '👁️ Ver como este restaurante (somente leitura)'}
                       </button>

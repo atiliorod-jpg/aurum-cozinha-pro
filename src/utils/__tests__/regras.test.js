@@ -20,6 +20,7 @@ import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlob
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
+import { produtoTem, produtoAtivo } from '../produto';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../relatorios';
 import { turnoAberto, consumoDoTurno } from '../turno';
@@ -636,23 +637,95 @@ describe('statusAssinatura — borda dos 7 dias de teste (paridade com o SQL)', 
 describe('planos de pagamento (Pix)', () => {
   const plano = (id) => PLANOS.find(p => p.id === id);
 
-  it('mensal = R$149 sem desconto', () => {
-    expect(precoPlano(plano('mensal'))).toBe(149);
+  // ⚠️ Estes números são o que sai no BR Code do Pix. Se um deles mudar sem
+  // querer, o cliente paga o valor errado e a conciliação vira manual — por
+  // isso valem os dois produtos, com as contas escritas por extenso.
+  describe('Aurum Cozinha Pro (R$500/mês)', () => {
+    it('mensal = R$500 sem desconto', () => {
+      expect(precoPlano(plano('mensal'), 'completo')).toBe(500);
+    });
+    it('semestral = 10% off (500×6×0,9 = 2700) e mostra economia', () => {
+      expect(precoPlano(plano('semestral'), 'completo')).toBe(2700);
+      expect(precoMensalEquivalente(plano('semestral'), 'completo')).toBe(450);
+      expect(economiaPlano(plano('semestral'), 'completo')).toBe(300);
+    });
+    it('anual = 20% off (500×12×0,8 = 4800)', () => {
+      expect(precoPlano(plano('anual'), 'completo')).toBe(4800);
+      expect(precoMensalEquivalente(plano('anual'), 'completo')).toBe(400);
+      expect(economiaPlano(plano('anual'), 'completo')).toBe(1200);
+    });
   });
-  it('semestral = 10% off (804,60) e mostra economia', () => {
-    expect(precoPlano(plano('semestral'))).toBe(804.60);
-    expect(precoMensalEquivalente(plano('semestral'))).toBe(134.10);
-    expect(economiaPlano(plano('semestral'))).toBe(89.40);
+
+  describe('Aurum Etiquetas (R$270/mês)', () => {
+    it('mensal = R$270 sem desconto', () => {
+      expect(precoPlano(plano('mensal'), 'etiquetas')).toBe(270);
+    });
+    it('semestral = 10% off (270×6×0,9 = 1458)', () => {
+      expect(precoPlano(plano('semestral'), 'etiquetas')).toBe(1458);
+      expect(precoMensalEquivalente(plano('semestral'), 'etiquetas')).toBe(243);
+      expect(economiaPlano(plano('semestral'), 'etiquetas')).toBe(162);
+    });
+    it('anual = 20% off (270×12×0,8 = 2592)', () => {
+      expect(precoPlano(plano('anual'), 'etiquetas')).toBe(2592);
+      expect(precoMensalEquivalente(plano('anual'), 'etiquetas')).toBe(216);
+      expect(economiaPlano(plano('anual'), 'etiquetas')).toBe(648);
+    });
   });
-  it('anual = 20% off (1430,40)', () => {
-    expect(precoPlano(plano('anual'))).toBe(1430.40);
-    expect(precoMensalEquivalente(plano('anual'))).toBe(119.20);
-    expect(economiaPlano(plano('anual'))).toBe(357.60);
+
+  // Produto desconhecido ou ausente NÃO pode virar preço zero (Pix de R$0,00
+  // seria aceito pelo banco e o cliente entraria de graça): cai no completo.
+  it('produto ausente ou inválido cobra o preço do completo', () => {
+    expect(precoPlano(plano('mensal'))).toBe(500);
+    expect(precoPlano(plano('mensal'), 'xpto')).toBe(500);
+    expect(precoPlano(plano('mensal'), { produto: 'etiquetas' })).toBe(270);
   });
+
   it('dias por plano batem com 30/180/365', () => {
     expect(plano('mensal').dias).toBe(30);
     expect(plano('semestral').dias).toBe(180);
     expect(plano('anual').dias).toBe(365);
+  });
+});
+
+describe('produto contratado (utils/produto.js)', () => {
+  it('etiquetas compra etiqueta e validade, mas não estoque nem financeiro', () => {
+    expect(produtoTem('etiquetas', 'etiquetas')).toBe(true);
+    expect(produtoTem('etiquetas', 'validadesEtiqueta')).toBe(true);
+    expect(produtoTem('etiquetas', 'estoque')).toBe(false);
+    expect(produtoTem('etiquetas', 'financeiro')).toBe(false);
+    expect(produtoTem('etiquetas', 'administracao')).toBe(false);
+  });
+
+  it('completo compra tudo', () => {
+    expect(produtoTem('completo', 'estoque')).toBe(true);
+    expect(produtoTem('completo', 'etiquetas')).toBe(true);
+    expect(produtoTem('completo', 'financeiro')).toBe(true);
+  });
+
+  // ⚠️ Mesma trava do temRecurso: um `!== false` aqui abriria tela paga para
+  // quem não comprou, por causa de um nome de recurso digitado errado.
+  it('recurso inexistente é FALSE, nunca "liga sozinho"', () => {
+    expect(produtoTem('etiquetas', 'recursoQueNaoExiste')).toBe(false);
+    expect(produtoTem('completo', 'recursoQueNaoExiste')).toBe(false);
+  });
+
+  it('produto desconhecido cai no completo (banco sem a migração 27)', () => {
+    expect(produtoTem(undefined, 'estoque')).toBe(true);
+    expect(produtoTem('xpto', 'estoque')).toBe(true);
+  });
+
+  it('sessão sem produto vale como completo', () => {
+    expect(produtoAtivo({ restauranteId: 'r1' })).toBe('completo');
+    expect(produtoAtivo({ restauranteId: 'r1', produto: 'etiquetas' })).toBe('etiquetas');
+  });
+
+  // ⚠️ Sem isto o suporte abre o app inteiro dentro de uma conta de etiquetas,
+  // vê o estoque vazio (o cliente nunca lançou nada) e diagnostica um problema
+  // que não existe.
+  it('no modo suporte, o produto do CLIENTE manda sobre o do super-admin', () => {
+    const superAdmin = { eSuperAdmin: true }; // sem restauranteId, sem produto
+    expect(produtoAtivo(superAdmin, { produto: 'etiquetas' })).toBe('etiquetas');
+    expect(produtoAtivo(superAdmin, null)).toBe('completo');
   });
 });
 

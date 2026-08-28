@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../utils/assinatura';
+import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe } from '../utils/assinatura';
 import { montarPixBRCode } from '../utils/pix';
 import { fmtData, isoLocal } from '../utils/formatters';
 
@@ -14,9 +14,12 @@ const PIX_CIDADE = import.meta.env.VITE_PIX_CIDADE || 'Recife';
 
 const brl = (v) => `R$ ${v.toFixed(2).replace('.', ',')}`;
 
-const linkWpp = (plano, valor, pagador, restaurante) => {
+// ⚠️ O nome do produto entra na mensagem porque é por ela que a conciliação
+// acontece: com dois produtos e três durações, "paguei R$1458" sozinho não diz
+// se é etiquetas semestral ou outra combinação.
+const linkWpp = (plano, valor, pagador, restaurante, produtoLabel) => {
   const msg = encodeURIComponent(
-    `Olá! Paguei o plano ${plano.label} (${brl(valor)}) do Aurum Cozinha Pro — restaurante ${restaurante || ''}. ` +
+    `Olá! Paguei o plano ${plano.label} (${brl(valor)}) do ${produtoLabel} — restaurante ${restaurante || ''}. ` +
     `Pagamento feito por ${pagador}. Segue o comprovante:`);
   return `https://wa.me/${WPP_NUMERO}?text=${msg}`;
 };
@@ -25,27 +28,46 @@ const linkWpp = (plano, valor, pagador, restaurante) => {
 // um dia antes do que a tela prometia.
 const dataISO = (ts) => isoLocal(new Date(ts));
 
-const RECURSOS = [
-  '✅ Estoque completo (FEFO, mín/máx automático)',
-  '✅ Entradas, saídas, produção e receitas',
-  '✅ Etiquetas de validade com impressão',
-  // ⚠️ Isto é promessa comercial: só liste o que o app REALMENTE faz hoje.
-  // "exportação Excel" saiu daqui porque o Excel dos relatórios foi removido —
-  // o que existe é imprimir/salvar em PDF e a planilha-modelo de produtos.
-  '✅ Relatórios por período (imprimir ou salvar em PDF)',
-  '✅ Cadastro de produtos por planilha (Excel)',
-  '✅ Usuários com permissões por função',
-  '✅ Funciona offline e sincroniza na nuvem',
-];
+// ⚠️ Uma lista POR PRODUTO. A do Aurum Etiquetas não pode herdar as linhas de
+// estoque/produção do completo: seria promessa de tela que aquela conta não
+// tem, feita na hora exata em que o cliente decide pagar. Vale aqui, em dobro,
+// o aviso da lista de baixo — só liste o que o app REALMENTE faz naquele plano.
+const RECURSOS_POR_PRODUTO = {
+  etiquetas: [
+    '✅ Etiquetas de validade com impressão',
+    '✅ Biblioteca de itens prontos (é só buscar e usar)',
+    '✅ Cadastro de itens com prazo por tipo de armazenamento',
+    '✅ Controle do que está impresso e do que vence',
+    '✅ Etiquetas avulsas (ex.: "Leite aberto")',
+    '✅ Funciona offline e sincroniza na nuvem',
+  ],
+  completo: [
+    '✅ Estoque completo (FEFO, mín/máx automático)',
+    '✅ Entradas, saídas, produção e receitas',
+    '✅ Etiquetas de validade com impressão',
+    // ⚠️ Isto é promessa comercial: só liste o que o app REALMENTE faz hoje.
+    // "exportação Excel" saiu daqui porque o Excel dos relatórios foi removido —
+    // o que existe é imprimir/salvar em PDF e a planilha-modelo de produtos.
+    '✅ Relatórios por período (imprimir ou salvar em PDF)',
+    '✅ Cadastro de produtos por planilha (Excel)',
+    '✅ Usuários com permissões por função',
+    '✅ Funciona offline e sincroniza na nuvem',
+  ],
+};
 
 export default function Pagamento() {
   const { sessao, avisarPagamento } = useAuth();
   const { toast } = useUI();
   const st = statusAssinatura(sessao);
 
+  // ⚠️ O preço vem do PRODUTO que esta conta contratou (Etiquetas R$270 vs
+  // Completo R$500), não de uma constante única. Sem isto o cliente do plano
+  // menor veria — e pagaria — o valor do maior.
+  const prod = produtoDe(sessao);
+
   const [planoId, setPlanoId] = useState('mensal');
   const plano = PLANOS.find(p => p.id === planoId) || PLANOS[0];
-  const valor = precoPlano(plano);
+  const valor = precoPlano(plano, prod.id);
   const brcode = PIX_CHAVE
     ? montarPixBRCode({ chave: PIX_CHAVE, nome: PIX_NOME, cidade: PIX_CIDADE, valor, txid: plano.id.toUpperCase() })
     : '';
@@ -73,7 +95,7 @@ export default function Pagamento() {
     if (avisando) return; // toque repetido
     if (!nomePagador.trim()) { toast('Diga o nome de quem fez o Pix.', 'erro'); return; }
     setAvisando(true);
-    const url = linkWpp(plano, valor, nomePagador.trim(), sessao?.restauranteNome);
+    const url = linkWpp(plano, valor, nomePagador.trim(), sessao?.restauranteNome, prod.label);
     const erro = await avisarPagamento(plano.id, nomePagador.trim());
     setAvisando(false);
     if (erro) { toast('Não registrou o aviso: ' + erro, 'erro'); return; }
@@ -123,7 +145,7 @@ export default function Pagamento() {
       <div className="space-y-2 mb-5">
         {PLANOS.map(p => {
           const sel = p.id === planoId;
-          const total = precoPlano(p);
+          const total = precoPlano(p, prod.id);
           return (
             <button key={p.id} onClick={() => setPlanoId(p.id)}
               className={`w-full text-left rounded-2xl p-4 border-2 transition-colors
@@ -140,7 +162,7 @@ export default function Pagamento() {
                   </div>
                   <p className="text-[11px] text-gray-500 mt-0.5">
                     {p.meses === 1 ? 'Cobrado todo mês'
-                      : `${brl(precoMensalEquivalente(p))}/mês · economize ${brl(economiaPlano(p))}`}
+                      : `${brl(precoMensalEquivalente(p, prod.id))}/mês · economize ${brl(economiaPlano(p, prod.id))}`}
                   </p>
                 </div>
                 <div className="text-right flex items-center gap-2">
@@ -255,9 +277,12 @@ export default function Pagamento() {
 
       {/* O que está incluído */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
-        <p className="font-bold text-polo-navy text-sm mb-2">Tudo incluído em qualquer plano</p>
+        <p className="font-bold text-polo-navy text-sm mb-2">
+          Incluído no {prod.label}, em qualquer duração
+        </p>
         <ul className="space-y-1.5">
-          {RECURSOS.map((r, i) => <li key={i} className="text-sm text-gray-700">{r}</li>)}
+          {(RECURSOS_POR_PRODUTO[prod.id] || RECURSOS_POR_PRODUTO.completo)
+            .map((r, i) => <li key={i} className="text-sm text-gray-700">{r}</li>)}
         </ul>
       </div>
 

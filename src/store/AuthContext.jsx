@@ -57,9 +57,22 @@ export function AuthProvider({ children }) {
       // select completo → fallback progressivo p/ bancos sem as colunas novas
       let { data: rest, error: errRest } = await supabase
         .from('restaurantes')
-        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado')
+        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto')
         .eq('id', perfil.restaurante_id)
         .maybeSingle();
+      if (errRest) {
+        // ⚠️ Cair para cá significa banco SEM a migração 27, e aí toda conta
+        // vira 'completo' — que é o fallback seguro (ninguém perde tela por
+        // acidente). Mas se a queda for por outro motivo, um cliente do plano
+        // Etiquetas ganha o app inteiro EM SILÊNCIO. O aviso existe para esse
+        // defeito não ser invisível no console de quem for investigar.
+        console.warn('[sessão] fallback do select de restaurantes — banco sem a coluna `produto` (migração 27)?', errRest?.message);
+        ({ data: rest, error: errRest } = await supabase
+          .from('restaurantes')
+          .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado')
+          .eq('id', perfil.restaurante_id)
+          .maybeSingle());
+      }
       if (errRest) {
         ({ data: rest, error: errRest } = await supabase
           .from('restaurantes')
@@ -90,6 +103,11 @@ export function AuthProvider({ children }) {
         assinaturaAte:    rest?.assinatura_ate || null,
         maxUsuarios:      rest?.max_usuarios || 3,
         bloqueado:        !!rest?.bloqueado,
+        // Produto contratado (migração 27) — 'etiquetas' | 'completo'.
+        // O `|| 'completo'` cobre banco sem a coluna E linha antiga sem valor:
+        // na dúvida, o cliente vê o app inteiro. O contrário esconderia telas
+        // de quem paga por elas, que é o erro caro deste par.
+        produto:          rest?.produto || 'completo',
         eSuperAdmin:      email === 'atiliopinpolho@gmail.com',
         ts:               Date.now(),
       });
@@ -216,7 +234,13 @@ export function AuthProvider({ children }) {
   // ── Modo suporte (super-admin vê outro restaurante) ──
   // podeMexer=true só quando o CLIENTE autorizou "ver e editar" (24h) — a
   // escrita real depende das policies do migration7 (suporte_pode_editar).
-  const verComoRestaurante = useCallback((restauranteId, restauranteNome, podeMexer = false) => {
+  // ⚠️ `produto` entra aqui porque a sessão do suporte continua sendo a do
+  // super-admin, que não tem restauranteId nem produto — sem isto o produto
+  // efetivo cairia em 'completo' e o suporte abriria estoque, compras e
+  // relatórios DENTRO de uma conta que só comprou etiquetas. Como aquele
+  // cliente nunca lançou nada, tudo apareceria zerado e o suporte sairia
+  // investigando um problema que não existe. Ver produtoAtivo() em utils/produto.js.
+  const verComoRestaurante = useCallback((restauranteId, restauranteNome, podeMexer = false, produto = null) => {
     if (!sessao?.eSuperAdmin || !restauranteId) return;
     // ⚠️ O acesso do suporte DEIXA RASTRO na trilha do cliente (migração 25).
     // Antes, o super-admin lia os dados de qualquer restaurante sem o cliente
@@ -233,7 +257,10 @@ export function AuthProvider({ children }) {
     }).then(({ error }) => {
       if (error) console.error('Falha ao registrar o acesso de suporte:', error.message);
     });
-    setImpersonando({ restauranteId, restauranteNome: restauranteNome || '', podeMexer: !!podeMexer });
+    setImpersonando({
+      restauranteId, restauranteNome: restauranteNome || '', podeMexer: !!podeMexer,
+      produto: produto || 'completo',
+    });
   }, [sessao]);
   const sairImpersonacao = useCallback(() => setImpersonando(null), []);
   const limparDerrubado = useCallback(() => setDerrubado(false), []);
