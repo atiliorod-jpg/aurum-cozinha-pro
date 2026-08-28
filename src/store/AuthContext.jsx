@@ -196,10 +196,14 @@ export function AuthProvider({ children }) {
   // ── Modo demonstração (100% local — nada toca o banco real) ──
   // Sessão fake com cargo diretoria para o visitante ver todas as telas;
   // o AppContext detecta rid==='demo' e nunca fala com o Supabase.
-  const entrarDemo = useCallback(() => {
+  // `produto` deixa demonstrar o Aurum Etiquetas separado do completo — é o
+  // que o dono abre numa visita comercial, e é também como o plano menor fica
+  // testável sem criar conta no banco.
+  const entrarDemo = useCallback((produto = 'completo') => {
     setSessao({
       usuarioId: 'demo', email: '', nome: 'Visitante',
       cargo: 'diretoria', restauranteId: 'demo', restauranteNome: 'Restaurante Exemplo',
+      produto: produto === 'etiquetas' ? 'etiquetas' : 'completo',
       demo: true, eSuperAdmin: false, ts: Date.now(),
     });
     setUsuarios([{ id: 'demo', nome: 'Visitante', cargo: 'diretoria' }]);

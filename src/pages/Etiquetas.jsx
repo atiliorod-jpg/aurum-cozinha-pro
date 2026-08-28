@@ -5,6 +5,8 @@ import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
+import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
+import { useAuth } from '../store/AuthContext';
 
 // Guia de configuração de impressora — escolhe a situação e mostra o passo a
 // passo com links de download. Imprimível (o print CSS global já esconde
@@ -101,6 +103,8 @@ export default function Etiquetas() {
   const { produtos, categorias, etiquetasAvulsas, setEtiquetasAvulsas, prefs, modulo } = useApp();
   const { abrirEtiquetas, toast, confirm } = useUI();
 
+  const { sessao, impersonando } = useAuth();
+  const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   const armazenamentos = armazenamentosAtivos(prefs);
 
   const [tab, setTab] = useState('catalogo'); // 'catalogo' | 'avulsas'
@@ -179,7 +183,11 @@ export default function Etiquetas() {
   return (
     <Layout title="Etiquetas">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1 print:hidden">
-        {[['catalogo', 'Do estoque'], ['avulsas', 'Avulsas'], ['impressora', 'Impressora']].map(([v, l]) => (
+        {/* ⚠️ "Do estoque" mentiria no plano Aurum Etiquetas: lá não existe
+            estoque nenhum, e o rótulo mandaria a pessoa procurar uma tela que
+            a conta dela não tem. É a mesma aba, com o nome certo em cada
+            produto. */}
+        {[['catalogo', soEtiq ? 'Meus itens' : 'Do estoque'], ['avulsas', 'Avulsas'], ['impressora', 'Impressora']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>

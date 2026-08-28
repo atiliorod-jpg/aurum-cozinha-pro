@@ -5,6 +5,7 @@ import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import SeletorModulo from './SeletorModulo';
+import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import Icon from './Icons';
 import { useUI } from '../store/UIContext';
 
@@ -21,11 +22,15 @@ const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
  * a pessoa da área em que ela acabou de entrar.
  */
 export default function Layout({ title, children, actions, area = 'estoque' }) {
-  const { sessao, logout } = useAuth();
+  const { sessao, logout, impersonando } = useAuth();
   const { pendencias, online, estoqueAtual } = useApp();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const emAdmin = area === 'admin';
+  // ⚠️ No plano Aurum Etiquetas não existe multi-estoque: há um contexto só.
+  // Um seletor com um item é botão morto, e ainda sugere que existem outras
+  // áreas que a conta nao comprou.
+  const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   // ⚠️ Volta para o hub da Administração. Quando a barra de rodapé da
   // Administração morreu, as telas de dentro dela (Relatório, Financeiro,
   // Configurações…) ficaram sem saída visível: só dava para voltar abrindo o
@@ -37,7 +42,9 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   // qual casa é, e o cabeçalho é onde se confere isso antes de lançar.
   const mod = emAdmin
     ? { icone: 'config', label: 'Administração' }
-    : { icone: estoqueAtual?.icone || 'caixa', label: estoqueAtual?.nome || 'Estoque' };
+    : soEtiq
+      ? { icone: 'etiqueta', label: 'Aurum Etiquetas' }
+      : { icone: estoqueAtual?.icone || 'caixa', label: estoqueAtual?.nome || 'Estoque' };
   const [trocandoModulo, setTrocandoModulo] = useState(false);
   const { confirm } = useUI();
 
@@ -97,15 +104,23 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
         </div>
         {/* Onde estou — toque para ir a outra área. Aparece também na
             Administração: é a única saída de lá desde que a barra do rodapé
-            saiu, e num PWA em tablet não existe botão de voltar do navegador. */}
-        <button onClick={() => setTrocandoModulo(true)}
-          aria-label={`Você está em ${mod.label}. Tocar para ir a outra área`}
-          className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1
-                     min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
-          <Icon name={mod.icone} size={18} />
-          <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
-          <span className="text-white/50 text-[11px]" aria-hidden="true">▾</span>
-        </button>
+            saiu, e num PWA em tablet não existe botão de voltar do navegador.
+            No plano Etiquetas vira etiqueta fixa: não há outra área para onde ir. */}
+        {soEtiq ? (
+          <span className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1 min-h-11">
+            <Icon name={mod.icone} size={18} />
+            <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
+          </span>
+        ) : (
+          <button onClick={() => setTrocandoModulo(true)}
+            aria-label={`Você está em ${mod.label}. Tocar para ir a outra área`}
+            className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1
+                       min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+            <Icon name={mod.icone} size={18} />
+            <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
+            <span className="text-white/50 text-[11px]" aria-hidden="true">▾</span>
+          </button>
+        )}
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Status de sincronização: avisa quando há dados ainda não enviados ou sem internet */}
           {(pendencias > 0 || !online) && (
@@ -179,7 +194,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           e "Voltar ao estoque" — e o segundo era destino repetido do seletor do
           cabeçalho. Tirando ele sobrava uma aba sozinha ocupando a largura toda,
           que lê como tela quebrada; então a barra inteira saiu. */}
-      {!emAdmin && <NavBar />}
+      {!emAdmin && <NavBar soEtiquetas={soEtiq} />}
     </div>
   );
 }

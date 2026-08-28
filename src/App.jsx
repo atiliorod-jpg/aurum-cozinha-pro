@@ -32,6 +32,9 @@ import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
 import TesteBluetooth from './pages/TesteBluetooth';
 import Itens from './pages/etiquetas/Itens';
+import EtiquetasInicio from './pages/etiquetas/Inicio';
+import EtiquetasAjustes from './pages/etiquetas/Ajustes';
+import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 const Relatorio = lazy(() => import('./pages/Relatorio'));
 const Configuracoes = lazy(() => import('./pages/Configuracoes'));
@@ -108,6 +111,9 @@ function Rotas() {
   });
   const { toast } = useUI();
   const { modulo, permissoes } = useApp();
+  // Produto EFETIVO: no modo suporte manda o do cliente, não o do super-admin
+  // (que não tem restaurante e cairia em 'completo').
+  const soEtiquetas = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   // Capacidade configurável (matriz de permissões da diretoria) — diretoria e
   // super-admin sempre podem; cozinha/gerência seguem permissoes.
   const can = (cap) => pode(sessao, permissoes, cap);
@@ -196,7 +202,11 @@ function Rotas() {
 
   // Primeiro acesso NESTE aparelho: pergunta em qual estoque a pessoa trabalha.
   // Depois disso a escolha fica lembrada (e dá para trocar pelo cabeçalho).
-  if (!escolheuModulo) {
+  // ⚠️ No plano Etiquetas não existe escolha: há um contexto só. Perguntar
+  // "onde você vai trabalhar?" para quem comprou só etiquetas é pedir uma
+  // decisão que não existe — e ainda arriscaria o aparelho ficar apontado para
+  // um estoque que aquela conta não usa.
+  if (!escolheuModulo && !soEtiquetas) {
     return <SeletorModulo comoTela aoEscolher={() => setEscolheuModulo(true)} />;
   }
 
@@ -220,9 +230,28 @@ function Rotas() {
         </Link>
       )}
       <Suspense fallback={<Splash texto="Abrindo…" />}>
-      {/* key={modulo}: trocar de estoque REMONTA as páginas. Sem isto o estado
+      {/* ⚠️ ÁRVORE DE ROTAS PRÓPRIA para o plano Aurum Etiquetas.
+          É um `if` no topo, e NÃO `produtoTem` espalhado em 25 <Route>. Além
+          de ruidoso, o gate por rota faria a experiência parecer "o app
+          completo com telas escondidas" — exatamente o que o dono vetou ao
+          pedir "um sistema bem estruturado apenas de etiquetas".
+          Tudo que não está aqui cai no Início: link antigo, favorito ou URL
+          digitada não podem abrir tela de um produto que a conta não comprou. */}
+      {soEtiquetas ? (
+        <Routes>
+          <Route path="/"           element={<EtiquetasInicio />} />
+          <Route path="/etiquetas"  element={<Etiquetas />} />
+          <Route path="/itens"      element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
+          <Route path="/validades"  element={<Validades />} />
+          <Route path="/ajustes"    element={<EtiquetasAjustes />} />
+          <Route path="/pagamento"  element={<Restrito><Pagamento /></Restrito>} />
+          <Route path="/novidades"  element={<Novidades />} />
+          <Route path="*"           element={<Navigate to="/" replace />} />
+        </Routes>
+      ) : (
+      /* key={modulo}: trocar de estoque REMONTA as páginas. Sem isto o estado
           local sobrevive — a contagem digitada na Produção continuava na tela
-          do Seco e podia ser salva com produtos que não existem lá. */}
+          do Seco e podia ser salva com produtos que não existem lá. */
       <Routes key={modulo}>
       <Route path="/" element={
         sessao?.eSuperAdmin && !sessao.restauranteId && !impersonando
@@ -294,6 +323,7 @@ function Rotas() {
           que sempre existe em todos os módulos. */}
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      )}
       </Suspense>
       <AvisoVencimento />
       <NovidadesPopup />

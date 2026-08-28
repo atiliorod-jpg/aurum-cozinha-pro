@@ -7,6 +7,8 @@ import { addDias, diasAte } from '../utils/datas';
 import { calcLotes } from '../utils/lotes';
 import { STATUS_ETIQUETA, statusEtiqueta } from '../utils/etiquetas';
 import { temRecurso } from '../utils/modulos';
+import { produtoTem, produtoAtivo } from '../utils/produto';
+import { useAuth } from '../store/AuthContext';
 
 const FILTROS = [
   ['hoje', 'Vence hoje', 0],
@@ -28,6 +30,7 @@ const FILTROS = [
 export default function Validades() {
   const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, setEtiquetasImpressas, modulo } = useApp();
   const { toast, confirm } = useUI();
+  const { sessao, impersonando } = useAuth();
   const [filtro, setFiltro] = useState('7d');
   const [ate, setAte] = useState(addDias(hoje(), 7));
   const [aba, setAba] = useState('lotes');
@@ -65,6 +68,21 @@ export default function Validades() {
       })
       .sort((a, b) => a.validade.localeCompare(b.validade));
   }, [etiquetasImpressas, limite, soVencidos, hj]);
+
+  // Quais abas existem aqui.
+  //  • Estoque Seco não tem etiqueta (mantimento chega lacrado e já etiquetado
+  //    pelo fabricante), então a aba abria sempre vazia.
+  //  • Plano Aurum Etiquetas não tem LOTE: lote nasce de entrada e saída, que
+  //    esse produto não vende. Sem isto a tela abriria numa aba permanentemente
+  //    vazia, que é a pior primeira impressão possível.
+  const temLotes = produtoTem(produtoAtivo(sessao, impersonando), 'lotes');
+  const abas = [
+    ...(temLotes ? [['lotes', `Lotes (${linhasLotes.length})`]] : []),
+    ...(temRecurso(modulo, 'etiquetas') ? [['etiquetas', `Etiquetas (${linhasEtiquetas.length})`]] : []),
+  ];
+  // Se a aba guardada no estado não existe mais, cai na primeira que existe —
+  // senão a tela renderiza vazio sem nenhum aviso.
+  const abaAtual = abas.some(([v]) => v === aba) ? aba : (abas[0]?.[0] || 'etiquetas');
 
   const marcar = async (etq, status) => {
     const rotulo = status === 'consumida' ? 'consumida' : 'descartada';
@@ -111,22 +129,23 @@ export default function Validades() {
           </p>
         </div>
 
+        {/* ⚠️ Barra de abas só quando há MAIS DE UMA. Uma aba sozinha ocupando
+            a largura toda lê como tela quebrada — o app já aprendeu isso. No
+            plano Etiquetas não existe lote (não há entrada nem saída), então
+            sobra só a aba de etiquetas e a barra some. */}
+        {abas.length > 1 && (
         <div className="flex bg-white rounded-xl p-1 gap-1">
-          {/* No Estoque Seco nao existe etiqueta (o mantimento chega lacrado e
-              ja etiquetado pelo fabricante), entao a aba abria sempre vazia. */}
-          {(temRecurso(modulo, 'etiquetas')
-            ? [['lotes', `Lotes (${linhasLotes.length})`], ['etiquetas', `Etiquetas (${linhasEtiquetas.length})`]]
-            : [['lotes', `Lotes (${linhasLotes.length})`]]
-          ).map(([v, l]) => (
+          {abas.map(([v, l]) => (
             <button key={v} onClick={() => setAba(v)}
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors
-                ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
+                ${abaAtual === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
               {l}
             </button>
           ))}
         </div>
+        )}
 
-        {aba === 'lotes' ? (
+        {abaAtual === 'lotes' ? (
           linhasLotes.length === 0 ? (
             <div className="bg-white rounded-xl p-8 text-center">
               <p className="text-sm text-gray-500">Nada {soVencidos ? 'vencido' : 'vencendo neste período'}.</p>

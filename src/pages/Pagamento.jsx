@@ -108,7 +108,12 @@ export default function Pagamento() {
   };
 
   return (
-    <Layout title="Assinatura" area="admin">
+    // ⚠️ `area="admin"` esconde a barra inferior e rotula o cabeçalho como
+    // "Administração" — certo no app completo, onde a Assinatura mora lá
+    // dentro. No plano Etiquetas não existe Administração: rotular assim
+    // mandaria o cliente procurar uma área que a conta dele não tem, e ainda
+    // tiraria a barra, deixando a tela sem saída.
+    <Layout title="Assinatura" area={prod.id === 'etiquetas' ? 'estoque' : 'admin'}>
       {/* Situação atual */}
       <div className={`rounded-2xl p-5 mb-6 flex items-center gap-4 ${st.tipo === 'vencido' ? 'bg-red-700' : 'bg-polo-navy'}`}>
         <div className="w-14 h-14 bg-polo-gold/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">

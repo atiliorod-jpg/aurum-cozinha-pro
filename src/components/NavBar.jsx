@@ -34,18 +34,52 @@ const NAV = [
 // "Voltar ao estoque", que repetia o seletor do cabeçalho. Um destino, um
 // caminho: o seletor do cabeçalho é a porta entre as áreas, nos dois sentidos.
 
-export default function NavBar() {
-  const { produtos, estoque, producoes, permissoes, modulo } = useApp();
+// Barra do plano AURUM ETIQUETAS. É uma lista própria, não o NAV acima
+// filtrado: neste produto não existe estoque para "Registrar", e a
+// Administração não existe — então Ajustes precisa de porta, senão as
+// Configurações ficam inalcançáveis (o mesmo defeito que o Layout já
+// documenta sobre tela sem caminho de volta).
+const NAV_ETIQUETAS = [
+  { to: '/',           icon: 'inicio',   label: 'Início' },
+  { to: '/etiquetas',  icon: 'etiqueta', label: 'Imprimir' },
+  { to: '/itens',      icon: 'caixa',    label: 'Itens' },
+  { to: '/validades',  icon: 'validade', label: 'Validades' },
+  { to: '/ajustes',    icon: 'config',   label: 'Ajustes' },
+];
+
+export default function NavBar({ soEtiquetas = false }) {
+  const { produtos, estoque, producoes, permissoes, modulo, etiquetasImpressas } = useApp();
   const { sessao } = useAuth();
-  const alertas = produtos.filter(p => {
+  // ⚠️ Os badges de estoque ficam FORA do ramo de etiquetas: além de serem
+  // sempre 0 lá (não há entrada nem saída), rodavam dois .filter sobre o
+  // catálogo inteiro a cada render, de graça.
+  const alertas = soEtiquetas ? 0 : produtos.filter(p => {
     const s = statusEstoque(estoque[p.id] ?? 0, p.min, p.max);
     return s === 'critico' || s === 'zerado';
   }).length;
   // badge de produção: receitas cujo produto final está abaixo do mínimo
-  const precisaProduzir = producoes.filter(r => {
+  const precisaProduzir = soEtiquetas ? 0 : producoes.filter(r => {
     const p = produtos.find(x => x.id === r.produtoFinalId);
     return p?.ativo && p.min > 0 && (estoque[p.id] ?? 0) < p.min;
   }).length;
+
+  // O que importa aqui é o que vence hoje — a pergunta que a cozinha faz.
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const vencendo = soEtiquetas
+    ? (etiquetasImpressas || []).filter(e => e.status === 'valida' && e.validade && e.validade <= hojeISO).length
+    : 0;
+
+  if (soEtiquetas) {
+    return (
+      <BarraNav itens={NAV_ETIQUETAS} badges={{
+        '/validades': vencendo > 0 && {
+          lado: 'direita', cor: 'bg-red-500',
+          texto: vencendo > 9 ? '9+' : String(vencendo),
+          rotulo: `${vencendo} etiqueta(s) vencidas ou vencendo hoje`,
+        },
+      }} />
+    );
+  }
 
   const itens = NAV.filter(n => {
     // recurso do módulo primeiro: não adianta ter permissão para uma tela que
@@ -57,6 +91,27 @@ export default function NavBar() {
     return pode(sessao, permissoes, n.cap);
   });
 
+  return (
+    <BarraNav itens={itens} badges={{
+      '/': [
+        alertas > 0 && { lado: 'direita', texto: alertas > 9 ? '9+' : String(alertas), cor: 'bg-red-500',
+          rotulo: `${alertas} produtos abaixo do mínimo` },
+        precisaProduzir > 0 && { lado: 'esquerda', icone: 'producao', cor: 'bg-amber-700',
+          rotulo: `${precisaProduzir} receita(s) precisam ser produzidas` },
+      ].filter(Boolean),
+    }} />
+  );
+}
+
+// A marcação da barra, uma vez só. As duas variantes (app completo e plano
+// etiquetas) usam esta — duas cópias divergiriam, que é o defeito já
+// registrado nas abas de Configurações.
+function BarraNav({ itens, badges = {} }) {
+  const listaDe = (to) => {
+    const b = badges[to];
+    if (!b) return [];
+    return Array.isArray(b) ? b.filter(Boolean) : [b].filter(Boolean);
+  };
   return (
     <nav aria-label="Navegação principal"
       className="fixed bottom-0 left-0 right-0 z-50 bg-polo-navy/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.25)]">
@@ -79,18 +134,13 @@ export default function NavBar() {
                   <Icon name={icon} size={19} strokeWidth={isActive ? 2.4 : 2} />
                 </span>
                 <span className="leading-none tracking-wide">{label}</span>
-                {to === '/' && alertas > 0 && (
-                  <span aria-label={`${alertas} produtos abaixo do mínimo`}
-                    className="absolute top-0.5 right-1/4 bg-red-500 text-white text-[11px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold ring-2 ring-polo-navy">
-                    {alertas > 9 ? '9+' : alertas}
+                {listaDe(to).map((b, i) => (
+                  <span key={i} aria-label={b.rotulo}
+                    className={`absolute top-0.5 ${b.lado === 'esquerda' ? 'left-1/4' : 'right-1/4'} ${b.cor || 'bg-red-500'}
+                      text-white text-[11px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold ring-2 ring-polo-navy`}>
+                    {b.icone ? <Icon name={b.icone} size={11} strokeWidth={2.5} /> : b.texto}
                   </span>
-                )}
-                {to === '/' && precisaProduzir > 0 && (
-                  <span aria-label={`${precisaProduzir} receita(s) precisam ser produzidas`}
-                    className="absolute top-0.5 left-1/4 bg-amber-700 text-white rounded-full w-5 h-5 flex items-center justify-center ring-2 ring-polo-navy">
-                    <Icon name="producao" size={11} strokeWidth={2.5} />
-                  </span>
-                )}
+                ))}
               </>
             )}
           </NavLink>

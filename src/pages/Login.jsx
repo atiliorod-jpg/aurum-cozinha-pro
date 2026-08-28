@@ -27,6 +27,17 @@ const conviteDaURL = (() => {
   catch { return ''; }
 })();
 
+// Produto do link direto (?produto=etiquetas) — mesmo mecanismo do convite.
+// É o link que o dono manda no WhatsApp depois da visita comercial: o cliente
+// cai já na demonstração do plano certo, em vez de ver o app inteiro e depois
+// descobrir que comprou outra coisa.
+const produtoDaURL = (() => {
+  try {
+    const p = new URLSearchParams(window.location.search).get('produto') || '';
+    return p === 'etiquetas' ? 'etiquetas' : '';
+  } catch { return ''; }
+})();
+
 export default function Login() {
   const { login, esqueceuSenha, criarPrimeiroAdmin, usarConvite, entrarDemo } = useAuth();
   const [modo, setModo] = useState(conviteDaURL ? 'convite' : 'entrar'); // entrar | convite | novo | esqueci
@@ -114,9 +125,15 @@ export default function Login() {
               <button onClick={() => trocar('convite')} className="text-xs font-semibold text-polo-navy">Tenho um código de convite →</button>
               <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante — <strong className="text-green-700">7 dias grátis</strong> →</button>
             </div>
-            <button onClick={entrarDemo}
+            <button onClick={() => entrarDemo(produtoDaURL || 'completo')}
               className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-[0.98] transition-transform">
-              🎬 Ver demonstração — sem cadastro
+              🎬 Ver demonstração{produtoDaURL === 'etiquetas' ? ' do Aurum Etiquetas' : ''} — sem cadastro
+            </button>
+            {/* Quem chegou pelo link de etiquetas ainda pode ver o completo, e
+                vice-versa: esconder a outra opção seria decidir pelo cliente. */}
+            <button onClick={() => entrarDemo(produtoDaURL === 'etiquetas' ? 'completo' : 'etiquetas')}
+              className="w-full text-xs text-gray-500 -mt-1">
+              ou ver a demonstração do {produtoDaURL === 'etiquetas' ? 'Aurum Cozinha Pro (completo)' : 'Aurum Etiquetas (só etiquetas)'}
             </button>
             <p className="text-[11px] text-gray-600 text-center -mt-1">
               Restaurante de exemplo. Nada é salvo: os dados voltam ao início quando você sair.
