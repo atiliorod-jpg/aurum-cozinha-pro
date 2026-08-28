@@ -642,19 +642,20 @@ describe('planos de pagamento (Pix)', () => {
   // ⚠️ Estes números são o que sai no BR Code do Pix. Se um deles mudar sem
   // querer, o cliente paga o valor errado e a conciliação vira manual — por
   // isso valem os dois produtos, com as contas escritas por extenso.
+  // Descontos: semestral -5%, anual -10% (baixados de 10/20% em 28/08/2026).
   describe('Aurum Cozinha Pro (R$500/mês)', () => {
     it('mensal = R$500 sem desconto', () => {
       expect(precoPlano(plano('mensal'), 'completo')).toBe(500);
     });
-    it('semestral = 10% off (500×6×0,9 = 2700) e mostra economia', () => {
-      expect(precoPlano(plano('semestral'), 'completo')).toBe(2700);
-      expect(precoMensalEquivalente(plano('semestral'), 'completo')).toBe(450);
-      expect(economiaPlano(plano('semestral'), 'completo')).toBe(300);
+    it('semestral = 5% off (500×6×0,95 = 2850) e mostra economia', () => {
+      expect(precoPlano(plano('semestral'), 'completo')).toBe(2850);
+      expect(precoMensalEquivalente(plano('semestral'), 'completo')).toBe(475);
+      expect(economiaPlano(plano('semestral'), 'completo')).toBe(150);
     });
-    it('anual = 20% off (500×12×0,8 = 4800)', () => {
-      expect(precoPlano(plano('anual'), 'completo')).toBe(4800);
-      expect(precoMensalEquivalente(plano('anual'), 'completo')).toBe(400);
-      expect(economiaPlano(plano('anual'), 'completo')).toBe(1200);
+    it('anual = 10% off (500×12×0,9 = 5400)', () => {
+      expect(precoPlano(plano('anual'), 'completo')).toBe(5400);
+      expect(precoMensalEquivalente(plano('anual'), 'completo')).toBe(450);
+      expect(economiaPlano(plano('anual'), 'completo')).toBe(600);
     });
   });
 
@@ -662,16 +663,24 @@ describe('planos de pagamento (Pix)', () => {
     it('mensal = R$270 sem desconto', () => {
       expect(precoPlano(plano('mensal'), 'etiquetas')).toBe(270);
     });
-    it('semestral = 10% off (270×6×0,9 = 1458)', () => {
-      expect(precoPlano(plano('semestral'), 'etiquetas')).toBe(1458);
-      expect(precoMensalEquivalente(plano('semestral'), 'etiquetas')).toBe(243);
-      expect(economiaPlano(plano('semestral'), 'etiquetas')).toBe(162);
+    it('semestral = 5% off (270×6×0,95 = 1539)', () => {
+      expect(precoPlano(plano('semestral'), 'etiquetas')).toBe(1539);
+      expect(precoMensalEquivalente(plano('semestral'), 'etiquetas')).toBe(256.5);
+      expect(economiaPlano(plano('semestral'), 'etiquetas')).toBe(81);
     });
-    it('anual = 20% off (270×12×0,8 = 2592)', () => {
-      expect(precoPlano(plano('anual'), 'etiquetas')).toBe(2592);
-      expect(precoMensalEquivalente(plano('anual'), 'etiquetas')).toBe(216);
-      expect(economiaPlano(plano('anual'), 'etiquetas')).toBe(648);
+    it('anual = 10% off (270×12×0,9 = 2916)', () => {
+      expect(precoPlano(plano('anual'), 'etiquetas')).toBe(2916);
+      expect(precoMensalEquivalente(plano('anual'), 'etiquetas')).toBe(243);
+      expect(economiaPlano(plano('anual'), 'etiquetas')).toBe(324);
     });
+  });
+
+  // Trava os percentuais em si: se alguém mexer nos descontos, quebra aqui e
+  // não só nos totais — a mensagem fica óbvia.
+  it('descontos são 0%, 5% e 10%', () => {
+    expect(plano('mensal').desconto).toBe(0);
+    expect(plano('semestral').desconto).toBe(0.05);
+    expect(plano('anual').desconto).toBe(0.10);
   });
 
   // Produto desconhecido ou ausente NÃO pode virar preço zero (Pix de R$0,00
@@ -755,9 +764,21 @@ describe('armazenamento configurável (utils/armazenamento.js)', () => {
     expect(lista.find(a => a.id === 'congelado').nome).toBe('Freezer -18');
   });
 
-  it('prefs vazia devolve os três estados de partida', () => {
-    expect(listarArmazenamentos({}).map(a => a.id)).toEqual(['congelado', 'resfriado', 'ambiente']);
-    expect(listarArmazenamentos(undefined).map(a => a.id)).toEqual(['congelado', 'resfriado', 'ambiente']);
+  it('prefs vazia devolve os quatro estados de partida', () => {
+    const esperado = ['congelado', 'resfriado', 'refrigerado', 'ambiente'];
+    expect(listarArmazenamentos({}).map(a => a.id)).toEqual(esperado);
+    expect(listarArmazenamentos(undefined).map(a => a.id)).toEqual(esperado);
+  });
+
+  // ⚠️ Resfriado e refrigerado sao faixas DIFERENTES e precisam coexistir:
+  // 0-4°C para carne e preparado, 4-10°C para hortifruti e laticinio. Tê-los
+  // fundidos num só obriga a etiquetar alface com a temperatura da picanha.
+  it('resfriado e refrigerado existem como estados separados, com faixas próprias', () => {
+    const lista = listarArmazenamentos({});
+    const res = lista.find(a => a.id === 'resfriado');
+    const ref = lista.find(a => a.id === 'refrigerado');
+    expect(res.faixa).toBe('0°C a 4°C');
+    expect(ref.faixa).toBe('4°C a 10°C');
   });
 });
 
@@ -817,10 +838,49 @@ describe('biblioteca de itens prontos', () => {
     });
   });
 
-  it('proteína traz o prazo da tabela de referência (congelado 90 / resfriado 3)', () => {
-    const p = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'picanha_porcao');
-    expect(prazoDe(p, 'congelado')).toBe(90);
-    expect(prazoDe(p, 'resfriado')).toBe(3);
+  // ⚠️ A DISTINÇÃO QUE ESTE GRUPO EXISTE PARA TRAVAR: congelado de carne CRUA
+  // não é o mesmo prazo de congelado de PREPARADO da casa. A primeira versão
+  // da biblioteca dava 90 dias para tudo, e isso manda picanha boa para o lixo
+  // em 3 meses. Se alguém uniformizar os dois de novo, estes testes quebram.
+  it('carne crua porcionada congela por MESES, não por 90 dias', () => {
+    const picanha = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'picanha_porcao');
+    expect(prazoDe(picanha, 'congelado')).toBe(180);   // 6 meses
+    expect(prazoDe(picanha, 'resfriado')).toBe(3);     // tabela CVS
+    const frango = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'peito_de_frango_porcao');
+    expect(prazoDe(frango, 'congelado')).toBe(180);
+  });
+
+  it('preparado da casa fica no teto de 90 dias congelado', () => {
+    const molho = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'molho_de_tomate_da_casa');
+    expect(prazoDe(molho, 'congelado')).toBe(90);
+    expect(prazoDe(molho, 'resfriado')).toBe(3);
+  });
+
+  // Moída e empanado cru têm mais superfície exposta e oxidam antes.
+  it('carne moída dura menos que a peça inteira', () => {
+    const moida = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'carne_moida');
+    const peca = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'picanha_inteira');
+    expect(prazoDe(moida, 'congelado')).toBeLessThan(prazoDe(peca, 'congelado'));
+    expect(prazoDe(moida, 'resfriado')).toBe(2);
+  });
+
+  // Pescado gorduroso rancifica antes do magro — não podem ter o mesmo prazo.
+  it('pescado gorduroso congela menos que o magro', () => {
+    const salmao = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'salmao_em_posta');
+    const tilapia = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'file_de_tilapia');
+    expect(prazoDe(salmao, 'congelado')).toBeLessThan(prazoDe(tilapia, 'congelado'));
+  });
+
+  // ⚠️ Resfriado (0–4°C) e refrigerado (4–10°C) são faixas diferentes. Alface
+  // na faixa da picanha e picanha na faixa da alface estão os dois errados.
+  it('hortifrúti e laticínio vão para REFRIGERADO, carne para RESFRIADO', () => {
+    const alface = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'alface');
+    expect(alface.armazenamentoSugerido).toBe('refrigerado');
+    expect(prazoDe(alface, 'refrigerado')).toBeGreaterThan(0);
+    const queijo = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'queijo_mussarela');
+    expect(queijo.armazenamentoSugerido).toBe('refrigerado');
+    const picanha = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'picanha_porcao');
+    expect(prazoDe(picanha, 'resfriado')).toBeGreaterThan(0);
   });
 
   // ⚠️ Sem isto o azeite saía com "CONGELADO" impresso: a impressão pegava o

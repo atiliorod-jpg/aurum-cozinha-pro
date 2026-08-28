@@ -29,9 +29,16 @@ import { mesclarFixos } from './modulos';
 // rótulo. O `fixo: true` é o que impede a tela de oferecer o botão de remover;
 // nome e faixa continuam editáveis, porque são só apresentação.
 export const ARMAZENAMENTOS_PADRAO = [
-  { id: 'congelado', nome: 'Congelado',            faixa: '-18°C a -12°C', fixo: true },
-  { id: 'resfriado', nome: 'Resfriado',            faixa: '0°C a 4°C',     fixo: true },
-  { id: 'ambiente',  nome: 'Temperatura ambiente', faixa: 'até 25°C' },
+  { id: 'congelado',   nome: 'Congelado',            faixa: '-18°C',      fixo: true },
+  // ⚠️ RESFRIADO e REFRIGERADO são coisas diferentes, e a cozinha trata assim:
+  //   • resfriado  0–4°C  → carne, pescado, preparado (a faixa crítica)
+  //   • refrigerado 4–10°C → hortifrúti, laticínio, bebida
+  // Ter só um dos dois obrigava a etiquetar alface com a mesma temperatura da
+  // picanha, que é errado nos dois sentidos: apertado demais para a alface,
+  // frouxo demais para a carne.
+  { id: 'resfriado',   nome: 'Resfriado',            faixa: '0°C a 4°C',  fixo: true },
+  { id: 'refrigerado', nome: 'Refrigerado',          faixa: '4°C a 10°C' },
+  { id: 'ambiente',    nome: 'Temperatura ambiente', faixa: 'até 25°C' },
 ];
 
 // Limite de caracteres da faixa. NÃO é frescura de layout: a etiqueta tem

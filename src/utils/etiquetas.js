@@ -228,3 +228,21 @@ export function lerLoteIdDoQR(texto) {
   const m = String(texto || '').match(/^L:\s*([a-z0-9]{4,12})$/im);
   return m ? m[1].toLowerCase() : null;
 }
+
+// ── Medida impressa na etiqueta ───────────────────────────────
+// ⚠️ `medidaPadrao` é TEXTO LIVRE ("1 kg", "500 mL", "150 g") e `gramatura` é
+// o numérico em gramas do app completo. Existiam os dois com regras
+// diferentes: o cadastro do plano Etiquetas só aceitava gramas, enquanto a
+// tela de impressão aceitava "1 kg" — então havia medida que a impressão
+// mostrava e o cadastro não conseguia gerar. Aqui os dois viram um só.
+export const medidaDoProduto = (p) =>
+  (p?.medidaPadrao || '').trim() || (p?.gramatura > 0 ? `${p.gramatura} g` : '');
+
+// "150 g" -> 150 · "1 kg" -> 1000 · "500 mL" -> 0 (não é peso, não vira grama)
+export const gramasDeMedida = (txt) => {
+  const m = String(txt || '').trim().toLowerCase().replace(',', '.').match(/^([\d.]+)\s*(kg|g)?$/);
+  if (!m) return 0;
+  const n = parseFloat(m[1]);
+  if (!Number.isFinite(n)) return 0;
+  return m[2] === 'kg' ? Math.round(n * 1000) : Math.round(n);
+};

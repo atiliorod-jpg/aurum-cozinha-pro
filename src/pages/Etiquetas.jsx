@@ -6,6 +6,7 @@ import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
+import { medidaDoProduto } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
 
@@ -146,7 +147,7 @@ export default function Etiquetas() {
     // prazosDoProduto resolve os dois.
     prazos: prazosDoProduto(p),
     // sugestão de porcionamento: evita digitar a gramatura a cada impressão
-    medida: p.gramatura ? `${p.gramatura} g` : '',
+    medida: medidaDoProduto(p),
     responsavel: prefs.responsavel || '',
     quantidade: 1,
   }]);

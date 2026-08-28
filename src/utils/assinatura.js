@@ -41,12 +41,17 @@ export const produtoDe = (produtoOuSessao) => {
   return PRODUTOS[id] || PRODUTOS[PRODUTO_PADRAO];
 };
 
-// Planos de pagamento (Pix manual). Semestral -10%, anual -20%.
+// Planos de pagamento (Pix manual). Semestral -5%, anual -10%.
 // `dias` é quanto o super-admin adiciona ao ativar (30 dias = 1 mês, como o teste).
+//
+// ⚠️ Os descontos eram 10% e 20% e o dono baixou para 5% e 10% em 28/08/2026.
+// Com o mensal a R$500, 20% de desconto anual dava R$1.200 de abatimento — um
+// mês inteiro de faturamento por cliente, para um serviço cujo custo não cai
+// quando o pagamento é adiantado. Os testes de preço travam esses números.
 export const PLANOS = [
   { id: 'mensal',    label: 'Mensal',    meses: 1,  dias: 30,  desconto: 0    },
-  { id: 'semestral', label: 'Semestral', meses: 6,  dias: 180, desconto: 0.10 },
-  { id: 'anual',     label: 'Anual',     meses: 12, dias: 365, desconto: 0.20 },
+  { id: 'semestral', label: 'Semestral', meses: 6,  dias: 180, desconto: 0.05 },
+  { id: 'anual',     label: 'Anual',     meses: 12, dias: 365, desconto: 0.10 },
 ];
 
 const r2 = (n) => Math.round(n * 100) / 100;

@@ -5,9 +5,12 @@ import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
 import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../../data/bibliotecaEtiquetas';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../../utils/armazenamento';
+import { medidaDoProduto, gramasDeMedida } from '../../utils/etiquetas';
 
 // Campo numérico fica como texto enquanto edita (apagar funciona); converte ao salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
+
+
 
 /**
  * Meus itens — o cadastro do plano Aurum Etiquetas.
@@ -69,7 +72,7 @@ export default function Itens() {
       tipoData: item.tipoData || 'fabricacao',
       armazenamentoSugerido: item.armazenamentoSugerido,
       prazos: item.prazos || {},
-      gramatura: '', marca: '', sif: '',
+      medidaPadrao: '', marca: '', sif: '',
     });
   };
 
@@ -97,7 +100,10 @@ export default function Itens() {
         armazenamentoPadrao,
         marca: (form.marca || '').trim(),
         sif: (form.sif || '').trim(),
-        gramatura: parseFloat(form.gramatura) || 0,
+        medidaPadrao: (form.medidaPadrao || '').trim(),
+        // Mantem `gramatura` numerica quando a medida for em gramas puras: e o
+        // campo que o app COMPLETO usa, e o cliente pode migrar de plano.
+        gramatura: gramasDeMedida(form.medidaPadrao),
         // ⚠️ zerados de propósito: o item nasce um produto estruturalmente
         // VÁLIDO, para o dia em que a conta virar o plano completo e ele
         // aparecer na Cozinha de Produção sem remendo nenhum.
@@ -179,7 +185,7 @@ export default function Itens() {
             </p>
           )}
 
-          <Botao onClick={() => setEditando({ nome: '', categoria: categorias[0] || 'OUTROS', unidade: 'kg', tipoData: 'fabricacao', prazos: {}, gramatura: '', marca: '', sif: '' })}
+          <Botao onClick={() => setEditando({ nome: '', categoria: categorias[0] || 'OUTROS', unidade: 'kg', tipoData: 'fabricacao', prazos: {}, medidaPadrao: '', marca: '', sif: '' })}
             className="mb-4">+ Cadastrar item do zero</Botao>
 
           {meus.length === 0 ? (
@@ -200,13 +206,13 @@ export default function Itens() {
                   <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-1.5 px-1">{cat}</p>
                   <div className="bg-white rounded-xl divide-y divide-gray-100">
                     {itens.map(p => (
-                      <button key={p.id} onClick={() => setEditando({ ...p, prazos: prazosDoProduto(p), gramatura: numVazio(p.gramatura) })}
+                      <button key={p.id} onClick={() => setEditando({ ...p, prazos: prazosDoProduto(p), medidaPadrao: medidaDoProduto(p) })}
                         className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50">
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-sm text-gray-900 truncate">{p.nome}</span>
                           <span className="block text-[11px] text-gray-500">
                             {p.unidade}
-                            {p.gramatura > 0 && ` · ${p.gramatura} g`}
+                            {medidaDoProduto(p) && ` · ${medidaDoProduto(p)}`}
                             {p.tipoData === 'abertura' && ' · data de abertura'}
                             {p.marca && ` · ${p.marca}`}
                           </span>
@@ -363,9 +369,16 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
           <div>
             {/* Porcionamento: vira sugestão do campo Medida ao imprimir, para
                 não digitar "150 g" a cada etiqueta. */}
-            <label htmlFor="mi-gram" className="block text-xs font-semibold text-gray-600 mb-1">Porção (g)</label>
-            <input id="mi-gram" type="number" inputMode="numeric" min="0" value={form.gramatura}
-              onChange={e => set('gramatura', e.target.value)} placeholder="opcional" className={inputCls} />
+            {/* ⚠️ TEXTO LIVRE, igual ao campo Medida da tela de impressão.
+                Antes aqui era "Porção (g)", só numero em gramas — então um
+                item de 1 kg nao tinha como ser cadastrado, e a tela de
+                impressão (que aceita "1 kg") mostrava algo que o cadastro nao
+                conseguia gerar. Dois campos para a mesma coisa, com regras
+                diferentes, é onde o usuário conclui que o sistema está errado. */}
+            <label htmlFor="mi-medida" className="block text-xs font-semibold text-gray-600 mb-1">Medida padrão</label>
+            <input id="mi-medida" type="text" value={form.medidaPadrao}
+              onChange={e => set('medidaPadrao', e.target.value)}
+              placeholder="ex.: 150 g, 1 kg, 500 mL" className={inputCls} />
           </div>
         </div>
 
