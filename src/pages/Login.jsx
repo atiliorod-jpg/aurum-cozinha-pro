@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../store/AuthContext';
+import { PRODUTOS } from '../utils/assinatura';
 
 const campo = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm";
 const botao = "w-full bg-polo-navy text-polo-gold font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50";
@@ -44,6 +45,11 @@ export default function Login() {
   const [mostraPrivacidade, setMostraPrivacidade] = useState(false);
   const [mostraTermos, setMostraTermos] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
+  // Produto escolhido no cadastro. O padrao e o ETIQUETAS: e o produto de
+  // entrada, e quem quer o completo escolhe conscientemente. O link direto
+  // (?produto=etiquetas) so confirma o padrao; quem chega sem parametro ve os
+  // dois cartoes do mesmo jeito.
+  const [produto, setProduto] = useState(produtoDaURL || 'etiquetas');
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState('');
   const [info, setInfo] = useState('');
@@ -85,7 +91,7 @@ export default function Login() {
     if (senha.length < 8) { setErro('A senha deve ter pelo menos 8 caracteres.'); return; }
     if (!aceitouTermos) { setErro('Marque a confirmação acima para continuar.'); return; }
     setCarregando(true);
-    const err = await criarPrimeiroAdmin({ nome: nome.trim(), email: email.trim(), senha, nomeRestaurante: nomeRest.trim() });
+    const err = await criarPrimeiroAdmin({ nome: nome.trim(), email: email.trim(), senha, nomeRestaurante: nomeRest.trim(), produto });
     setCarregando(false);
     if (err) setErro(traduz(err));
   };
@@ -167,7 +173,37 @@ export default function Login() {
           {/* NOVO RESTAURANTE */}
           {modo === 'novo' && <>
             <h2 className="font-bold text-polo-navy">Cadastrar restaurante</h2>
-            <p className="text-xs font-semibold text-green-700">7 dias grátis com tudo liberado · depois R$ 149/mês para continuar.</p>
+
+            {/* ⚠️ A escolha do produto vem ANTES dos campos, e é decisão do
+                cliente — não algo que se descobre no dia 8. Nascer tudo como
+                etiquetas quebraria quem quer o completo; nascer tudo completo
+                e rebaixar depois é pior: a pessoa passa o teste conhecendo
+                telas que vai perder, e isso é a sensação de produto capado. */}
+            <div className="space-y-2">
+              {Object.values(PRODUTOS).map(p => {
+                const sel = produto === p.id;
+                return (
+                  <button key={p.id} type="button" onClick={() => setProduto(p.id)}
+                    aria-pressed={sel}
+                    className={`w-full text-left rounded-xl p-3 border-2 transition-colors
+                      ${sel ? 'border-polo-gold bg-polo-beige' : 'border-gray-200 bg-white'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-sm text-polo-navy">{p.label}</span>
+                      <span className="text-sm font-bold text-polo-navy flex-shrink-0">R$ {p.precoMes}<span className="text-[11px] font-normal text-gray-500">/mês</span></span>
+                    </div>
+                    <p className="text-[11px] text-gray-600 mt-0.5">{p.resumo}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Sem "com tudo liberado" no plano menor: ali seria promessa falsa. */}
+            <p className="text-xs font-semibold text-green-700">
+              7 dias grátis{produto === 'completo' ? ' com tudo liberado' : ''} · depois R$ {PRODUTOS[produto].precoMes}/mês para continuar.
+            </p>
+            <p className="text-[11px] text-gray-600 -mt-1">
+              Dá para trocar de plano depois — é só falar com a equipe. Nada do que você cadastrar se perde.
+            </p>
             <p className="text-xs text-gray-500">Você será o administrador (Diretoria — acesso total).</p>
             <input type="text" aria-label="Nome do restaurante" value={nomeRest} onChange={e => setNomeRest(e.target.value)} placeholder="Nome do restaurante" className={campo} />
             <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />

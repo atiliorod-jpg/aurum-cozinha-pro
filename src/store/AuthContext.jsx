@@ -277,7 +277,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Primeiro acesso: cria restaurante + conta diretoria ───────
-  const criarPrimeiroAdmin = useCallback(async ({ nome, email, senha, nomeRestaurante }) => {
+  const criarPrimeiroAdmin = useCallback(async ({ nome, email, senha, nomeRestaurante, produto }) => {
     const { data, error } = await supabase.auth.signUp({ email, password: senha });
     if (error) return error.message;
     if (!data.user) return 'Erro inesperado ao criar conta.';
@@ -285,10 +285,18 @@ export function AuthProvider({ children }) {
     // Onboarding ATÔMICO no servidor (RPC SECURITY DEFINER): cria restaurante +
     // perfil diretoria de uma vez. Evita uma policy de INSERT aberta em
     // restaurantes (que deixaria qualquer um criar restaurantes à toa).
-    const { error: errRpc } = await supabase.rpc('criar_restaurante', {
+    const args = {
       p_nome_restaurante: nomeRestaurante || `${nome} — Restaurante`,
       p_nome_admin: nome,
-    });
+    };
+    let { error: errRpc } = await supabase.rpc('criar_restaurante', { ...args, p_produto: produto || 'completo' });
+    // ⚠️ Banco sem a migração 27 não conhece `p_produto` e recusa a chamada
+    // inteira. Cadastro NÃO pode falhar por isso: refaz sem o argumento, a
+    // conta nasce 'completo' (o default da coluna) e o super-admin ajusta no
+    // painel. Mesmo molde do fallback de avisarPagamento.
+    if (errRpc && /p_produto|does not exist|schema cache|not find|function/i.test(errRpc.message || '')) {
+      ({ error: errRpc } = await supabase.rpc('criar_restaurante', args));
+    }
     if (errRpc) {
       // A conta Auth já foi criada acima. Se a RPC falha, ela fica ÓRFÃ (sem
       // restaurante/perfil) e o e-mail passa a dar "já registrado" — a pessoa
