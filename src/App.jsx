@@ -30,7 +30,6 @@ import Etiquetas from './pages/Etiquetas';
 import FecharTurno from './pages/FecharTurno';
 import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
-import TesteBluetooth from './pages/TesteBluetooth';
 import Itens from './pages/etiquetas/Itens';
 import EtiquetasAjustes from './pages/etiquetas/Ajustes';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
@@ -293,10 +292,6 @@ function Rotas() {
           senão o cozinheiro editaria o catálogo por aqui, que é o buraco que
           esse tipo de tela nova costuma abrir. */}
       <Route path="/itens" element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
-      {/* ⚠️ TEMPORÁRIO (24/08) — teste de diagnóstico Bluetooth, ver TesteBluetooth.jsx.
-          Remover esta rota e o link em Configurações depois que a dúvida
-          BLE-x-clássico da MDK-022 for respondida. */}
-      <Route path="/teste-bluetooth" element={<TesteBluetooth />} />
       <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
       <Route path="/fichas" element={<Navigate to="/compras" replace />} />
       {/* Contagem física NÃO existe na Finalização: lá o número de fechamento

@@ -1464,14 +1464,14 @@ ${linkConvite(conviteGerado.token)}
       {/* Etiquetas impressas */}
       <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} />
 
-      {/* ⚠️ TEMPORÁRIO (24/08) — teste de diagnóstico pra decidir se dá pra
-          imprimir etiqueta direto do celular por Bluetooth. Ver TesteBluetooth.jsx.
-          Remover este cartão junto com a rota em App.jsx depois de decidido. */}
-      <Link to="/teste-bluetooth"
-        className="block bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
-        <p className="text-sm font-bold text-amber-900">🧪 Teste: imprimir etiqueta por Bluetooth</p>
-        <p className="text-xs text-amber-800 mt-1">Diagnóstico temporário — abra pelo Chrome do Android.</p>
-      </Link>
+      {/* ⚠️ O teste de Web Bluetooth que ficava aqui foi REMOVIDO — a pergunta
+          dele já tem resposta, e é não. A MDK-022 fala Bluetooth CLÁSSICO
+          (perfil SPP, 00001101-0000-1000-8000-00805F9B34FB), que no Windows
+          aparece como porta serial COM8. Web Bluetooth só alcança BLE, nunca
+          SPP clássico — em nenhum navegador, nem no Android. Então "o app
+          conversa direto com a impressora" está descartado para este modelo:
+          o caminho é a fila de impressão do sistema, como já é hoje.
+          Se algum dia entrar uma impressora BLE de verdade, isto volta. */}
 
       {/* Rendimento / Fator de correção por ingrediente */}
       <TabelaRendimento produtos={produtos} fichas={fichas} setFichas={setFichas} setProdutos={setProdutos}
