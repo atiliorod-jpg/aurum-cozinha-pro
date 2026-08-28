@@ -181,7 +181,96 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (22/08/2026)
+## Onde paramos (28/08/2026) — DOIS PRODUTOS COMERCIAIS
+
+O app passou a vender **dois produtos a partir do mesmo código**:
+
+| Produto | Preço | O que entrega |
+|---|---|---|
+| **Aurum Etiquetas** | R$ 270/mês | Biblioteca de itens prontos, cadastro próprio, impressão, controle do que vence |
+| **Aurum Cozinha Pro** | R$ 500/mês | Tudo acima + estoque, compras, produção, receitas, relatórios, financeiro |
+
+`PRECO_MES = 149` **não existe mais.** Preço vem de `PRODUTOS` em `utils/assinatura.js`.
+
+Cinco commits, um por fase:
+
+```
+a0c2e10  fase 5: escolha do produto no cadastro
+0298054  fase 4: navegacao e casa propria do plano
+39680e8  fase 3: biblioteca de itens prontos e cadastro proprio
+4e13817  fase 2: armazenamento configuravel com faixa de temperatura
+52a5ba6  fase 1: produto contratado na conta, sessao e painel
+```
+
+### As cinco coisas que você precisa saber antes de mexer nisso
+
+**1. TRÊS eixos de gating, e confundi-los é o próximo bug.**
+```
+temRecurso(modulo, x)       → que tipo de COZINHA é esta?   (utils/modulos.js)
+pode(sessao, permissoes, x) → o que este CARGO pode fazer?  (utils/permissoes.js)
+produtoTem(produto, x)      → o que a CONTA comprou?        (utils/produto.js)  ← novo
+```
+Os três são estritos (`=== true`). A coluna chama-se `produto`, **nunca `plano`**:
+`PLANOS` já significa a *duração* paga (mensal/semestral/anual).
+
+**2. O plano Etiquetas roda no módulo `producao` raiz, e isso é a coisa mais
+importante do desenho.** Não é preguiça: os documentos são namespeados por
+módulo, então um módulo próprio faria as chaves virarem `etiquetas::produtos` —
+e no dia do upgrade o cliente abriria a Cozinha de Produção e veria **catálogo
+vazio**, com os itens dele vivos no banco e nenhuma tela alcançando, sem erro
+nenhum. Reusando `producao`, upgrade = `definir_produto(rid,'completo')` e pronto.
+
+**3. Migração 27 aplicada.** Coluna `restaurantes.produto` (default `'completo'`,
+CHECK), RPC `definir_produto`, e `criar_restaurante` recriada com `p_produto`.
+⚠️ **A armadilha que quase custou caro:** a M24 concede EXECUTE **por assinatura
+exata**. Acrescentar um parâmetro cria OUTRA função, sem grant — todo cadastro
+novo quebraria com "permission denied" mostrado como erro genérico. A M27 tem
+sonda `has_function_privilege` que aborta a transação se o grant não pegar.
+Qualquer mudança futura em assinatura de RPC precisa do mesmo cuidado.
+
+**4. Armazenamento é configurável** (`prefs.armazenamentos`, não documento novo).
+Os ids `congelado` e `resfriado` são **reservados e imutáveis** — essas strings
+estão gravadas cruas em `registros[].armazenamento`, `producoes[]` e
+`etiquetasImpressas`. Nome e faixa são editáveis; o id nunca.
+`prazoDe()` lê o formato antigo (`valCongelado`/`valResfriado`) **e** o novo
+(`prazos{}`), sem migração de dados. Ao salvar, `comEspelhoDePrazos()` faz
+**dual-write** — obrigatório, porque tablet com cache antigo só sabe ler o
+formato velho e imprimiria validade zerada em silêncio.
+⚠️ O Estoque Seco usa `valCongelado` como *prazo de prateleira* (`data/seco.js`)
+e foi deixado quieto de propósito: remapear reatribuiria a validade de todo
+mantimento.
+
+**5. Prazos da biblioteca vêm EM BRANCO de propósito.** Nome, categoria e unidade
+são fatos; prazo de validade é responsabilidade sanitária do estabelecimento.
+Número inventado vira data impressa em pote de comida. A tela avisa o que falta
+(ponto âmbar) e o Atílio completa. Se ele quiser padronizar uma tabela como
+consultor, é só preencher `data/bibliotecaEtiquetas.js` — nada no código muda.
+
+### Como testar o plano etiquetas
+
+```
+?produto=etiquetas    → demo do plano menor (é também o link de visita comercial)
+node scripts/pentest-produto.mjs   # depois: node scripts/pentest-limpar.mjs
+```
+⚠️ **Teste por URL DIRETA** que as rotas do app completo redirecionam
+(`/compras`, `/producao`, `/financeiro`, `/administracao`…). O `App.jsx` já teve
+esse mesmo defeito três vezes — os comentários das linhas 233-238, 248-250 e
+262-265 registram cada uma.
+
+### Falta
+
+- Fase 6: migrar Entradas/Produção/Compras para aposentar `valCongelado`/
+  `valResfriado` do formulário (hoje convivem pelo adaptador, sem urgência).
+- Demo do plano etiquetas com dados próprios (hoje usa o seed do completo, que
+  tem estoque que aquele produto não mostra).
+- Estoque Seco e o `valCongelado` como prazo de prateleira (item 4 acima).
+
+**Estado:** 268 testes, lint 0 erros, build ok, audit-check ok. Contra o BANCO:
+auditoria 27/27, e2e 48/48, pentest-produto 5/5, contas de teste limpas.
+
+---
+
+## Antes disso (22/08/2026)
 
 Auditoria multi-agente do app inteiro (sete especialistas: texto de interface,
 navegação, corretude, relatórios, acessibilidade, design e segurança
