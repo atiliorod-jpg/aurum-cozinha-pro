@@ -31,6 +31,7 @@ import FecharTurno from './pages/FecharTurno';
 import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
 import TesteBluetooth from './pages/TesteBluetooth';
+import Itens from './pages/etiquetas/Itens';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 const Relatorio = lazy(() => import('./pages/Relatorio'));
 const Configuracoes = lazy(() => import('./pages/Configuracoes'));
@@ -253,6 +254,11 @@ function Rotas() {
       {/* fechamento de turno só existe na Cozinha de Finalização */}
       <Route path="/fechar-turno" element={temRecurso(modulo, 'fecharTurno') ? <FecharTurno /> : <Navigate to="/" replace />} />
       <Route path="/novidades" element={<Novidades />} />
+      {/* Cadastro enxuto de itens (plano Aurum Etiquetas). Gate por
+          gerenciarProdutos, a mesma capacidade que protege Config → Produtos —
+          senão o cozinheiro editaria o catálogo por aqui, que é o buraco que
+          esse tipo de tela nova costuma abrir. */}
+      <Route path="/itens" element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
       {/* ⚠️ TEMPORÁRIO (24/08) — teste de diagnóstico Bluetooth, ver TesteBluetooth.jsx.
           Remover esta rota e o link em Configurações depois que a dúvida
           BLE-x-clássico da MDK-022 for respondida. */}
