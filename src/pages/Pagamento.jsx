@@ -37,7 +37,9 @@ const RECURSOS_POR_PRODUTO = {
     '✅ Etiquetas de validade com impressão',
     '✅ Biblioteca de itens prontos (é só buscar e usar)',
     '✅ Cadastro de itens com prazo por tipo de armazenamento',
-    '✅ Controle do que está impresso e do que vence',
+    // ⚠️ Não entra "controle do que vence": a tela de Validades não existe
+    // neste produto. A lista só pode prometer o que a conta realmente tem.
+    '✅ Prazo por tipo de armazenamento (congelado, resfriado, refrigerado, ambiente)',
     '✅ Etiquetas avulsas (ex.: "Leite aberto")',
     '✅ Funciona offline e sincroniza na nuvem',
   ],

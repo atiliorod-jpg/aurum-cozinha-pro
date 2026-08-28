@@ -131,19 +131,34 @@ export default function Login() {
               <button onClick={() => trocar('convite')} className="text-xs font-semibold text-polo-navy">Tenho um código de convite →</button>
               <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante — <strong className="text-green-700">7 dias grátis</strong> →</button>
             </div>
-            <button onClick={() => entrarDemo(produtoDaURL || 'completo')}
-              className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-[0.98] transition-transform">
-              🎬 Ver demonstração{produtoDaURL === 'etiquetas' ? ' do Aurum Etiquetas' : ''} — sem cadastro
-            </button>
-            {/* Quem chegou pelo link de etiquetas ainda pode ver o completo, e
-                vice-versa: esconder a outra opção seria decidir pelo cliente. */}
-            <button onClick={() => entrarDemo(produtoDaURL === 'etiquetas' ? 'completo' : 'etiquetas')}
-              className="w-full text-xs text-gray-500 -mt-1">
-              ou ver a demonstração do {produtoDaURL === 'etiquetas' ? 'Aurum Cozinha Pro (completo)' : 'Aurum Etiquetas (só etiquetas)'}
-            </button>
-            <p className="text-[11px] text-gray-600 text-center -mt-1">
-              Restaurante de exemplo. Nada é salvo: os dados voltam ao início quando você sair.
-            </p>
+            {/* ⚠️ AS DUAS DEMONSTRAÇÕES LADO A LADO, com preço.
+                Antes havia um botão grande "Ver demonstração" e um link
+                secundário para a outra — o que fazia parecer que existe UM app
+                com um extra, quando na verdade são dois produtos com preços
+                diferentes. Quem chega aqui precisa entender a escolha ANTES de
+                entrar, senão conhece a versão errada e se decepciona depois. */}
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide text-center">
+                Conheça sem cadastro
+              </p>
+              {Object.values(PRODUTOS).map(p => (
+                <button key={p.id} onClick={() => entrarDemo(p.id)}
+                  className={`w-full text-left rounded-xl p-3 border-2 active:scale-[0.99] transition-transform
+                    ${p.id === (produtoDaURL || 'etiquetas')
+                      ? 'border-polo-gold bg-polo-beige' : 'border-gray-200'}`}>
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-sm text-polo-navy">{p.label}</span>
+                    <span className="text-xs font-bold text-polo-navy flex-shrink-0">
+                      R$ {p.precoMes}<span className="font-normal text-gray-500">/mês</span>
+                    </span>
+                  </span>
+                  <span className="block text-[11px] text-gray-600 mt-0.5">{p.resumo}</span>
+                </button>
+              ))}
+              <p className="text-[11px] text-gray-600 text-center">
+                Restaurante de exemplo. Nada é salvo: os dados voltam ao início quando você sair.
+              </p>
+            </div>
           </>}
 
           {/* ESQUECI SENHA */}
@@ -250,18 +265,42 @@ function ModalTermos({ onFechar }) {
         className="bg-white rounded-2xl p-5 max-w-sm m-auto mt-10 space-y-3 text-sm text-gray-700"
         onClick={e => e.stopPropagation()}>
         <h2 id="termos-titulo" className="font-bold text-polo-navy">Termos de uso e modo de uso</h2>
+
         <p><strong>Para quem é:</strong> cozinhas profissionais, centrais de produção e operações que
-        controlam estoque e porcionamento interno da casa — pensado para o tablet da cozinha.</p>
-        <p><strong>O que o sistema faz:</strong> recebimento (registro auxiliar), entradas de estoque,
-        produção por ficha (baixa os ingredientes e dá entrada na porção/semiacabado), saídas para
-        pontos internos (cozinha principal, outras unidades), aparas e perdas, inventário, etiquetas de validade,
-        relatórios e múltiplos usuários com cargos (cozinha, gerência, diretoria).</p>
-        <p><strong>O que NÃO é:</strong> não é PDV, caixa, cardápio ou pedido do cliente final,
-        nem delivery de prato pronto, nem sistema financeiro/contábil.</p>
-        <p><strong>Modo de uso:</strong> o estoque é organizado em <strong>itens porcionados e
-        semiacabados</strong> — cada preparo (proteína porcionada, molho base, guarnição) é cadastrado
-        e armazenado como um item independente, com sua própria ficha e validade. A montagem e a
-        finalização dos pratos ocorrem no serviço e não fazem parte do controle deste sistema.</p>
+        precisam identificar o que manipulam — pensado para o tablet da cozinha.</p>
+
+        {/* ⚠️ A base legal fica no COMEÇO, e é o argumento de venda mais forte
+            que este produto tem: a etiqueta não é organização, é exigência.
+            Item conferido na fonte (é 4.8.18, não 4.11.2 como se costuma citar
+            por aí). Descrever a norma com precisão importa: prometer
+            "conformidade garantida" seria falso — quem responde pelo processo é
+            o estabelecimento, e o texto diz isso. */}
+        <div className="bg-polo-beige rounded-lg p-3 space-y-1.5">
+          <p className="font-bold text-polo-navy">Por que etiquetar é obrigatório</p>
+          <p>A <strong>RDC nº 216/2004 da ANVISA</strong>, que regula os serviços de alimentação em
+          todo o país, determina no item <strong>4.8.18</strong> que o alimento preparado e guardado
+          sob refrigeração ou congelamento traga na embalagem, no mínimo:</p>
+          <p className="pl-3"><strong>designação · data de preparo · prazo de validade</strong></p>
+          <p>É exatamente o que a etiqueta do Aurum imprime, com a temperatura de armazenamento e o
+          responsável junto. Estados e municípios podem exigir mais — em São Paulo, por exemplo, a
+          Portaria CVS 3/2026 substitui a CVS 5/2013 a partir de 04/10/2026 e passa a mandar seguir o
+          prazo do fabricante indicado no rótulo.</p>
+          <p className="text-[11px]">
+            <strong>O que isto NÃO significa:</strong> o app imprime a etiqueta com os dados que você
+            cadastra; ele não valida o seu processo nem garante conformidade sanitária. Os prazos
+            sugeridos são ponto de partida — quem define a validade de cada preparo, e responde por
+            ela, é o responsável técnico do estabelecimento.
+          </p>
+        </div>
+
+        <p><strong>O que o Aurum Etiquetas faz:</strong> cadastro dos itens que a cozinha manipula,
+        biblioteca com centenas de itens já preenchidos, prazo por tipo de armazenamento e impressão
+        das etiquetas de validade.</p>
+        <p><strong>O que o Aurum Cozinha Pro faz a mais:</strong> estoque completo, recebimento,
+        entradas, produção por ficha técnica, saídas entre áreas, aparas e perdas, inventário,
+        relatórios e usuários com cargos (cozinha, gerência, diretoria).</p>
+        <p><strong>O que NENHUM dos dois é:</strong> não é PDV, caixa, cardápio ou pedido do cliente
+        final, nem delivery de prato pronto, nem sistema financeiro/contábil.</p>
         <p><strong>Demonstração:</strong> usa dados fictícios que ficam só no seu navegador — nada vai
         para a nuvem e tudo reseta ao sair.</p>
         <p><strong>Contas reais:</strong> cada restaurante é isolado dos demais. Detalhes de dados

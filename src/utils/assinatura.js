@@ -24,7 +24,11 @@ export const PRODUTOS = {
     id: 'etiquetas',
     label: 'Aurum Etiquetas',
     precoMes: 270,
-    resumo: 'Etiquetas de validade: imprimir, cadastrar itens e acompanhar o que vence.',
+    // ⚠️ NÃO prometer "acompanhar o que vence": a tela de Validades saiu deste
+    // produto de propósito — ele imprime a data na etiqueta, não monitora
+    // vencimento. Quem quer acompanhamento compra o completo. Prometer aqui é
+    // vender tela que a conta não tem, na hora exata da decisão de compra.
+    resumo: 'Imprime as etiquetas de validade: cadastro de itens, prazo por armazenamento e biblioteca pronta.',
   },
   completo: {
     id: 'completo',
