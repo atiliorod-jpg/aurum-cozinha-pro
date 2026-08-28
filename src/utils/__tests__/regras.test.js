@@ -22,6 +22,7 @@ import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { produtoTem, produtoAtivo } from '../produto';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
+import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../relatorios';
 import { turnoAberto, consumoDoTurno } from '../turno';
@@ -785,6 +786,57 @@ describe('etiqueta com armazenamento configurável', () => {
       produto: { valCongelado: 30, valResfriado: 3 },
     });
     expect(c.validade).toBe('2026-09-23'); // 24/08 + 30 dias
+  });
+});
+
+describe('biblioteca de itens prontos', () => {
+  it('não tem id repetido — id repetido faria um item sobrescrever o outro', () => {
+    const ids = BIBLIOTECA_ETIQUETAS.map(i => i.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('toda categoria usada existe na ordem de exibição', () => {
+    const fora = BIBLIOTECA_ETIQUETAS.filter(i => !CATEGORIAS_BIBLIOTECA.includes(i.categoria));
+    expect(fora.map(i => i.nome)).toEqual([]);
+  });
+
+  it('busca ignora acento — o cozinheiro digita "acem"', () => {
+    expect(buscarNaBiblioteca('acem').map(i => i.nome)).toContain('Acém');
+    expect(buscarNaBiblioteca('PICANHA').length).toBeGreaterThan(1); // inteira e porção
+  });
+
+  // ⚠️ Item de despensa segue a validade do FABRICANTE: o que a cozinha
+  // controla é quando abriu. Prazo inventado ali sairia impresso como data
+  // de vencimento numa embalagem que não vence assim.
+  it('sal, óleo e tempero saem sem prazo e com data de ABERTURA', () => {
+    ['sal', 'azeite', 'vinagre', 'shoyu'].forEach(id => {
+      const item = BIBLIOTECA_ETIQUETAS.find(i => i.id === id);
+      expect(item, id).toBeTruthy();
+      expect(item.tipoData, id).toBe('abertura');
+      expect(temAlgumPrazo(item), id).toBe(false);
+    });
+  });
+
+  it('proteína traz o prazo da tabela de referência (congelado 90 / resfriado 3)', () => {
+    const p = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'picanha_porcao');
+    expect(prazoDe(p, 'congelado')).toBe(90);
+    expect(prazoDe(p, 'resfriado')).toBe(3);
+  });
+
+  // ⚠️ Sem isto o azeite saía com "CONGELADO" impresso: a impressão pegava o
+  // primeiro armazenamento da lista quando o item não dizia o dele.
+  it('todo item diz em qual armazenamento fica', () => {
+    const sem = BIBLIOTECA_ETIQUETAS.filter(i => !i.armazenamentoSugerido);
+    expect(sem.map(i => i.nome)).toEqual([]);
+  });
+
+  it('agrupa na ordem definida, e categoria criada pelo cliente vai para o fim', () => {
+    const grupos = agruparPorCategoria([
+      { nome: 'X', categoria: 'VEGANOS' },
+      { nome: 'Y', categoria: 'AVES' },
+      { nome: 'Z', categoria: 'BOVINOS' },
+    ]);
+    expect(grupos.map(([c]) => c)).toEqual(['BOVINOS', 'AVES', 'VEGANOS']);
   });
 });
 

@@ -22,7 +22,11 @@ const TIPOS_IMPRESSORA = [
       'Compre o modelo com TRANSFERÊNCIA TÉRMICA (usa fita/ribbon de resina) e etiquetas BOPP — são as que não desbotam no congelador nem com água. Térmica direta (sem ribbon) desbota com o tempo.',
       'Instale o driver do fabricante no computador: Zebra → zebra.com/suporte (busque ZD220) · Argox → argox.com · Elgin → elgin.com.br/automacao (área de drivers).',
       'No driver/preferências da impressora do Windows, configure o tamanho do papel igual ao rolo (ex.: 60 × 40 mm).',
-      'Em Config → Sistema → 🏷️ Etiquetas, coloque o MESMO tamanho.',
+      // ⚠️ CAMINHO_CONFIG é trocado por onde a tela realmente está: no plano
+      // Etiquetas não existe "Config → Sistema", existe "Ajustes". Mandar o
+      // cliente a uma tela que a conta dele não tem, no passo a passo de
+      // INSTALAÇÃO, é chamado de suporte na certa.
+      'Em CAMINHO_CONFIG, coloque o MESMO tamanho.',
       'Pronto: clique Imprimir em qualquer etiqueta aqui → na janela que abre, escolha a impressora de etiquetas → Imprimir.',
     ],
   },
@@ -53,7 +57,8 @@ const TIPOS_IMPRESSORA = [
   },
 ];
 
-function GuiaImpressora() {
+function GuiaImpressora({ caminhoConfig }) {
+  const resolver = (t) => t.replace('CAMINHO_CONFIG', caminhoConfig);
   const [aberto, setAberto] = useState('termica-usb');
   return (
     <div className="space-y-3">
@@ -82,7 +87,7 @@ function GuiaImpressora() {
               {t.passos.map((p, i) => (
                 <li key={i} className="flex gap-2 text-xs text-gray-700">
                   <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-[11px]">{i + 1}</span>
-                  <span className="pt-0.5">{p}</span>
+                  <span className="pt-0.5">{resolver(p)}</span>
                 </li>
               ))}
             </ol>
@@ -211,7 +216,7 @@ export default function Etiquetas() {
       </div>
 
       {tab === 'impressora' ? (
-        <GuiaImpressora />
+        <GuiaImpressora caminhoConfig={soEtiq ? 'Ajustes → Etiquetas' : 'Config → Sistema → 🏷️ Etiquetas'} />
       ) : tab === 'catalogo' ? (
         <div className="space-y-4">
           <p className="text-xs text-gray-500 px-1">

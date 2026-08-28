@@ -118,10 +118,21 @@ export default function Itens() {
       // Id estável quando vem da biblioteca: assim "remover e adicionar de
       // novo" REATIVA o item em vez de criar um gêmeo invisível (remover aqui
       // é desativar, não apagar).
-      const id = form.origemBiblioteca ? `bib_${form.origemBiblioteca}` : `item_${nome.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
-      const existente = produtos.find(p => p.id === id);
-      if (existente) setProdutos(produtos.map(p => p.id === id ? { ...p, ...dados, ativo: true } : p));
-      else setProdutos([...produtos, { ...dados, id }]);
+      if (form.origemBiblioteca) {
+        const id = `bib_${form.origemBiblioteca}`;
+        const existente = produtos.find(p => p.id === id);
+        if (existente) setProdutos(produtos.map(p => p.id === id ? { ...p, ...dados, ativo: true } : p));
+        else setProdutos([...produtos, { ...dados, id }]);
+      } else {
+        // ⚠️ Item criado do zero: o id vem do nome, e nome REPETE. Sem o
+        // sufixo, cadastrar "Molho" duas vezes gerava o mesmo id e o segundo
+        // SOBRESCREVIA o primeiro em silêncio — a pessoa via "cadastrado" e o
+        // item anterior sumia com os prazos dele.
+        const base = `item_${nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}`;
+        let id = base, n = 2;
+        while (produtos.some(p => p.id === id)) id = `${base}_${n++}`;
+        setProdutos([...produtos, { ...dados, id }]);
+      }
       toast(`"${nome}" cadastrado.`, 'sucesso');
     }
     setEditando(null);
