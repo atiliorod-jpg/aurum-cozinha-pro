@@ -30,14 +30,21 @@ import { mesclarFixos } from './modulos';
 // nome e faixa continuam editáveis, porque são só apresentação.
 export const ARMAZENAMENTOS_PADRAO = [
   { id: 'congelado',   nome: 'Congelado',            faixa: '-18°C',      fixo: true },
-  // ⚠️ RESFRIADO e REFRIGERADO são coisas diferentes, e a cozinha trata assim:
-  //   • resfriado  0–4°C  → carne, pescado, preparado (a faixa crítica)
-  //   • refrigerado 4–10°C → hortifrúti, laticínio, bebida
-  // Ter só um dos dois obrigava a etiquetar alface com a mesma temperatura da
-  // picanha, que é errado nos dois sentidos: apertado demais para a alface,
-  // frouxo demais para a carne.
-  { id: 'resfriado',   nome: 'Resfriado',            faixa: '0°C a 4°C',  fixo: true },
-  { id: 'refrigerado', nome: 'Refrigerado',          faixa: '4°C a 10°C' },
+  // ⚠️ REFRIGERADO é o MAIS FRIO dos dois. Eu tinha invertido, e o dono
+  // corrigiu com fonte:
+  //   • refrigerado 0–6°C  → o frio de trabalho da câmara: carne fresca,
+  //     pescado, laticínio, embutido, preparado da casa
+  //   • resfriado   6–10°C → faixa mais alta: hortifrúti que sofre no frio
+  //     forte (tomate, pepino, abobrinha) e o processo de tirar o calor de
+  //     algo que veio do ambiente ou da cocção
+  //
+  // A confusão é comum e o vocabulário varia entre normas — a CVS 5/2013, por
+  // exemplo, usa "resfriado" para a faixa de 0–4°C das carnes. Por isso o que
+  // vai IMPRESSO na etiqueta é a FAIXA em °C, não só a palavra: é o número que
+  // o fiscal confere e é o número que a equipe usa. Nome e faixa continuam
+  // editáveis em Ajustes para cada casa usar o vocabulário dela.
+  { id: 'refrigerado', nome: 'Refrigerado',          faixa: '0°C a 6°C',  fixo: true },
+  { id: 'resfriado',   nome: 'Resfriado',            faixa: '6°C a 10°C', fixo: true },
   { id: 'ambiente',    nome: 'Temperatura ambiente', faixa: 'até 25°C' },
 ];
 

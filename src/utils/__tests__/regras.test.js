@@ -752,7 +752,7 @@ describe('armazenamento configurável (utils/armazenamento.js)', () => {
 
   it('congelado e resfriado são repostos mesmo em prefs que já foi salva sem eles', () => {
     const lista = listarArmazenamentos({ armazenamentos: [{ id: 'ambiente', nome: 'Ambiente' }] });
-    expect(lista.map(a => a.id).sort()).toEqual(['ambiente', 'congelado', 'resfriado']);
+    expect(lista.map(a => a.id).sort()).toEqual(['ambiente', 'congelado', 'refrigerado', 'resfriado']);
     // e voltam marcados como fixos, que é o que esconde o botão de remover
     expect(lista.find(a => a.id === 'congelado').fixo).toBe(true);
   });
@@ -765,7 +765,7 @@ describe('armazenamento configurável (utils/armazenamento.js)', () => {
   });
 
   it('prefs vazia devolve os quatro estados de partida', () => {
-    const esperado = ['congelado', 'resfriado', 'refrigerado', 'ambiente'];
+    const esperado = ['congelado', 'refrigerado', 'resfriado', 'ambiente'];
     expect(listarArmazenamentos({}).map(a => a.id)).toEqual(esperado);
     expect(listarArmazenamentos(undefined).map(a => a.id)).toEqual(esperado);
   });
@@ -777,8 +777,9 @@ describe('armazenamento configurável (utils/armazenamento.js)', () => {
     const lista = listarArmazenamentos({});
     const res = lista.find(a => a.id === 'resfriado');
     const ref = lista.find(a => a.id === 'refrigerado');
-    expect(res.faixa).toBe('0°C a 4°C');
-    expect(ref.faixa).toBe('4°C a 10°C');
+    // ⚠️ REFRIGERADO é o mais frio dos dois — eu tinha invertido e o dono corrigiu.
+    expect(ref.faixa).toBe('0°C a 6°C');
+    expect(res.faixa).toBe('6°C a 10°C');
   });
 });
 
@@ -845,7 +846,7 @@ describe('biblioteca de itens prontos', () => {
   it('carne crua porcionada congela por MESES, não por 90 dias', () => {
     const picanha = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'picanha_porcao');
     expect(prazoDe(picanha, 'congelado')).toBe(180);   // 6 meses
-    expect(prazoDe(picanha, 'resfriado')).toBe(3);     // tabela CVS
+    expect(prazoDe(picanha, 'refrigerado')).toBe(3);   // frio de trabalho 0-6°C
     const frango = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'peito_de_frango_porcao');
     expect(prazoDe(frango, 'congelado')).toBe(180);
   });
@@ -853,7 +854,7 @@ describe('biblioteca de itens prontos', () => {
   it('preparado da casa fica no teto de 90 dias congelado', () => {
     const molho = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'molho_de_tomate_da_casa');
     expect(prazoDe(molho, 'congelado')).toBe(90);
-    expect(prazoDe(molho, 'resfriado')).toBe(3);
+    expect(prazoDe(molho, 'refrigerado')).toBe(3);
   });
 
   // Moída e empanado cru têm mais superfície exposta e oxidam antes.
@@ -861,7 +862,7 @@ describe('biblioteca de itens prontos', () => {
     const moida = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'carne_moida');
     const peca = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'picanha_inteira');
     expect(prazoDe(moida, 'congelado')).toBeLessThan(prazoDe(peca, 'congelado'));
-    expect(prazoDe(moida, 'resfriado')).toBe(2);
+    expect(prazoDe(moida, 'refrigerado')).toBe(2);
   });
 
   // Pescado gorduroso rancifica antes do magro — não podem ter o mesmo prazo.
@@ -873,14 +874,17 @@ describe('biblioteca de itens prontos', () => {
 
   // ⚠️ Resfriado (0–4°C) e refrigerado (4–10°C) são faixas diferentes. Alface
   // na faixa da picanha e picanha na faixa da alface estão os dois errados.
-  it('hortifrúti e laticínio vão para REFRIGERADO, carne para RESFRIADO', () => {
-    const alface = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'alface');
-    expect(alface.armazenamentoSugerido).toBe('refrigerado');
-    expect(prazoDe(alface, 'refrigerado')).toBeGreaterThan(0);
-    const queijo = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'queijo_mussarela');
-    expect(queijo.armazenamentoSugerido).toBe('refrigerado');
-    const picanha = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'picanha_porcao');
-    expect(prazoDe(picanha, 'resfriado')).toBeGreaterThan(0);
+  // ⚠️ REFRIGERADO (0–6°C) é o frio de TRABALHO — carne, pescado, laticínio,
+  // frios e preparado. RESFRIADO (6–10°C) é a faixa mais alta, para hortifrúti
+  // inteiro que sofre no frio forte (tomate estraga a textura abaixo de ~7°C).
+  it('proteína e laticínio no frio de trabalho; hortifrúti sensível na faixa alta', () => {
+    ['picanha_porcao', 'queijo_mussarela', 'alface'].forEach(id => {
+      const i = BIBLIOTECA_ETIQUETAS.find(x => x.id === id);
+      expect(prazoDe(i, 'refrigerado'), id).toBeGreaterThan(0);
+    });
+    const tomate = BIBLIOTECA_ETIQUETAS.find(i => i.id === 'tomate');
+    expect(tomate.armazenamentoSugerido).toBe('resfriado');
+    expect(prazoDe(tomate, 'resfriado')).toBeGreaterThan(0);
   });
 
   // ⚠️ Sem isto o azeite saía com "CONGELADO" impresso: a impressão pegava o
@@ -888,6 +892,27 @@ describe('biblioteca de itens prontos', () => {
   it('todo item diz em qual armazenamento fica', () => {
     const sem = BIBLIOTECA_ETIQUETAS.filter(i => !i.armazenamentoSugerido);
     expect(sem.map(i => i.nome)).toEqual([]);
+  });
+
+  // ⚠️ Item que sugere um armazenamento SEM prazo naquele estado imprime
+  // etiqueta SEM data de vencimento — em silêncio. Aconteceu de verdade ao
+  // trocar as faixas de resfriado/refrigerado: o tomate passou a sugerir
+  // 'resfriado' e o prazo dele ficou em 'refrigerado'.
+  it('todo item com prazo tem prazo NO estado que ele sugere', () => {
+    const ruins = BIBLIOTECA_ETIQUETAS
+      .filter(i => Object.values(i.prazos || {}).some(v => v > 0))
+      .filter(i => !(Number(i.prazos[i.armazenamentoSugerido]) > 0))
+      .map(i => `${i.nome} sugere ${i.armazenamentoSugerido} mas o prazo está em ${Object.keys(i.prazos).join('/')}`);
+    expect(ruins).toEqual([]);
+  });
+
+  // Refrigerado (0–6°C) é o frio de TRABALHO; resfriado (6–10°C) é a faixa
+  // mais alta. Proteína e laticínio no primeiro, hortifrúti sensível no outro.
+  it('proteína e laticínio ficam no frio de trabalho (refrigerado)', () => {
+    ['picanha_porcao', 'file_de_tilapia', 'queijo_mussarela', 'leite_aberto'].forEach(id => {
+      const i = BIBLIOTECA_ETIQUETAS.find(x => x.id === id);
+      expect(prazoDe(i, 'refrigerado'), id).toBeGreaterThan(0);
+    });
   });
 
   it('agrupa na ordem definida, e categoria criada pelo cliente vai para o fim', () => {

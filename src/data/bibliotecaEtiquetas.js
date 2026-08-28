@@ -10,8 +10,10 @@
 //  Os prazos abaixo são SUGESTÃO DE PARTIDA. Duas referências, e elas
 //  respondem perguntas diferentes:
 //
-//  RESFRIADO — tabela de tempo × temperatura do serviço de alimentação
-//  (Portaria CVS 5/2013, SP):
+//  REFRIGERADO (0–6°C, o frio de trabalho) — tabela de tempo × temperatura do
+//  serviço de alimentação (Portaria CVS 5/2013, SP; ela chama esta faixa de
+//  "resfriado", mas o vocabulário do app segue o do dono — o que vai impresso
+//  na etiqueta é a FAIXA em °C, que é o que o fiscal confere):
 //     • pescado a 2°C .................... 3 dias
 //     • carne bovina/suína/ave a 4°C ..... 3 dias
 //     • carne moída e empanado cru ....... 2 dias
@@ -40,11 +42,15 @@
 //     aqui substitui a validação do estabelecimento. Por isso o app abre a
 //     ficha do item ANTES de adicionar: é onde o prazo é conferido.
 //
-//  Itens de despensa (sal, açúcar, óleo, vinagre, tempero seco) saem com
-//  prazo ZERO de propósito: para eles a validade é a do fabricante, impressa
-//  na embalagem, e o que a cozinha controla é a DATA DE ABERTURA — por isso
-//  vêm com `tipoData: 'abertura'`. Inventar um prazo genérico ali seria pior
-//  que não ter nenhum.
+//  ── ITENS ABERTOS (tipoData: 'abertura') ───────────────────────────
+//  Produto de embalagem tem DOIS prazos, e eles não se confundem:
+//     • o do fabricante, impresso na embalagem → vai no campo "Val. original"
+//     • o de DEPOIS DE ABERTO ("consumir em 3 dias após aberto") → é o prazo
+//       daqui, e é ele que gera a data de vencimento da etiqueta
+//  Leite, creme de leite, requeijão, conservas e afins já vêm com esse prazo
+//  preenchido. Sal, açúcar, farinha e tempero seco vêm com ZERO porque não
+//  passam a vencer por terem sido abertos — ali a validade é só a do
+//  fabricante, e inventar um prazo seria pior que não ter nenhum.
 // =====================================================================
 
 // A ORDEM importa: é a ordem em que os grupos aparecem na tela. Proteína
@@ -95,14 +101,14 @@ const it = (nome, categoria, unidade, armaz, prazos = {}, tipoData = 'fabricacao
 // técnico da casa, com o processo dele na mão.
 const MESES = (n) => n * 30;
 
-const CARNE_CRUA  = { congelado: MESES(6), resfriado: 3 };   // bovina, suína, ave porcionada
-const MOIDA       = { congelado: MESES(3), resfriado: 2 };   // moída/empanado: mais superfície, oxida antes
-const PESCADO     = { congelado: MESES(6), resfriado: 3 };   // magro (tilápia, pescada)
-const PESCADO_GOR = { congelado: MESES(3), resfriado: 3 };   // gorduroso (salmão, atum) — a gordura rancifica
-const FRIOS       = { resfriado: 3 };
-const COZIDO      = { congelado: 90, resfriado: 3 };         // PREPARADO da casa — o teto de 90 dias
+const CARNE_CRUA  = { congelado: MESES(6), refrigerado: 3 };   // bovina, suína, ave porcionada
+const MOIDA       = { congelado: MESES(3), refrigerado: 2 };   // moída/empanado: mais superfície, oxida antes
+const PESCADO     = { congelado: MESES(6), refrigerado: 3 };   // magro (tilápia, pescada)
+const PESCADO_GOR = { congelado: MESES(3), refrigerado: 3 };   // gorduroso (salmão, atum) — a gordura rancifica
+const FRIOS       = { refrigerado: 3 };
+const COZIDO      = { congelado: 90, refrigerado: 3 };         // PREPARADO da casa — o teto de 90 dias
 const FOLHOSA     = { refrigerado: 3 };
-const HORTI       = { refrigerado: 5 };
+const HORTI       = { resfriado: 5 };   // hortifruti inteiro: sofre no frio forte
 const ABERTO      = {};                                      // segue o fabricante
 
 export const BIBLIOTECA_ETIQUETAS = [
@@ -128,11 +134,11 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Carne moída', 'BOVINOS', 'kg', 'congelado', MOIDA),
   it('Carne em cubos', 'BOVINOS', 'kg', 'congelado', CARNE_CRUA),
   it('Tiras para strogonoff', 'BOVINOS', 'kg', 'congelado', CARNE_CRUA),
-  it('Carne de sol', 'BOVINOS', 'kg', 'resfriado', CARNE_CRUA),
-  it('Charque', 'BOVINOS', 'kg', 'resfriado', CARNE_CRUA),
+  it('Carne de sol', 'BOVINOS', 'kg', 'refrigerado', CARNE_CRUA),
+  it('Charque', 'BOVINOS', 'kg', 'refrigerado', CARNE_CRUA),
   it('Hambúrguer bovino', 'BOVINOS', 'unid', 'congelado', MOIDA),
   it('Empanado de filé (porção)', 'BOVINOS', 'unid', 'congelado', MOIDA),
-  it('Bife rolê', 'BOVINOS', 'unid', 'resfriado', MOIDA),
+  it('Bife rolê', 'BOVINOS', 'unid', 'refrigerado', MOIDA),
   it('Fígado bovino', 'BOVINOS', 'kg', 'congelado', CARNE_CRUA),
   it('Rabada', 'BOVINOS', 'kg', 'congelado', CARNE_CRUA),
 
@@ -144,12 +150,12 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Coxa e sobrecoxa', 'AVES', 'kg', 'congelado', CARNE_CRUA),
   it('Asa de frango', 'AVES', 'kg', 'congelado', CARNE_CRUA),
   it('Coxinha da asa', 'AVES', 'kg', 'congelado', CARNE_CRUA),
-  it('Frango desfiado', 'AVES', 'kg', 'resfriado', COZIDO),
+  it('Frango desfiado', 'AVES', 'kg', 'refrigerado', COZIDO),
   it('Frango em cubos', 'AVES', 'kg', 'congelado', CARNE_CRUA),
   it('Frango empanado', 'AVES', 'kg', 'congelado', MOIDA),
-  it('Peito de peru fatiado', 'AVES', 'kg', 'resfriado', FRIOS),
+  it('Peito de peru fatiado', 'AVES', 'kg', 'refrigerado', FRIOS),
   it('Coração de frango', 'AVES', 'kg', 'congelado', CARNE_CRUA),
-  it('Ovo de codorna cozido', 'AVES', 'unid', 'resfriado', COZIDO),
+  it('Ovo de codorna cozido', 'AVES', 'unid', 'refrigerado', COZIDO),
 
   // ── SUÍNOS ─────────────────────────────────────────────────
   it('Lombo suíno inteiro', 'SUÍNOS', 'kg', 'congelado', CARNE_CRUA),
@@ -158,11 +164,11 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Pernil', 'SUÍNOS', 'kg', 'congelado', CARNE_CRUA),
   it('Bisteca suína', 'SUÍNOS', 'kg', 'congelado', CARNE_CRUA),
   it('Panceta', 'SUÍNOS', 'kg', 'congelado', CARNE_CRUA),
-  it('Bacon em cubos', 'SUÍNOS', 'kg', 'resfriado', FRIOS),
-  it('Bacon fatiado', 'SUÍNOS', 'kg', 'resfriado', FRIOS),
-  it('Linguiça calabresa', 'SUÍNOS', 'kg', 'resfriado', FRIOS),
-  it('Linguiça toscana', 'SUÍNOS', 'kg', 'resfriado', FRIOS),
-  it('Paio', 'SUÍNOS', 'kg', 'resfriado', FRIOS),
+  it('Bacon em cubos', 'SUÍNOS', 'kg', 'refrigerado', FRIOS),
+  it('Bacon fatiado', 'SUÍNOS', 'kg', 'refrigerado', FRIOS),
+  it('Linguiça calabresa', 'SUÍNOS', 'kg', 'refrigerado', FRIOS),
+  it('Linguiça toscana', 'SUÍNOS', 'kg', 'refrigerado', FRIOS),
+  it('Paio', 'SUÍNOS', 'kg', 'refrigerado', FRIOS),
   it('Costelinha temperada', 'SUÍNOS', 'kg', 'congelado', CARNE_CRUA),
   it('Pururuca / torresmo', 'SUÍNOS', 'kg', 'ambiente', { ambiente: 2 }),
 
@@ -174,12 +180,12 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Camarão com casca', 'PESCADOS', 'kg', 'congelado', PESCADO),
   it('Polvo', 'PESCADOS', 'kg', 'congelado', PESCADO),
   it('Lula em anéis', 'PESCADOS', 'kg', 'congelado', PESCADO),
-  it('Bacalhau dessalgado', 'PESCADOS', 'kg', 'resfriado', PESCADO),
+  it('Bacalhau dessalgado', 'PESCADOS', 'kg', 'refrigerado', PESCADO),
   it('Peixe inteiro limpo', 'PESCADOS', 'kg', 'congelado', PESCADO),
   it('Filé de pescada', 'PESCADOS', 'kg', 'congelado', PESCADO),
   it('Atum em posta', 'PESCADOS', 'kg', 'congelado', PESCADO_GOR),
   it('Marisco / vôngole', 'PESCADOS', 'kg', 'congelado', PESCADO),
-  it('Pescado cozido', 'PESCADOS', 'kg', 'resfriado', { resfriado: 1 }),
+  it('Pescado cozido', 'PESCADOS', 'kg', 'refrigerado', { refrigerado: 1 }),
 
   // ── HORTIFRÚTI ─────────────────────────────────────────────
   it('Alface', 'HORTIFRÚTI', 'unid', 'refrigerado', FOLHOSA),
@@ -188,8 +194,8 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Agrião', 'HORTIFRÚTI', 'maço', 'refrigerado', FOLHOSA),
   it('Couve', 'HORTIFRÚTI', 'maço', 'refrigerado', FOLHOSA),
   it('Couve fatiada', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
-  it('Repolho', 'HORTIFRÚTI', 'unid', 'refrigerado', HORTI),
-  it('Tomate', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
+  it('Repolho', 'HORTIFRÚTI', 'unid', 'resfriado', HORTI),
+  it('Tomate', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
   it('Tomate picado', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
   it('Cebola', 'HORTIFRÚTI', 'kg', 'ambiente', { ambiente: 30 }),
   it('Cebola picada', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
@@ -197,25 +203,25 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Alho descascado', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
   it('Batata', 'HORTIFRÚTI', 'kg', 'ambiente', { ambiente: 15 }),
   it('Batata descascada', 'HORTIFRÚTI', 'kg', 'refrigerado', { refrigerado: 2 }),
-  it('Cenoura', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
+  it('Cenoura', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
   it('Cenoura ralada', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
-  it('Pimentão', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
-  it('Abobrinha', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
-  it('Berinjela', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
+  it('Pimentão', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
+  it('Abobrinha', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
+  it('Berinjela', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
   it('Brócolis', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
   it('Couve-flor', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
   it('Cheiro-verde', 'HORTIFRÚTI', 'maço', 'refrigerado', FOLHOSA),
   it('Manjericão', 'HORTIFRÚTI', 'maço', 'refrigerado', FOLHOSA),
-  it('Limão', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
-  it('Abacaxi', 'HORTIFRÚTI', 'unid', 'refrigerado', HORTI),
+  it('Limão', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
+  it('Abacaxi', 'HORTIFRÚTI', 'unid', 'resfriado', HORTI),
   it('Abacaxi picado', 'HORTIFRÚTI', 'kg', 'refrigerado', { refrigerado: 2 }),
-  it('Manga', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
+  it('Manga', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
   it('Banana', 'HORTIFRÚTI', 'kg', 'ambiente', { ambiente: 5 }),
-  it('Mamão', 'HORTIFRÚTI', 'unid', 'refrigerado', HORTI),
+  it('Mamão', 'HORTIFRÚTI', 'unid', 'resfriado', HORTI),
   it('Melancia picada', 'HORTIFRÚTI', 'kg', 'refrigerado', { refrigerado: 2 }),
   it('Salada higienizada', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
   it('Legumes descascados', 'HORTIFRÚTI', 'kg', 'refrigerado', { refrigerado: 2 }),
-  it('Milho verde', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
+  it('Milho verde', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
 
   // ── LATICÍNIOS E FRIOS ─────────────────────────────────────
   it('Queijo mussarela', 'LATICÍNIOS E FRIOS', 'kg', 'refrigerado', FRIOS, 'abertura'),
@@ -240,25 +246,25 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Nata', 'LATICÍNIOS E FRIOS', 'kg', 'refrigerado', { refrigerado: 3 }, 'abertura'),
 
   // ── MOLHOS E PREPARADOS (da casa) ──────────────────────────
-  it('Molho de tomate da casa', 'MOLHOS E PREPARADOS', 'L', 'resfriado', COZIDO),
-  it('Molho branco', 'MOLHOS E PREPARADOS', 'L', 'resfriado', COZIDO),
-  it('Molho barbecue da casa', 'MOLHOS E PREPARADOS', 'L', 'resfriado', COZIDO),
-  it('Molho de alho', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', { resfriado: 3 }),
-  it('Maionese temperada', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', { resfriado: 2 }),
-  it('Vinagrete', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', { resfriado: 2 }),
-  it('Chimichurri', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', { resfriado: 3 }),
+  it('Molho de tomate da casa', 'MOLHOS E PREPARADOS', 'L', 'refrigerado', COZIDO),
+  it('Molho branco', 'MOLHOS E PREPARADOS', 'L', 'refrigerado', COZIDO),
+  it('Molho barbecue da casa', 'MOLHOS E PREPARADOS', 'L', 'refrigerado', COZIDO),
+  it('Molho de alho', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', { refrigerado: 3 }),
+  it('Maionese temperada', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', { refrigerado: 2 }),
+  it('Vinagrete', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', { refrigerado: 2 }),
+  it('Chimichurri', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', { refrigerado: 3 }),
   it('Caldo de carne', 'MOLHOS E PREPARADOS', 'L', 'congelado', COZIDO),
   it('Caldo de legumes', 'MOLHOS E PREPARADOS', 'L', 'congelado', COZIDO),
   it('Caldo de frango', 'MOLHOS E PREPARADOS', 'L', 'congelado', COZIDO),
-  it('Feijão cozido', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', COZIDO),
-  it('Arroz cozido', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', COZIDO),
-  it('Purê de batata', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', COZIDO),
-  it('Farofa pronta', 'MOLHOS E PREPARADOS', 'kg', 'ambiente', { ambiente: 2, resfriado: 3 }),
+  it('Feijão cozido', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', COZIDO),
+  it('Arroz cozido', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', COZIDO),
+  it('Purê de batata', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', COZIDO),
+  it('Farofa pronta', 'MOLHOS E PREPARADOS', 'kg', 'ambiente', { ambiente: 2, refrigerado: 3 }),
   it('Carne desfiada temperada', 'MOLHOS E PREPARADOS', 'kg', 'congelado', COZIDO),
   it('Recheio pronto', 'MOLHOS E PREPARADOS', 'kg', 'congelado', COZIDO),
-  it('Legumes refogados', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', COZIDO),
-  it('Massa de bolinho', 'MOLHOS E PREPARADOS', 'kg', 'resfriado', { resfriado: 2 }),
-  it('Marinada / tempero líquido', 'MOLHOS E PREPARADOS', 'L', 'resfriado', { resfriado: 3 }),
+  it('Legumes refogados', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', COZIDO),
+  it('Massa de bolinho', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', { refrigerado: 2 }),
+  it('Marinada / tempero líquido', 'MOLHOS E PREPARADOS', 'L', 'refrigerado', { refrigerado: 3 }),
 
   // ── TEMPEROS E CONDIMENTOS (prazo do fabricante) ───────────
   // Todos com tipoData 'abertura': o que a cozinha controla aqui é QUANDO
@@ -286,26 +292,26 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Shoyu', 'TEMPEROS E CONDIMENTOS', 'L', 'ambiente', ABERTO, 'abertura'),
   it('Molho inglês', 'TEMPEROS E CONDIMENTOS', 'L', 'ambiente', ABERTO, 'abertura'),
   it('Pimenta em molho', 'TEMPEROS E CONDIMENTOS', 'L', 'ambiente', ABERTO, 'abertura'),
-  it('Ketchup', 'TEMPEROS E CONDIMENTOS', 'kg', 'resfriado', ABERTO, 'abertura'),
-  it('Mostarda', 'TEMPEROS E CONDIMENTOS', 'kg', 'resfriado', ABERTO, 'abertura'),
-  it('Maionese industrializada', 'TEMPEROS E CONDIMENTOS', 'kg', 'resfriado', ABERTO, 'abertura'),
-  it('Extrato de tomate', 'TEMPEROS E CONDIMENTOS', 'kg', 'resfriado', { resfriado: 3 }, 'abertura'),
-  it('Azeitona', 'TEMPEROS E CONDIMENTOS', 'kg', 'resfriado', ABERTO, 'abertura'),
-  it('Palmito', 'TEMPEROS E CONDIMENTOS', 'kg', 'resfriado', { resfriado: 3 }, 'abertura'),
-  it('Milho em conserva', 'TEMPEROS E CONDIMENTOS', 'kg', 'resfriado', { resfriado: 2 }, 'abertura'),
-  it('Ervilha em conserva', 'TEMPEROS E CONDIMENTOS', 'kg', 'resfriado', { resfriado: 2 }, 'abertura'),
+  it('Ketchup', 'TEMPEROS E CONDIMENTOS', 'kg', 'refrigerado', ABERTO, 'abertura'),
+  it('Mostarda', 'TEMPEROS E CONDIMENTOS', 'kg', 'refrigerado', ABERTO, 'abertura'),
+  it('Maionese industrializada', 'TEMPEROS E CONDIMENTOS', 'kg', 'refrigerado', ABERTO, 'abertura'),
+  it('Extrato de tomate', 'TEMPEROS E CONDIMENTOS', 'kg', 'refrigerado', { refrigerado: 3 }, 'abertura'),
+  it('Azeitona', 'TEMPEROS E CONDIMENTOS', 'kg', 'refrigerado', ABERTO, 'abertura'),
+  it('Palmito', 'TEMPEROS E CONDIMENTOS', 'kg', 'refrigerado', { refrigerado: 3 }, 'abertura'),
+  it('Milho em conserva', 'TEMPEROS E CONDIMENTOS', 'kg', 'refrigerado', { refrigerado: 2 }, 'abertura'),
+  it('Ervilha em conserva', 'TEMPEROS E CONDIMENTOS', 'kg', 'refrigerado', { refrigerado: 2 }, 'abertura'),
 
   // ── MASSAS E PANIFICAÇÃO ───────────────────────────────────
-  it('Massa fresca', 'MASSAS E PANIFICAÇÃO', 'kg', 'resfriado', { resfriado: 3 }),
-  it('Massa de pizza', 'MASSAS E PANIFICAÇÃO', 'unid', 'resfriado', { resfriado: 2, congelado: 30 }),
-  it('Massa de pastel', 'MASSAS E PANIFICAÇÃO', 'kg', 'resfriado', { resfriado: 3 }),
-  it('Massa de lasanha', 'MASSAS E PANIFICAÇÃO', 'kg', 'resfriado', { resfriado: 3 }),
+  it('Massa fresca', 'MASSAS E PANIFICAÇÃO', 'kg', 'refrigerado', { refrigerado: 3 }),
+  it('Massa de pizza', 'MASSAS E PANIFICAÇÃO', 'unid', 'refrigerado', { refrigerado: 2, congelado: 30 }),
+  it('Massa de pastel', 'MASSAS E PANIFICAÇÃO', 'kg', 'refrigerado', { refrigerado: 3 }),
+  it('Massa de lasanha', 'MASSAS E PANIFICAÇÃO', 'kg', 'refrigerado', { refrigerado: 3 }),
   it('Pão de hambúrguer', 'MASSAS E PANIFICAÇÃO', 'unid', 'ambiente', { ambiente: 3 }),
   it('Pão francês', 'MASSAS E PANIFICAÇÃO', 'kg', 'ambiente', { ambiente: 1 }),
   it('Pão de forma', 'MASSAS E PANIFICAÇÃO', 'unid', 'ambiente', { ambiente: 5 }, 'abertura'),
   it('Torrada / crouton', 'MASSAS E PANIFICAÇÃO', 'kg', 'ambiente', { ambiente: 7 }),
-  it('Bolo', 'MASSAS E PANIFICAÇÃO', 'unid', 'resfriado', { resfriado: 3 }),
-  it('Massa de bolo crua', 'MASSAS E PANIFICAÇÃO', 'kg', 'resfriado', { resfriado: 1 }),
+  it('Bolo', 'MASSAS E PANIFICAÇÃO', 'unid', 'refrigerado', { refrigerado: 3 }),
+  it('Massa de bolo crua', 'MASSAS E PANIFICAÇÃO', 'kg', 'refrigerado', { refrigerado: 1 }),
 
   // ── GRÃOS E SECOS (prazo do fabricante) ────────────────────
   it('Arroz', 'GRÃOS E SECOS', 'kg', 'ambiente', ABERTO, 'abertura'),
@@ -367,13 +373,13 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Sassami', 'AVES', 'kg', 'congelado', CARNE_CRUA),
   it('Tilápia inteira', 'PESCADOS', 'kg', 'congelado', PESCADO),
   it('Camarão cozido', 'PESCADOS', 'kg', 'refrigerado', { refrigerado: 1 }),
-  it('Pepino', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
-  it('Beterraba', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
-  it('Chuchu', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
+  it('Pepino', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
+  it('Beterraba', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
+  it('Chuchu', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
   it('Mandioca descascada', 'HORTIFRÚTI', 'kg', 'refrigerado', { refrigerado: 2, congelado: MESES(6) }),
   it('Batata-doce', 'HORTIFRÚTI', 'kg', 'ambiente', { ambiente: 15 }),
   it('Salsa e cebolinha picada', 'HORTIFRÚTI', 'kg', 'refrigerado', FOLHOSA),
-  it('Gengibre', 'HORTIFRÚTI', 'kg', 'refrigerado', HORTI),
+  it('Gengibre', 'HORTIFRÚTI', 'kg', 'resfriado', HORTI),
   it('Queijo gorgonzola', 'LATICÍNIOS E FRIOS', 'kg', 'refrigerado', FRIOS, 'abertura'),
   it('Queijo provolone', 'LATICÍNIOS E FRIOS', 'kg', 'refrigerado', FRIOS, 'abertura'),
   it('Ricota', 'LATICÍNIOS E FRIOS', 'kg', 'refrigerado', { refrigerado: 3 }, 'abertura'),

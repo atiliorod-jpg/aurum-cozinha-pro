@@ -9,7 +9,12 @@ import { prazoDe } from './armazenamento';
 // Configuração padrão da etiqueta (sobrescrita por prefs.etiquetaConfig, em Config → Sistema)
 export const ETIQUETA_CONFIG_PADRAO = {
   larguraMm: 60,
-  alturaMm: 40,
+  // ⚠️ 60x50 e o rolo mais comum de etiqueta de validade no mercado brasileiro
+  // (era 40 aqui, e a altura errada faz a etiqueta sair DESLOCADA no papel).
+  // Continua ajustavel por conta em Ajustes -> Etiquetas: o que nao pode e o
+  // padrao de fabrica obrigar todo cliente novo a descobrir isso imprimindo
+  // torto. Os dois lados precisam do mesmo numero — app e driver.
+  alturaMm: 50,
   incluirQR: false,
   campos: {
     restaurante: true, validade: true, fabricacao: true, armazenamento: true,

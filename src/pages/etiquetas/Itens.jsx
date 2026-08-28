@@ -382,12 +382,18 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
           </div>
         </div>
 
-        {/* Isto é o que antes fazia um item ser "avulso". Agora é um campo. */}
+        {/* ⚠️ Isto é o que antes fazia um item ser "avulso". O dono disse que
+            não entendia a diferença na prática — e a explicação honesta é que
+            ela é PEQUENA: os dois contam os dias a partir de hoje. O que muda
+            é a PALAVRA IMPRESSA na etiqueta, e essa palavra importa para quem
+            pega o pote na prateleira (e para o fiscal). Então o texto diz
+            exatamente isso, em vez de sugerir uma diferença de cálculo que não
+            existe. */}
         <div>
-          <p className="text-xs font-semibold text-gray-600 mb-1.5">A data da etiqueta é de…</p>
+          <p className="text-xs font-semibold text-gray-600 mb-1.5">O que aconteceu com o produto?</p>
           <div className="grid grid-cols-2 gap-2">
-            {[['fabricacao', 'Manipulação', 'porcionado, cozido, preparado aqui'],
-              ['abertura', 'Abertura', 'embalagem do fabricante aberta']].map(([v, l, d]) => (
+            {[['fabricacao', 'Manipulação', 'você porcionou, cortou ou cozinhou'],
+              ['abertura', 'Abertura', 'você abriu a embalagem do fabricante']].map(([v, l, d]) => (
               <button key={v} type="button" onClick={() => set('tipoData', v)}
                 className={`text-left rounded-lg p-2.5 border-2 transition-colors
                   ${form.tipoData === v ? 'border-polo-gold bg-polo-beige' : 'border-gray-200'}`}>
@@ -396,6 +402,11 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
               </button>
             ))}
           </div>
+          <p className="text-[11px] text-gray-600 mt-1.5">
+            A conta é a mesma nos dois: a validade sai a partir de <strong>hoje</strong>.
+            Muda só a palavra impressa na etiqueta —{' '}
+            <strong>{form.tipoData === 'abertura' ? 'ABERTURA' : 'MANIPULAÇÃO'}</strong>.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -412,7 +423,22 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-gray-600 mb-1.5">Validade por armazenamento (dias)</p>
+          {/* ⚠️ O RÓTULO MUDA COM O tipoData, e é isto que tira a confusão do
+              dono: para item aberto, a pergunta que a embalagem responde é
+              "depois de aberto, dura quantos dias?" — o leite que diz
+              "consumir em 3 dias após aberto" vira 3 aqui, e a etiqueta sai
+              com a data certa. Perguntar "validade" genérica fazia parecer
+              que era a validade de fábrica, que não é o que o app calcula. */}
+          <p className="text-xs font-semibold text-gray-600 mb-1.5">
+            {form.tipoData === 'abertura'
+              ? 'Depois de ABERTO, dura quantos dias?'
+              : 'Depois de MANIPULADO, dura quantos dias?'}
+          </p>
+          <p className="text-[11px] text-gray-600 mb-2">
+            {form.tipoData === 'abertura'
+              ? 'Está na embalagem do fabricante — algo como "após aberto, consumir em 3 dias". Preencha na temperatura em que você guarda.'
+              : 'É o prazo do processo da sua cozinha, em cada temperatura de guarda.'}
+          </p>
           <div className="grid grid-cols-2 gap-3">
             {armazenamentos.map(a => (
               <div key={a.id}>
@@ -426,12 +452,16 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
               </div>
             ))}
           </div>
-          {/* Aviso, não bloqueio: item que segue a validade do fabricante
-              (sal, óleo, tempero) legitimamente não tem prazo próprio. */}
+          {/* Aviso, não bloqueio — mas o texto antigo dizia que ficar em branco
+              era "certo para item que segue a validade do fabricante", e o dono
+              leu isso como "pode deixar vazio", o que está errado para quase
+              tudo. Agora o padrão é PREENCHER, e o vazio é a exceção nomeada. */}
           {semPrazo && (
             <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-2">
-              Sem prazo, a etiqueta sai sem data de vencimento — certo para item que segue a
-              validade do fabricante. Se este vence depois de aberto/manipulado, preencha.
+              <strong>Sem prazo, a etiqueta sai sem data de vencimento.</strong> Quase todo item
+              precisa de um — inclusive os abertos. Deixe vazio só no que realmente não vence
+              depois de aberto (sal, açúcar, farinha): nesses, a validade é a do fabricante e sai
+              no campo “Val. original” da etiqueta.
             </p>
           )}
         </div>
