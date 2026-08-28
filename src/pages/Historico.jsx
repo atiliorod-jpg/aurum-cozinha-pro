@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { prazosDoProduto } from '../utils/armazenamento';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { fmtData, fmtNum } from '../utils/formatters';
@@ -100,8 +101,7 @@ export default function Historico() {
         tipoData: 'fabricacao',
         dataFabricacao: r.data,
         armazenamento: r.armazenamento || null,
-        diasCongelado: p?.valCongelado || 0,
-        diasResfriado: p?.valResfriado || 0,
+        prazos: prazosDoProduto(p),
         validade: item.validade || null,
         responsavel: r.responsavel || '',
         quantidade: 1,

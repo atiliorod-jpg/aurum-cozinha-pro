@@ -11,6 +11,7 @@ import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro, addDias } from '../utils/datas';
 import { planejarProducao } from '../utils/producao';
 import { pode } from '../utils/permissoes';
+import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazenamento';
 
 export default function Producao() {
   const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref, permissoes, modulo, rid } = useApp();
@@ -41,8 +42,10 @@ export default function Producao() {
       const receitaAlvo = producoes.find(r => r.id === rParam);
       if (receitaAlvo?.armazenamento && receitaAlvo.armazenamento !== 'ambos') return receitaAlvo.armazenamento;
     }
-    return 'congelado';
+    // primeiro estado configurado, e não um 'congelado' cravado
+    return armazenamentosAtivos(prefs)[0]?.id || 'congelado';
   });
+  const armazenamentos = armazenamentosAtivos(prefs);
   const obs = rascunho.obs || '';
   const setObs = (v) => setRascunho(r => ({ ...r, obs: v }));
   const [mostraIngredientes, setMostraIngredientes] = useState(false);
@@ -57,7 +60,7 @@ export default function Producao() {
   const produto = produtos.find(p => p.id === produtoId);
   const quantidadeNum = parseFloat(quantidade) || 0;
   const plano = receita ? planejarProducao(receita, quantidadeNum || receita.rendimentoBase, estoque) : { itens: [], faltaAlgum: false };
-  const diasValPrevisao = armazenamento === 'congelado' ? (produto?.valCongelado || 0) : (produto?.valResfriado || 0);
+  const diasValPrevisao = prazoDe(produto, armazenamento);
   const validadePrevisao = produtoId && diasValPrevisao > 0 ? addDias(data, diasValPrevisao) : null;
 
   const registrar = () => {
@@ -67,7 +70,7 @@ export default function Producao() {
     const receitaNome = receita?.nome || prodNome(produtoId);
     const obsTxt = `Produção: ${receitaNome}${obs ? ` — ${obs}` : ''}`;
     // calcula validade do produto final com base no armazenamento escolhido
-    const diasVal = armazenamento === 'congelado' ? (produto?.valCongelado || 0) : (produto?.valResfriado || 0);
+    const diasVal = prazoDe(produto, armazenamento);
     const validade = diasVal > 0 ? addDias(data, diasVal) : undefined;
     // ingredientes que ABATEM do estoque (frios/proteínas controlados)
     const abateItens = plano.itens.filter(i => i.abate && i.produtoId && i.quantidade > 0)
@@ -96,8 +99,7 @@ export default function Producao() {
       tipoData: 'fabricacao',
       dataFabricacao: data,
       armazenamento,
-      diasCongelado: produto?.valCongelado || 0,
-      diasResfriado: produto?.valResfriado || 0,
+      prazos: prazosDoProduto(produto),
       validade: validade || null,
       responsavel,
       quantidade: 1,
@@ -188,7 +190,7 @@ export default function Producao() {
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento do item produzido</label>
                 <div className="flex gap-2">
-                  {[['congelado', '❄️ Congelado'], ['resfriado', '🧊 Resfriado']].map(([v, l]) => (
+                  {armazenamentos.map(({ id: v, nome: l }) => (
                     <button key={v} onClick={() => setArmazenamento(v)}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors
                         ${armazenamento === v ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>

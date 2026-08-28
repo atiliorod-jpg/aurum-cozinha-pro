@@ -10,6 +10,7 @@ import { hoje, fmtData, fmtHora } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
+import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazenamento';
 
 export default function Entradas() {
   const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo, permissoes, rid } = useApp();
@@ -21,7 +22,10 @@ export default function Entradas() {
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
   const [obs, setObs] = useState('');
-  const [armazenamento, setArmazenamento] = useState('congelado');
+  // Abre no PRIMEIRO estado configurado, não num 'congelado' cravado: o
+  // restaurante pode ter desligado o congelado ou renomeado a lista.
+  const armazenamentos = armazenamentosAtivos(prefs);
+  const [armazenamento, setArmazenamento] = useState(() => armazenamentosAtivos(prefs)[0]?.id || 'congelado');
   // no estoque seco não há câmara fria: prazo único, sem rótulo de armazenamento
   const temArmazenamento = temRecurso(modulo, 'armazenamento');
   const armazenamentoReal = temArmazenamento ? armazenamento : null;
@@ -80,8 +84,8 @@ export default function Entradas() {
       armazenamento: armazenamentoReal,
       itens: itensPreenchidos.map(([produtoId, quantidade]) => {
         const p = produtos.find(x => x.id === produtoId);
-        const dias = !temArmazenamento ? (p?.valCongelado || 0)
-          : armazenamento === 'congelado' ? (p?.valCongelado || 0) : (p?.valResfriado || 0);
+        // prazo do estado escolhido; prazoDe lê o formato novo e o antigo
+        const dias = prazoDe(p, temArmazenamento ? armazenamento : 'congelado');
         return {
           produtoId,
           quantidade: parseFloat(quantidade),
@@ -96,16 +100,14 @@ export default function Entradas() {
     // Oferece imprimir as etiquetas dos itens recém-registrados (opcional — dá pra pular)
     abrirEtiquetas(itensPreenchidos.map(([produtoId]) => {
       const p = produtos.find(x => x.id === produtoId);
-      const dias = !temArmazenamento ? (p?.valCongelado || 0)
-        : armazenamento === 'congelado' ? (p?.valCongelado || 0) : (p?.valResfriado || 0);
+      const dias = prazoDe(p, temArmazenamento ? armazenamento : 'congelado');
       return {
         produtoId,
         nome: p?.nome || produtoId,
         tipoData: 'fabricacao',
         dataFabricacao: data,
         armazenamento: armazenamentoReal,
-        diasCongelado: p?.valCongelado || 0,
-        diasResfriado: p?.valResfriado || 0,
+        prazos: prazosDoProduto(p),
         validade: dias > 0 ? addDias(data, dias) : null,
         responsavel,
         quantidade: 1,
@@ -152,17 +154,18 @@ export default function Entradas() {
             {temArmazenamento ? (
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento</label>
+                {/* Os dois botões fixos viraram a lista configurável
+                    (Config → Sistema → Armazenamento). grid-cols-2 continua:
+                    com 3+ estados eles quebram em linhas, que é o certo num
+                    tablet segurado com uma mão só. */}
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={() => setArmazenamento('congelado')}
-                    className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors
-                      ${armazenamento === 'congelado' ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                    ❄️ Congelado
-                  </button>
-                  <button type="button" onClick={() => setArmazenamento('resfriado')}
-                    className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors
-                      ${armazenamento === 'resfriado' ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                    🧊 Resfriado
-                  </button>
+                  {armazenamentos.map(a => (
+                    <button key={a.id} type="button" onClick={() => setArmazenamento(a.id)}
+                      className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors
+                        ${armazenamento === a.id ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
+                      {a.nome}
+                    </button>
+                  ))}
                 </div>
                 <p className="text-xs text-gray-500 mt-1">A validade de cada item é calculada sozinha pelos prazos do produto (Config).</p>
               </div>
@@ -202,7 +205,7 @@ export default function Entradas() {
               <div className="text-center text-gray-500 py-6 text-sm">Nenhum produto encontrado.</div>
             )}
             {produtosVisiveis.map((p, i, arr) => {
-              const diasVal = armazenamento === 'congelado' ? (p.valCongelado || 0) : (p.valResfriado || 0);
+              const diasVal = prazoDe(p, armazenamento);
               const temQtd = parseFloat(qtds[p.id]) > 0;
               return (
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>

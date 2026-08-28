@@ -4,6 +4,7 @@
 
 import { addDias } from './datas';
 import { fmtData } from './formatters';
+import { prazoDe } from './armazenamento';
 
 // Configuração padrão da etiqueta (sobrescrita por prefs.etiquetaConfig, em Config → Sistema)
 export const ETIQUETA_CONFIG_PADRAO = {
@@ -50,10 +51,18 @@ export function montarCamposEtiqueta({
   sif = '',
   hora = '',
   loteId = null,
+  // ⚠️ Nome e faixa do estado de armazenamento entram COMO PARÂMETRO, já
+  // resolvidos pelo chamador a partir de prefs (ver utils/armazenamento.js).
+  // Passar `prefs` para dentro deste util acoplaria uma função pura ao estado
+  // do app e tiraria dela o que a torna testável. Quando não vêm, o
+  // comportamento antigo (congelado/resfriado) continua valendo — é o que
+  // mantém funcionando qualquer chamada vinda de cache ou rascunho velho.
+  armazenamentoNome = '',
+  armazenamentoFaixa = '',
 }) {
   let dias = parseFloat(diasValidade) || 0;
   if (!dias && produto && armazenamento) {
-    dias = armazenamento === 'congelado' ? (produto.valCongelado || 0) : (produto.valResfriado || 0);
+    dias = prazoDe(produto, armazenamento);
   }
   const validadeCalc = validade || (dias > 0 && dataFabricacao ? addDias(dataFabricacao, dias) : null);
   const comHora = (dataFmt) => dataFmt && hora ? `${dataFmt} - ${hora}` : dataFmt;
@@ -69,10 +78,16 @@ export function montarCamposEtiqueta({
     valOriginal: valOriginal || null,
     valOriginalFmt: valOriginal ? fmtData(valOriginal) : '',
     armazenamento,
+    // Nome resolvido pelo chamador; sem ele, o par fixo de sempre.
     armazenamentoLabel:
-      armazenamento === 'congelado' ? 'CONGELADO'
+      armazenamentoNome ? armazenamentoNome.toUpperCase()
+      : armazenamento === 'congelado' ? 'CONGELADO'
       : armazenamento === 'resfriado' ? 'RESFRIADO'
       : '',
+    // Faixa de temperatura ("-18°C a -12°C") — sai ao lado do nome na etiqueta.
+    // Vazia quando o restaurante não preencheu: a linha continua válida só com
+    // o nome, e imprimir uma faixa inventada seria pior que não imprimir.
+    armazenamentoFaixa: armazenamentoFaixa || '',
     medida: medida || '',
     marca: marca || '',
     sif: sif || '',

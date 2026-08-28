@@ -21,6 +21,7 @@ import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { produtoTem, produtoAtivo } from '../produto';
+import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../relatorios';
 import { turnoAberto, consumoDoTurno } from '../turno';
@@ -684,6 +685,106 @@ describe('planos de pagamento (Pix)', () => {
     expect(plano('mensal').dias).toBe(30);
     expect(plano('semestral').dias).toBe(180);
     expect(plano('anual').dias).toBe(365);
+  });
+});
+
+describe('armazenamento configurável (utils/armazenamento.js)', () => {
+  // ⚠️ O grupo mais importante deste arquivo para a etiqueta: se `prazoDe`
+  // errar, sai etiqueta com validade errada — ou sem validade — colada num
+  // pote de comida. Cada formato de produto que existe no banco hoje tem caso.
+  it('produto ANTIGO (só valCongelado/valResfriado) continua com os prazos', () => {
+    const p = { id: 'picanha', valCongelado: 30, valResfriado: 3 };
+    expect(prazoDe(p, 'congelado')).toBe(30);
+    expect(prazoDe(p, 'resfriado')).toBe(3);
+  });
+
+  it('produto NOVO (prazos{}) usa o formato novo, inclusive estados criados pelo restaurante', () => {
+    const p = { id: 'alface', prazos: { resfriado: 5, ambiente: 2 } };
+    expect(prazoDe(p, 'resfriado')).toBe(5);
+    expect(prazoDe(p, 'ambiente')).toBe(2);
+  });
+
+  it('com os DOIS formatos divergindo, prazos{} manda', () => {
+    const p = { valCongelado: 30, valResfriado: 3, prazos: { congelado: 45 } };
+    expect(prazoDe(p, 'congelado')).toBe(45);
+    // o estado que prazos{} não cita continua caindo no campo antigo
+    expect(prazoDe(p, 'resfriado')).toBe(3);
+  });
+
+  it('estado sem prazo devolve 0, e 0 significa "etiqueta sem vencimento"', () => {
+    expect(prazoDe({ valCongelado: 30 }, 'ambiente')).toBe(0);
+    expect(prazoDe(null, 'congelado')).toBe(0);
+    expect(prazoDe(undefined, undefined)).toBe(0);
+  });
+
+  it('temAlgumPrazo distingue item cadastrado pela metade de item completo', () => {
+    expect(temAlgumPrazo({ nome: 'Alface' })).toBe(false);
+    expect(temAlgumPrazo({ prazos: { ambiente: 0 } })).toBe(false);
+    expect(temAlgumPrazo({ valCongelado: 30 })).toBe(true);
+    expect(temAlgumPrazo({ prazos: { ambiente: 2 } })).toBe(true);
+  });
+
+  // ⚠️ Sem o espelho, um tablet com cache antigo imprime validade ZERADA em
+  // silêncio — o formato antigo é o único que ele sabe ler.
+  it('ao salvar, os campos antigos são espelhados a partir de prazos{}', () => {
+    const salvo = comEspelhoDePrazos({ id: 'x', nome: 'X' }, { congelado: 20, resfriado: 4, ambiente: 90 });
+    expect(salvo.prazos).toEqual({ congelado: 20, resfriado: 4, ambiente: 90 });
+    expect(salvo.valCongelado).toBe(20);
+    expect(salvo.valResfriado).toBe(4);
+  });
+
+  it('espelho zera os campos antigos quando o estado deixa de ter prazo', () => {
+    const salvo = comEspelhoDePrazos({ valCongelado: 30, valResfriado: 3 }, { ambiente: 90 });
+    expect(salvo.valCongelado).toBe(0);
+    expect(salvo.valResfriado).toBe(0);
+    expect(prazoDe(salvo, 'ambiente')).toBe(90);
+  });
+
+  it('congelado e resfriado são repostos mesmo em prefs que já foi salva sem eles', () => {
+    const lista = listarArmazenamentos({ armazenamentos: [{ id: 'ambiente', nome: 'Ambiente' }] });
+    expect(lista.map(a => a.id).sort()).toEqual(['ambiente', 'congelado', 'resfriado']);
+    // e voltam marcados como fixos, que é o que esconde o botão de remover
+    expect(lista.find(a => a.id === 'congelado').fixo).toBe(true);
+  });
+
+  it('o restaurante pode renomear o fixo e a renomeação sobrevive', () => {
+    const lista = listarArmazenamentos({
+      armazenamentos: [{ id: 'congelado', nome: 'Freezer -18', faixa: '-18°C', fixo: true }],
+    });
+    expect(lista.find(a => a.id === 'congelado').nome).toBe('Freezer -18');
+  });
+
+  it('prefs vazia devolve os três estados de partida', () => {
+    expect(listarArmazenamentos({}).map(a => a.id)).toEqual(['congelado', 'resfriado', 'ambiente']);
+    expect(listarArmazenamentos(undefined).map(a => a.id)).toEqual(['congelado', 'resfriado', 'ambiente']);
+  });
+});
+
+describe('etiqueta com armazenamento configurável', () => {
+  it('a faixa de temperatura sai junto do nome quando o chamador a resolve', () => {
+    const c = montarCamposEtiqueta({
+      nome: 'Molho', dataFabricacao: '2026-08-24', armazenamento: 'ambiente',
+      armazenamentoNome: 'Temperatura ambiente', armazenamentoFaixa: 'até 25°C',
+      produto: { prazos: { ambiente: 90 } },
+    });
+    expect(c.armazenamentoLabel).toBe('TEMPERATURA AMBIENTE');
+    expect(c.armazenamentoFaixa).toBe('até 25°C');
+    expect(c.validade).toBe('2026-11-22'); // 24/08 + 90 dias
+  });
+
+  // Compatibilidade: chamada antiga (sem nome/faixa) não pode perder o rótulo.
+  it('sem nome resolvido, congelado/resfriado ainda saem rotulados', () => {
+    const c = montarCamposEtiqueta({ nome: 'Picanha', dataFabricacao: '2026-08-24', armazenamento: 'congelado' });
+    expect(c.armazenamentoLabel).toBe('CONGELADO');
+    expect(c.armazenamentoFaixa).toBe('');
+  });
+
+  it('prazo do produto continua vindo do formato antigo na montagem da etiqueta', () => {
+    const c = montarCamposEtiqueta({
+      nome: 'Picanha', dataFabricacao: '2026-08-24', armazenamento: 'congelado',
+      produto: { valCongelado: 30, valResfriado: 3 },
+    });
+    expect(c.validade).toBe('2026-09-23'); // 24/08 + 30 dias
   });
 });
 

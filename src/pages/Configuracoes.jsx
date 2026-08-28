@@ -14,6 +14,7 @@ import { pode, CAPACIDADES, permissoesEfetivas } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
 import { configEtiqueta } from '../utils/etiquetas';
 import { temRecurso } from '../utils/modulos';
+import { listarArmazenamentos, armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../utils/armazenamento';
 
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
 // a conversão para número acontece só no salvar.
@@ -92,6 +93,116 @@ function CartaoSuporteRemoto({ prefs, setPref, toast }) {
             </button>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// Estados de armazenamento (Configurações → Sistema)
+//
+// Antes eram dois, cravados no código. Agora o restaurante define quais existem
+// na casa dele e qual a faixa de temperatura de cada um — que sai impressa na
+// etiqueta ao lado do nome.
+function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
+  const lista = listarArmazenamentos(prefs);
+  const salvar = (nova) => setPref('armazenamentos', nova);
+
+  const editar = (id, campo, valor) =>
+    salvar(lista.map(a => a.id === id ? { ...a, [campo]: valor } : a));
+
+  const [novo, setNovo] = useState('');
+  const adicionar = () => {
+    const nome = novo.trim();
+    if (!nome) return;
+    // id derivado do nome, sem acento nem espaço — é o que fica gravado nos
+    // registros e nas etiquetas, então precisa ser estável e simples.
+    const id = nome.normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (!id) { toast('Dê um nome com letras.', 'aviso'); return; }
+    if (lista.some(a => a.id === id)) { toast('Já existe um armazenamento com esse nome.', 'aviso'); return; }
+    salvar([...lista, { id, nome, faixa: '' }]);
+    setNovo('');
+    toast(`"${nome}" adicionado. Preencha a faixa de temperatura.`, 'sucesso');
+  };
+
+  const remover = async (a) => {
+    const ok = await confirm({
+      titulo: `Remover "${a.nome}"?`,
+      mensagem: 'As etiquetas já impressas com esse armazenamento continuam como estão. Os prazos que os produtos têm nele deixam de ser usados.',
+      perigo: true, confirmar: 'Remover',
+    });
+    if (!ok) return;
+    salvar(lista.filter(x => x.id !== a.id));
+    toast(`"${a.nome}" removido.`, 'sucesso');
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+      <div>
+        <p className="text-sm font-bold text-polo-navy">Armazenamento</p>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Como os itens são guardados na sua casa. O nome e a faixa saem impressos na etiqueta,
+          e cada produto tem um prazo de validade por armazenamento.
+        </p>
+      </div>
+
+      {/* ⚠️ Aviso deliberado: a temperatura correta é responsabilidade sanitária
+          do estabelecimento, varia por produto e por exigência da vigilância
+          local. Estes valores são ponto de partida, e quem confere é o
+          responsável técnico — não o app. */}
+      <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+        As faixas abaixo já vêm preenchidas como sugestão. <strong>Confira com o seu
+        responsável técnico</strong> e ajuste ao que a vigilância local exige — é essa
+        temperatura que vai impressa na etiqueta.
+      </p>
+
+      <div className="space-y-2">
+        {lista.map(a => (
+          <div key={a.id} className="border border-gray-200 rounded-lg p-2.5 space-y-2">
+            <div className="flex items-center gap-2">
+              <input type="text" value={a.nome} onChange={e => editar(a.id, 'nome', e.target.value)}
+                aria-label={`Nome do armazenamento ${a.nome}`}
+                className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm font-semibold" />
+              {a.fixo ? (
+                // congelado e resfriado não podem ser removidos: os ids deles
+                // estão gravados no histórico de toda conta que já usou o app
+                <span className="text-[11px] text-gray-500 bg-gray-100 rounded-full px-2 py-1 flex-shrink-0">fixo</span>
+              ) : (
+                <button onClick={() => remover(a)} aria-label={`Remover ${a.nome}`}
+                  className="text-red-700 text-xs font-bold px-2 py-1.5 flex-shrink-0">Remover</button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor={`arm-faixa-${a.id}`} className="text-xs text-gray-600 flex-shrink-0">Temperatura</label>
+              <input id={`arm-faixa-${a.id}`} type="text" value={a.faixa || ''} maxLength={MAX_FAIXA}
+                onChange={e => editar(a.id, 'faixa', e.target.value)}
+                placeholder="ex.: -18°C a -12°C"
+                className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* O limite existe por causa do papel, não por capricho — ver MAX_FAIXA */}
+      <p className="text-[11px] text-gray-500">
+        A temperatura cabe em {MAX_FAIXA} caracteres: acima disso ela empurraria o rodapé da
+        etiqueta (endereço e QR) para fora do papel.
+      </p>
+
+      <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
+        <input type="text" value={novo} onChange={e => setNovo(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') adicionar(); }}
+          placeholder="Novo armazenamento (ex.: Estufa)"
+          aria-label="Nome do novo armazenamento"
+          className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm" />
+        <Botao onClick={adicionar} tamanho="sm" largura="auto">Adicionar</Botao>
+      </div>
+
+      {JSON.stringify(lista) !== JSON.stringify(ARMAZENAMENTOS_PADRAO) && (
+        <button onClick={() => { salvar(ARMAZENAMENTOS_PADRAO.map(a => ({ ...a }))); toast('Armazenamentos voltaram ao padrão.', 'sucesso'); }}
+          className="text-xs text-gray-600 underline underline-offset-2">
+          Voltar ao padrão
+        </button>
       )}
     </div>
   );
@@ -548,13 +659,21 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
   );
 }
 
-function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comArmazenamento = true, subgruposExistentes = [] }) {
+function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comArmazenamento = true, subgruposExistentes = [], armazenamentos = [] }) {
+  // Os prazos entram no form como mapa por ESTADO. prazosDoProduto já lê o
+  // formato antigo (valCongelado/valResfriado), então produto cadastrado antes
+  // da lista configurável abre com os prazos dele preenchidos, no lugar certo.
+  const prazosIniciais = (p) => {
+    const base = prazosDoProduto(p);
+    return Object.fromEntries(Object.entries(base).map(([k, v]) => [k, numVazio(v)]));
+  };
   const [form, setForm] = useState(() => produto
     ? {
         ...produto,
         estoqueInicial: numVazio(produto.estoqueInicial),
         min: numVazio(produto.min),
         max: numVazio(produto.max),
+        prazos: prazosIniciais(produto),
         valCongelado: numVazio(produto.valCongelado),
         valResfriado: numVazio(produto.valResfriado),
         pesoUnidade: numVazio(produto.pesoUnidade),
@@ -564,7 +683,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
       }
     : {
         nome: '', categoria: categorias[0], unidade: 'kg',
-        estoqueInicial: '', min: '', max: '', valCongelado: '', valResfriado: '', pesoUnidade: '', marca: '', sif: '',
+        estoqueInicial: '', min: '', max: '', prazos: {}, valCongelado: '', valResfriado: '', pesoUnidade: '', marca: '', sif: '',
         gramatura: '', coccao: '', entradaCozida: false, ativo: true,
       });
   const set = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
@@ -656,35 +775,37 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
           </div>
         )}
 
-        {/* Câmara fria tem dois prazos (congelado/resfriado); despensa tem um só. */}
+        {/* Um prazo por ESTADO configurado (Config → Sistema → Armazenamento);
+            despensa não tem câmara fria e usa prazo de prateleira único. */}
         {comArmazenamento ? (
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="mp-val-congelado" className="block text-xs font-semibold text-gray-600 mb-1">
-                ❄️ Validade congelado (dias)
-              </label>
-              <input id="mp-val-congelado" type="number" inputMode="numeric" min="0" value={form.valCongelado}
-                onChange={e => set('valCongelado', e.target.value)}
-                placeholder="0 = sem controle"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label htmlFor="mp-val-resfriado" className="block text-xs font-semibold text-gray-600 mb-1">
-                🧊 Validade resfriado (dias)
-              </label>
-              <input id="mp-val-resfriado" type="number" inputMode="numeric" min="0" value={form.valResfriado}
-                onChange={e => set('valResfriado', e.target.value)}
-                placeholder="0 = sem controle"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-            </div>
+            {armazenamentos.map(a => (
+              <div key={a.id}>
+                <label htmlFor={`mp-prazo-${a.id}`} className="block text-xs font-semibold text-gray-600 mb-1">
+                  {a.nome} (dias)
+                  {a.faixa && <span className="font-normal text-gray-500"> · {a.faixa}</span>}
+                </label>
+                <input id={`mp-prazo-${a.id}`} type="number" inputMode="numeric" min="0"
+                  value={form.prazos?.[a.id] ?? ''}
+                  onChange={e => set('prazos', { ...(form.prazos || {}), [a.id]: e.target.value })}
+                  placeholder="0 = sem controle"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+              </div>
+            ))}
           </div>
         ) : (
           <div>
             <label htmlFor="mp-val-congelado" className="block text-xs font-semibold text-gray-600 mb-1">
               📦 Prazo de prateleira (dias)
             </label>
-            <input id="mp-val-congelado" type="number" inputMode="numeric" min="0" value={form.valCongelado}
-              onChange={e => set('valCongelado', e.target.value)}
+            {/* ⚠️ Escreve em prazos.congelado, NÃO em valCongelado direto.
+                No Estoque Seco esta chave sempre significou "prazo de
+                prateleira" (ver src/data/seco.js) — a semântica não muda, só o
+                lugar onde é guardada. Escrever no campo antigo aqui faria o
+                espelho do salvar zerar o valor, porque ele deriva de `prazos`. */}
+            <input id="mp-val-congelado" type="number" inputMode="numeric" min="0"
+              value={form.prazos?.congelado ?? ''}
+              onChange={e => set('prazos', { ...(form.prazos || {}), congelado: e.target.value })}
               placeholder="0 = sem controle (ex.: descartáveis)"
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
@@ -791,12 +912,14 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
             Cancelar
           </button>
           <button onClick={() => onSalvar({
-              ...form,
+              // ⚠️ comEspelhoDePrazos grava `prazos` E espelha nos campos
+              // antigos. O espelho não é redundância: tablet com cache velho só
+              // sabe ler valCongelado/valResfriado e, sem ele, imprimiria
+              // etiqueta com validade zerada sem avisar ninguém.
+              ...comEspelhoDePrazos(form, form.prazos),
               estoqueInicial: parseFloat(form.estoqueInicial) || 0,
               min: parseFloat(form.min) || 0,
               max: parseFloat(form.max) || 0,
-              valCongelado: parseInt(form.valCongelado) || 0,
-              valResfriado: parseInt(form.valResfriado) || 0,
               pesoUnidade: parseFloat(form.pesoUnidade) || 0,
               gramatura: parseFloat(form.gramatura) || 0,
               coccao: Math.min(parseFloat(form.coccao) || 0, 90),
@@ -1623,6 +1746,9 @@ ${linkConvite(conviteGerado.token)}
       {/* Suporte remoto */}
       <CartaoSuporteRemoto prefs={prefs} setPref={setPref} toast={toast} />
 
+      {/* Armazenamento (vem ANTES das etiquetas: define o que a etiqueta imprime) */}
+      <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
+
       {/* Etiquetas impressas */}
       <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} />
 
@@ -2102,6 +2228,7 @@ ${linkConvite(conviteGerado.token)}
 
       {(editando || criando) && (
         <ModalProduto comArmazenamento={temRecurso(modulo, 'armazenamento')} subgruposExistentes={subgruposExistentes}
+          armazenamentos={armazenamentosAtivos(prefs)}
           produto={editando}
           sugestao={editando ? sugestoes[editando.id] : null}
           categorias={categorias}

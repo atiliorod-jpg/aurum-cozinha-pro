@@ -14,6 +14,7 @@ import { somaPorUnidade } from '../utils/relatorios';
 import CalculadoraProducao from '../components/CalculadoraProducao';
 import GuideTour from '../components/GuideTour';
 import { temRecurso } from '../utils/modulos';
+import { acharArmazenamento } from '../utils/armazenamento';
 import { pode } from '../utils/permissoes';
 import { useAuth } from '../store/AuthContext';
 
@@ -460,7 +461,10 @@ export default function Dashboard() {
                           return (
                             <div key={`${l.validade}_${l.dataEntrada}_${i}`} className="flex justify-between items-center text-xs">
                               <span className="text-gray-600">
-                                {l.armazenamento === 'resfriado' ? '🧊' : '❄️'} {fmtNum(l.restante)} {p.unidade}
+                                {/* nome do armazenamento configurado, em vez do
+                                    par de emojis fixo — com "ambiente" na lista,
+                                    o floco de neve mentiria */}
+                                {acharArmazenamento(prefs, l.armazenamento)?.nome || '—'} · {fmtNum(l.restante)} {p.unidade}
                                 <span className="text-gray-500"> • entrou {fmtData(l.dataEntrada)}</span>
                               </span>
                               <span className={`font-bold ${dias < 0 ? 'text-red-600' : dias <= 3 ? 'text-orange-600' : 'text-gray-600'}`}>

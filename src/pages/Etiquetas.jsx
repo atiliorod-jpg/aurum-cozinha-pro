@@ -4,6 +4,7 @@ import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
+import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
 
 // Guia de configuração de impressora — escolhe a situação e mostra o passo a
 // passo com links de download. Imprimível (o print CSS global já esconde
@@ -100,6 +101,8 @@ export default function Etiquetas() {
   const { produtos, categorias, etiquetasAvulsas, setEtiquetasAvulsas, prefs, modulo } = useApp();
   const { abrirEtiquetas, toast, confirm } = useUI();
 
+  const armazenamentos = armazenamentosAtivos(prefs);
+
   const [tab, setTab] = useState('catalogo'); // 'catalogo' | 'avulsas'
   const [busca, setBusca] = useState('');
   const [catAtiva, setCatAtiva] = useState('');
@@ -118,10 +121,16 @@ export default function Etiquetas() {
     nome: p.nome,
     tipoData: 'fabricacao',
     dataFabricacao: hoje(),
-    // na despensa não existe congelado/resfriado — sem rótulo de armazenamento
-    armazenamento: temRecurso(modulo, 'armazenamento') ? 'congelado' : null,
-    diasCongelado: p.valCongelado || 0,
-    diasResfriado: p.valResfriado || 0,
+    // na despensa não existe congelado/resfriado — sem rótulo de armazenamento.
+    // Quando existe, abre no PRIMEIRO estado configurado, não num 'congelado'
+    // cravado: o restaurante pode ter desligado a câmara de congelados.
+    armazenamento: temRecurso(modulo, 'armazenamento') ? (armazenamentos[0]?.id || 'congelado') : null,
+    // Prazo por estado, no formato novo. Os dois campos antigos seguem indo
+    // junto porque o produto pode ainda não ter sido salvo no formato novo —
+    // prazosDoProduto resolve os dois.
+    prazos: prazosDoProduto(p),
+    // sugestão de porcionamento: evita digitar a gramatura a cada impressão
+    medida: p.gramatura ? `${p.gramatura} g` : '',
     responsavel: prefs.responsavel || '',
     quantidade: 1,
   }]);

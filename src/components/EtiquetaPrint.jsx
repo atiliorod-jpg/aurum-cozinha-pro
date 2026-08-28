@@ -7,6 +7,7 @@ import { useApp } from '../store/AppContext';
 import { estabelecimentoDe } from '../utils/instancias';
 import ResponsavelSelect from './ResponsavelSelect';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas } from '../utils/etiquetas';
+import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 
@@ -77,7 +78,20 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
         {campos.medida && <div style={{ fontSize: '3.2mm', fontWeight: 800, whiteSpace: 'nowrap' }}>{campos.medida}</div>}
       </div>
       {c.armazenamento !== false && campos.armazenamentoLabel && (
-        <div style={{ fontSize: '2.7mm', fontWeight: 700 }}>{campos.armazenamentoLabel}</div>
+        // ⚠️ nowrap + ellipsis obrigatórios. A etiqueta tem ALTURA FIXA com
+        // overflow:hidden; uma faixa de temperatura longa quebraria em duas
+        // linhas e empurraria o rodapé (estabelecimento, QR e lote) para fora
+        // do papel — o mesmo defeito que o nome comprido já causou. O limite
+        // de caracteres na tela de Configurações é a outra metade da trava.
+        <div style={{
+          fontSize: '2.7mm', fontWeight: 700,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {campos.armazenamentoLabel}
+          {campos.armazenamentoFaixa && (
+            <span style={{ fontWeight: 600 }}> · {campos.armazenamentoFaixa}</span>
+          )}
+        </div>
       )}
       {/* Datas e dados */}
       <div className="flex-1" style={{ minHeight: 0, overflow: 'hidden' }}>
@@ -131,6 +145,8 @@ export default function EtiquetaPrint() {
   const comArmazenamento = temRecurso(modulo, 'armazenamento');
   const config = configEtiqueta(prefs);
   const estabelecimento = prefs.estabelecimento || {};
+  // Estados de armazenamento configuráveis (Configurações → Sistema).
+  const armazenamentos = armazenamentosAtivos(prefs);
 
   // Cópia local editável dos itens + hora congelada na abertura do modal
   const [itens, setItens] = useState([]);
@@ -202,19 +218,27 @@ export default function EtiquetaPrint() {
   // Prazo em dias: avulsas trazem `diasValidade` fixo; itens do catálogo trazem
   // `diasCongelado`/`diasResfriado` e o prazo acompanha o armazenamento escolhido.
   const camposDe = (item, loteId = null) => {
+    // `prazos` é o formato novo (um prazo por estado configurável). Os campos
+    // diasCongelado/diasResfriado continuam sendo lidos porque chegam de item
+    // montado por tela antiga, rascunho em cache ou reimpressão do histórico.
     const dias = item.diasValidade != null ? item.diasValidade
       // sem câmara fria (despensa): o prazo de prateleira é único e fica em
       // diasCongelado. Sem esta linha a etiqueta do seco saía SEM validade.
-      : !comArmazenamento ? (item.diasCongelado || 0)
-      : item.armazenamento === 'congelado' ? (item.diasCongelado || 0)
-      : item.armazenamento === 'resfriado' ? (item.diasResfriado || 0)
-      : 0;
+      : !comArmazenamento ? (item.prazos?.congelado ?? item.diasCongelado ?? 0)
+      : (item.prazos?.[item.armazenamento]
+         ?? (item.armazenamento === 'congelado' ? item.diasCongelado
+           : item.armazenamento === 'resfriado' ? item.diasResfriado
+           : 0)
+         ?? 0);
     const naoEditado = item._dataOriginal === item.dataFabricacao && item._armazOriginal === item.armazenamento;
+    const armaz = acharArmazenamento(prefs, item.armazenamento);
     return montarCamposEtiqueta({
       nome: item.nome,
       dataFabricacao: item.dataFabricacao,
       tipoData: item.tipoData,
       armazenamento: item.armazenamento,
+      armazenamentoNome: armaz?.nome || '',
+      armazenamentoFaixa: armaz?.faixa || '',
       restauranteNome: nomeImpresso,
       responsavel,
       // validade pronta (de registro real) só vale enquanto data/armazenamento não mudarem
@@ -387,8 +411,11 @@ export default function EtiquetaPrint() {
                         <select value={item.armazenamento || 'congelado'}
                           onChange={e => setItem(idx, { armazenamento: e.target.value })}
                           className={`${inputCls} bg-white`}>
-                          <option value="congelado">❄️ Congelado</option>
-                          <option value="resfriado">🧊 Resfriado</option>
+                          {armazenamentos.map(a => (
+                            <option key={a.id} value={a.id}>
+                              {a.nome}{a.faixa ? ` (${a.faixa})` : ''}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     ) : (
