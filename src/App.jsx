@@ -32,7 +32,6 @@ import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
 import TesteBluetooth from './pages/TesteBluetooth';
 import Itens from './pages/etiquetas/Itens';
-import EtiquetasInicio from './pages/etiquetas/Inicio';
 import EtiquetasAjustes from './pages/etiquetas/Ajustes';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
@@ -239,10 +238,16 @@ function Rotas() {
           digitada não podem abrir tela de um produto que a conta não comprou. */}
       {soEtiquetas ? (
         <Routes>
-          <Route path="/"           element={<EtiquetasInicio />} />
-          <Route path="/etiquetas"  element={<Etiquetas />} />
+          {/* ⚠️ `/` É a tela de imprimir. Não existe "Início" separado: eram a
+              mesma coisa, e num app cuja função é imprimir etiqueta a tela de
+              abertura é a de imprimir.
+              ⚠️ NÃO existe /validades aqui. Este produto imprime a data na
+              etiqueta; ele não acompanha o que está vencendo — isso é o Aurum
+              Cozinha Pro. /etiquetas continua atendendo por compatibilidade
+              (link antigo, favorito) e leva para o mesmo lugar. */}
+          <Route path="/"           element={<Etiquetas />} />
+          <Route path="/etiquetas"  element={<Navigate to="/" replace />} />
           <Route path="/itens"      element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
-          <Route path="/validades"  element={<Validades />} />
           <Route path="/ajustes"    element={<EtiquetasAjustes />} />
           <Route path="/pagamento"  element={<Restrito><Pagamento /></Restrito>} />
           <Route path="/novidades"  element={<Novidades />} />

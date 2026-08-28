@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -123,12 +124,18 @@ export default function Etiquetas() {
   const imprimirProduto = (p) => abrirEtiquetas([{
     produtoId: p.id,
     nome: p.nome,
-    tipoData: 'fabricacao',
+    // 'abertura' vem do proprio item (sal, oleo, queijo: o que a cozinha
+    // controla e QUANDO ABRIU, nao quando manipulou).
+    tipoData: p.tipoData || 'fabricacao',
     dataFabricacao: hoje(),
     // na despensa não existe congelado/resfriado — sem rótulo de armazenamento.
-    // Quando existe, abre no PRIMEIRO estado configurado, não num 'congelado'
-    // cravado: o restaurante pode ter desligado a câmara de congelados.
-    armazenamento: temRecurso(modulo, 'armazenamento') ? (armazenamentos[0]?.id || 'congelado') : null,
+    // ⚠️ Quando existe, manda o armazenamento DO ITEM. Usar sempre o primeiro
+    // da lista fazia azeite sair com "CONGELADO" impresso na etiqueta.
+    // Cai no primeiro configurado só quando o item não diz nada (cadastro
+    // antigo), nunca num 'congelado' cravado — a casa pode nem ter freezer.
+    armazenamento: temRecurso(modulo, 'armazenamento')
+      ? (p.armazenamentoPadrao || armazenamentos[0]?.id || 'congelado')
+      : null,
     // Prazo por estado, no formato novo. Os dois campos antigos seguem indo
     // junto porque o produto pode ainda não ter sido salvo no formato novo —
     // prazosDoProduto resolve os dois.
@@ -181,13 +188,20 @@ export default function Etiquetas() {
   }]);
 
   return (
-    <Layout title="Etiquetas">
+    <Layout title={soEtiq ? "Imprimir etiqueta" : "Etiquetas"}>
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1 print:hidden">
         {/* ⚠️ "Do estoque" mentiria no plano Aurum Etiquetas: lá não existe
             estoque nenhum, e o rótulo mandaria a pessoa procurar uma tela que
             a conta dela não tem. É a mesma aba, com o nome certo em cada
             produto. */}
-        {[['catalogo', soEtiq ? 'Meus itens' : 'Do estoque'], ['avulsas', 'Avulsas'], ['impressora', 'Impressora']].map(([v, l]) => (
+        {(soEtiq
+          /* No plano Etiquetas a aba Avulsas NAO existe: ela virou o campo
+             "data de abertura" dentro do proprio item (ver etiquetas/Itens).
+             Eram duas listas para a mesma pergunta — "o que eu etiqueto?" — e
+             a pessoa tinha que adivinhar em qual procurar. */
+          ? [['catalogo', 'Meus itens'], ['impressora', 'Impressora']]
+          : [['catalogo', 'Do estoque'], ['avulsas', 'Avulsas'], ['impressora', 'Impressora']]
+        ).map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
@@ -201,7 +215,10 @@ export default function Etiquetas() {
       ) : tab === 'catalogo' ? (
         <div className="space-y-4">
           <p className="text-xs text-gray-500 px-1">
-            Imprima a etiqueta de qualquer produto, a qualquer momento — a validade é calculada pelos prazos do produto (Config).
+            {soEtiq
+              /* "(Config)" nao existe neste plano: o cadastro fica em Meus itens. */
+              ? 'Toque em Imprimir no item. A validade sai calculada pelo prazo que você cadastrou em Meus itens.'
+              : 'Imprima a etiqueta de qualquer produto, a qualquer momento — a validade é calculada pelos prazos do produto (Config).'}
           </p>
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto..."
@@ -224,7 +241,21 @@ export default function Etiquetas() {
           )}
           <div className="bg-white rounded-xl overflow-hidden">
             {produtosVisiveis.length === 0 && (
-              <div className="text-center text-gray-500 py-6 text-sm">Nenhum produto encontrado.</div>
+              /* Beco sem saida se a lista esta vazia: no plano Etiquetas a
+                 conta nasce sem item nenhum, e "nenhum produto encontrado"
+                 sozinho nao diz o que fazer. */
+              <div className="text-center py-8 px-4">
+                <p className="text-sm text-gray-600">
+                  {buscando
+                    ? `Nada encontrado para “${busca.trim()}”.`
+                    : 'Você ainda não tem itens para etiquetar.'}
+                </p>
+                {soEtiq && (
+                  <Link to="/itens" className="inline-block mt-3 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">
+                    Cadastrar itens
+                  </Link>
+                )}
+              </div>
             )}
             {produtosVisiveis.map((p, i, arr) => (
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>

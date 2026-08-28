@@ -12,6 +12,8 @@ import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outbo
 import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
+import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
+import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 
@@ -60,9 +62,22 @@ const CAT = {
 // Padrões de catálogo POR MÓDULO. O seco tem itens e categorias próprios e não
 // usa receita/produção — quem abre o módulo pela primeira vez vê exemplos do
 // seu ramo, não filé e molho.
-const catalogosPadrao = (mod) => mod === 'seco'
-  ? { ...CAT, produtos: SECO_BASE, categorias: SECO_CATEGORIAS, fichas: [], producoes: [], listaManual: [] }
-  : CAT;
+const catalogosPadrao = (mod, soEtiquetas = false) => {
+  // ⚠️ Plano Aurum Etiquetas começa com "Meus itens" VAZIO, e isso é regra do
+  // produto. Semear o catálogo de exemplo aqui entregaria ao cliente uma lista
+  // de carnes que não é dele — ele teria que APAGAR item por item antes de
+  // cadastrar o que realmente usa, que é o oposto de facilitar. Quem preenche
+  // é a biblioteca de itens prontos (data/bibliotecaEtiquetas.js), item a
+  // item, com a ficha aberta para conferência.
+  // As CATEGORIAS vêm da biblioteca: sem elas o primeiro cadastro não teria
+  // onde classificar o item, e classificar é requisito desta tela.
+  if (soEtiquetas) {
+    return { ...CAT, produtos: [], categorias: [...CATEGORIAS_BIBLIOTECA], fichas: [], producoes: [], listaManual: [] };
+  }
+  return mod === 'seco'
+    ? { ...CAT, produtos: SECO_BASE, categorias: SECO_CATEGORIAS, fichas: [], producoes: [], listaManual: [] }
+    : CAT;
+};
 
 // tipo no banco → rótulo legível para a trilha de auditoria
 const ROTULO = {
@@ -101,6 +116,8 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const { sessao, impersonando } = useAuth() || {};
+  // Produto contratado — decide se o catalogo nasce vazio (plano Etiquetas).
+  const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   // Em modo suporte, o super-admin carrega o restaurante impersonado em SOMENTE
   // LEITURA — nada é escrito na conta do cliente (o RLS também bloqueia).
   const rid = impersonando?.restauranteId || sessao?.restauranteId || null;
@@ -184,6 +201,9 @@ export function AppProvider({ children }) {
   const estoquesRef = useRef(estoques); estoquesRef.current = estoques;
 
   const moduloRef = useRef(moduloEfetivo); moduloRef.current = moduloEfetivo;
+  // Mesmo padrao do moduloRef: o produto so muda com troca de sessao, e por-lo
+  // nas deps da hidratacao faria o app re-hidratar a toa.
+  const soEtiqRef = useRef(soEtiq); soEtiqRef.current = soEtiq;
   const setModulo = useCallback((id) => {
     if (!moduloValido(id)) return;
     try { localStorage.setItem('pe::modulo', id); } catch { /* storage indisponível */ }
@@ -625,7 +645,15 @@ export function AppProvider({ children }) {
       // módulos gravavam no mesmo lugar. kc() mantém a Finalização lendo o
       // catálogo da Produção, que é o comportamento correto.
       const seed = gerarDemoSeed(tipoBase(moduloEfetivo));
-      const c = seed.catalogos;
+      // ⚠️ A demo do plano Etiquetas comeca com "Meus itens" VAZIO, igual a uma
+      // conta nova de verdade. E de proposito: e assim que o cliente vai
+      // receber o app, e a demonstracao que vende e justamente buscar na
+      // biblioteca, conferir a ficha e imprimir em poucos toques. Mostrar um
+      // catalogo de carnes que nao e dele venderia uma tela que ele nunca vera.
+      // As categorias ficam, senao o primeiro cadastro nao tem onde classificar.
+      const c = soEtiqRef.current
+        ? { ...seed.catalogos, produtos: [], categorias: [...CATEGORIAS_BIBLIOTECA], etiquetasAvulsas: [] }
+        : seed.catalogos;
       // O seed de movimentos vale só para a instância RAIZ. Uma instância criada
       // pelo visitante tem que começar VAZIA — herdar as entradas e saídas de
       // exemplo da raiz faria dois estoques distintos mostrarem o mesmo
@@ -687,7 +715,7 @@ export function AppProvider({ children }) {
         });
         // catálogo e metas, nas mesmas chaves que visaoDoEstoque procura
         const cCat = chaveModulo(catalogoDe(e.id), 'produtos');
-        if (!docsDemo[cCat]) docsDemo[cCat] = cacheGet(rid, cCat, catalogosPadrao(tipoBase(e.id)).produtos);
+        if (!docsDemo[cCat]) docsDemo[cCat] = cacheGet(rid, cCat, catalogosPadrao(tipoBase(e.id), soEtiqRef.current).produtos);
         const cMetas = chaveModulo(e.id, 'metas');
         docsDemo[cMetas] = cacheGet(rid, cMetas, {});
       });
@@ -699,7 +727,7 @@ export function AppProvider({ children }) {
     let mapaDocs = {};
 
     // 1) cache instantâneo (funciona offline) — tudo pela chave do MÓDULO ativo
-    const P = catalogosPadrao(tipoBase(moduloEfetivo));
+    const P = catalogosPadrao(tipoBase(moduloEfetivo), soEtiqRef.current);
     setProdutosRaw(cacheGet(rid, kc('produtos'), P.produtos));
     // metas usam k() (por estoque), NÃO kc() — é justamente o que muda entre
     // instâncias do mesmo tipo
@@ -1104,15 +1132,17 @@ export function AppProvider({ children }) {
         id,
         docs: brutos.docs,
         registrosFatiados: fatiado,
-        padroes: catalogosPadrao(tipoBase(id)),
+        padroes: catalogosPadrao(tipoBase(id), soEtiq),
         aplicarMetas: comMetas,
       });
     });
     return saida;
-  }, [estoques, brutos]);
+    // soEtiq entra nas deps de verdade (nao via ref): isto e derivacao pura de
+    // render, e ler ref durante o render devolveria valor defasado.
+  }, [estoques, brutos, soEtiq]);
 
   const resetarProdutos = useCallback(
-    () => persistCatalogo('produtos', setProdutosRaw, catalogosPadrao(catalogoDe(moduloRef.current)).produtos),
+    () => persistCatalogo('produtos', setProdutosRaw, catalogosPadrao(catalogoDe(moduloRef.current), soEtiqRef.current).produtos),
     [persistCatalogo],
   );
 

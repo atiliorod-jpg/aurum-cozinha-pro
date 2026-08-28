@@ -34,21 +34,25 @@ const NAV = [
 // "Voltar ao estoque", que repetia o seletor do cabeçalho. Um destino, um
 // caminho: o seletor do cabeçalho é a porta entre as áreas, nos dois sentidos.
 
-// Barra do plano AURUM ETIQUETAS. É uma lista própria, não o NAV acima
-// filtrado: neste produto não existe estoque para "Registrar", e a
-// Administração não existe — então Ajustes precisa de porta, senão as
-// Configurações ficam inalcançáveis (o mesmo defeito que o Layout já
-// documenta sobre tela sem caminho de volta).
+// Barra do plano AURUM ETIQUETAS — TRÊS itens, e a conta é essa:
+//
+//  • Imprimir é a tela inicial (`/`). Antes havia "Início" E "Imprimir" como
+//    destinos separados, e o dono derrubou com razão: eram a mesma coisa. Num
+//    app cuja função é imprimir etiqueta, a tela de abertura É a de imprimir.
+//  • "Validades" saiu de vez. Este produto NÃO controla o que está vencendo —
+//    ele imprime a etiqueta com a data. Quem quer acompanhar vencimento
+//    compra o Aurum Cozinha Pro. Ter a aba aqui prometia um controle que o
+//    produto não entrega.
+//  • Ajustes tem lugar fixo porque neste plano não existe Administração —
+//    sem ele as Configurações ficariam sem porta nenhuma.
 const NAV_ETIQUETAS = [
-  { to: '/',           icon: 'inicio',   label: 'Início' },
-  { to: '/etiquetas',  icon: 'etiqueta', label: 'Imprimir' },
-  { to: '/itens',      icon: 'caixa',    label: 'Itens' },
-  { to: '/validades',  icon: 'validade', label: 'Validades' },
-  { to: '/ajustes',    icon: 'config',   label: 'Ajustes' },
+  { to: '/',        icon: 'etiqueta', label: 'Imprimir' },
+  { to: '/itens',   icon: 'caixa',    label: 'Meus itens' },
+  { to: '/ajustes', icon: 'config',   label: 'Ajustes' },
 ];
 
 export default function NavBar({ soEtiquetas = false }) {
-  const { produtos, estoque, producoes, permissoes, modulo, etiquetasImpressas } = useApp();
+  const { produtos, estoque, producoes, permissoes, modulo } = useApp();
   const { sessao } = useAuth();
   // ⚠️ Os badges de estoque ficam FORA do ramo de etiquetas: além de serem
   // sempre 0 lá (não há entrada nem saída), rodavam dois .filter sobre o
@@ -63,23 +67,8 @@ export default function NavBar({ soEtiquetas = false }) {
     return p?.ativo && p.min > 0 && (estoque[p.id] ?? 0) < p.min;
   }).length;
 
-  // O que importa aqui é o que vence hoje — a pergunta que a cozinha faz.
-  const hojeISO = new Date().toISOString().slice(0, 10);
-  const vencendo = soEtiquetas
-    ? (etiquetasImpressas || []).filter(e => e.status === 'valida' && e.validade && e.validade <= hojeISO).length
-    : 0;
-
-  if (soEtiquetas) {
-    return (
-      <BarraNav itens={NAV_ETIQUETAS} badges={{
-        '/validades': vencendo > 0 && {
-          lado: 'direita', cor: 'bg-red-500',
-          texto: vencendo > 9 ? '9+' : String(vencendo),
-          rotulo: `${vencendo} etiqueta(s) vencidas ou vencendo hoje`,
-        },
-      }} />
-    );
-  }
+  // Sem badge de vencimento: este produto não acompanha validade (ver acima).
+  if (soEtiquetas) return <BarraNav itens={NAV_ETIQUETAS} />;
 
   const itens = NAV.filter(n => {
     // recurso do módulo primeiro: não adianta ter permissão para uma tela que

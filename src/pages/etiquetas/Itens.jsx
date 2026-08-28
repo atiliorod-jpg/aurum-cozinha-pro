@@ -3,22 +3,26 @@ import Layout from '../../components/Layout';
 import Botao from '../../components/Botao';
 import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
-import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
+import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../../data/bibliotecaEtiquetas';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../../utils/armazenamento';
 
 // Campo numérico fica como texto enquanto edita (apagar funciona); converte ao salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
 
 /**
- * Cadastro de itens do plano Aurum Etiquetas.
+ * Meus itens — o cadastro do plano Aurum Etiquetas.
  *
- * Por que não reusar Configurações → Produtos: aquela tela pede min, max,
+ * Por que não reusa Configurações → Produtos: aquela tela pede mín, máx,
  * estoque inicial, peso por unidade, cocção e entrada cozida — tudo sobre
- * ESTOQUE, que este produto não vende. Um cadastro de 12 campos para etiquetar
- * alface é o que faz o cliente desistir na primeira semana.
+ * ESTOQUE, que este produto não vende. Cadastro de 12 campos para etiquetar
+ * alface é onde o cliente desiste.
  *
- * Aqui são os campos que a ETIQUETA usa: nome, categoria, unidade,
- * porcionamento e um prazo por armazenamento.
+ * ⚠️ AQUI TAMBÉM VIVEM AS "AVULSAS". Antes eram uma aba separada, com um
+ * cadastro paralelo (`etiquetasAvulsas`) só para itens tipo "Leite aberto".
+ * Eram duas listas para a mesma pergunta — "o que eu etiqueto?" — e a pessoa
+ * tinha que saber de antemão em qual das duas procurar. O que diferenciava
+ * uma avulsa era só a DATA SER DE ABERTURA em vez de manipulação, e isso
+ * virou um campo do item (`tipoData`).
  */
 export default function Itens() {
   const { produtos, setProdutos, categorias, setCategorias, prefs } = useApp();
@@ -27,7 +31,7 @@ export default function Itens() {
 
   const [aba, setAba] = useState('meus');   // 'meus' | 'biblioteca'
   const [busca, setBusca] = useState('');
-  const [editando, setEditando] = useState(null); // produto | 'novo' | null
+  const [editando, setEditando] = useState(null); // {produto} | {rascunho} | null
 
   const meus = useMemo(() => produtos.filter(p => p.ativo !== false), [produtos]);
   const meusFiltrados = useMemo(() => {
@@ -35,68 +39,90 @@ export default function Itens() {
     return t ? meus.filter(p => (p.nome || '').toLowerCase().includes(t)) : meus;
   }, [meus, busca]);
 
-  // ⚠️ Agrupado por categoria, sempre. O dono foi explícito: "proteínas devem
-  // estar na ala deles". Uma lista corrida de 100 itens é onde se perde tempo
-  // no meio do serviço.
-  const gruposMeus = useMemo(() => agruparPorCategoria(meusFiltrados, categorias), [meusFiltrados, categorias]);
+  // ⚠️ Agrupado por categoria, sempre — nas duas abas, com a MESMA ordem.
+  // "Proteínas na ala delas" é requisito do produto, não enfeite: lista corrida
+  // de 200 itens é onde se perde tempo no meio do serviço.
+  const ordemCategorias = useMemo(() => {
+    // as da biblioteca primeiro (ordem pensada), depois as que o cliente criou
+    const extras = categorias.filter(c => !CATEGORIAS_BIBLIOTECA.includes(c));
+    return [...CATEGORIAS_BIBLIOTECA, ...extras];
+  }, [categorias]);
+
+  const gruposMeus = useMemo(
+    () => agruparPorCategoria(meusFiltrados, ordemCategorias),
+    [meusFiltrados, ordemCategorias]);
 
   const jaTenho = useMemo(() => new Set(meus.map(p => (p.nome || '').toLowerCase())), [meus]);
-  const gruposBiblioteca = useMemo(
-    () => agruparPorCategoria(buscarNaBiblioteca(busca)),
-    [busca]);
+  const gruposBiblioteca = useMemo(() => agruparPorCategoria(buscarNaBiblioteca(busca)), [busca]);
 
-  const adicionarDaBiblioteca = (item) => {
+  // ⚠️ Adicionar da biblioteca ABRE A FICHA em vez de salvar direto. O dono
+  // pediu, e está certo: o item pronto traz sugestões (prazo, armazenamento,
+  // unidade) que dependem da casa. Salvar sem mostrar seria o app decidindo
+  // validade por um restaurante que ele não conhece.
+  const abrirDaBiblioteca = (item) => {
     if (jaTenho.has(item.nome.toLowerCase())) { toast(`"${item.nome}" já está nos seus itens.`, 'aviso'); return; }
-    // ⚠️ Id derivado do id da biblioteca, SEM carimbo de hora. Dois ganhos:
-    // o id fica estável (o linter reclama, com razão, de Date.now em código
-    // alcançável pelo render) e "remover e adicionar de novo" REATIVA o item
-    // original em vez de criar um gêmeo — remover aqui é desativar, e sem isto
-    // o catálogo encheria de duplicatas invisíveis.
-    // ⚠️ A categoria da biblioteca precisa ENTRAR na lista do restaurante.
-    // Sem isto, "Alface" chega com HORTIFRÚTI, que não existe em `categorias`:
-    // o item aparece agrupado certo na lista, mas o seletor do modal não tem
-    // essa opção e, ao salvar qualquer edição, ele seria remanejado EM
-    // SILÊNCIO para a primeira categoria (PROTEÍNAS). Peguei isso testando.
-    if (item.categoria && !categorias.includes(item.categoria)) {
-      setCategorias([...categorias, item.categoria]);
-    }
-    const idBib = `bib_${item.id}`;
-    const jaExiste = produtos.find(p => p.id === idBib);
-    if (jaExiste) {
-      setProdutos(produtos.map(p => p.id === idBib ? { ...p, ativo: true } : p));
-      toast(`"${item.nome}" voltou para os seus itens.`, 'sucesso');
-      return;
-    }
-    setProdutos([...produtos, {
-      ...comEspelhoDePrazos({
-        id: idBib,
-        nome: item.nome,
-        categoria: item.categoria,
-        unidade: item.unidade,
-        marca: '', sif: '', gramatura: 0,
-        // ⚠️ min/max/estoqueInicial zerados de propósito: o item nasce um
-        // produto estruturalmente VÁLIDO, para o dia em que a conta virar o
-        // plano completo e ele aparecer na Cozinha de Produção sem remendo.
-        min: 0, max: 0, estoqueInicial: 0,
-        ativo: true,
-      }, item.prazos),
-    }]);
-    toast(`"${item.nome}" adicionado. Falta a validade.`, 'sucesso');
+    setEditando({
+      origemBiblioteca: item.id,
+      nome: item.nome,
+      categoria: item.categoria,
+      unidade: item.unidade,
+      tipoData: item.tipoData || 'fabricacao',
+      armazenamentoSugerido: item.armazenamentoSugerido,
+      prazos: item.prazos || {},
+      gramatura: '', marca: '', sif: '',
+    });
   };
 
   const salvar = (form) => {
+    const nome = (form.nome || '').trim();
+    // ⚠️ Onde ESTE item fica guardado. Sem isto a impressão pegava sempre o
+    // primeiro armazenamento da lista, e azeite saía com "CONGELADO" na
+    // etiqueta — erro que vai colado no pote. Derivado, sem pedir mais um
+    // campo no formulário: manda o que o usuário escolheu, senão o único
+    // estado que tem prazo preenchido, senão a sugestão da biblioteca.
+    const comPrazo = Object.entries(form.prazos || {}).filter(([, v]) => Number(v) > 0).map(([k]) => k);
+    const armazenamentoPadrao = form.armazenamentoPadrao
+      || (comPrazo.length === 1 ? comPrazo[0] : null)
+      || form.armazenamentoSugerido
+      || comPrazo[0]
+      || armazenamentos[0]?.id
+      || 'congelado';
+
     const dados = {
-      ...comEspelhoDePrazos(form, form.prazos),
-      gramatura: parseFloat(form.gramatura) || 0,
-      min: 0, max: 0, estoqueInicial: 0,
-      ativo: true,
+      ...comEspelhoDePrazos({
+        nome,
+        categoria: form.categoria,
+        unidade: (form.unidade || '').trim() || 'unid',
+        tipoData: form.tipoData || 'fabricacao',
+        armazenamentoPadrao,
+        marca: (form.marca || '').trim(),
+        sif: (form.sif || '').trim(),
+        gramatura: parseFloat(form.gramatura) || 0,
+        // ⚠️ zerados de propósito: o item nasce um produto estruturalmente
+        // VÁLIDO, para o dia em que a conta virar o plano completo e ele
+        // aparecer na Cozinha de Produção sem remendo nenhum.
+        min: 0, max: 0, estoqueInicial: 0,
+        ativo: true,
+      }, form.prazos),
     };
-    if (editando && editando !== 'novo') {
-      setProdutos(produtos.map(p => p.id === editando.id ? { ...p, ...dados } : p));
+
+    // categoria nova criada na hora entra no catálogo do restaurante
+    if (dados.categoria && !categorias.includes(dados.categoria)) {
+      setCategorias([...categorias, dados.categoria]);
+    }
+
+    if (form.id) {
+      setProdutos(produtos.map(p => p.id === form.id ? { ...p, ...dados } : p));
       toast('Item atualizado.', 'sucesso');
     } else {
-      setProdutos([...produtos, { ...dados, id: `item_${Date.now()}` }]);
-      toast('Item cadastrado.', 'sucesso');
+      // Id estável quando vem da biblioteca: assim "remover e adicionar de
+      // novo" REATIVA o item em vez de criar um gêmeo invisível (remover aqui
+      // é desativar, não apagar).
+      const id = form.origemBiblioteca ? `bib_${form.origemBiblioteca}` : `item_${nome.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+      const existente = produtos.find(p => p.id === id);
+      if (existente) setProdutos(produtos.map(p => p.id === id ? { ...p, ...dados, ativo: true } : p));
+      else setProdutos([...produtos, { ...dados, id }]);
+      toast(`"${nome}" cadastrado.`, 'sucesso');
     }
     setEditando(null);
   };
@@ -104,12 +130,13 @@ export default function Itens() {
   const remover = async (p) => {
     const ok = await confirm({
       titulo: `Remover "${p.nome}"?`,
-      mensagem: 'O item sai da lista. As etiquetas já impressas dele continuam no histórico.',
+      mensagem: 'O item sai da lista. As etiquetas já impressas dele continuam como estão.',
       perigo: true, confirmar: 'Remover',
     });
     if (!ok) return;
     setProdutos(produtos.map(x => x.id === p.id ? { ...x, ativo: false } : x));
     toast(`"${p.nome}" removido.`, 'sucesso');
+    setEditando(null);
   };
 
   const semPrazo = meus.filter(p => !temAlgumPrazo(p)).length;
@@ -127,14 +154,12 @@ export default function Itens() {
       </div>
 
       <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-        placeholder={aba === 'meus' ? 'Buscar nos meus itens…' : 'Buscar item pronto (ex.: alface)…'}
+        placeholder={aba === 'meus' ? 'Buscar nos meus itens…' : 'Buscar item pronto (ex.: picanha, sal, alface)…'}
         aria-label="Buscar item"
         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm mb-4" />
 
       {aba === 'meus' ? (
         <>
-          {/* Resumo discreto do que falta — não é modal, não é vermelho, não
-              atrapalha quem só quer imprimir. Some quando não há pendência. */}
           {semPrazo > 0 && (
             <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
               {semPrazo === 1
@@ -143,14 +168,15 @@ export default function Itens() {
             </p>
           )}
 
-          <Botao onClick={() => setEditando('novo')} className="mb-4">+ Cadastrar item do zero</Botao>
+          <Botao onClick={() => setEditando({ nome: '', categoria: categorias[0] || 'OUTROS', unidade: 'kg', tipoData: 'fabricacao', prazos: {}, gramatura: '', marca: '', sif: '' })}
+            className="mb-4">+ Cadastrar item do zero</Botao>
 
           {meus.length === 0 ? (
             <div className="bg-white rounded-xl p-6 text-center">
-              <p className="text-sm text-gray-600 mb-3">Você ainda não tem itens.</p>
-              <p className="text-xs text-gray-500 mb-4">
-                O caminho mais rápido é a aba <strong>Adicionar prontos</strong>: são {BIBLIOTECA_ETIQUETAS.length} itens
-                de cozinha já preenchidos, é só buscar e tocar.
+              <p className="text-sm font-semibold text-polo-navy mb-1">Sua lista está vazia</p>
+              <p className="text-xs text-gray-600 mb-4">
+                O caminho rápido é a aba <strong>Adicionar prontos</strong>: {BIBLIOTECA_ETIQUETAS.length} itens
+                de cozinha já preenchidos, é só buscar, conferir e salvar.
               </p>
               <Botao onClick={() => setAba('biblioteca')} largura="auto" tamanho="sm">Ver itens prontos</Botao>
             </div>
@@ -163,24 +189,21 @@ export default function Itens() {
                   <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-1.5 px-1">{cat}</p>
                   <div className="bg-white rounded-xl divide-y divide-gray-100">
                     {itens.map(p => (
-                      <button key={p.id} onClick={() => setEditando(p)}
+                      <button key={p.id} onClick={() => setEditando({ ...p, prazos: prazosDoProduto(p), gramatura: numVazio(p.gramatura) })}
                         className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50">
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-sm text-gray-900 truncate">{p.nome}</span>
                           <span className="block text-[11px] text-gray-500">
                             {p.unidade}
                             {p.gramatura > 0 && ` · ${p.gramatura} g`}
+                            {p.tipoData === 'abertura' && ' · data de abertura'}
                             {p.marca && ` · ${p.marca}`}
                           </span>
                         </span>
-                        {/* Aviso por item: um ponto âmbar, sem texto. Quem quer
-                            saber o que falta abre o item. */}
                         {!temAlgumPrazo(p) && (
                           <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"
                             title="Sem prazo de validade" aria-label="Sem prazo de validade" />
                         )}
-                        {/* chevron de texto: não existe ícone de editar no
-                            conjunto, e inventar um só para cá desalinharia. */}
                         <span aria-hidden="true" className="text-gray-400 text-lg leading-none flex-shrink-0">›</span>
                       </button>
                     ))}
@@ -193,12 +216,12 @@ export default function Itens() {
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-gray-600 px-1">
-            Itens de cozinha já preenchidos. Toque para adicionar aos seus —
-            depois é só completar o prazo de validade da sua casa.
+            Toque num item para abrir a ficha dele já preenchida — você confere o prazo e o
+            armazenamento da sua casa antes de salvar.
           </p>
           {gruposBiblioteca.length === 0 ? (
             <p className="text-sm text-gray-600 text-center py-6">
-              Nada encontrado para “{busca}”. Você pode cadastrar do zero na aba Meus itens.
+              Nada encontrado para “{busca}”. Dá para cadastrar do zero na aba Meus itens.
             </p>
           ) : gruposBiblioteca.map(([cat, itens]) => (
             <div key={cat}>
@@ -207,21 +230,19 @@ export default function Itens() {
                 {itens.map(item => {
                   const tem = jaTenho.has(item.nome.toLowerCase());
                   return (
-                    <div key={item.id} className="px-4 py-3 flex items-center gap-3">
+                    <button key={item.id} onClick={() => abrirDaBiblioteca(item)} disabled={tem}
+                      className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50 disabled:opacity-50">
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-sm text-gray-900 truncate">{item.nome}</span>
-                        <span className="block text-[11px] text-gray-500">{item.unidade}</span>
+                        <span className="block text-[11px] text-gray-500">
+                          {item.unidade}
+                          {item.tipoData === 'abertura' && ' · data de abertura'}
+                        </span>
                       </span>
-                      {tem ? (
-                        <span className="text-[11px] text-gray-500 flex-shrink-0">já tenho</span>
-                      ) : (
-                        <button onClick={() => adicionarDaBiblioteca(item)}
-                          aria-label={`Adicionar ${item.nome}`}
-                          className="text-xs font-bold text-polo-gold bg-polo-navy rounded-lg px-3 py-2 flex-shrink-0">
-                          Adicionar
-                        </button>
-                      )}
-                    </div>
+                      <span className={`text-[11px] flex-shrink-0 ${tem ? 'text-gray-500' : 'font-bold text-polo-navy'}`}>
+                        {tem ? 'já tenho' : 'Adicionar ›'}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
@@ -232,11 +253,11 @@ export default function Itens() {
 
       {editando && (
         <ModalItem
-          produto={editando === 'novo' ? null : editando}
-          categorias={categorias}
+          inicial={editando}
+          categorias={ordemCategorias}
           armazenamentos={armazenamentos}
           onSalvar={salvar}
-          onRemover={editando !== 'novo' ? () => { remover(editando); setEditando(null); } : null}
+          onRemover={editando.id ? () => remover(editando) : null}
           onFechar={() => setEditando(null)}
         />
       )}
@@ -244,80 +265,126 @@ export default function Itens() {
   );
 }
 
-function ModalItem({ produto, categorias, armazenamentos, onSalvar, onRemover, onFechar }) {
-  const [form, setForm] = useState(() => {
-    const prazos = prazosDoProduto(produto);
-    return {
-      nome: produto?.nome || '',
-      categoria: produto?.categoria || categorias[0] || '',
-      unidade: produto?.unidade || 'kg',
-      gramatura: numVazio(produto?.gramatura),
-      marca: produto?.marca || '',
-      sif: produto?.sif || '',
-      prazos: Object.fromEntries(Object.entries(prazos).map(([k, v]) => [k, numVazio(v)])),
-    };
-  });
+function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, onFechar }) {
+  const [form, setForm] = useState(() => ({
+    ...inicial,
+    prazos: Object.fromEntries(Object.entries(inicial.prazos || {}).map(([k, v]) => [k, numVazio(v)])),
+  }));
+  const [novaCat, setNovaCat] = useState('');
+  const [criandoCat, setCriandoCat] = useState(false);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const opcoesCategoria = categorias.includes(form.categoria) || !form.categoria
-    ? categorias
-    : [form.categoria, ...categorias];
+
+  // ⚠️ A categoria ATUAL entra na lista mesmo que não esteja em `categorias`:
+  // um <select> cujo value não casa com nenhuma option mostra a primeira e, ao
+  // salvar, move o item de categoria sem ninguém pedir.
+  const opcoes = categorias.includes(form.categoria) || !form.categoria
+    ? categorias : [form.categoria, ...categorias];
+
   const semPrazo = !Object.values(form.prazos || {}).some(v => Number(v) > 0);
   const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
+  const daBiblioteca = !!inicial.origemBiblioteca;
+
+  const confirmarCat = () => {
+    const c = novaCat.trim().toUpperCase();
+    if (!c) return;
+    set('categoria', c);
+    setNovaCat(''); setCriandoCat(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto p-4 flex"
       role="dialog" aria-modal="true" aria-labelledby="mi-titulo">
       <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
         <div className="flex justify-between items-center">
-          <h2 id="mi-titulo" className="font-bold text-lg text-polo-navy">{produto ? 'Editar item' : 'Novo item'}</h2>
+          <h2 id="mi-titulo" className="font-bold text-lg text-polo-navy">
+            {inicial.id ? 'Editar item' : daBiblioteca ? 'Conferir e adicionar' : 'Novo item'}
+          </h2>
           <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-600 w-8 h-8">×</button>
         </div>
 
+        {daBiblioteca && (
+          <p className="text-[11px] text-gray-600 bg-polo-beige rounded-lg px-2.5 py-2">
+            Já preenchemos o que dá. <strong>Confira o prazo de validade</strong> — ele muda
+            conforme o processo e a câmara da sua cozinha.
+          </p>
+        )}
+
         <div>
           <label htmlFor="mi-nome" className="block text-xs font-semibold text-gray-600 mb-1">Nome</label>
-          <input id="mi-nome" type="text" value={form.nome} autoFocus
+          <input id="mi-nome" type="text" value={form.nome} autoFocus={!daBiblioteca}
             onChange={e => set('nome', e.target.value)}
             placeholder="Ex.: Molho de tomate da casa" className={inputCls} />
         </div>
 
+        <div>
+          <label htmlFor="mi-cat" className="block text-xs font-semibold text-gray-600 mb-1">Onde fica</label>
+          {criandoCat ? (
+            <div className="flex items-center gap-2">
+              <input type="text" value={novaCat} onChange={e => setNovaCat(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') confirmarCat(); }}
+                autoFocus placeholder="Nome do grupo (ex.: VEGANOS)"
+                aria-label="Nome da nova categoria" className={inputCls} />
+              <Botao onClick={confirmarCat} tamanho="sm" largura="auto">OK</Botao>
+              <button onClick={() => { setCriandoCat(false); setNovaCat(''); }}
+                className="text-xs text-gray-500 px-1">Cancelar</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <select id="mi-cat" value={form.categoria} onChange={e => set('categoria', e.target.value)}
+                className={`${inputCls} bg-white flex-1`}>
+                {opcoes.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              {/* O cliente pode criar grupos além dos tradicionais */}
+              <button onClick={() => setCriandoCat(true)}
+                className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-2 flex-shrink-0">
+                + Novo
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="mi-cat" className="block text-xs font-semibold text-gray-600 mb-1">Categoria</label>
-            {/* ⚠️ A categoria ATUAL do item entra na lista mesmo que não esteja
-                em `categorias`. Um <select> cujo value não casa com nenhuma
-                option mostra a primeira e, ao salvar, move o item de categoria
-                sem ninguém pedir — perda silenciosa de dado. */}
-            <select id="mi-cat" value={form.categoria} onChange={e => set('categoria', e.target.value)}
-              className={`${inputCls} bg-white`}>
-              {opcoesCategoria.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
           <div>
             <label htmlFor="mi-unid" className="block text-xs font-semibold text-gray-600 mb-1">Unidade</label>
             <input id="mi-unid" type="text" value={form.unidade}
               onChange={e => set('unidade', e.target.value)} placeholder="kg, L, unid" className={inputCls} />
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
           <div>
-            {/* Porcionamento: vira sugestão do campo Medida na hora de imprimir,
-                para não digitar "150 g" a cada etiqueta. */}
+            {/* Porcionamento: vira sugestão do campo Medida ao imprimir, para
+                não digitar "150 g" a cada etiqueta. */}
             <label htmlFor="mi-gram" className="block text-xs font-semibold text-gray-600 mb-1">Porção (g)</label>
             <input id="mi-gram" type="number" inputMode="numeric" min="0" value={form.gramatura}
               onChange={e => set('gramatura', e.target.value)} placeholder="opcional" className={inputCls} />
           </div>
+        </div>
+
+        {/* Isto é o que antes fazia um item ser "avulso". Agora é um campo. */}
+        <div>
+          <p className="text-xs font-semibold text-gray-600 mb-1.5">A data da etiqueta é de…</p>
+          <div className="grid grid-cols-2 gap-2">
+            {[['fabricacao', 'Manipulação', 'porcionado, cozido, preparado aqui'],
+              ['abertura', 'Abertura', 'embalagem do fabricante aberta']].map(([v, l, d]) => (
+              <button key={v} type="button" onClick={() => set('tipoData', v)}
+                className={`text-left rounded-lg p-2.5 border-2 transition-colors
+                  ${form.tipoData === v ? 'border-polo-gold bg-polo-beige' : 'border-gray-200'}`}>
+                <span className="block text-sm font-bold text-polo-navy">{l}</span>
+                <span className="block text-[11px] text-gray-600 leading-tight mt-0.5">{d}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="mi-marca" className="block text-xs font-semibold text-gray-600 mb-1">Marca / fornecedor</label>
             <input id="mi-marca" type="text" value={form.marca}
               onChange={e => set('marca', e.target.value)} placeholder="opcional" className={inputCls} />
           </div>
-        </div>
-
-        <div>
-          <label htmlFor="mi-sif" className="block text-xs font-semibold text-gray-600 mb-1">SIF</label>
-          <input id="mi-sif" type="text" value={form.sif}
-            onChange={e => set('sif', e.target.value)} placeholder="opcional" className={inputCls} />
+          <div>
+            <label htmlFor="mi-sif" className="block text-xs font-semibold text-gray-600 mb-1">SIF</label>
+            <input id="mi-sif" type="text" value={form.sif}
+              onChange={e => set('sif', e.target.value)} placeholder="opcional" className={inputCls} />
+          </div>
         </div>
 
         <div>
@@ -335,12 +402,12 @@ function ModalItem({ produto, categorias, armazenamentos, onSalvar, onRemover, o
               </div>
             ))}
           </div>
-          {/* Aviso, não bloqueio: etiqueta só de identificação é caso legítimo
-              (item que não vence). Quem decide é o restaurante. */}
+          {/* Aviso, não bloqueio: item que segue a validade do fabricante
+              (sal, óleo, tempero) legitimamente não tem prazo próprio. */}
           {semPrazo && (
             <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-2">
-              Sem prazo preenchido, a etiqueta sai sem data de vencimento. Preencha ao menos
-              um armazenamento se este item vence.
+              Sem prazo, a etiqueta sai sem data de vencimento — certo para item que segue a
+              validade do fabricante. Se este vence depois de aberto/manipulado, preencha.
             </p>
           )}
         </div>
@@ -348,7 +415,9 @@ function ModalItem({ produto, categorias, armazenamentos, onSalvar, onRemover, o
         <div className="flex gap-3 pt-1">
           <button onClick={onFechar}
             className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Cancelar</button>
-          <Botao onClick={() => onSalvar(form)} disabled={!form.nome.trim()} className="flex-1">Salvar</Botao>
+          <Botao onClick={() => onSalvar(form)} disabled={!(form.nome || '').trim()} className="flex-1">
+            {inicial.id ? 'Salvar' : 'Adicionar'}
+          </Botao>
         </div>
         {onRemover && (
           <button onClick={onRemover} className="w-full text-red-700 text-xs font-bold py-2">
