@@ -184,7 +184,19 @@ export function AppProvider({ children }) {
   // unidade abriria o estoque de lá; e um id ARQUIVADO continuaria passando na
   // validação de formato, deixando a pessoa operar um estoque que ninguém mais
   // vê. Aqui ele é corrigido para a raiz do tipo — a tela avisa (ver Layout).
-  const moduloEfetivo = useMemo(() => moduloUtilizavel(estoques, modulo), [estoques, modulo]);
+  // ⚠️ NO PLANO ETIQUETAS O MÓDULO É SEMPRE O PADRÃO, e isto é correção de bug
+  // real, não zelo. O módulo aberto mora no localStorage DO APARELHO
+  // (`pe::modulo`). Quem já tinha usado o app completo naquele navegador ficava
+  // com 'seco' salvo — e o Estoque Seco tem `armazenamento: false`, porque
+  // mantimento não vai para câmara fria. Resultado no plano Etiquetas, que não
+  // tem seletor de estoque para a pessoa corrigir:
+  //   • o seletor de congelado/resfriado SUMIA da tela de impressão;
+  //   • a etiqueta saía SEM a linha do armazenamento;
+  //   • o prazo caía no ramo "prateleira única" de diasDoCadastro.
+  // Tudo em silêncio, e sem caminho de volta. Foi assim que o dono viu.
+  const moduloEfetivo = useMemo(
+    () => (soEtiq ? MODULO_PADRAO : moduloUtilizavel(estoques, modulo)),
+    [estoques, modulo, soEtiq]);
   const estoqueAtual = useMemo(() => acharEstoque(estoques, moduloEfetivo), [estoques, moduloEfetivo]);
 
   // ⚠️ NÃO colocar `estoques` nas deps do efeito de hidratação. Ele é um array
