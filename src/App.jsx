@@ -103,7 +103,7 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, onSair }) {
 }
 
 function Rotas() {
-  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao } = useAuth();
+  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao, cadastroPendenteErro } = useAuth();
   // marca de que este aparelho já escolheu o estoque de trabalho
   const [escolheuModulo, setEscolheuModulo] = useState(() => {
     try { return !!localStorage.getItem('pe::modulo'); } catch { return true; }
@@ -180,11 +180,24 @@ function Rotas() {
   // Conta autenticada mas sem perfil/cargo (cadastro interrompido).
   // Super-admin é exceção: acessa o painel mesmo sem restaurante próprio.
   if (!sessao.cargo && !sessao.eSuperAdmin) {
+    // ⚠️ Com a confirmação de e-mail ligada, o restaurante é criado quando a
+    // pessoa volta do link — e essa criação pode falhar (o CNPJ pode ter sido
+    // tomado no intervalo). Antes esta tela dizia sempre "peça um convite à
+    // diretoria", que para quem acabou de se cadastrar não quer dizer nada.
+    // Agora, quando há motivo conhecido, ele é mostrado.
+    const motivo = cadastroPendenteErro || '';
+    const cnpjTomado = /cnpj/i.test(motivo);
     return (
       <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
-        <p className="text-polo-gold font-bold text-lg">Cadastro incompleto</p>
+        <p className="text-polo-gold font-bold text-lg">
+          {motivo ? 'Não consegui criar o restaurante' : 'Cadastro incompleto'}
+        </p>
         <p className="text-white/80 text-sm max-w-xs">
-          Sua conta foi criada mas ainda não está vinculada a um restaurante. Saia e entre novamente, ou peça um novo convite à diretoria.
+          {cnpjTomado
+            ? 'Já existe uma conta usando este CNPJ. Se o restaurante é seu, entre com a conta que já existe; se foi engano, fale com o suporte Aurum pelo WhatsApp.'
+            : motivo
+              ? `${motivo} Sua conta de acesso está criada — fale com o suporte Aurum pelo WhatsApp que resolvemos sem você perder nada.`
+              : 'Sua conta foi criada mas ainda não está vinculada a um restaurante. Saia e entre novamente, ou peça um novo convite à diretoria.'}
         </p>
         <button onClick={logout} className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">Sair</button>
       </div>

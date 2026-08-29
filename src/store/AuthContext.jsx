@@ -21,6 +21,9 @@ export function AuthProvider({ children }) {
   const [recuperando, setRecuperando] = useState(false); // veio do link "esqueci a senha"
   // Modo suporte: super-admin vendo os dados de OUTRO restaurante
   const [impersonando, setImpersonando] = useState(null); // { restauranteId, restauranteNome } | null (suporte = só leitura)
+  // Cadastro que confirmou o e-mail mas a criação do restaurante falhou
+  // (ex.: o CNPJ foi tomado no intervalo). Guarda o motivo para a tela explicar.
+  const [cadastroPendenteErro, setCadastroPendenteErro] = useState(null);
   const [derrubado, setDerrubado] = useState(false); // a conta foi aberta em outro aparelho
   const tokenRef = useRef(null); // token desta sessão (sessão única por conta)
   const registradoEmRef = useRef(null); // quando ESTA sessão se registrou
@@ -43,8 +46,36 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Carrega o perfil do banco e monta a sessão
+  // Semeia prefs.estabelecimento com os dados do cadastro. Esses campos saem
+  // no RODAPÉ DA ETIQUETA; sem isto o cliente digitaria o CNPJ duas vezes.
+  // Nunca derruba o cadastro: entrar é mais importante que o rodapé.
+  const semearEstabelecimento = useCallback(async (userId, c) => {
+    try {
+      const est = {};
+      if (c.cnpj) est.cnpj = c.cnpj;
+      if (c.cidade || c.uf) est.cidade = [c.cidade, c.uf].filter(Boolean).join(' - ');
+      if (!Object.keys(est).length) return;
+      const { data: perfilNovo } = await supabase
+        .from('perfis').select('restaurante_id').eq('id', userId).maybeSingle();
+      if (!perfilNovo?.restaurante_id) return;
+      // ⚠️ p_restaurante é OBRIGATÓRIO — a assinatura é
+      // salvar_documento(uuid,text,jsonb,integer). Sem ele a chamada falha
+      // calada e o rodapé da etiqueta fica vazio.
+      await supabase.rpc('salvar_documento', {
+        p_restaurante: perfilNovo.restaurante_id,
+        p_chave: 'prefs',
+        p_dados: {
+          estabelecimento: est,
+          termosVersao: c.termosVersao || null,
+          termosAceitosEm: new Date().toISOString(),
+        },
+        p_versao: 0,
+      });
+    } catch { /* etiqueta sai sem o rodapé; o cliente completa em Ajustes */ }
+  }, []);
+
   const carregarPerfil = useCallback(async (userId) => {
-    const { data: perfil } = await supabase
+    let { data: perfil } = await supabase
       .from('perfis')
       .select('*')
       .eq('id', userId)
@@ -52,6 +83,40 @@ export function AuthProvider({ children }) {
 
     const { data: { user: authUser } } = await supabase.auth.getUser();
     const email = authUser?.email || '';
+
+    // ⚠️ GANCHO DO CADASTRO PENDENTE.
+    // Com a confirmação de e-mail LIGADA, o signUp não devolve sessão — não há
+    // como criar o restaurante na hora, porque criar_restaurante depende de
+    // auth.uid(). Os dados do formulário viajam no user_metadata do signUp e
+    // são usados AQUI, no primeiro acesso autenticado (depois que a pessoa
+    // clica no link do e-mail). Sem isto ela confirmaria o e-mail e cairia na
+    // tela "Cadastro incompleto", com a conta morta.
+    //
+    // O metadata é escrito pelo cliente e NÃO é confiável — não tem problema:
+    // ele só descreve o próprio restaurante da pessoa, e o que precisa ser
+    // garantido (CNPJ válido e não repetido) é validado no servidor, dentro da
+    // RPC. Nada aqui decide permissão.
+    if (!perfil && authUser?.user_metadata?.aurum_cadastro) {
+      const c = authUser.user_metadata.aurum_cadastro;
+      const { error: errPend } = await supabase.rpc('criar_restaurante', {
+        p_nome_restaurante: c.nomeRestaurante,
+        p_nome_admin: c.nome,
+        p_produto: c.produto || 'completo',
+        p_cnpj: c.cnpj || null,
+        p_whatsapp: c.whatsapp || null,
+        p_cidade: c.cidade || null,
+        p_uf: c.uf || null,
+      });
+      if (!errPend) {
+        await semearEstabelecimento(userId, c);
+        ({ data: perfil } = await supabase.from('perfis').select('*').eq('id', userId).maybeSingle());
+      } else {
+        // Falhou (ex.: CNPJ que outra conta pegou nesse intervalo). A pessoa
+        // fica autenticada e SEM restaurante — a tela precisa dizer o que
+        // houve, não mandar "fale com o suporte" e deixar a conta morta.
+        setCadastroPendenteErro(errPend.message);
+      }
+    }
 
     if (perfil) {
       // select completo → fallback progressivo p/ bancos sem as colunas novas
@@ -123,7 +188,7 @@ export function AuthProvider({ children }) {
     }
     registrarSessaoAtiva(userId); // marca este aparelho como o ativo
     setCarregando(false);
-  }, [registrarSessaoAtiva]);
+  }, [registrarSessaoAtiva, semearEstabelecimento]);
 
   // Sessão única: escuta o token desta conta. Se mudar (outro aparelho logou),
   // este aparelho cai e mostra a mensagem. (Demo não toca o Supabase.)
@@ -279,19 +344,36 @@ export function AuthProvider({ children }) {
   // ── Primeiro acesso: cria restaurante + conta diretoria ───────
   const criarPrimeiroAdmin = useCallback(async ({ nome, email, senha, nomeRestaurante, produto,
     cnpj, whatsapp, cidade, uf, termosVersao }) => {
-    const { data, error } = await supabase.auth.signUp({ email, password: senha });
+    const cadastro = { nome, nomeRestaurante, produto, cnpj, whatsapp, cidade, uf, termosVersao };
+
+    // ⚠️ Os dados do cadastro viajam no user_metadata. Com a confirmação de
+    // e-mail LIGADA o signUp não devolve sessão, e criar_restaurante depende de
+    // auth.uid() — não há como criar o restaurante agora. Eles são usados no
+    // primeiro acesso autenticado (ver o gancho em carregarPerfil).
+    //
+    // `emailRedirectTo` é obrigatório: sem ele o link do e-mail volta para a
+    // raiz do domínio, e o app vive em /aurum-cozinha-pro/ no GitHub Pages.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: senha,
+      options: {
+        emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
+        data: { aurum_cadastro: cadastro },
+      },
+    });
     if (error) return error.message;
     if (!data.user) return 'Erro inesperado ao criar conta.';
 
-    // Onboarding ATÔMICO no servidor (RPC SECURITY DEFINER): cria restaurante +
-    // perfil diretoria de uma vez. Evita uma policy de INSERT aberta em
-    // restaurantes (que deixaria qualquer um criar restaurantes à toa).
+    // ⚠️ SEM SESSÃO = confirmação de e-mail ligada. Não é erro: é o fluxo
+    // normal. Devolve um marcador para a tela mostrar "confirme seu e-mail" em
+    // vez de uma mensagem de falha. O restaurante nasce quando a pessoa voltar.
+    if (!data.session) return { confirmarEmail: true };
+
+    // Confirmação DESLIGADA: sessão veio na hora, cria o restaurante já.
     const args = {
       p_nome_restaurante: nomeRestaurante || `${nome} — Restaurante`,
       p_nome_admin: nome,
     };
-    // Cadastro B2B (migração 28). O CNPJ é o que trava o teste grátis; o
-    // WhatsApp é por onde a assinatura é ativada.
     const argsCompletos = {
       ...args,
       p_produto: produto || 'completo',
@@ -301,14 +383,9 @@ export function AuthProvider({ children }) {
       p_uf: uf || null,
     };
     let { error: errRpc } = await supabase.rpc('criar_restaurante', argsCompletos);
-    // ⚠️ Banco sem a migração 27 não conhece `p_produto` e recusa a chamada
-    // inteira. Cadastro NÃO pode falhar por isso: refaz sem o argumento, a
-    // conta nasce 'completo' (o default da coluna) e o super-admin ajusta no
-    // painel. Mesmo molde do fallback de avisarPagamento.
-    // ⚠️ Banco sem a migração 28 não conhece os parâmetros novos e recusa a
-    // chamada inteira. Degrada em DOIS passos, do mais completo ao mínimo, para
-    // o cadastro nunca falhar por migração não rodada — o super-admin ajusta os
-    // dados depois no painel. Mesmo molde do fallback de avisarPagamento.
+    // Banco sem a migração 28 não conhece os parâmetros novos e recusa a
+    // chamada inteira. Degrada em DOIS passos para o cadastro nunca falhar por
+    // migração não rodada — o super-admin ajusta os dados depois no painel.
     if (errRpc && /p_cnpj|p_whatsapp|p_cidade|p_uf|does not exist|schema cache|not find|function/i.test(errRpc.message || '')) {
       ({ error: errRpc } = await supabase.rpc('criar_restaurante', { ...args, p_produto: produto || 'completo' }));
     }
@@ -319,53 +396,30 @@ export function AuthProvider({ children }) {
       // A conta Auth já foi criada acima. Se a RPC falha, ela fica ÓRFÃ (sem
       // restaurante/perfil) e o e-mail passa a dar "já registrado" — a pessoa
       // não consegue nem entrar nem recadastrar. Desloga para o e-mail poder
-      // ser reaproveitado numa nova tentativa. (Mesma armadilha já tratada em
-      // usarConvite, que valida o token antes do signUp.)
+      // ser reaproveitado numa nova tentativa.
       try { await supabase.auth.signOut(); } catch { /* já sem sessão */ }
-      // Sem fallback de insert direto: desde a migração 10 o RLS não aceita
-      // INSERT em restaurantes/perfis pelo client — cadastro é SÓ pela RPC.
       if (/criar_restaurante|function|does not exist|schema cache|not find/i.test(errRpc.message || '')) {
-        return 'Cadastro indisponível no momento (banco sem a migração 4). Fale com o suporte Aurum.';
+        return 'Cadastro indisponível no momento. Fale com o suporte Aurum.';
       }
       return errRpc.message;
     }
 
-    // ⚠️ SEMEIA prefs.estabelecimento com o que já foi digitado. Esses campos
-    // saem impressos no RODAPÉ DA ETIQUETA e existiam só em Configurações —
-    // então o cliente digitava o CNPJ no cadastro e, para a etiqueta sair
-    // completa, tinha que digitar de novo em outra tela que ele nem sabia que
-    // existia. Falha silenciosa e chata: a etiqueta saía sem CNPJ.
-    // Não bloqueia o cadastro se falhar: entrar é mais importante.
-    try {
-      const est = {};
-      if (cnpj) est.cnpj = cnpj;
-      if (cidade || uf) est.cidade = [cidade, uf].filter(Boolean).join(' - ');
-      if (Object.keys(est).length) {
-        // ⚠️ `p_restaurante` é OBRIGATÓRIO na assinatura
-        // salvar_documento(uuid,text,jsonb,integer) — sem ele a chamada falha e
-        // o rodapé da etiqueta fica vazio sem ninguém perceber. Por isso o id
-        // do restaurante é lido do perfil recém-criado, e não presumido.
-        const { data: perfilNovo } = await supabase
-          .from('perfis').select('restaurante_id').eq('id', data.user.id).maybeSingle();
-        if (perfilNovo?.restaurante_id) {
-          await supabase.rpc('salvar_documento', {
-            p_restaurante: perfilNovo.restaurante_id,
-            p_chave: 'prefs',
-            p_dados: {
-              estabelecimento: est,
-              termosVersao: termosVersao || null,
-              termosAceitosEm: new Date().toISOString(),
-            },
-            p_versao: 0,
-          });
-        }
-      }
-    } catch { /* etiqueta sai sem o rodapé; o cliente completa em Ajustes */ }
-
+    await semearEstabelecimento(data.user.id, cadastro);
     try { sessionStorage.setItem('aurum_boasvindas', 'novo'); } catch { /* storage indisponível */ }
     await carregarPerfil(data.user.id);
     return null;
-  }, [carregarPerfil]);
+  }, [carregarPerfil, semearEstabelecimento]);
+
+  // Reenvia o e-mail de confirmação. A trava de tempo é do lado do Supabase,
+  // então aqui só traduzimos o erro para algo legível.
+  const reenviarConfirmacao = useCallback(async (email) => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}` },
+    });
+    return error?.message || null;
+  }, []);
 
   // ── Gera token de convite para novo funcionário ───────────────
   const criarConvite = useCallback(async (cargo) => {
@@ -498,7 +552,8 @@ export function AuthProvider({ children }) {
       sessao, carregando, usuarios, recuperando,
       convites, carregarConvites, revogarConvite,
       login, logout, entrarDemo, esqueceuSenha, atualizarSenha,
-      criarPrimeiroAdmin, criarConvite, usarConvite, alterarCargo,
+      criarPrimeiroAdmin, reenviarConfirmacao, cadastroPendenteErro,
+      criarConvite, usarConvite, alterarCargo,
       desativarUsuario, reativarUsuario, avisarPagamento,
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,

@@ -43,7 +43,7 @@ const produtoDaURL = (() => {
 })();
 
 export default function Login() {
-  const { login, esqueceuSenha, criarPrimeiroAdmin, usarConvite, entrarDemo } = useAuth();
+  const { login, esqueceuSenha, criarPrimeiroAdmin, reenviarConfirmacao, usarConvite, entrarDemo } = useAuth();
   const [modo, setModo] = useState(conviteDaURL ? 'convite' : 'entrar'); // entrar | convite | novo | esqueci
   const [mostraPrivacidade, setMostraPrivacidade] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
@@ -70,6 +70,10 @@ export default function Login() {
   // ⚠️ Um formulario de 8 campos numa tela so e onde se desiste. Passo 1 = o
   // ESTABELECIMENTO, passo 2 = o ACESSO. Sao decisoes de natureza diferente.
   const [passo, setPasso] = useState(1);
+  // E-mail aguardando confirmação. Quando preenchido, a tela vira "confirme
+  // seu e-mail" — não é erro, é o fluxo normal com a confirmação ligada.
+  const [aguardandoEmail, setAguardandoEmail] = useState('');
+  const [reenviando, setReenviando] = useState(false);
 
   const limpar = () => { setErro(''); setInfo(''); };
   const trocar = (m) => { limpar(); setSenha(''); setPasso(1); setModo(m); };
@@ -121,6 +125,12 @@ export default function Login() {
       termosVersao: TERMOS_VERSAO,
     });
     setCarregando(false);
+    // ⚠️ Objeto (não string) = confirmação de e-mail ligada e o signUp não
+    // devolveu sessão. NÃO é erro: a conta foi criada e falta só confirmar.
+    if (err && typeof err === 'object' && err.confirmarEmail) {
+      setAguardandoEmail(email.trim());
+      return;
+    }
     if (err) setErro(traduz(err));
   };
 
@@ -213,8 +223,34 @@ export default function Login() {
             <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>
           </>}
 
+          {/* CONFIRME SEU E-MAIL — some quando a confirmação está desligada,
+              porque aí o signUp devolve sessão e a pessoa já entra. */}
+          {modo === 'novo' && aguardandoEmail && <>
+            <h2 className="font-bold text-polo-navy">Confirme seu e-mail</h2>
+            <p className="text-sm text-gray-700">
+              Mandamos um link para <strong className="text-polo-navy">{aguardandoEmail}</strong>.
+              Toque nele para ativar a conta e entrar.
+            </p>
+            <p className="text-[11px] text-gray-600">
+              Não chegou em alguns minutos? Confira o <strong>spam</strong> ou a aba de promoções.
+            </p>
+            <Msg erro={erro} info={info} />
+            <button disabled={reenviando} className={botao}
+              onClick={async () => {
+                limpar(); setReenviando(true);
+                const e = await reenviarConfirmacao(aguardandoEmail);
+                setReenviando(false);
+                if (e) setErro(traduz(e));
+                else setInfo('Link reenviado. Confira sua caixa de entrada.');
+              }}>
+              {reenviando ? 'Reenviando…' : 'Reenviar link'}
+            </button>
+            <button onClick={() => { setAguardandoEmail(''); trocar('entrar'); }}
+              className="w-full text-xs text-gray-500 pt-1">Já confirmei — ir para o login</button>
+          </>}
+
           {/* NOVO RESTAURANTE */}
-          {modo === 'novo' && <>
+          {modo === 'novo' && !aguardandoEmail && <>
             <h2 className="font-bold text-polo-navy">Cadastrar restaurante</h2>
 
             {/* ⚠️ A escolha do produto vem ANTES dos campos, e é decisão do
