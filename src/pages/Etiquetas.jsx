@@ -124,6 +124,14 @@ export default function Etiquetas() {
   const { sessao, impersonando } = useAuth();
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   const armazenamentos = armazenamentosAtivos(prefs);
+  // Prazos que o item tem, por estado, na ordem configurada. Só os preenchidos:
+  // listar "0d" para os quatro estados enche a linha de ruído.
+  const prazosVisiveis = (p) => {
+    const prazos = prazosDoProduto(p);
+    return armazenamentos
+      .map(a => ({ nome: a.nome, dias: Number(prazos[a.id]) || 0 }))
+      .filter(x => x.dias > 0);
+  };
 
   const [tab, setTab] = useState('catalogo'); // 'catalogo' | 'avulsas'
   const [busca, setBusca] = useState('');
@@ -278,9 +286,17 @@ export default function Etiquetas() {
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
+                  {/* ⚠️ Esta linha lia `valCongelado`/`valResfriado` com ícones
+                      fixos de floco e gelo — os DOIS campos antigos, de quando
+                      só existiam dois estados. Depois que o armazenamento virou
+                      configurável, prazo em REFRIGERADO ou AMBIENTE ficava
+                      invisível aqui, e item que só tinha esses aparecia como
+                      "sem prazo cadastrado" — mentira, e o dono viu. Agora
+                      percorre os estados configurados e mostra cada um pelo
+                      NOME que o restaurante deu. */}
                   <div className="text-xs text-gray-500">
-                    {p.valCongelado > 0 || p.valResfriado > 0
-                      ? `validade: ${p.valCongelado > 0 ? `❄️ ${p.valCongelado}d` : ''}${p.valCongelado > 0 && p.valResfriado > 0 ? ' · ' : ''}${p.valResfriado > 0 ? `🧊 ${p.valResfriado}d` : ''}`
+                    {prazosVisiveis(p).length > 0
+                      ? prazosVisiveis(p).map(x => `${x.nome} ${x.dias}d`).join(' · ')
                       : 'sem prazo cadastrado — etiqueta só de identificação'}
                   </div>
                 </div>
