@@ -74,6 +74,10 @@ export default function Login() {
   // seu e-mail" — não é erro, é o fluxo normal com a confirmação ligada.
   const [aguardandoEmail, setAguardandoEmail] = useState('');
   const [reenviando, setReenviando] = useState(false);
+  // Captura de contato antes da demonstração
+  const [querDemo, setQuerDemo] = useState(false);
+  const [demoNome, setDemoNome] = useState('');
+  const [demoFone, setDemoFone] = useState('');
 
   const limpar = () => { setErro(''); setInfo(''); };
   const trocar = (m) => { limpar(); setSenha(''); setPasso(1); setModo(m); };
@@ -134,6 +138,22 @@ export default function Login() {
     if (err) setErro(traduz(err));
   };
 
+  // Abre a demonstração e avisa o dono pelo WhatsApp, na mesma ação.
+  const abrirDemo = (produtoId) => {
+    limpar();
+    if (demoNome.trim().length < 2) { setErro('Digite seu nome.'); return; }
+    if (!validarTelefone(demoFone)) { setErro('WhatsApp inválido. Use DDD + número.'); return; }
+    const msg = encodeURIComponent(
+      `Olá! Sou ${demoNome.trim()} e estou vendo a demonstração do ${PRODUTOS[produtoId].label}. ` +
+      `Meu WhatsApp: ${demoFone}`);
+    // ⚠️ Abre o WhatsApp ANTES de entrar na demo, ainda dentro do gesto do
+    // toque: navegador de celular bloqueia window.open disparado depois. Se
+    // ainda assim bloquear, a demo abre do mesmo jeito — o lead é bônus, não
+    // pode virar barreira para conhecer o produto.
+    try { window.open(`https://wa.me/5581998184489?text=${msg}`, '_blank', 'noopener,noreferrer'); } catch { /* bloqueado */ }
+    entrarDemo(produtoId);
+  };
+
   const cadastrarConvite = async () => {
     limpar();
     if (!token.trim()) { setErro('Digite o código de convite.'); return; }
@@ -169,30 +189,54 @@ export default function Login() {
               <button onClick={() => trocar('convite')} className="text-xs font-semibold text-polo-navy">Tenho um código de convite →</button>
               <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante — <strong className="text-green-700">{TESTE_DIAS} dias grátis</strong> →</button>
             </div>
-            {/* ⚠️ AS DUAS DEMONSTRAÇÕES LADO A LADO, com preço.
-                Antes havia um botão grande "Ver demonstração" e um link
-                secundário para a outra — o que fazia parecer que existe UM app
-                com um extra, quando na verdade são dois produtos com preços
-                diferentes. Quem chega aqui precisa entender a escolha ANTES de
-                entrar, senão conhece a versão errada e se decepciona depois. */}
+            {/* ⚠️ A DEMO PASSA A PEDIR CONTATO. Antes era aberta e quem
+                olhava e ia embora não deixava rastro nenhum. Dois campos, sem
+                verificação, e a demonstração abre em seguida — o contato chega
+                pelo WhatsApp, que é o canal onde o dono já fecha venda.
+
+                Não grava em tabela de propósito: a demo é pré-login, a escrita
+                seria feita pelo papel `anon`, e isso exigiria a primeira RPC
+                anônima além de convite_valido — que `auditar-supabase.mjs`
+                recusa de propósito. Abrir essa porta por um lead criaria vetor
+                de spam e enfraqueceria uma trava que custou duas migrações. */}
             <div className="border-t border-gray-100 pt-3 space-y-2">
               <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide text-center">
-                Conheça sem cadastro
+                Conhecer o sistema
               </p>
-              {Object.values(PRODUTOS).map(p => (
-                <button key={p.id} onClick={() => entrarDemo(p.id)}
-                  className={`w-full text-left rounded-xl p-3 border-2 active:scale-[0.99] transition-transform
-                    ${p.id === (produtoDaURL || 'etiquetas')
-                      ? 'border-polo-gold bg-polo-beige' : 'border-gray-200'}`}>
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-sm text-polo-navy">{p.label}</span>
-                    <span className="text-xs font-bold text-polo-navy flex-shrink-0">
-                      R$ {p.precoMes}<span className="font-normal text-gray-500">/mês</span>
-                    </span>
-                  </span>
-                  <span className="block text-[11px] text-gray-600 mt-0.5">{p.resumo}</span>
+
+              {!querDemo ? (
+                <button onClick={() => { limpar(); setQuerDemo(true); }}
+                  className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-[0.98] transition-transform">
+                  Ver demonstração
                 </button>
-              ))}
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-gray-600">
+                    Só para sabermos com quem falamos — a demonstração abre em seguida.
+                  </p>
+                  <input type="text" aria-label="Seu nome" value={demoNome}
+                    onChange={e => setDemoNome(e.target.value)}
+                    placeholder="Seu nome" className={campo} />
+                  <input type="tel" inputMode="numeric" aria-label="Seu WhatsApp" value={demoFone}
+                    onChange={e => setDemoFone(formatarTelefone(e.target.value))}
+                    placeholder="WhatsApp com DDD" className={campo} />
+                  {Object.values(PRODUTOS).map(p => (
+                    <button key={p.id} onClick={() => abrirDemo(p.id)}
+                      className="w-full text-left rounded-xl p-3 border-2 border-gray-200 active:scale-[0.99] transition-transform">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-sm text-polo-navy">{p.label}</span>
+                        <span className="text-xs font-bold text-polo-navy flex-shrink-0">
+                          R$ {p.precoMes}<span className="font-normal text-gray-500">/mês</span>
+                        </span>
+                      </span>
+                      <span className="block text-[11px] text-gray-600 mt-0.5">{p.resumo}</span>
+                    </button>
+                  ))}
+                  <Msg erro={erro} info={info} />
+                  <button onClick={() => { limpar(); setQuerDemo(false); }}
+                    className="w-full text-xs text-gray-500">Cancelar</button>
+                </div>
+              )}
               <p className="text-[11px] text-gray-600 text-center">
                 Restaurante de exemplo. Nada é salvo: os dados voltam ao início quando você sair.
               </p>
