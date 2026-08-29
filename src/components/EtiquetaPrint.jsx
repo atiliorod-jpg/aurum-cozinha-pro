@@ -217,11 +217,32 @@ export default function EtiquetaPrint() {
   // Campos calculados de cada item (validade reage à data/armazenamento editados).
   // Prazo em dias: avulsas trazem `diasValidade` fixo; itens do catálogo trazem
   // `diasCongelado`/`diasResfriado` e o prazo acompanha o armazenamento escolhido.
+  // Prazo que VEM DO CADASTRO para o armazenamento escolhido. Fica separado do
+  // `dias` efetivo porque o campo de dias do modal precisa mostrar este valor
+  // como ponto de partida e deixar a pessoa mudar.
+  const diasDoCadastro = (item) => {
+    if (item.diasValidade != null) return item.diasValidade;
+    if (!comArmazenamento) return item.prazos?.congelado ?? item.diasCongelado ?? 0;
+    return item.prazos?.[item.armazenamento]
+      ?? (item.armazenamento === 'congelado' ? item.diasCongelado
+        : item.armazenamento === 'resfriado' ? item.diasResfriado
+        : 0)
+      ?? 0;
+  };
+
   const camposDe = (item, loteId = null) => {
     // `prazos` é o formato novo (um prazo por estado configurável). Os campos
     // diasCongelado/diasResfriado continuam sendo lidos porque chegam de item
     // montado por tela antiga, rascunho em cache ou reimpressão do histórico.
-    const dias = item.diasValidade != null ? item.diasValidade
+    //
+    // ⚠️ `diasOverride` GANHA de tudo: é o que a pessoa digitou agora, no modal.
+    // Sem ele, item sem prazo cadastrado saía sem data de vencimento e a única
+    // saída era largar a impressão e ir até Meus itens — com o pote na mão, no
+    // meio do serviço. Também cobre o lote que veio com prazo diferente do
+    // padrão, que é caso comum e não justifica mexer no cadastro.
+    const dias = item.diasOverride != null && item.diasOverride !== ''
+      ? (parseInt(item.diasOverride) || 0)
+      : item.diasValidade != null ? item.diasValidade
       // sem câmara fria (despensa): o prazo de prateleira é único e fica em
       // diasCongelado. Sem esta linha a etiqueta do seco saía SEM validade.
       : !comArmazenamento ? (item.prazos?.congelado ?? item.diasCongelado ?? 0)
@@ -408,8 +429,11 @@ export default function EtiquetaPrint() {
                     {comArmazenamento && item.armazenamento !== null ? (
                       <div>
                         <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Armazenamento</label>
+                        {/* ⚠️ trocar o estado LIMPA o override: senão o número
+                            digitado para o congelado ficava grudado no
+                            refrigerado, com a data errada e sem aviso. */}
                         <select value={item.armazenamento || 'congelado'}
-                          onChange={e => setItem(idx, { armazenamento: e.target.value })}
+                          onChange={e => setItem(idx, { armazenamento: e.target.value, diasOverride: '' })}
                           className={`${inputCls} bg-white`}>
                           {armazenamentos.map(a => (
                             <option key={a.id} value={a.id}>
@@ -435,11 +459,32 @@ export default function EtiquetaPrint() {
                       </div>
                     )}
                     <div>
+                      <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
+                        Validade (dias)
+                      </label>
+                      <input type="number" inputMode="numeric" min="0"
+                        value={item.diasOverride ?? ''}
+                        placeholder={String(diasDoCadastro(item) || 0)}
+                        onChange={e => setItem(idx, { diasOverride: e.target.value })}
+                        className={inputCls} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
                       <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Val. original (fornecedor)</label>
                       <input type="date" value={item.valOriginal}
                         onChange={e => setItem(idx, { valOriginal: e.target.value })} className={inputCls} />
                     </div>
                   </div>
+                  {/* ⚠️ O "Val. original" confundia — parecia entrar na conta do
+                      vencimento, e NÃO entra. Ele é só texto impresso. */}
+                  <p className="text-[11px] text-gray-500 -mt-1">
+                    <strong>Validade (dias):</strong> quantos dias o item dura a partir da data acima.
+                    Vem do cadastro; mude aqui se este lote for diferente.
+                    {' · '}
+                    <strong>Val. original:</strong> a data que vem impressa na embalagem do fabricante.
+                    Não muda o vencimento da etiqueta — fica registrada para rastrear o lote depois de aberto.
+                  </p>
                   <p className="text-[11px] text-gray-500">
                     {campos.validadeFmt
                       ? <>Vencimento na etiqueta: <strong className="text-polo-navy">{campos.validadeFmt}</strong></>
