@@ -35,11 +35,31 @@ export function cortarParaLargura(txt, fonte, mul, pontosDisponiveis) {
   return cabe > 1 ? `${t.slice(0, cabe - 1)}.` : t.slice(0, cabe);
 }
 
+// ⚠️ TUDO VIRA ASCII, e isto veio da PROVA IMPRESSA, não da documentação.
+// Mandamos CODEPAGE 1252 no cabeçalho — que é o correto pelo manual do TSPL —
+// e a MDK-022 IGNOROU: "MANIPULAÇÃO" saiu "MANIPULA高0", "0°C" saiu "0贊" e
+// "João" saiu "Jo鲷". O firmware está numa página de código asiática e não
+// aceita a troca. Não dá para consertar mandando outro CODEPAGE; dá para não
+// depender dele. Só existe um alfabeto que toda impressora térmica imprime
+// igual, e é o ASCII de 7 bits.
+//
+// A etiqueta perde o acento: "MANIPULACAO", "-18C". Numa etiqueta de cozinha
+// isso não atrapalha ninguém, e é muito melhor que ideograma no lugar da
+// palavra. A tela continua com acento; só o papel é sem.
+const TROCAS = { '°': '', 'º': '', 'ª': '', '·': '-', '–': '-', '—': '-', '“': "'", '”': "'", '’': "'" };
+const paraASCII = (txt) => String(txt ?? '')
+  .replace(/[°ºª·–—“”’]/g, (ch) => TROCAS[ch])
+  // NFD separa a letra do acento; o acento sozinho é então descartado.
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  // O que sobrar fora do ASCII (ideograma ou emoji no nome do produto) vira
+  // espaço: um byte alto solto pode travar a leitura da linha inteira.
+  .replace(/[^\x20-\x7e]/g, ' ');
+
 // ⚠️ ASPAS DUPLAS QUEBRAM O COMANDO. Em TSPL o texto vai entre aspas, e uma
 // aspa no meio do nome do produto ('Filé 1" espessura') encerra a string cedo
 // e o resto vira comando inválido — a etiqueta sai truncada ou não sai. Vira
 // aspa simples, que imprime igual e não quebra nada.
-const limpar = (txt) => String(txt ?? '').replace(/"/g, "'").replace(/[\r\n]+/g, ' ').trim();
+const limpar = (txt) => paraASCII(txt).replace(/"/g, "'").replace(/[\r\n]+/g, ' ').trim();
 
 const texto = (x, y, fonte, mul, conteudo) =>
   `TEXT ${x},${y},"${fonte}",0,${mul},${mul},"${limpar(conteudo)}"`;
@@ -84,9 +104,8 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
     `GAP ${opcoes.gapMm ?? 2} mm,0 mm`,
     'DIRECTION 1',
     'CLS',
-    // ⚠️ Acento só sai com a página de código certa. 1252 é a Latin-1 do
-    // Windows, que a maioria das térmicas TSPL entende — e o texto tem que ir
-    // codificado nela também (ver paraBytesLatin1).
+    // Continua sendo o pedido certo, mas NÃO confiamos nele: a MDK-022 ignora
+    // e imprime na página asiática dela. Quem garante o texto é o paraASCII.
     'CODEPAGE 1252',
   ];
 
@@ -96,8 +115,13 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // Fonte grande, mas cai um degrau em nome comprido: é melhor um pouco menor
   // e legível do que cortado no meio.
   const nome = (campos.nome || '').toUpperCase();
-  const fonteNome = nome.length > 18 ? 3 : 4;
   const espacoNome = campos.medida ? util * 0.72 : util;
+  // ⚠️ A FONTE SAI DA LARGURA QUE SOBROU, nunca de um limite de letras. Antes
+  // era "mais de 18 caracteres, diminui" — e "CORACAO A MODA", com 14, saía
+  // cortado em "CORACAO A MO." porque ao lado tinha uma medida comendo espaço.
+  // Contar letra ignora o tamanho da letra. Aqui vai da maior para a menor e
+  // fica na primeira que couber; cortar é o último recurso.
+  const fonteNome = [4, 3, 2].find(f => larguraTexto(nome, f, 1) <= espacoNome) || 2;
   linhas.push(texto(margem, y, fonteNome, 1, cortarParaLargura(nome, fonteNome, 1, espacoNome)));
   if (campos.medida) {
     const m = cortarParaLargura(campos.medida, 3, 1, util * 0.26);
@@ -134,21 +158,47 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // olha, para ganhar uma linha, é troca ruim. Rótulo pequeno em cima, data
   // grande embaixo: é como a etiqueta profissional faz, e a data cabe inteira.
   if (c.validade !== false && campos.validadeFmt) {
-    linhas.push(texto(margem, y, 1, 1, 'VALIDADE'));
-    y += ALTURA_FONTE[1] + mm(0.4);
+    linhas.push(texto(margem, y, 2, 1, 'VALIDADE:'));
+    // ⚠️ ESPAÇO GENEROSO, e não é capricho: na primeira etiqueta impressa a
+    // palavra VALIDADE saiu ENCAVALADA na data ("8/ALIDADE" por cima de
+    // "01/03/2026"). A altura real da fonte no firmware é maior que a da
+    // tabela, então avançar pela tabela não bastava.
+    y += ALTURA_FONTE[2] + mm(1.2);
     linhas.push(texto(margem, y, 3, 1, cortarParaLargura(campos.validadeFmt, 3, 1, util)));
-    y += ALTURA_FONTE[3] + mm(0.8);
+    y += ALTURA_FONTE[3] + mm(1.2);
   }
   if (c.marca !== false) linha('MARCA:', campos.marca);
   if (c.sif !== false) linha('SIF:', campos.sif);
   if (c.responsavel !== false) linha('RESP.:', campos.responsavel);
 
   // ── Rodapé: quem produziu ────────────────────────────────────
+  // ⚠️ Tem que bater com a prévia da tela. A primeira versão imprimia só o
+  // NOME e deixava CNPJ e endereço de fora: a tela mostrava quatro linhas e o
+  // papel saía com uma. Fora a diferença incomodar, o endereço de quem
+  // manipulou é o que a fiscalização procura quando a etiqueta viaja com o
+  // alimento (RDC 216 — identificação do estabelecimento).
+  const est = config?.estabelecimento || {};
+  const rodape = [];
   if (c.restaurante !== false && campos.restauranteNome) {
-    const yRodape = A - mm(6);
-    linhas.push(`BAR ${margem},${yRodape - mm(1.5)},${util},2`);
-    linhas.push(texto(margem, yRodape, 1, 1,
-      cortarParaLargura(campos.restauranteNome.toUpperCase(), 1, 1, util)));
+    rodape.push(campos.restauranteNome.toUpperCase());
+  }
+  if (c.estabelecimento !== false) {
+    const doc = [est.cnpj && `CNPJ: ${est.cnpj}`, est.cep && `CEP: ${est.cep}`]
+      .filter(Boolean).join('  ');
+    if (doc) rodape.push(doc);
+    if (est.endereco) rodape.push(est.endereco);
+    if (est.cidade) rodape.push(est.cidade);
+  }
+  if (rodape.length) {
+    // Cresce de baixo para cima: o rodapé fica ancorado na borda de baixo,
+    // então acrescentar uma linha nunca empurra nada para fora do papel.
+    const alturaLinha = ALTURA_FONTE[1] + mm(0.4);
+    let yRodape = A - mm(2) - rodape.length * alturaLinha;
+    linhas.push(`BAR ${margem},${yRodape - mm(1.2)},${util},2`);
+    for (const l of rodape) {
+      linhas.push(texto(margem, yRodape, 1, 1, cortarParaLargura(l, 1, 1, util)));
+      yRodape += alturaLinha;
+    }
   }
 
   // ⚠️ CÓPIAS SÃO NATIVAS: `PRINT 1,N` manda a impressora repetir. Não é o app
@@ -166,11 +216,11 @@ export const loteTSPL = (etiquetas, config) =>
 /**
  * Texto → bytes Windows-1252.
  *
- * ⚠️ `TextEncoder` só faz UTF-8, e em UTF-8 o "Ç" vira DOIS bytes — a
- * impressora leria como dois caracteres estranhos. Com CODEPAGE 1252 no
- * cabeçalho, cada caractere acentuado precisa sair como UM byte. Acima de 255
- * não há equivalente: vira "?" em vez de byte inválido, que travaria a
- * impressão inteira por causa de um caractere.
+ * Depois do `paraASCII` já não sobra nada acima de 127, então isto é rede de
+ * segurança — mas ela precisa existir: `TextEncoder` só faz UTF-8, e em UTF-8
+ * um "Ç" que escapasse viraria DOIS bytes, lidos como dois caracteres
+ * estranhos. Acima de 255 vira "?", nunca byte inválido: um byte solto pode
+ * travar a impressão inteira por causa de um caractere.
  */
 export function paraBytesLatin1(txt) {
   const s = String(txt ?? '');

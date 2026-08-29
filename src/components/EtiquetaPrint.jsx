@@ -438,7 +438,9 @@ export default function EtiquetaPrint() {
       const lote = itens
         .map(it => ({ campos: camposDe(it, loteDaCopia(it, 0)), copias: limitarCopias(it.quantidade) }))
         .filter(x => x.copias > 0);
-      await enviarTSPL(loteTSPL(lote, config));
+      // O estabelecimento não vive em `config`, mas o rodapé do papel precisa
+      // dele para ficar igual à prévia da tela.
+      await enviarTSPL(loteTSPL(lote, { ...config, estabelecimento }));
       registrarImpressao();
       setEnviando(false);
       fecharEtiquetas();

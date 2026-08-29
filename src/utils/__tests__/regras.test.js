@@ -2681,9 +2681,75 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
     const t = etiquetaTSPL(campos, config);
     expect(t).toContain('PICANHA');
     expect(t).toContain('150 g');
-    expect(t).toContain('CONGELADO -18°C');
+    expect(t).toContain('CONGELADO -18C'); // sem o grau: ver o teste de ASCII
     expect(t).toContain('25/02/2027 - 10:00');
     expect(t).toContain('Maria');
+  });
+
+  // ⚠️ ESTE TESTE VEIO DE UMA ETIQUETA IMPRESSA DE VERDADE. Mandamos CODEPAGE
+  // 1252, que e o correto pelo manual, e a MDK-022 ignorou: "MANIPULACAO" com
+  // cedilha saiu "MANIPULA高0", "0°C" saiu "0贊", "Joao" com til saiu "Jo鲷".
+  // O firmware esta numa pagina de codigo asiatica. Nenhum acento pode chegar
+  // no papel, por nenhum caminho — nome de produto, responsavel ou endereco.
+  it('nada acima do ASCII chega na impressora', () => {
+    const t = etiquetaTSPL({
+      ...campos,
+      nome: 'Coração à moda',
+      responsavel: 'João',
+      armazenamentoLabel: 'REFRIGERADO', armazenamentoFaixa: '0°C a 6°C',
+      restauranteNome: 'Açaí & Cia',
+    }, { ...config, estabelecimento: { cidade: 'Jaboatão dos Guararapes' } });
+
+    const forasteiro = [...t].find(ch => ch.charCodeAt(0) > 126);
+    expect(forasteiro).toBeUndefined();
+    expect(t).toContain('CORACAO A MODA');
+    expect(t).toContain('Joao');
+    expect(t).toContain('0C a 6C');
+    expect(t).toContain('Jaboatao dos Guararapes');
+  });
+
+  // ⚠️ Na primeira etiqueta impressa a palavra VALIDADE saiu POR CIMA da data
+  // ("8/ALIDADE" encavalado em "01/03/2026"): a fonte ocupa mais altura do que
+  // a tabela diz. As duas linhas precisam de folga de verdade entre elas.
+  // ⚠️ Nome de 14 letras com medida ao lado saia cortado ("CORACAO A MO.")
+  // porque a fonte era escolhida contando letras, e contar letra ignora o
+  // tamanho da letra.
+  it('o nome diminui de fonte antes de ser cortado', () => {
+    const t = etiquetaTSPL({ ...campos, nome: 'Coracao a moda' }, config);
+    const linha = t.split(SEP).find(x => x.includes('CORACAO'));
+    expect(linha).toContain('CORACAO A MODA');
+    expect(linha).not.toContain('.');
+  });
+
+  it('a validade não encavala na própria data', () => {
+    const t = etiquetaTSPL(campos, config);
+    const yDe = (trecho) => {
+      const l = t.split(SEP).find(x => x.startsWith('TEXT') && x.includes(trecho));
+      return parseInt(l.split(',')[1]);
+    };
+    const yRotulo = yDe('VALIDADE:');
+    const yData = yDe('25/02/2027');
+    expect(yData).toBeGreaterThan(yRotulo);
+    // 20 pontos = 2,5 mm: mais que a altura da fonte do rotulo, com sobra
+    expect(yData - yRotulo).toBeGreaterThanOrEqual(20);
+  });
+
+  // ⚠️ A primeira versao imprimia so o NOME do restaurante e deixava CNPJ e
+  // endereco de fora, enquanto a previa da tela mostrava as quatro linhas. O
+  // endereco de quem manipulou e o que a fiscalizacao procura.
+  it('o rodapé leva o estabelecimento inteiro, como na tela', () => {
+    const est = { cnpj: '12.345.678/0001-90', cep: '54.430-350',
+      endereco: 'Av. Anibal Ribeiro, 1210', cidade: 'Jaboatao' };
+    const t = etiquetaTSPL(campos, { ...config, estabelecimento: est });
+    expect(t).toContain('RESTAURANTE TESTE');
+    expect(t).toContain('CNPJ: 12.345.678/0001-90');
+    expect(t).toContain('Av. Anibal Ribeiro, 1210');
+    expect(t).toContain('Jaboatao');
+
+    // ancorado embaixo: uma linha a mais nao empurra nada para fora do papel
+    const ys = t.split(SEP).filter(x => x.startsWith('TEXT'))
+      .map(x => parseInt(x.split(',')[1]));
+    expect(Math.max(...ys)).toBeLessThan(50 * PONTOS_POR_MM);
   });
 
   // ⚠️ Aspa dupla ENCERRA a string do comando TSPL. Um nome como
