@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
 import { statusAssinatura } from './utils/assinatura';
 import SeletorModulo from './components/SeletorModulo';
@@ -30,6 +30,7 @@ import Etiquetas from './pages/Etiquetas';
 import FecharTurno from './pages/FecharTurno';
 import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
+import Termos from './pages/Termos';
 import Itens from './pages/etiquetas/Itens';
 import EtiquetasAjustes from './pages/etiquetas/Ajustes';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
@@ -108,6 +109,7 @@ function Rotas() {
     try { return !!localStorage.getItem('pe::modulo'); } catch { return true; }
   });
   const { toast } = useUI();
+  const { pathname } = useLocation();
   const { modulo, permissoes } = useApp();
   // Produto EFETIVO: no modo suporte manda o do cliente, não o do super-admin
   // (que não tem restaurante e cairia em 'completo').
@@ -130,6 +132,12 @@ function Rotas() {
       toast(`👋 Você entrou no restaurante ${sessao.restauranteNome || ''} como ${sessao.cargo}. Bom trabalho!`, 'sucesso', { duracao: 7000 });
     }
   }, [sessao, toast]);
+
+  // ⚠️ /termos é PÚBLICA e vem ANTES de tudo: precisa abrir sem login, para
+  // quem ainda está decidindo, e sem depender de sessão carregada. Também abre
+  // logada, para o cliente reler o que aceitou. Um contrato que só existe
+  // dentro do app depois de entrar não serve como contrato.
+  if (pathname.endsWith('/termos')) return <Termos />;
 
   if (carregando) return <Splash />;
   // Veio do link de recuperação de senha → tela de nova senha (tem prioridade)

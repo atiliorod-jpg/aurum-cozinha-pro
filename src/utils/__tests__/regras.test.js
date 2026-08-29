@@ -22,6 +22,7 @@ import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
 import { produtoTem, produtoAtivo } from '../produto';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
+import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
 import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../relatorios';
@@ -2525,5 +2526,72 @@ describe('compra que da entrada (so no Estoque Seco)', () => {
       saidas: [], ajustes: [], desperdicio: [],
     });
     expect(r.seco_arroz).toBe(12);
+  });
+});
+
+describe('CNPJ e telefone (utils/documentos.js)', () => {
+  // ⚠️ O CNPJ e a trava contra criar conta nova toda semana para renovar o
+  // teste gratis. Se validarCNPJ afrouxar, a trava inteira cai junto.
+  it('aceita CNPJ com digito verificador correto, com e sem mascara', () => {
+    expect(validarCNPJ('11222333000181')).toBe(true);
+    expect(validarCNPJ('11.222.333/0001-81')).toBe(true);
+  });
+
+  it('recusa digito verificador errado', () => {
+    expect(validarCNPJ('11222333000182')).toBe(false);
+    expect(validarCNPJ('11222333000191')).toBe(false);
+  });
+
+  // ⚠️ 00000000000000 e 11111111111111 PASSAM no modulo 11. Sem a checagem de
+  // digitos repetidos, catorze vezes o mesmo numero viraria CNPJ valido.
+  it('recusa todos os digitos iguais, que passam no modulo 11', () => {
+    expect(validarCNPJ('00000000000000')).toBe(false);
+    expect(validarCNPJ('11111111111111')).toBe(false);
+    expect(validarCNPJ('99999999999999')).toBe(false);
+  });
+
+  it('recusa tamanho errado, vazio e lixo', () => {
+    expect(validarCNPJ('1122233300018')).toBe(false);
+    expect(validarCNPJ('112223330001812')).toBe(false);
+    expect(validarCNPJ('')).toBe(false);
+    expect(validarCNPJ(null)).toBe(false);
+    expect(validarCNPJ('abcdefghijklmn')).toBe(false);
+  });
+
+  it('mascara o CNPJ progressivamente enquanto digita', () => {
+    expect(formatarCNPJ('11')).toBe('11');
+    expect(formatarCNPJ('11222')).toBe('11.222');
+    expect(formatarCNPJ('11222333')).toBe('11.222.333');
+    expect(formatarCNPJ('112223330001')).toBe('11.222.333/0001');
+    expect(formatarCNPJ('11222333000181')).toBe('11.222.333/0001-81');
+    // nao deixa passar de 14 digitos
+    expect(formatarCNPJ('112223330001819999')).toBe('11.222.333/0001-81');
+  });
+
+  it('telefone aceita fixo (10) e celular (11) com DDD valido', () => {
+    expect(validarTelefone('8133334444')).toBe(true);
+    expect(validarTelefone('81998184489')).toBe(true);
+    expect(validarTelefone('(81) 99818-4489')).toBe(true);
+  });
+
+  // ⚠️ E por este numero que o dono ativa a assinatura (Pix + WhatsApp).
+  // DDD invalido ou celular sem o 9 significa nao conseguir falar com o cliente.
+  it('telefone recusa DDD invalido, celular sem o 9 e tamanho errado', () => {
+    expect(validarTelefone('0133334444')).toBe(false);
+    expect(validarTelefone('81888184489')).toBe(false);
+    expect(validarTelefone('813333444')).toBe(false);
+    expect(validarTelefone('')).toBe(false);
+  });
+
+  it('mascara o telefone conforme fixo ou celular', () => {
+    expect(formatarTelefone('81')).toBe('(81');
+    expect(formatarTelefone('8133334444')).toBe('(81) 3333-4444');
+    expect(formatarTelefone('81998184489')).toBe('(81) 99818-4489');
+  });
+
+  it('soDigitos limpa qualquer formatacao', () => {
+    expect(soDigitos('11.222.333/0001-81')).toBe('11222333000181');
+    expect(soDigitos('(81) 99818-4489')).toBe('81998184489');
+    expect(soDigitos(null)).toBe('');
   });
 });
