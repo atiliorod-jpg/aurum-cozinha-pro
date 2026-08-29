@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { calcEstoquePuro } from '../estoque';
 import { consumoComoSaidas } from '../turno';
 import { comprasQueEntram } from '../visaoEstoque';
@@ -24,6 +24,7 @@ import { produtoTem, produtoAtivo } from '../produto';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
 import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM } from '../tspl';
+import { caminhosDeImpressao, ehCelular } from '../../lib/impressoraBLE';
 import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../relatorios';
@@ -2649,6 +2650,47 @@ describe('validade que passa da do fornecedor', () => {
   });
 });
 
+describe('Qual caminho de impressão aparece em cada aparelho', () => {
+  // `navigator` e somente-leitura no ambiente de teste; trocar precisa passar
+  // por defineProperty.
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const fingir = (nav) =>
+    Object.defineProperty(globalThis, 'navigator', { value: nav, configurable: true, writable: true });
+  afterEach(() => { if (original) Object.defineProperty(globalThis, 'navigator', original); });
+
+  // ⚠️ A REGRA E CONTRAINTUITIVA: o botao que SOME no celular e justamente o
+  // que a pessoa conhece. No Android a janela de impressao precisa de um app
+  // de terceiro no meio e entrega etiqueta pior — oferecer os dois so convida
+  // para o caminho ruim.
+  it('celular com Bluetooth vê só a impressão direta', () => {
+    fingir({ bluetooth: {}, userAgentData: { mobile: true }, userAgent: '' });
+    expect(caminhosDeImpressao()).toEqual({ direto: true, dialogo: false });
+  });
+
+  it('iPhone vê só a janela de impressão, que é a única saída que resta', () => {
+    fingir({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari', maxTouchPoints: 5 });
+    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true });
+  });
+
+  // Navegador dentro do WhatsApp/Instagram: e celular e nao tem bluetooth.
+  it('navegador embutido em outro app cai no mesmo caso do iPhone', () => {
+    fingir({ userAgent: 'Mozilla/5.0 (Linux; Android 13) AppleWebKit', maxTouchPoints: 5 });
+    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true });
+  });
+
+  it('no computador os dois aparecem', () => {
+    fingir({ bluetooth: {}, userAgentData: { mobile: false }, userAgent: 'Windows NT 10.0', maxTouchPoints: 0 });
+    expect(caminhosDeImpressao()).toEqual({ direto: true, dialogo: true });
+  });
+
+  // ⚠️ iPad moderno se anuncia como Mac. Sem o teste de toque ele seria tratado
+  // como computador e ganharia um botao de impressao direta que nunca funciona.
+  it('iPad fingindo ser Mac ainda é celular', () => {
+    fingir({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15)', maxTouchPoints: 5 });
+    expect(ehCelular()).toBe(true);
+  });
+});
+
 describe('TSPL — a etiqueta na linguagem da impressora', () => {
   const SEP = String.fromCharCode(13) + String.fromCharCode(10);
   const config = { larguraMm: 60, alturaMm: 50, campos: {} };
@@ -2708,11 +2750,8 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
     expect(t).toContain('Jaboatao dos Guararapes');
   });
 
-  // ⚠️ Na primeira etiqueta impressa a palavra VALIDADE saiu POR CIMA da data
-  // ("8/ALIDADE" encavalado em "01/03/2026"): a fonte ocupa mais altura do que
-  // a tabela diz. As duas linhas precisam de folga de verdade entre elas.
   // ⚠️ Nome de 14 letras com medida ao lado saia cortado ("CORACAO A MO.")
-  // porque a fonte era escolhida contando letras, e contar letra ignora o
+  // porque a fonte era escolhida contando LETRAS, e contar letra ignora o
   // tamanho da letra.
   it('o nome diminui de fonte antes de ser cortado', () => {
     const t = etiquetaTSPL({ ...campos, nome: 'Coracao a moda' }, config);
@@ -2721,17 +2760,65 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
     expect(linha).not.toContain('.');
   });
 
-  it('a validade não encavala na própria data', () => {
-    const t = etiquetaTSPL(campos, config);
-    const yDe = (trecho) => {
-      const l = t.split(SEP).find(x => x.startsWith('TEXT') && x.includes(trecho));
-      return parseInt(l.split(',')[1]);
+  // ⚠️ AS DUAS DATAS NA MESMA COLUNA. A validade ja ficou sozinha embaixo, em
+  // fonte maior, para dar destaque — e no papel a data descolava da coluna e a
+  // linha parecia orfa. Comparar manipulacao com validade e o que a equipe faz
+  // na geladeira, e comparar so funciona alinhado.
+  it('validade e manipulação saem alinhadas, uma sob a outra', () => {
+    const t = etiquetaTSPL(campos, config).split(SEP).filter(x => x.startsWith('TEXT'));
+    const achar = (trecho) => {
+      const l = t.find(x => x.includes(trecho));
+      return { x: parseInt(l.split(',')[0].replace('TEXT ', '')), y: parseInt(l.split(',')[1]) };
     };
-    const yRotulo = yDe('VALIDADE:');
-    const yData = yDe('25/02/2027');
-    expect(yData).toBeGreaterThan(yRotulo);
-    // 20 pontos = 2,5 mm: mais que a altura da fonte do rotulo, com sobra
-    expect(yData - yRotulo).toBeGreaterThanOrEqual(20);
+    const dManip = achar('29/08/2026');
+    const dVal = achar('25/02/2027');
+    expect(dVal.x).toBe(dManip.x);            // mesma coluna
+    expect(dVal.y).toBeGreaterThan(dManip.y); // logo abaixo
+    expect(dVal.y - dManip.y).toBeLessThanOrEqual(30);
+    expect(achar('VALIDADE:').y).toBe(dVal.y); // rotulo junto da data, nao acima
+  });
+
+  // ⚠️ Termica nao tem comando de negrito com fonte interna. A dupla batida
+  // (mesmo texto, um ponto ao lado) e como se faz — e a validade e o campo que
+  // precisa saltar aos olhos dentro de uma camara fria.
+  it('a validade sai em negrito, e só ela', () => {
+    const t = etiquetaTSPL(campos, config);
+    expect(t.split(SEP).filter(x => x.includes('25/02/2027'))).toHaveLength(2);
+    expect(t.split(SEP).filter(x => x.includes('29/08/2026'))).toHaveLength(1);
+  });
+
+  // ⚠️ SAIU IMPRESSO ASSIM: as quatro linhas do rodape uma POR CIMA da outra,
+  // ilegiveis. A altura real da fonte no firmware e maior que a da tabela do
+  // manual. Cada linha precisa de passo maior que a altura da fonte que usa.
+  it('as linhas do rodapé não se encavalam', () => {
+    const t = etiquetaTSPL(campos, { ...config, estabelecimento: {
+      cnpj: '12.345.678/0001-90', cep: '54.430-350',
+      endereco: 'Av. Anibal Ribeiro, 1210', cidade: 'Jaboatao dos Guararapes' } });
+    const rodape = t.split(SEP).filter(x => x.startsWith('TEXT'))
+      .map(x => ({ y: parseInt(x.split(',')[1]), fonte: parseInt(x.split('"')[1]) }))
+      .filter(x => x.y > 200);
+    expect(rodape.length).toBe(4);
+    for (let i = 1; i < rodape.length; i++) {
+      expect(rodape[i].y - rodape[i - 1].y).toBeGreaterThan(20); // > altura da fonte 2
+      expect(rodape[i].fonte).toBeGreaterThanOrEqual(2);         // nunca a fonte 1
+    }
+  });
+
+  // ⚠️ Com fonte 2 cabem ~36 caracteres na linha. O CNPJ ganhou linha propria
+  // porque junto com o CEP estourava e saia CORTADO — justo o dado que
+  // identifica a cozinha para a fiscalizacao.
+  it('nada do rodapé passa da largura da etiqueta', () => {
+    const t = etiquetaTSPL(campos, { ...config, estabelecimento: {
+      cnpj: '12.345.678/0001-90', cep: '54.430-350',
+      endereco: 'Avenida Anibal Ribeiro Varejao, 1210', cidade: 'Jaboatao dos Guararapes' } });
+    const LARG = { 1: 8, 2: 12, 3: 16, 4: 24 };
+    for (const l of t.split(SEP).filter(x => x.startsWith('TEXT'))) {
+      const partes = l.split('"');
+      const conteudo = partes[partes.length - 2];
+      const x = parseInt(l.split(',')[0].replace('TEXT ', ''));
+      expect(x + conteudo.length * LARG[parseInt(partes[1])]).toBeLessThanOrEqual(60 * PONTOS_POR_MM);
+    }
+    expect(t).toContain('CNPJ: 12.345.678/0001-90'); // inteiro, sem corte
   });
 
   // ⚠️ A primeira versao imprimia so o NOME do restaurante e deixava CNPJ e

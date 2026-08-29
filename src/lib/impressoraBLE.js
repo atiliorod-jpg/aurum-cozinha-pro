@@ -27,6 +27,48 @@ export const SERVICOS_IMPRESSORA = [
 
 export const bleDisponivel = () => typeof navigator !== 'undefined' && !!navigator.bluetooth;
 
+/**
+ * É celular ou tablet?
+ *
+ * ⚠️ Serve para ESCONDER BOTÃO, nunca para bloquear nada. Se errar, a pessoa
+ * perde um caminho que não ia usar — não perde a impressão. Por isso pode ser
+ * uma heurística: acertar sempre exigiria pedir permissão para coisas que o
+ * navegador só entrega em troca de um aviso na cara do usuário.
+ *
+ * `userAgentData.mobile` é a resposta oficial e é o que o Chrome do Android
+ * responde. O resto dos navegadores ainda não tem isso, então sobra o texto do
+ * user agent — feio, mas é o que existe. iPad moderno se anuncia como Mac, daí
+ * o teste de toque junto.
+ */
+export function ehCelular() {
+  if (typeof navigator === 'undefined') return false;
+  if (typeof navigator.userAgentData?.mobile === 'boolean') return navigator.userAgentData.mobile;
+  const ua = navigator.userAgent || '';
+  if (/Android|iPhone|iPod|Windows Phone/i.test(ua)) return true;
+  if (/iPad/i.test(ua)) return true;
+  return /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1; // iPadOS fingindo ser Mac
+}
+
+/**
+ * Quais botões de impressão aparecem neste aparelho.
+ *
+ * ⚠️ A REGRA EM UM LUGAR SÓ, e testável, porque ela é contraintuitiva: o
+ * caminho que some no celular é justamente o que a pessoa conhece.
+ *
+ *   celular COM bluetooth  → só o direto. A janela de impressão do Android
+ *     exige um app de terceiro no meio e entrega etiqueta pior; oferecer os
+ *     dois é convidar para o caminho ruim.
+ *   celular SEM bluetooth  → só o diálogo (iPhone, ou o app aberto dentro do
+ *     WhatsApp). É a única saída que resta.
+ *   computador             → os dois. A fila do Windows já funciona e é o que
+ *     a pessoa espera encontrar.
+ */
+export function caminhosDeImpressao() {
+  const temBLE = bleDisponivel();
+  const celular = ehCelular();
+  return { direto: temBLE, dialogo: !celular || !temBLE };
+}
+
 // Conexão viva desta aba. Não vai para o cache: um `BluetoothDevice` não
 // sobrevive a recarregar a página — o que sobrevive é a PERMISSÃO, que o
 // Chrome guarda por site e devolve em getDevices().

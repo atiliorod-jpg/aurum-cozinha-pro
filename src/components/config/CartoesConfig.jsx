@@ -149,7 +149,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
       {/* O limite existe por causa do papel, não por capricho — ver MAX_FAIXA */}
       <p className="text-[11px] text-gray-500">
         A temperatura cabe em {MAX_FAIXA} caracteres: acima disso ela empurraria o rodapé da
-        etiqueta (endereço e QR) para fora do papel.
+        etiqueta (nome e endereço) para fora do papel.
       </p>
 
       <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
@@ -173,20 +173,12 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
 
 export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
   const cfg = configEtiqueta(prefs);
-  // Inputs de mm ficam como texto enquanto edita; convertem no onBlur (mesmo padrão dos dias de cobertura)
-  const [largStr, setLargStr] = useState(String(cfg.larguraMm));
-  const [altStr, setAltStr] = useState(String(cfg.alturaMm));
-
+  // ⚠️ O TAMANHO SAIU DA TELA. Aqui havia dois campos de mm, e eles causavam um
+  // defeito que só aparece no papel: o app dizia um tamanho, o driver da
+  // impressora dizia outro, e a etiqueta saía deslocada sem erro nenhum na
+  // tela. Quem está na cozinha não tem como descobrir isso. O sistema é
+  // vendido com a impressora e o rolo 60x50; um número só, dos dois lados.
   const salvar = (patch) => setPref('etiquetaConfig', { ...cfg, ...patch });
-  const salvarMm = () => {
-    const larguraMm = Math.min(Math.max(parseFloat(largStr) || 60, 20), 120);
-    const alturaMm = Math.min(Math.max(parseFloat(altStr) || 40, 15), 120);
-    setLargStr(String(larguraMm)); setAltStr(String(alturaMm));
-    if (larguraMm !== cfg.larguraMm || alturaMm !== cfg.alturaMm) {
-      salvar({ larguraMm, alturaMm });
-      toast('Tamanho da etiqueta salvo.', 'sucesso');
-    }
-  };
   const toggleCampo = (k) => salvar({ campos: { ...cfg.campos, [k]: cfg.campos[k] === false } });
 
   const CAMPOS = [
@@ -215,22 +207,15 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
       <div>
         <p className="text-sm font-bold text-polo-navy">Etiquetas</p>
         <p className="text-xs text-gray-500 mt-0.5">
-          Tamanho e conteúdo das etiquetas impressas (Registrar → Etiquetas). Use o tamanho do rolo da sua impressora.
+          O que aparece na etiqueta impressa.
         </p>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="flex items-center justify-between bg-polo-beige rounded-lg px-3 py-2">
         <div>
-          <label htmlFor="etqc-larg" className="block text-xs text-gray-500 mb-1">Largura (mm)</label>
-          <input id="etqc-larg" type="number" min="20" max="120" inputMode="numeric" value={largStr}
-            onChange={e => setLargStr(e.target.value)} onBlur={salvarMm}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          <p className="text-xs font-semibold text-polo-navy">Rolo 60 × 50 mm</p>
+          <p className="text-[11px] text-gray-600">Tamanho único do sistema.</p>
         </div>
-        <div>
-          <label htmlFor="etqc-alt" className="block text-xs text-gray-500 mb-1">Altura (mm)</label>
-          <input id="etqc-alt" type="number" min="15" max="120" inputMode="numeric" value={altStr}
-            onChange={e => setAltStr(e.target.value)} onBlur={salvarMm}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-        </div>
+        <span className="text-[11px] text-gray-600">Tomate MDK-022</span>
       </div>
       {/* ⚠️ QR só no plano COMPLETO. No plano Etiquetas ele não tem consumidor:
           quem lê o código é a contagem por câmera do Inventário, tela que só
@@ -249,16 +234,6 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
           <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.incluirQR ? 'left-6' : 'left-0.5'}`} />
         </button>
       </div>
-      {/* Numa térmica de 203 DPI o QR precisa de ~22mm para o leitor pegar. Se a
-          etiqueta for baixa, ele sai espremido e não escaneia — melhor avisar do
-          que imprimir um rolo inteiro de código ilegível. */}
-      {cfg.incluirQR && cfg.alturaMm < 45 && (
-        <p className="text-xs text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5">
-          ⚠️ Com {cfg.alturaMm}mm de altura o QR sai pequeno demais e a maioria dos leitores
-          não consegue ler. Para o QR funcionar, use etiqueta de <strong>50mm ou mais</strong> de
-          altura — ou desligue o QR e use só o texto.
-        </p>
-      )}
       </>}
       <div className="border-t border-gray-100 pt-3">
         <p className="text-xs font-semibold text-gray-600 mb-2">Campos que aparecem na etiqueta</p>

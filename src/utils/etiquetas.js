@@ -7,14 +7,23 @@ import { fmtData } from './formatters';
 import { prazoDe } from './armazenamento';
 
 // Configuração padrão da etiqueta (sobrescrita por prefs.etiquetaConfig, em Config → Sistema)
+// ⚠️ TAMANHO ÚNICO, 60 x 50 mm, e isto é decisão de produto, não limitação.
+// O sistema é vendido junto com a impressora (Tomate MDK-022) e o rolo 60x50,
+// que é o mais comum de etiqueta de validade no mercado brasileiro. Deixar o
+// tamanho aberto criava uma classe inteira de problema que só aparece no
+// papel: app dizendo 60x50, driver dizendo outra coisa, e a etiqueta saindo
+// deslocada sem nenhuma mensagem de erro. Ninguém na cozinha tem como
+// diagnosticar isso. Um número só, dos dois lados, e o defeito deixa de existir.
+//
+// ⚠️ O GERADOR TSPL CONTINUA PARAMETRIZADO de propósito (tem teste com 40x30):
+// travar é escolha da interface, não do desenho. No dia em que entrar outro
+// modelo de impressora, muda aqui e o resto acompanha.
+export const LARGURA_ETIQUETA_MM = 60;
+export const ALTURA_ETIQUETA_MM = 50;
+
 export const ETIQUETA_CONFIG_PADRAO = {
-  larguraMm: 60,
-  // ⚠️ 60x50 e o rolo mais comum de etiqueta de validade no mercado brasileiro
-  // (era 40 aqui, e a altura errada faz a etiqueta sair DESLOCADA no papel).
-  // Continua ajustavel por conta em Ajustes -> Etiquetas: o que nao pode e o
-  // padrao de fabrica obrigar todo cliente novo a descobrir isso imprimindo
-  // torto. Os dois lados precisam do mesmo numero — app e driver.
-  alturaMm: 50,
+  larguraMm: LARGURA_ETIQUETA_MM,
+  alturaMm: ALTURA_ETIQUETA_MM,
   incluirQR: false,
   campos: {
     restaurante: true, validade: true, fabricacao: true, armazenamento: true,
@@ -31,6 +40,12 @@ export const ETIQUETA_CONFIG_PADRAO = {
 export const configEtiqueta = (prefs) => ({
   ...ETIQUETA_CONFIG_PADRAO,
   ...(prefs?.etiquetaConfig || {}),
+  // ⚠️ O TAMANHO VEM DEPOIS do que está salvo, e é de propósito: contas que
+  // chegaram a salvar outra medida quando o campo existia voltam para 60x50
+  // sozinhas. Se ficasse antes, o valor antigo continuaria mandando e a pessoa
+  // não teria mais onde mexer para consertar.
+  larguraMm: LARGURA_ETIQUETA_MM,
+  alturaMm: ALTURA_ETIQUETA_MM,
   campos: { ...ETIQUETA_CONFIG_PADRAO.campos, ...(prefs?.etiquetaConfig?.campos || {}) },
 });
 

@@ -64,8 +64,14 @@ const limpar = (txt) => paraASCII(txt).replace(/"/g, "'").replace(/[\r\n]+/g, ' 
 const texto = (x, y, fonte, mul, conteudo) =>
   `TEXT ${x},${y},"${fonte}",0,${mul},${mul},"${limpar(conteudo)}"`;
 
-/** Linha de rótulo à esquerda e valor à direita, como na etiqueta da tela. */
-function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, mul = 1) {
+/**
+ * Linha de rótulo à esquerda e valor à direita, como na etiqueta da tela.
+ *
+ * `negrito` imprime o valor duas vezes, deslocado UM ponto. É assim que
+ * térmica faz negrito com fonte interna — não existe comando para isso. Um
+ * ponto é 0,12 mm: engrossa o traço sem borrar.
+ */
+function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, mul = 1, negrito = false) {
   const cmds = [texto(margem, y, fonte, mul, rotulo)];
   if (valor) {
     // ⚠️ O espaço do valor é o que SOBRA depois do rótulo, não um percentual
@@ -74,8 +80,9 @@ function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, mul
     // campo que a equipe mais olha. Um teste pegou.
     const disponivel = larguraUtil - larguraTexto(rotulo, fonte, mul) - mm(1.5);
     const v = cortarParaLargura(valor, fonte, mul, disponivel);
-    const x = margem + larguraUtil - larguraTexto(v, fonte, mul);
-    cmds.push(texto(Math.max(margem, x), y, fonte, mul, v));
+    const x = Math.max(margem, margem + larguraUtil - larguraTexto(v, fonte, mul));
+    cmds.push(texto(x, y, fonte, mul, v));
+    if (negrito) cmds.push(texto(x + 1, y, fonte, mul, v));
   }
   return cmds;
 }
@@ -142,10 +149,10 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   }
 
   // ── Datas e dados ────────────────────────────────────────────
-  const linha = (rotulo, valor, fonte = 2, mul = 1) => {
+  const linha = (rotulo, valor, { negrito = false } = {}) => {
     if (!valor) return;
-    linhas.push(...linhaParDeValores(y, rotulo, valor, util, margem, fonte, mul));
-    y += ALTURA_FONTE[fonte] * mul + mm(0.5);
+    linhas.push(...linhaParDeValores(y, rotulo, valor, util, margem, 2, 1, negrito));
+    y += ALTURA_FONTE[2] + mm(0.5);
   };
 
   if (c.valOriginal !== false) linha('VAL. ORIG.:', campos.valOriginalFmt);
@@ -157,16 +164,13 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // cortada em "25/02/2027 - 10:." Perder a hora no campo que a equipe mais
   // olha, para ganhar uma linha, é troca ruim. Rótulo pequeno em cima, data
   // grande embaixo: é como a etiqueta profissional faz, e a data cabe inteira.
-  if (c.validade !== false && campos.validadeFmt) {
-    linhas.push(texto(margem, y, 2, 1, 'VALIDADE:'));
-    // ⚠️ ESPAÇO GENEROSO, e não é capricho: na primeira etiqueta impressa a
-    // palavra VALIDADE saiu ENCAVALADA na data ("8/ALIDADE" por cima de
-    // "01/03/2026"). A altura real da fonte no firmware é maior que a da
-    // tabela, então avançar pela tabela não bastava.
-    y += ALTURA_FONTE[2] + mm(1.2);
-    linhas.push(texto(margem, y, 3, 1, cortarParaLargura(campos.validadeFmt, 3, 1, util)));
-    y += ALTURA_FONTE[3] + mm(1.2);
-  }
+  // ⚠️ MESMA LINHA E MESMO TAMANHO DA MANIPULAÇÃO, com as duas datas na mesma
+  // coluna à direita. Cheguei a pôr a validade sozinha embaixo, em fonte
+  // maior, para dar destaque — e no papel ficou pior: a data descolava da
+  // coluna e a linha parecia órfã. Ler as duas datas uma sob a outra é o que
+  // a equipe faz na geladeira, e comparar só funciona se estiverem alinhadas.
+  // O destaque vem da dupla batida, não do tamanho.
+  if (c.validade !== false) linha('VALIDADE:', campos.validadeFmt, { negrito: true });
   if (c.marca !== false) linha('MARCA:', campos.marca);
   if (c.sif !== false) linha('SIF:', campos.sif);
   if (c.responsavel !== false) linha('RESP.:', campos.responsavel);
@@ -183,20 +187,27 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
     rodape.push(campos.restauranteNome.toUpperCase());
   }
   if (c.estabelecimento !== false) {
-    const doc = [est.cnpj && `CNPJ: ${est.cnpj}`, est.cep && `CEP: ${est.cep}`]
-      .filter(Boolean).join('  ');
-    if (doc) rodape.push(doc);
+    if (est.cnpj) rodape.push(`CNPJ: ${est.cnpj}`);
     if (est.endereco) rodape.push(est.endereco);
-    if (est.cidade) rodape.push(est.cidade);
+    // CEP e cidade juntos: são a mesma informação para quem lê, e uma linha a
+    // menos no rodapé é uma linha a mais para o produto.
+    const local = [est.cidade, est.cep].filter(Boolean).join('  ');
+    if (local) rodape.push(local);
   }
   if (rodape.length) {
-    // Cresce de baixo para cima: o rodapé fica ancorado na borda de baixo,
-    // então acrescentar uma linha nunca empurra nada para fora do papel.
-    const alturaLinha = ALTURA_FONTE[1] + mm(0.4);
+    // ⚠️ FONTE 2, NÃO A 1, e o motivo saiu impresso: com a fonte 1 as quatro
+    // linhas do rodapé saíram UMA POR CIMA DA OUTRA, ilegíveis. A altura real
+    // da fonte no firmware é bem maior que a da tabela do manual — o mesmo
+    // engano que já tinha encavalado a validade. Fonte 2 é a menor cujo
+    // tamanho eu conferi no papel, então é ela que manda no cálculo.
+    // ⚠️ Um efeito colateral disso: a linha só cabe ~36 caracteres. Por isso o
+    // CNPJ ganhou linha própria — junto com o CEP ele estourava e a etiqueta
+    // saía com o CNPJ cortado, que é justo o dado que identifica a cozinha.
+    const alturaLinha = ALTURA_FONTE[2] + mm(1);
     let yRodape = A - mm(2) - rodape.length * alturaLinha;
     linhas.push(`BAR ${margem},${yRodape - mm(1.2)},${util},2`);
     for (const l of rodape) {
-      linhas.push(texto(margem, yRodape, 1, 1, cortarParaLargura(l, 1, 1, util)));
+      linhas.push(texto(margem, yRodape, 2, 1, cortarParaLargura(l, 2, 1, util)));
       yRodape += alturaLinha;
     }
   }

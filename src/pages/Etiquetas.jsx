@@ -10,70 +10,89 @@ import { medidaDoProduto } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
 
-// Guia de configuração de impressora — escolhe a situação e mostra o passo a
-// passo com links de download. Imprimível (o print CSS global já esconde
-// header/nav/botões), então "salvar em PDF" = imprimir esta aba.
+// Guia da impressora — escolhe a situação e mostra o passo a passo.
+// Imprimível (o print CSS global já esconde header/nav/botões), então
+// "salvar em PDF" = imprimir esta aba.
+//
+// ⚠️ O TESTE EM IMPRESSORA A4 SAIU DAQUI. Ele existia para conferir o layout
+// antes de ter térmica, e virou pegadinha: a pessoa imprimia numa folha, via a
+// etiqueta minúscula no meio do papel e achava que o app estava errado. Hoje a
+// prévia na tela mostra a etiqueta em tamanho real — o A4 não responde mais
+// nenhuma pergunta.
 const TIPOS_IMPRESSORA = [
   {
-    id: 'termica-usb',
-    titulo: 'Térmica de etiquetas por CABO USB (a mais simples)',
-    resumo: 'Ligada direto no computador ou notebook. É a que dá menos trabalho para instalar.',
-    comoFica: 'Uma etiqueta por vez, no tamanho exato do rolo.',
+    id: 'celular',
+    titulo: 'Celular ou tablet Android — direto, sem cabo',
+    resumo: 'O caminho mais curto. Não precisa instalar nada além do app.',
+    comoFica: 'A etiqueta sai em poucos segundos, no tamanho do rolo. Não abre janela de impressão.',
     passos: [
-      'Compre etiquetas BOPP e, se possível, impressora de TRANSFERÊNCIA TÉRMICA (usa fita/ribbon). Térmica direta desbota com o tempo, com calor e com umidade — e etiqueta de congelador vive nas três coisas.',
-      'Ligue no USB e instale o driver do fabricante. O Windows costuma achar sozinho; se não achar, procure pelo modelo no site da marca.',
-      'Abra Impressoras e scanners → sua impressora → Preferências de impressão e configure o tamanho do papel IGUAL ao rolo (ex.: 60 × 50 mm). Se o tamanho não estiver na lista, use o botão "Novo"/"Editar" para criar.',
-      '⚠️ Depois de criar o tamanho, CONFIRME que ele ficou selecionado no campo "Nome". Criar e não selecionar é o erro mais comum — e a etiqueta sai no tamanho antigo.',
-      'Em CAMINHO_CONFIG, coloque o MESMO tamanho. Os dois lados precisam dizer a mesma coisa: se a impressora espera 50 mm de altura e o app manda 40, a etiqueta sai deslocada.',
-      'Pronto: toque em Imprimir em qualquer etiqueta → na janela que abrir, escolha a impressora → Imprimir.',
+      'Ligue a impressora e deixe o Bluetooth do aparelho ligado. Não precisa parear nas configurações do Android: quem faz isso é o app.',
+      'Abra o Aurum no CHROME. Dentro do WhatsApp ou do Instagram não funciona — esses navegadores não têm Bluetooth.',
+      'Monte a etiqueta e toque em "Conectar impressora e imprimir". Escolha a impressora na lista que abrir.',
+      'Da segunda vez em diante o botão já vem como "Imprimir na impressora" e não pergunta mais nada.',
+      '⚠️ Lista vazia quer dizer três coisas: impressora desligada, longe demais, ou já conectada em outro aparelho. Ela atende um por vez — se o tablet da cozinha está com ela, o seu celular não acha.',
+      'Se a etiqueta sair pela metade ou em branco, desligue e ligue a impressora e mande de novo. Costuma ser a conexão, não o conteúdo.',
+    ],
+  },
+  {
+    id: 'termica-usb',
+    titulo: 'Computador com cabo USB',
+    resumo: 'Menos coisa para dar errado. É a instalação mais simples no Windows.',
+    comoFica: 'Abre a janela de impressão do Windows e a etiqueta sai pela fila da impressora.',
+    passos: [
+      'Ligue no USB e espere o Windows instalar. Se ele não achar sozinho, baixe o driver do modelo no site do fabricante.',
+      'Abra Impressoras e scanners → sua impressora → Preferências de impressão.',
+      'Configure o tamanho do papel como 60 × 50 mm. Se esse tamanho não estiver na lista, crie com o botão "Novo".',
+      '⚠️ Depois de criar, CONFIRME que ele ficou selecionado no campo "Nome". Criar o tamanho e não selecionar é o erro mais comum — e a etiqueta continua saindo na medida antiga.',
+      'No app, toque em "Imprimir pelo computador", escolha a impressora e mande imprimir.',
+      'O app é sempre 60 × 50. Não há o que configurar do lado dele — só do lado do Windows.',
     ],
   },
   {
     id: 'termica-bluetooth',
-    titulo: 'Térmica por BLUETOOTH (sem cabo)',
-    resumo: 'Funciona, mas tem uma armadilha que trava a impressão sem dar nenhum aviso.',
-    comoFica: 'Igual à do cabo. A diferença é só como o computador fala com ela.',
+    titulo: 'Computador por Bluetooth',
+    resumo: 'Funciona, mas tem uma armadilha que trava a impressão sem dar aviso nenhum.',
+    comoFica: 'Igual ao cabo. Muda só como o computador fala com a impressora.',
     passos: [
-      'Pareie a impressora no Windows: Configurações → Bluetooth e dispositivos → Adicionar dispositivo.',
-      'O Windows cria uma PORTA SERIAL para ela (aparece como COM3, COM8, algo assim) e normalmente cria também uma fila de impressão já ligada nessa porta.',
-      '⚠️ A ARMADILHA: se você já usava a impressora por CABO, a fila antiga foi criada para a porta USB e NÃO funciona por Bluetooth — mesmo que você troque a porta dela nas configurações. O trabalho entra na fila e fica lá parado, sem erro nenhum na tela. Parece que o app não imprimiu, mas o app fez a parte dele.',
-      'A solução é APAGAR a fila antiga e deixar (ou criar) a fila que nasceu junto com o pareamento Bluetooth. Apagar e recriar é o que resolve; trocar a porta, não.',
-      '⚠️ Ao recriar a fila, o tamanho do papel volta ao padrão de fábrica. Refaça o passo do tamanho (60 × 50 mm) em Preferências de impressão.',
-      'Para conferir se está tudo certo: mande imprimir e veja se a etiqueta sai em poucos segundos. Se o trabalho ficar preso na fila, é a armadilha acima.',
+      'Pareie em Configurações → Bluetooth e dispositivos → Adicionar dispositivo.',
+      'O Windows cria uma porta serial (COM3, COM8, algo assim) e normalmente cria junto uma fila de impressão ligada nessa porta.',
+      '⚠️ A ARMADILHA: se você já usou a impressora por cabo, a fila antiga nasceu presa à porta USB e não funciona por Bluetooth — nem trocando a porta nas configurações dela. O trabalho entra na fila e fica parado, sem erro na tela. Parece que o app não imprimiu.',
+      'A saída é APAGAR a fila antiga e usar a que nasceu com o pareamento Bluetooth. Apagar e recriar resolve; trocar a porta, não.',
+      '⚠️ Ao recriar a fila o tamanho do papel volta ao padrão de fábrica. Refaça o passo dos 60 × 50 mm em Preferências de impressão.',
+      'Para conferir: mande imprimir e veja se sai em poucos segundos. Se ficar preso na fila, é a armadilha acima.',
     ],
   },
   {
-    id: 'tablet',
-    titulo: 'Pelo tablet ou celular',
-    resumo: 'Dá para Android, com um app a mais. No iPhone e iPad não dá.',
-    comoFica: 'Depende do app usado — vale testar antes de contar com isso no dia a dia.',
+    id: 'apple',
+    titulo: 'iPhone e iPad',
+    resumo: 'Não imprimem direto. É limitação da Apple, não do app.',
+    comoFica: 'O botão de impressão direta não aparece nesses aparelhos.',
     passos: [
-      'ANDROID: não existe "driver" como no Windows. O que existe são SERVIÇOS DE IMPRESSÃO — aplicativos que se instalam e passam a aparecer no menu Imprimir do Chrome. Sem um deles, o Android não enxerga a impressora, mesmo pareada.',
-      'Procure na Play Store por "ESC/POS Bluetooth Print Service" ou "Bluetooth Printer+", instale, pareie a impressora e ative o serviço em Configurações → Dispositivos conectados → Impressão.',
-      '⚠️ Teste antes de confiar: esses serviços foram feitos para impressora de CUPOM (rolo contínuo). A sua etiqueta é picotada, de tamanho fixo — pode ser que o app ignore o tamanho e o conteúdo atravesse a serrilha. Gaste três etiquetas testando antes de montar a operação em cima disso.',
-      'IPHONE E IPAD: não há caminho. A Apple só aceita impressoras AirPrint e não deixa instalar serviço de impressão. Impressora térmica comum de etiqueta não faz AirPrint.',
-      'O caminho limpo para tablet é uma impressora de etiquetas com WI-FI: ela entra na rede e imprime de qualquer aparelho, incluindo iPad, sem app nenhum. Vale considerar na próxima compra.',
-    ],
-  },
-  {
-    id: 'comum',
-    titulo: 'Impressora comum (A4) — só para testar',
-    resumo: 'Jato de tinta ou laser, papel sulfite ou etiqueta adesiva A4.',
-    comoFica: 'Sai UMA etiqueta pequena por folha (o app manda o tamanho real do rolo). Serve para conferir o layout, não para o dia a dia.',
-    passos: [
-      'Toque em Imprimir → escolha a impressora comum.',
-      'Na janela de impressão, deixe a escala em 100% — não use "ajustar à página", senão o tamanho deixa de ser real.',
-      'Desmarque "Cabeçalhos e rodapés": é o que faz sair a data e o endereço do site em cima da etiqueta.',
-      'Recorte a etiqueta impressa. Para o serviço de verdade, use uma térmica de etiquetas.',
+      'O Safari não dá acesso ao Bluetooth para aplicativos como o Aurum. Nenhum app da App Store contorna isso.',
+      'A Apple só aceita impressora AirPrint, e térmica de etiqueta comum não faz AirPrint.',
+      'Na prática: use um celular ou tablet ANDROID na cozinha, ou imprima pelo computador. O resto do app funciona normalmente no iPhone — o cadastro, os itens, tudo.',
+      'Se a operação inteira for Apple, a saída é uma impressora de etiquetas com WI-FI e AirPrint. Vale pesar na próxima compra.',
     ],
   },
 ];
 
-function GuiaImpressora({ caminhoConfig }) {
-  const resolver = (t) => t.replace('CAMINHO_CONFIG', caminhoConfig);
-  const [aberto, setAberto] = useState('termica-usb');
+function GuiaImpressora() {
+  // Abre no celular: é o caminho recomendado e o que mais gente usa na cozinha.
+  const [aberto, setAberto] = useState('celular');
   return (
     <div className="space-y-3">
+      <div className="bg-polo-navy text-white rounded-xl p-4">
+        <p className="text-sm font-bold text-polo-gold">Rolo 60 × 50 mm</p>
+        <p className="text-xs mt-1 text-white/90">
+          É o único tamanho do sistema — o app e a impressora já saem acertados nele.
+          Ao comprar refil, peça 60 × 50.
+        </p>
+        <p className="text-xs mt-2 text-white/90">
+          Prefira etiqueta <strong>BOPP</strong> e, se puder escolher a impressora, uma de
+          <strong> transferência térmica</strong> (a que usa ribbon). Térmica direta desbota com
+          calor, umidade e tempo — e etiqueta de câmara fria pega os três.
+        </p>
+      </div>
       <div className="flex items-center justify-between gap-2 print:hidden">
         <p className="text-xs text-gray-500">Escolha a sua situação para ver o passo a passo.</p>
         <button onClick={() => window.print()}
@@ -99,7 +118,7 @@ function GuiaImpressora({ caminhoConfig }) {
               {t.passos.map((p, i) => (
                 <li key={i} className="flex gap-2 text-xs text-gray-700">
                   <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-[11px]">{i + 1}</span>
-                  <span className="pt-0.5">{resolver(p)}</span>
+                  <span className="pt-0.5">{p}</span>
                 </li>
               ))}
             </ol>
@@ -236,7 +255,7 @@ export default function Etiquetas() {
       </div>
 
       {tab === 'impressora' ? (
-        <GuiaImpressora caminhoConfig={soEtiq ? 'Ajustes → Etiquetas' : 'Config → Sistema → 🏷️ Etiquetas'} />
+        <GuiaImpressora />
       ) : tab === 'catalogo' ? (
         <div className="space-y-4">
           <p className="text-xs text-gray-500 px-1">

@@ -10,7 +10,7 @@ import Botao from './Botao';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL } from '../utils/tspl';
-import { bleDisponivel, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL } from '../lib/impressoraBLE';
+import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 
@@ -184,6 +184,8 @@ export default function EtiquetaPrint() {
   // Impressão direta (BLE + TSPL) — caminho a mais, nunca substituto
   const [enviando, setEnviando] = useState(false);
   const [erroBLE, setErroBLE] = useState('');
+  // A regra de qual caminho aparece vive em impressoraBLE, com teste.
+  const { direto: mostrarDireto, dialogo: mostrarDialogo } = caminhosDeImpressao();
 
   // Espelha o estado externo numa cópia local editável — setState síncrono intencional.
   useEffect(() => {
@@ -604,11 +606,16 @@ export default function EtiquetaPrint() {
             </div>
           )}
 
-          {/* ⚠️ IMPRESSÃO DIRETA vem PRIMEIRO quando existe: é a que sai
-              exata. O diálogo do navegador continua embaixo, porque no iPhone
-              e em navegador dentro de outro app o Bluetooth não existe — e
-              porque no computador a fila com a impressora já funciona. */}
-          {bleDisponivel() && (
+          {/* ⚠️ CADA APARELHO VÊ SÓ O QUE SERVE PARA ELE.
+              No celular não existe janela de impressão que valha: o Android
+              precisaria de um app de terceiro no meio, e o resultado é pior que
+              o Bluetooth direto. Então lá o único botão é o direto.
+              No computador é o contrário — a fila com a impressora já funciona
+              e é o caminho que a pessoa conhece, então os dois aparecem.
+              Sobra um caso: celular SEM Bluetooth no navegador (iPhone, ou o
+              app aberto dentro do WhatsApp). Aí o diálogo volta, porque é a
+              única saída que resta — mas com uma linha dizendo por quê. */}
+          {mostrarDireto && (
             <div className="space-y-2">
               <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando}>
                 {enviando ? 'Enviando…'
@@ -626,17 +633,28 @@ export default function EtiquetaPrint() {
             </div>
           )}
 
+          {!mostrarDireto && (
+            <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
+              Este navegador não conecta na impressora. No <strong>Chrome</strong> a etiqueta sai
+              direto, sem esta janela.
+            </p>
+          )}
+
           <div className="flex gap-3">
             <button onClick={fecharEtiquetas}
-              className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Agora não</button>
-            <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente}
-              className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
-              {qrPendente
-                ? 'Gerando QR…'
-                : bleDisponivel()
-                  ? 'Imprimir pelo computador'
-                  : `Imprimir ${totalEtiquetas > 0 ? (totalEtiquetas === 1 ? '1 etiqueta' : `${totalEtiquetas} etiquetas`) : ''}`}
+              className={`${mostrarDialogo ? 'flex-1' : 'w-full'} border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl`}>
+              {mostrarDialogo ? 'Agora não' : 'Fechar'}
             </button>
+            {mostrarDialogo && (
+              <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente}
+                className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
+                {qrPendente
+                  ? 'Gerando QR…'
+                  : mostrarDireto
+                    ? 'Imprimir pelo computador'
+                    : `Imprimir ${totalEtiquetas > 0 ? (totalEtiquetas === 1 ? '1 etiqueta' : `${totalEtiquetas} etiquetas`) : ''}`}
+              </button>
+            )}
           </div>
         </div>
       </div>
