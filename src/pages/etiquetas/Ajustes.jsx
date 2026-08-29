@@ -6,20 +6,23 @@ import { useApp } from '../../store/AppContext';
 import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto } from '../../components/config/CartoesConfig';
-import { statusAssinatura, produtoDe } from '../../utils/assinatura';
+import { statusAssinatura, produtoDe, PRODUTOS } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
 /**
- * Ajustes do plano Aurum Etiquetas.
+ * Configurações do plano Aurum Etiquetas.
+ *
+ * ⚠️ SÓ A CONTA DONA abre (rota protegida em App.jsx com Restrito
+ * cargo="diretoria"). Aqui se muda temperatura, prazo, tamanho de etiqueta,
+ * suporte remoto e assinatura — decisões do responsável pelo estabelecimento,
+ * não de quem está de plantão. Ficou aberto por engano até 29/08/2026.
  *
  * Reúne SÓ o que este produto tem: como a etiqueta sai, como os itens são
  * armazenados, quem assina, e a conta. Não monta destinos de saída, mín/máx
  * automático, planilha de produtos nem limpar tudo — são todos de estoque.
  *
- * ⚠️ Esta tela existe porque no plano etiquetas NÃO EXISTE Administração.
- * Sem ela as Configurações ficariam sem porta nenhuma — que é o mesmo defeito
- * de tela-sem-caminho-de-volta que o app já corrigiu em outros lugares. Por
- * isso "Ajustes" tem lugar fixo na barra inferior.
+ * Esta tela existe porque no plano etiquetas NÃO EXISTE Administração. Sem ela
+ * as Configurações ficariam sem porta nenhuma.
  */
 export default function Ajustes() {
   const { prefs, setPref, pessoas, addPessoa, removePessoa } = useApp();
@@ -51,11 +54,11 @@ export default function Ajustes() {
   };
 
   return (
-    <Layout title="Ajustes">
+    <Layout title="Configurações">
       {/* Armazenamento vem primeiro: define o que a etiqueta imprime */}
       <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
 
-      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} />
+      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} mostrarQR={false} />
 
       {/* Responsáveis — é o nome que sai assinado na etiqueta */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
@@ -102,17 +105,28 @@ export default function Ajustes() {
               : 'Assinatura vencida'}
           </p>
         </div>
-        {/* Caminho do upgrade: quem cresceu e quer estoque precisa saber que dá */}
-        <div className="border-t border-gray-100 pt-3">
-          <p className="text-xs text-gray-600 mb-2">
-            Precisa também de estoque, compras, produção e relatórios? O <strong>Aurum Cozinha Pro</strong> tem
-            tudo isso — e os seus itens e etiquetas continuam exatamente onde estão.
+      </div>
+
+      {/* Upgrade — some quando a conta já é completa */}
+      {prod.id === 'etiquetas' && (
+        <div className="bg-polo-navy rounded-xl p-4 mb-4 space-y-3">
+          <div>
+            <p className="text-sm font-bold text-polo-gold">Mudar para o Aurum Cozinha Pro</p>
+            <p className="text-xs text-white/80 mt-0.5">R$ {PRODUTOS.completo.precoMes}/mês</p>
+          </div>
+          <ul className="text-xs text-white/90 space-y-1">
+            <li>Estoque com entradas, saídas e contagem</li>
+            <li>Compras, produção por ficha e receitas</li>
+            <li>Relatórios de consumo, perdas e custo</li>
+          </ul>
+          <p className="text-[11px] text-white/70">
+            Seus itens e etiquetas continuam onde estão.
           </p>
-          <Link to="/pagamento">
-            <Botao variante="secundario" tamanho="sm" largura="auto">Ver planos</Botao>
+          <Link to="/pagamento" className="block">
+            <Botao variante="sobreNavy" tamanho="sm">Quero o plano completo</Botao>
           </Link>
         </div>
-      </div>
+      )}
 
       <CartaoSuporteRemoto prefs={prefs} setPref={setPref} toast={toast} />
 

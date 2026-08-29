@@ -48,12 +48,14 @@ const NAV = [
 const NAV_ETIQUETAS = [
   { to: '/',        icon: 'etiqueta', label: 'Imprimir' },
   { to: '/itens',   icon: 'caixa',    label: 'Meus itens' },
-  { to: '/ajustes', icon: 'config',   label: 'Ajustes' },
+  // ⚠️ Só a conta dona. Botão que leva a uma tela negada é pior que botão
+  // ausente: a pessoa toca, é jogada de volta e não entende o porquê.
+  { to: '/ajustes', icon: 'config',   label: 'Configurações', soDono: true },
 ];
 
 export default function NavBar({ soEtiquetas = false }) {
   const { produtos, estoque, producoes, permissoes, modulo } = useApp();
-  const { sessao } = useAuth();
+  const { sessao, temPermissao } = useAuth();
   // ⚠️ Os badges de estoque ficam FORA do ramo de etiquetas: além de serem
   // sempre 0 lá (não há entrada nem saída), rodavam dois .filter sobre o
   // catálogo inteiro a cada render, de graça.
@@ -68,7 +70,9 @@ export default function NavBar({ soEtiquetas = false }) {
   }).length;
 
   // Sem badge de vencimento: este produto não acompanha validade (ver acima).
-  if (soEtiquetas) return <BarraNav itens={NAV_ETIQUETAS} />;
+  if (soEtiquetas) {
+    return <BarraNav itens={NAV_ETIQUETAS.filter(n => !n.soDono || temPermissao('diretoria'))} />;
+  }
 
   const itens = NAV.filter(n => {
     // recurso do módulo primeiro: não adianta ter permissão para uma tela que

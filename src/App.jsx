@@ -268,7 +268,13 @@ function Rotas() {
           <Route path="/"           element={<Etiquetas />} />
           <Route path="/etiquetas"  element={<Navigate to="/" replace />} />
           <Route path="/itens"      element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
-          <Route path="/ajustes"    element={<EtiquetasAjustes />} />
+          {/* ⚠️ Estava SEM TRAVA: qualquer pessoa logada — inclusive o
+              cozinheiro que entrou por convite — mudava temperatura, tamanho
+              de etiqueta, dados do estabelecimento, suporte remoto e
+              assinatura. No app completo a tela equivalente é protegida; aqui
+              tinha passado. `Restrito` é o mesmo helper de /pagamento, e
+              temPermissao deixa o super-admin entrar (o suporte precisa). */}
+          <Route path="/ajustes"    element={<Restrito cargo="diretoria"><EtiquetasAjustes /></Restrito>} />
           <Route path="/pagamento"  element={<Restrito><Pagamento /></Restrito>} />
           <Route path="/novidades"  element={<Novidades />} />
           <Route path="*"           element={<Navigate to="/" replace />} />

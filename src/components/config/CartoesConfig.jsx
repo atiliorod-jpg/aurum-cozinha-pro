@@ -171,7 +171,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
   );
 }
 
-export function CartaoEtiquetas({ prefs, setPref, toast }) {
+export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
   const cfg = configEtiqueta(prefs);
   // Inputs de mm ficam como texto enquanto edita; convertem no onBlur (mesmo padrão dos dias de cobertura)
   const [largStr, setLargStr] = useState(String(cfg.larguraMm));
@@ -232,10 +232,16 @@ export function CartaoEtiquetas({ prefs, setPref, toast }) {
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         </div>
       </div>
+      {/* ⚠️ QR só no plano COMPLETO. No plano Etiquetas ele não tem consumidor:
+          quem lê o código é a contagem por câmera do Inventário, tela que só
+          existe no completo. O conteúdo é texto simples, então a câmera do
+          celular apenas MOSTRA o texto — não abre nada. Ali ele ocupava espaço
+          na etiqueta e travava o botão Imprimir em "Gerando QR…" de graça. */}
+      {mostrarQR && <>
       <div className="flex items-center justify-between border-t border-gray-100 pt-3">
         <div>
           <p className="text-xs font-semibold text-gray-600">QR code na etiqueta</p>
-          <p className="text-[11px] text-gray-600">Código com produto e validade (para leitura futura).</p>
+          <p className="text-[11px] text-gray-600">Para a contagem por câmera no Inventário.</p>
         </div>
         <button role="switch" aria-checked={!!cfg.incluirQR}
           onClick={() => { salvar({ incluirQR: !cfg.incluirQR }); toast(!cfg.incluirQR ? 'QR code LIGADO nas etiquetas.' : 'QR code desligado.', 'sucesso'); }}
@@ -253,6 +259,7 @@ export function CartaoEtiquetas({ prefs, setPref, toast }) {
           altura — ou desligue o QR e use só o texto.
         </p>
       )}
+      </>}
       <div className="border-t border-gray-100 pt-3">
         <p className="text-xs font-semibold text-gray-600 mb-2">Campos que aparecem na etiqueta</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">

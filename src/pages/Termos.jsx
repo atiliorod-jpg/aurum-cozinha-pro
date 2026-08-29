@@ -18,7 +18,7 @@ import { useNavigate } from 'react-router-dom';
 // ⚠️ VERSÃO E DATA. O aceite é gravado junto com a versão (`termosVersao` no
 // cadastro): aceite sem versão registrada não vale nada no dia em que o texto
 // mudar, porque não há como dizer o que a pessoa aceitou.
-export const TERMOS_VERSAO = '1.0';
+export const TERMOS_VERSAO = '1.1';
 export const TERMOS_VIGENCIA = '29 de agosto de 2026';
 
 function Clausula({ n, titulo, children }) {
@@ -54,7 +54,7 @@ export default function Termos() {
               Aurum Serviços Gastronômicos
             </p>
             <h1 className="text-xl font-bold text-polo-navy mt-1">
-              Termos de Uso e Licença de Software
+              Termos de Uso, Licença de Software e Política de Privacidade
             </h1>
             <p className="text-xs text-gray-600 mt-1">
               Versão {TERMOS_VERSAO} · em vigor desde {TERMOS_VIGENCIA}
@@ -201,7 +201,7 @@ export default function Termos() {
               A contratada não responde por perdas decorrentes de prazo cadastrado incorretamente,
               de uso indevido do sistema, de falha de equipamento de impressão ou de indisponibilidade
               temporária de conexão. A responsabilidade da contratada, em qualquer hipótese, fica
-              limitada ao valor das mensalidades pagas nos 3 meses anteriores ao evento.
+              limitada ao total pago nos 3 meses anteriores ao problema.
             </p>
           </Clausula>
 
@@ -222,10 +222,8 @@ export default function Termos() {
 
           <Clausula n="9" titulo="Dados pessoais (LGPD)">
             <p>
-              O tratamento de dados pessoais observa a Lei nº 13.709/2018 e está descrito na
-              Política de Privacidade, disponível na tela de acesso. Os dados são tratados
-              exclusivamente para a prestação do serviço; não há venda nem compartilhamento
-              comercial com terceiros.
+              O tratamento de dados pessoais observa a Lei nº 13.709/2018 e está detalhado na{' '}
+              <strong>Parte II — Política de Privacidade</strong>, ao final deste documento.
             </p>
           </Clausula>
 
@@ -253,10 +251,63 @@ export default function Termos() {
             </p>
           </Clausula>
 
+          {/* ── PARTE II ─────────────────────────────────────────────
+              A política de privacidade estava num modal separado, com link
+              próprio. O dono pediu um documento só — mas ela continua como
+              SEÇÃO identificável, e não diluída entre as cláusulas: se um
+              cliente ou fiscal pedir "a política de dados", tem que dar para
+              apontar. O texto veio do modal, já revisado. */}
+          <div className="border-t-2 border-polo-navy/20 pt-5 mt-7">
+            <h2 className="font-bold text-polo-navy text-base mb-1">Parte II — Política de Privacidade</h2>
+            <p className="text-xs text-gray-600 mb-4">Tratamento de dados pessoais, conforme a Lei nº 13.709/2018 (LGPD).</p>
+          </div>
+
+          <Clausula n="12" titulo="Dados tratados">
+            <p>
+              Nome e e-mail dos usuários vinculados à conta, os dados cadastrais do estabelecimento
+              (razão social, CNPJ, WhatsApp, cidade) e os registros operacionais — itens, prazos,
+              etiquetas emitidas e, no plano completo, estoque, produção e movimentações.
+            </p>
+          </Clausula>
+
+          <Clausula n="13" titulo="Finalidade">
+            <p>
+              Os dados são tratados exclusivamente para a prestação do serviço contratado.
+              <strong> Não há venda, cessão ou compartilhamento com terceiros para fins comerciais.</strong>
+            </p>
+          </Clausula>
+
+          <Clausula n="14" titulo="Armazenamento e segurança">
+            <p>
+              Os dados residem em infraestrutura de nuvem, com criptografia em trânsito e isolamento
+              por estabelecimento aplicado na camada do banco de dados — cada conta acessa somente os
+              próprios registros.
+            </p>
+            {/* ⚠️ Este parágrafo já dizia que o acesso do suporte "ocorre apenas
+                mediante autorização expressa". Não era verdade: só a EDIÇÃO
+                exige autorização; a leitura sempre foi livre. Desde a migração
+                25 todo acesso fica registrado, e o texto descreve o que de fato
+                acontece. Não reescrever para soar melhor. */}
+            <p>
+              A equipe Aurum pode acessar os dados da conta para prestar suporte, e
+              <strong> todo acesso fica registrado no Histórico de mudanças do próprio contratante</strong>,
+              identificado como “Suporte Aurum”. Para <em>editar</em> qualquer dado, a equipe depende de
+              autorização expressa do contratante, limitada a 24 horas e revogável a qualquer momento.
+            </p>
+          </Clausula>
+
+          <Clausula n="15" titulo="Direitos do titular">
+            <p>
+              A conta permite exportar a íntegra dos dados a qualquer momento. Pedidos de correção ou
+              de exclusão definitiva da conta e dos dados podem ser feitos pelo canal oficial de
+              atendimento (WhatsApp da Aurum) e são atendidos em até <strong>4 dias úteis</strong>.
+            </p>
+          </Clausula>
+
           <footer className="border-t border-gray-200 pt-4 mt-6 text-[11px] text-gray-600">
             <p>Aurum Serviços Gastronômicos · Recife/PE · atendimento por WhatsApp</p>
             <p className="mt-0.5">
-              Termos de Uso versão {TERMOS_VERSAO}, em vigor desde {TERMOS_VIGENCIA}.
+              Termos de Uso e Política de Privacidade versão {TERMOS_VERSAO}, em vigor desde {TERMOS_VIGENCIA}.
             </p>
           </footer>
         </div>

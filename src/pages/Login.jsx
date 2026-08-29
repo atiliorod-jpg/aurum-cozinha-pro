@@ -45,7 +45,6 @@ const produtoDaURL = (() => {
 export default function Login() {
   const { login, esqueceuSenha, criarPrimeiroAdmin, reenviarConfirmacao, usarConvite, entrarDemo } = useAuth();
   const [modo, setModo] = useState(conviteDaURL ? 'convite' : 'entrar'); // entrar | convite | novo | esqueci
-  const [mostraPrivacidade, setMostraPrivacidade] = useState(false);
   const [aceitouTermos, setAceitouTermos] = useState(false);
   // Produto escolhido no cadastro. O padrao e o ETIQUETAS: e o produto de
   // entrada, e quem quer o completo escolhe conscientemente. O link direto
@@ -413,53 +412,17 @@ export default function Login() {
         </div>
 
         <div className="flex items-center justify-center gap-4 mt-4">
+          {/* Um link só: a privacidade virou a Parte II do mesmo documento. */}
           <Link to="/termos" className="text-[11px] text-white/70 underline underline-offset-2">
-            Termos de uso
+            Termos de uso e privacidade
           </Link>
-          <button onClick={() => setMostraPrivacidade(true)} className="text-[11px] text-white/70 underline underline-offset-2">
-            Privacidade e proteção de dados
-          </button>
         </div>
       </div>
 
-      {mostraPrivacidade && <ModalPrivacidade onFechar={() => setMostraPrivacidade(false)} />}
     </div>
   );
 }
 
-// Resumo de privacidade (LGPD) — linguagem simples, sem juridiquês.
-function ModalPrivacidade({ onFechar }) {
-  return (
-    <div className="fixed inset-0 z-[70] bg-black/50 overflow-y-auto p-4" onClick={onFechar}>
-      <div role="dialog" aria-modal="true" aria-labelledby="priv-titulo"
-        className="bg-white rounded-2xl p-5 max-w-sm m-auto mt-10 space-y-3 text-sm text-gray-700"
-        onClick={e => e.stopPropagation()}>
-        <h2 id="priv-titulo" className="font-bold text-polo-navy">Privacidade e proteção de dados</h2>
-        <p><strong>Dados tratados:</strong> nome e e-mail dos usuários vinculados à conta e os registros
-        operacionais do estabelecimento (estoque, produção, movimentações e trilha de auditoria).</p>
-        <p><strong>Finalidade:</strong> os dados são tratados exclusivamente para a prestação do serviço
-        contratado. Não há venda, cessão ou compartilhamento com terceiros para fins comerciais.</p>
-        {/* ⚠️ Este parágrafo dizia que o acesso da equipe Aurum "ocorre apenas
-            mediante autorização expressa do cliente". Não era verdade: só a
-            EDIÇÃO exige autorização; a leitura sempre foi livre para o suporte.
-            Desde a migração 25 todo acesso fica registrado na trilha do próprio
-            cliente, e o texto passou a descrever o que de fato acontece. */}
-        <p><strong>Armazenamento e segurança:</strong> os dados residem em infraestrutura de nuvem com
-        criptografia em trânsito e isolamento por estabelecimento aplicado na camada do banco de dados —
-        cada conta acessa somente os próprios registros. A equipe Aurum pode acessar os dados da sua conta
-        para prestar suporte, e <strong>todo acesso fica registrado no seu Histórico de mudanças</strong>,
-        identificado como “Suporte Aurum”. Para EDITAR qualquer dado, a equipe depende de autorização
-        expressa sua (Configurações → Sistema → Suporte remoto), limitada a 24 horas e revogável a
-        qualquer momento.</p>
-        <p><strong>Direitos do titular (LGPD):</strong> a conta permite exportar a íntegra dos dados a
-        qualquer momento (Configurações → Sistema → Cópia de segurança). Solicitações de correção ou de
-        exclusão definitiva da conta e dos dados podem ser feitas pelo canal oficial de atendimento
-        (WhatsApp da Aurum) e são atendidas em até <strong>4 dias úteis</strong>.</p>
-        <button onClick={onFechar} className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl">Entendi</button>
-      </div>
-    </div>
-  );
-}
 
 function Msg({ erro, info }) {
   if (erro) return <p role="alert" className="text-xs text-red-500 font-semibold">{erro}</p>;

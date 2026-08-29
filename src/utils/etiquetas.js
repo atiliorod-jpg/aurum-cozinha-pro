@@ -18,7 +18,12 @@ export const ETIQUETA_CONFIG_PADRAO = {
   incluirQR: false,
   campos: {
     restaurante: true, validade: true, fabricacao: true, armazenamento: true,
-    responsavel: true, valOriginal: true, marca: true, sif: true, estabelecimento: true,
+    responsavel: true, marca: true, sif: true, estabelecimento: true,
+    // ⚠️ DESLIGADO por padrão. É a validade impressa na embalagem do
+    // fabricante — não muda o vencimento da etiqueta, e mais um campo para a
+    // equipe preencher a cada impressão. Quem precisa de rastreio de lote liga
+    // em Configurações e ganha junto o alerta de validade estourada.
+    valOriginal: false,
   },
 };
 
@@ -70,6 +75,11 @@ export function montarCamposEtiqueta({
     dias = prazoDe(produto, armazenamento);
   }
   const validadeCalc = validade || (dias > 0 && dataFabricacao ? addDias(dataFabricacao, dias) : null);
+  // ⚠️ O ERRO QUE ESTE CAMPO EXISTE PARA PEGAR: porcionar um produto cuja
+  // embalagem vence antes do prazo da casa faz a etiqueta imprimir uma validade
+  // MAIOR que a do fabricante. Grave e invisível — ninguém confere de cabeça.
+  // Comparação de strings ISO (AAAA-MM-DD), que é o formato dos dois lados.
+  const passaDoFornecedor = !!(valOriginal && validadeCalc && validadeCalc > valOriginal);
   const comHora = (dataFmt) => dataFmt && hora ? `${dataFmt} - ${hora}` : dataFmt;
 
   return {
@@ -82,6 +92,7 @@ export function montarCamposEtiqueta({
     validadeFmt: validadeCalc ? comHora(fmtData(validadeCalc)) : '',
     valOriginal: valOriginal || null,
     valOriginalFmt: valOriginal ? fmtData(valOriginal) : '',
+    passaDoFornecedor,
     armazenamento,
     // Nome resolvido pelo chamador; sem ele, o par fixo de sempre.
     armazenamentoLabel:

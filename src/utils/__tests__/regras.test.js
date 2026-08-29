@@ -7,7 +7,7 @@ import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem, nomesCasam } from '../analise';
 import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
-import { montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, lerLoteIdDoQR, statusEtiqueta, podarEtiquetas, MAX_ETIQUETAS_GUARDADAS } from '../etiquetas';
+import { ETIQUETA_CONFIG_PADRAO, montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, lerLoteIdDoQR, statusEtiqueta, podarEtiquetas, MAX_ETIQUETAS_GUARDADAS } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
@@ -2599,5 +2599,51 @@ describe('CNPJ e telefone (utils/documentos.js)', () => {
     expect(soDigitos('11.222.333/0001-81')).toBe('11222333000181');
     expect(soDigitos('(81) 99818-4489')).toBe('81998184489');
     expect(soDigitos(null)).toBe('');
+  });
+});
+
+describe('validade que passa da do fornecedor', () => {
+  // ⚠️ O erro que este campo existe para pegar: porcionar um produto cuja
+  // embalagem vence ANTES do prazo da casa faz a etiqueta imprimir validade
+  // maior que a do fabricante. Grave e invisivel — ninguem confere de cabeca.
+  const monta = (valOriginal, dias) => montarCamposEtiqueta({
+    nome: 'Frango', dataFabricacao: '2026-08-29', armazenamento: 'congelado',
+    diasValidade: dias, valOriginal,
+  });
+
+  it('avisa quando o prazo da casa ultrapassa a validade do fornecedor', () => {
+    const c = monta('2026-10-01', 180);        // 29/08 + 180d = muito depois
+    expect(c.validade > '2026-10-01').toBe(true);
+    expect(c.passaDoFornecedor).toBe(true);
+  });
+
+  it('não avisa quando cabe dentro da validade do fornecedor', () => {
+    expect(monta('2027-12-31', 180).passaDoFornecedor).toBe(false);
+  });
+
+  // Mesma data não é estouro: vence junto, o que é legítimo.
+  it('não avisa quando as duas datas são iguais', () => {
+    const c = monta('2026-09-28', 30);          // 29/08 + 30d = 28/09
+    expect(c.validade).toBe('2026-09-28');
+    expect(c.passaDoFornecedor).toBe(false);
+  });
+
+  it('sem val. original preenchida, nunca avisa', () => {
+    expect(monta(null, 180).passaDoFornecedor).toBe(false);
+    expect(monta('', 180).passaDoFornecedor).toBe(false);
+  });
+
+  // Sem prazo não há data calculada para comparar.
+  it('sem prazo em dias, nunca avisa', () => {
+    expect(monta('2026-09-01', 0).passaDoFornecedor).toBe(false);
+  });
+
+  // ⚠️ Desligado por padrão: é mais um campo para a equipe preencher a cada
+  // impressão, e o dono decidiu que quem precisa liga em Configurações.
+  it('Val. original nasce DESLIGADA na configuração padrão', () => {
+    expect(ETIQUETA_CONFIG_PADRAO.campos.valOriginal).toBe(false);
+    // as demais continuam ligadas
+    expect(ETIQUETA_CONFIG_PADRAO.campos.validade).toBe(true);
+    expect(ETIQUETA_CONFIG_PADRAO.campos.armazenamento).toBe(true);
   });
 });

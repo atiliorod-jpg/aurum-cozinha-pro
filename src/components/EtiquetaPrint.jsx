@@ -37,6 +37,25 @@ const tamanhoQRmm = (modulosTotais, alturaMm) => {
 const MAX_COPIAS = 200;
 const limitarCopias = (n) => Math.min(Math.max(0, parseInt(n) || 0), MAX_COPIAS);
 
+// "!" tocável. Texto curto fica no rótulo; o resto vem só se a pessoa pedir —
+// parágrafo de apoio embaixo de cada campo empurra o formulário para baixo e
+// ninguém lê.
+function Dica({ texto }) {
+  const [aberta, setAberta] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setAberta(v => !v)}
+        aria-label={aberta ? 'Fechar explicação' : 'O que é isto?'} aria-expanded={aberta}
+        className="ml-1 w-4 h-4 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold leading-none align-middle">
+        !
+      </button>
+      {aberta && (
+        <span className="block font-normal normal-case text-[11px] text-gray-600 mt-1">{texto}</span>
+      )}
+    </>
+  );
+}
+
 // Uma linha "RÓTULO: valor" da etiqueta (formato ficha de pré-preparo)
 function Linha({ rotulo, valor, forte = false }) {
   if (!valor) return null;
@@ -184,8 +203,19 @@ export default function EtiquetaPrint() {
         // guarda data/armazenamento originais: se o usuário mudar qualquer um no
         // modal, a validade pré-calculada (do registro real) deixa de valer
         const n = Math.min(Math.max(0, parseInt(resolvido.quantidade) || 0), 200);
+        // ⚠️ SEMEIA os dias com o prazo do cadastro. Antes o campo só tinha
+        // `placeholder`, então aparecia VAZIO — e o dono leu isso como "não
+        // veio preenchido", que era justamente o contrário do combinado. Aqui
+        // é a abertura do modal (efeito), nunca o render.
+        const diasIniciais = resolvido.diasValidade != null
+          ? resolvido.diasValidade
+          : (resolvido.prazos?.[resolvido.armazenamento]
+             ?? resolvido.prazos?.congelado
+             ?? resolvido.diasCongelado
+             ?? 0);
         return {
           ...resolvido,
+          diasOverride: diasIniciais > 0 ? String(diasIniciais) : '',
           _lotes: Array.from({ length: n }, () => gerarLoteId()),
           _dataOriginal: resolvido.dataFabricacao,
           _armazOriginal: resolvido.armazenamento,
@@ -429,17 +459,29 @@ export default function EtiquetaPrint() {
                     {comArmazenamento && item.armazenamento !== null ? (
                       <div>
                         <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Armazenamento</label>
-                        {/* ⚠️ trocar o estado LIMPA o override: senão o número
-                            digitado para o congelado ficava grudado no
-                            refrigerado, com a data errada e sem aviso. */}
+                        {/* ⚠️ Trocar o estado RESEMEIA os dias com o prazo
+                            daquele estado. Antes só esvaziava — e o campo
+                            ficava em branco, dando a impressão de que não havia
+                            prazo cadastrado. Deixar o número do estado anterior
+                            grudado seria pior ainda: data errada, sem aviso. */}
                         <select value={item.armazenamento || 'congelado'}
-                          onChange={e => setItem(idx, { armazenamento: e.target.value, diasOverride: '' })}
+                          onChange={e => setItem(idx, {
+                            armazenamento: e.target.value,
+                            diasOverride: String(diasDoCadastro({ ...item, armazenamento: e.target.value }) || ''),
+                          })}
                           className={`${inputCls} bg-white`}>
-                          {armazenamentos.map(a => (
-                            <option key={a.id} value={a.id}>
-                              {a.nome}{a.faixa ? ` (${a.faixa})` : ''}
-                            </option>
-                          ))}
+                          {/* ⚠️ Mostra o PRAZO de cada estado. Sem isto não dá
+                              para comparar congelado x refrigerado na hora de
+                              escolher, e a pessoa só descobre o número depois
+                              de trocar. */}
+                          {armazenamentos.map(a => {
+                            const d = diasDoCadastro({ ...item, armazenamento: a.id });
+                            return (
+                              <option key={a.id} value={a.id}>
+                                {a.nome}{a.faixa ? ` · ${a.faixa}` : ''} · {d > 0 ? `${d} dias` : 'sem prazo'}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     ) : (
@@ -461,6 +503,7 @@ export default function EtiquetaPrint() {
                     <div>
                       <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
                         Validade (dias)
+                        <Dica texto="Vem do cadastro do item. Mude se a embalagem deste lote disser outro prazo." />
                       </label>
                       <input type="number" inputMode="numeric" min="0"
                         value={item.diasOverride ?? ''}
@@ -470,21 +513,23 @@ export default function EtiquetaPrint() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Val. original (fornecedor)</label>
+                    {config.campos.valOriginal !== false && <div>
+                      <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
+                        Val. original
+                        <Dica texto="A data impressa na embalagem do fabricante. Não muda o vencimento — serve para avisar se o prazo da casa passar dela." />
+                      </label>
                       <input type="date" value={item.valOriginal}
                         onChange={e => setItem(idx, { valOriginal: e.target.value })} className={inputCls} />
-                    </div>
+                    </div>}
                   </div>
-                  {/* ⚠️ O "Val. original" confundia — parecia entrar na conta do
-                      vencimento, e NÃO entra. Ele é só texto impresso. */}
-                  <p className="text-[11px] text-gray-500 -mt-1">
-                    <strong>Validade (dias):</strong> quantos dias o item dura a partir da data acima.
-                    Vem do cadastro; mude aqui se este lote for diferente.
-                    {' · '}
-                    <strong>Val. original:</strong> a data que vem impressa na embalagem do fabricante.
-                    Não muda o vencimento da etiqueta — fica registrada para rastrear o lote depois de aberto.
-                  </p>
+                  {/* ⚠️ O alerta que justifica o campo existir: prazo da casa
+                      que ultrapassa a validade do fabricante é erro grave e
+                      ninguém confere de cabeça. */}
+                  {campos.passaDoFornecedor && (
+                    <p className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
+                      Passa da validade do fornecedor ({campos.valOriginalFmt}). Reduza os dias.
+                    </p>
+                  )}
                   <p className="text-[11px] text-gray-500">
                     {campos.validadeFmt
                       ? <>Vencimento na etiqueta: <strong className="text-polo-navy">{campos.validadeFmt}</strong></>
