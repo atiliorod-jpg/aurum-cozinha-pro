@@ -23,6 +23,7 @@ import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalent
 import { produtoTem, produtoAtivo } from '../produto';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
+import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM } from '../tspl';
 import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../relatorios';
@@ -2645,5 +2646,122 @@ describe('validade que passa da do fornecedor', () => {
     // as demais continuam ligadas
     expect(ETIQUETA_CONFIG_PADRAO.campos.validade).toBe(true);
     expect(ETIQUETA_CONFIG_PADRAO.campos.armazenamento).toBe(true);
+  });
+});
+
+describe('TSPL — a etiqueta na linguagem da impressora', () => {
+  const SEP = String.fromCharCode(13) + String.fromCharCode(10);
+  const config = { larguraMm: 60, alturaMm: 50, campos: {} };
+  const campos = {
+    nome: 'Picanha', medida: '150 g',
+    rotuloData: 'MANIPULACAO', dataFabricacaoFmt: '29/08/2026 - 10:00',
+    validadeFmt: '25/02/2027 - 10:00', responsavel: 'Maria',
+    armazenamentoLabel: 'CONGELADO', armazenamentoFaixa: '-18°C',
+    restauranteNome: 'Restaurante Teste',
+  };
+
+  it('abre com o tamanho do rolo e fecha mandando imprimir', () => {
+    const t = etiquetaTSPL(campos, config);
+    expect(t).toContain('SIZE 60 mm,50 mm');
+    expect(t).toContain('GAP 2 mm,0 mm');
+    expect(t).toContain('CLS');
+    expect(t.trim().endsWith('PRINT 1,1')).toBe(true);
+  });
+
+  // ⚠️ Copias sao NATIVAS do TSPL. Se o app mandasse N vezes, uma oscilacao no
+  // meio da conexao deixaria sair menos etiqueta do que a pessoa pediu.
+  it('pede as cópias à impressora, não repete o envio', () => {
+    const t = etiquetaTSPL(campos, config, { copias: 5 });
+    expect(t).toContain('PRINT 1,5');
+    expect(t.match(/PRINT /g)).toHaveLength(1);
+    expect(t.match(/SIZE /g)).toHaveLength(1);
+  });
+
+  it('leva os dados que a etiqueta mostra', () => {
+    const t = etiquetaTSPL(campos, config);
+    expect(t).toContain('PICANHA');
+    expect(t).toContain('150 g');
+    expect(t).toContain('CONGELADO -18°C');
+    expect(t).toContain('25/02/2027 - 10:00');
+    expect(t).toContain('Maria');
+  });
+
+  // ⚠️ Aspa dupla ENCERRA a string do comando TSPL. Um nome como
+  // 'File 1" espessura' cortaria o comando ao meio e a etiqueta sairia
+  // truncada — ou nao sairia.
+  it('aspas no nome do produto não quebram o comando', () => {
+    const t = etiquetaTSPL({ ...campos, nome: 'File 1" grosso' }, config);
+    const linhaNome = t.split(SEP).find(l => l.includes('FILE'));
+    // uma abertura e um fechamento de fonte + uma abertura e um fechamento de
+    // conteudo = 4 aspas exatas na linha
+    expect((linhaNome.match(/"/g) || []).length).toBe(4);
+  });
+
+  it('campo desligado na configuração não vai para o papel', () => {
+    const semResp = etiquetaTSPL(campos, { ...config, campos: { responsavel: false } });
+    expect(semResp).not.toContain('Maria');
+    expect(semResp).not.toContain('RESP.:');
+  });
+
+  it('valor vazio não gera linha', () => {
+    const t = etiquetaTSPL({ ...campos, responsavel: '', marca: '' }, config);
+    expect(t).not.toContain('RESP.:');
+    expect(t).not.toContain('MARCA:');
+  });
+
+  // ⚠️ Coordenadas sao em PONTOS, e a impressora e 203 DPI = 8 pontos/mm.
+  // Confundir com milimetro poe tudo no canto da etiqueta.
+  it('converte milímetro em ponto a 203 DPI', () => {
+    expect(PONTOS_POR_MM).toBe(8);
+    const t = etiquetaTSPL(campos, { ...config, larguraMm: 60, alturaMm: 50 });
+    // a barra separadora usa a largura util (60mm - 2x2,5mm de margem = 55mm)
+    expect(t).toContain(`,${55 * 8},2`);
+  });
+
+  it('rolo de outro tamanho move tudo junto', () => {
+    const t = etiquetaTSPL(campos, { ...config, larguraMm: 40, alturaMm: 30 });
+    expect(t).toContain('SIZE 40 mm,30 mm');
+    expect(t).toContain(`,${35 * 8},2`);
+  });
+
+  it('nome comprido é cortado em vez de estourar a etiqueta', () => {
+    const t = etiquetaTSPL({ ...campos, nome: 'FILE MIGNON PORCIONADO ARGENTINO PREMIUM 180G' }, config);
+    const linha = t.split(SEP).find(l => l.includes('FILE MIGNON'));
+    const conteudo = linha.match(/"([^"]*)"$/)[1];
+    expect(conteudo.length).toBeLessThan(45);
+    expect(conteudo.endsWith('.')).toBe(true);
+  });
+
+  it('lote manda um bloco completo por item', () => {
+    const t = loteTSPL([
+      { campos, copias: 2 },
+      { campos: { ...campos, nome: 'Alface' }, copias: 1 },
+    ], config);
+    expect(t.match(/SIZE /g)).toHaveLength(2);
+    expect(t).toContain('PRINT 1,2');
+    expect(t).toContain('PRINT 1,1');
+    expect(t).toContain('ALFACE');
+  });
+
+  // ⚠️ TextEncoder faria UTF-8, e ali o "Ç" vira DOIS bytes — a impressora
+  // leria dois caracteres estranhos. Com CODEPAGE 1252 cada acento e UM byte.
+  it('acento sai como um byte só (Windows-1252), não dois', () => {
+    expect(etiquetaTSPL(campos, config)).toContain('CODEPAGE 1252');
+    const b = paraBytesLatin1('MANIPULAÇÃO');
+    expect(b.length).toBe('MANIPULAÇÃO'.length);
+    expect(b[8]).toBe(0xc7); // Ç
+    expect(new TextEncoder().encode('MANIPULAÇÃO').length).toBeGreaterThan(b.length);
+  });
+
+  it('caractere fora da tabela vira "?" em vez de byte inválido', () => {
+    const b = paraBytesLatin1('A😀B');
+    expect(Array.from(b).every(x => x <= 0xff)).toBe(true);
+    expect(b[0]).toBe(65);
+  });
+
+  it('cortarParaLargura respeita a largura disponível', () => {
+    // fonte 2 = 12 pontos por caractere; 120 pontos = 10 caracteres
+    expect(cortarParaLargura('ABCDEFGHIJKLM', 2, 1, 120)).toHaveLength(10);
+    expect(cortarParaLargura('ABC', 2, 1, 120)).toBe('ABC');
   });
 });

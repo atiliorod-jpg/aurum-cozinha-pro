@@ -6,8 +6,11 @@ import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import { estabelecimentoDe } from '../utils/instancias';
 import ResponsavelSelect from './ResponsavelSelect';
+import Botao from './Botao';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
+import { loteTSPL } from '../utils/tspl';
+import { bleDisponivel, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 
@@ -178,6 +181,9 @@ export default function EtiquetaPrint() {
   // Responsável ÚNICO da impressão (sai no RESP. de todas as etiquetas) —
   // escolhido entre as pessoas da equipe, como nas telas de registro
   const [responsavel, setResponsavel] = useState('');
+  // Impressão direta (BLE + TSPL) — caminho a mais, nunca substituto
+  const [enviando, setEnviando] = useState(false);
+  const [erroBLE, setErroBLE] = useState('');
 
   // Espelha o estado externo numa cópia local editável — setState síncrono intencional.
   useEffect(() => {
@@ -384,7 +390,7 @@ export default function EtiquetaPrint() {
   // Ao imprimir, cada cópia vira uma ETIQUETA FÍSICA registrada: é o que
   // permite depois contar por leitura de QR e saber o que ainda está na
   // prateleira. Sem isto o id no código seria só enfeite.
-  const imprimir = () => {
+  const registrarImpressao = () => {
     const hojeISO = hoje();
     const novas = [];
     itens.forEach(item => {
@@ -410,7 +416,37 @@ export default function EtiquetaPrint() {
     if (novas.length) {
       setEtiquetasImpressas(podarEtiquetas([...etiquetasImpressas, ...novas], hojeISO));
     }
+  };
+
+  // ── Caminho 1: diálogo do navegador (sempre existe) ─────────
+  const imprimir = () => {
+    registrarImpressao();
     window.print();
+  };
+
+  // ── Caminho 2: direto na impressora, em TSPL ────────────────
+  // ⚠️ Aqui NÃO passa por driver, escala nem paginação — que é de onde vieram
+  // todos os problemas de impressão. O que o app manda é o que sai no papel.
+  // Só no Chrome do Android/desktop: o Safari não implementa Web Bluetooth.
+  const imprimirDireto = async () => {
+    setErroBLE(''); setEnviando(true);
+    try {
+      if (!impressoraConectada()) {
+        const voltou = await reconectarSePuder();
+        if (!voltou) await escolherImpressora();
+      }
+      const lote = itens
+        .map(it => ({ campos: camposDe(it, loteDaCopia(it, 0)), copias: limitarCopias(it.quantidade) }))
+        .filter(x => x.copias > 0);
+      await enviarTSPL(loteTSPL(lote, config));
+      registrarImpressao();
+      setEnviando(false);
+      fecharEtiquetas();
+    } catch (e) {
+      setEnviando(false);
+      if (e?.name === 'NotFoundError') return; // fechou o seletor, não é erro
+      setErroBLE(e?.message || String(e));
+    }
   };
 
   return (
@@ -566,6 +602,28 @@ export default function EtiquetaPrint() {
             </div>
           )}
 
+          {/* ⚠️ IMPRESSÃO DIRETA vem PRIMEIRO quando existe: é a que sai
+              exata. O diálogo do navegador continua embaixo, porque no iPhone
+              e em navegador dentro de outro app o Bluetooth não existe — e
+              porque no computador a fila com a impressora já funciona. */}
+          {bleDisponivel() && (
+            <div className="space-y-2">
+              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando}>
+                {enviando ? 'Enviando…'
+                  : impressoraConectada() ? 'Imprimir na impressora'
+                  : 'Conectar impressora e imprimir'}
+              </Botao>
+              <p className="text-[11px] text-gray-600 text-center">
+                Sai direto, no tamanho exato. Sem janela de impressão.
+              </p>
+              {erroBLE && (
+                <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
+                  {erroBLE}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-3">
             <button onClick={fecharEtiquetas}
               className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Agora não</button>
@@ -573,7 +631,9 @@ export default function EtiquetaPrint() {
               className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
               {qrPendente
                 ? 'Gerando QR…'
-                : `Imprimir ${totalEtiquetas > 0 ? (totalEtiquetas === 1 ? '1 etiqueta' : `${totalEtiquetas} etiquetas`) : ''}`}
+                : bleDisponivel()
+                  ? 'Imprimir pelo computador'
+                  : `Imprimir ${totalEtiquetas > 0 ? (totalEtiquetas === 1 ? '1 etiqueta' : `${totalEtiquetas} etiquetas`) : ''}`}
             </button>
           </div>
         </div>
