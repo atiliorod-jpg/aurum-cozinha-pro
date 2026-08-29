@@ -277,7 +277,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Primeiro acesso: cria restaurante + conta diretoria ───────
-  const criarPrimeiroAdmin = useCallback(async ({ nome, email, senha, nomeRestaurante, produto }) => {
+  const criarPrimeiroAdmin = useCallback(async ({ nome, email, senha, nomeRestaurante, produto,
+    cnpj, whatsapp, cidade, uf, termosVersao }) => {
     const { data, error } = await supabase.auth.signUp({ email, password: senha });
     if (error) return error.message;
     if (!data.user) return 'Erro inesperado ao criar conta.';
@@ -289,11 +290,28 @@ export function AuthProvider({ children }) {
       p_nome_restaurante: nomeRestaurante || `${nome} — Restaurante`,
       p_nome_admin: nome,
     };
-    let { error: errRpc } = await supabase.rpc('criar_restaurante', { ...args, p_produto: produto || 'completo' });
+    // Cadastro B2B (migração 28). O CNPJ é o que trava o teste grátis; o
+    // WhatsApp é por onde a assinatura é ativada.
+    const argsCompletos = {
+      ...args,
+      p_produto: produto || 'completo',
+      p_cnpj: cnpj || null,
+      p_whatsapp: whatsapp || null,
+      p_cidade: cidade || null,
+      p_uf: uf || null,
+    };
+    let { error: errRpc } = await supabase.rpc('criar_restaurante', argsCompletos);
     // ⚠️ Banco sem a migração 27 não conhece `p_produto` e recusa a chamada
     // inteira. Cadastro NÃO pode falhar por isso: refaz sem o argumento, a
     // conta nasce 'completo' (o default da coluna) e o super-admin ajusta no
     // painel. Mesmo molde do fallback de avisarPagamento.
+    // ⚠️ Banco sem a migração 28 não conhece os parâmetros novos e recusa a
+    // chamada inteira. Degrada em DOIS passos, do mais completo ao mínimo, para
+    // o cadastro nunca falhar por migração não rodada — o super-admin ajusta os
+    // dados depois no painel. Mesmo molde do fallback de avisarPagamento.
+    if (errRpc && /p_cnpj|p_whatsapp|p_cidade|p_uf|does not exist|schema cache|not find|function/i.test(errRpc.message || '')) {
+      ({ error: errRpc } = await supabase.rpc('criar_restaurante', { ...args, p_produto: produto || 'completo' }));
+    }
     if (errRpc && /p_produto|does not exist|schema cache|not find|function/i.test(errRpc.message || '')) {
       ({ error: errRpc } = await supabase.rpc('criar_restaurante', args));
     }
@@ -311,6 +329,38 @@ export function AuthProvider({ children }) {
       }
       return errRpc.message;
     }
+
+    // ⚠️ SEMEIA prefs.estabelecimento com o que já foi digitado. Esses campos
+    // saem impressos no RODAPÉ DA ETIQUETA e existiam só em Configurações —
+    // então o cliente digitava o CNPJ no cadastro e, para a etiqueta sair
+    // completa, tinha que digitar de novo em outra tela que ele nem sabia que
+    // existia. Falha silenciosa e chata: a etiqueta saía sem CNPJ.
+    // Não bloqueia o cadastro se falhar: entrar é mais importante.
+    try {
+      const est = {};
+      if (cnpj) est.cnpj = cnpj;
+      if (cidade || uf) est.cidade = [cidade, uf].filter(Boolean).join(' - ');
+      if (Object.keys(est).length) {
+        // ⚠️ `p_restaurante` é OBRIGATÓRIO na assinatura
+        // salvar_documento(uuid,text,jsonb,integer) — sem ele a chamada falha e
+        // o rodapé da etiqueta fica vazio sem ninguém perceber. Por isso o id
+        // do restaurante é lido do perfil recém-criado, e não presumido.
+        const { data: perfilNovo } = await supabase
+          .from('perfis').select('restaurante_id').eq('id', data.user.id).maybeSingle();
+        if (perfilNovo?.restaurante_id) {
+          await supabase.rpc('salvar_documento', {
+            p_restaurante: perfilNovo.restaurante_id,
+            p_chave: 'prefs',
+            p_dados: {
+              estabelecimento: est,
+              termosVersao: termosVersao || null,
+              termosAceitosEm: new Date().toISOString(),
+            },
+            p_versao: 0,
+          });
+        }
+      }
+    } catch { /* etiqueta sai sem o rodapé; o cliente completa em Ajustes */ }
 
     try { sessionStorage.setItem('aurum_boasvindas', 'novo'); } catch { /* storage indisponível */ }
     await carregarPerfil(data.user.id);

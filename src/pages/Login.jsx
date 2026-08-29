@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { PRODUTOS, TESTE_DIAS } from '../utils/assinatura';
+import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos, UFS } from '../utils/documentos';
+import { TERMOS_VERSAO } from './Termos';
 
 const campo = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm";
 const botao = "w-full bg-polo-navy text-polo-gold font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50";
@@ -60,9 +62,17 @@ export default function Login() {
   const [nome, setNome] = useState('');
   const [nomeRest, setNomeRest] = useState('');
   const [token, setToken] = useState(conviteDaURL);
+  // Dados do estabelecimento (passo 1 do cadastro)
+  const [cnpj, setCnpj] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [uf, setUf] = useState('PE');
+  // ⚠️ Um formulario de 8 campos numa tela so e onde se desiste. Passo 1 = o
+  // ESTABELECIMENTO, passo 2 = o ACESSO. Sao decisoes de natureza diferente.
+  const [passo, setPasso] = useState(1);
 
   const limpar = () => { setErro(''); setInfo(''); };
-  const trocar = (m) => { limpar(); setSenha(''); setModo(m); };
+  const trocar = (m) => { limpar(); setSenha(''); setPasso(1); setModo(m); };
 
   const entrar = async () => {
     limpar();
@@ -83,15 +93,33 @@ export default function Login() {
     else setInfo('Enviamos um link de recuperação para o seu e-mail. Confira a caixa de entrada (e o spam).');
   };
 
+  // Passo 1 → 2. Barra aqui em vez de deixar descobrir no fim: quem digita
+  // CNPJ errado tem que ver o erro no campo, não depois de criar a senha.
+  const avancarPasso = () => {
+    limpar();
+    if (!nomeRest.trim()) { setErro('Digite o nome do restaurante.'); return; }
+    if (!validarCNPJ(cnpj)) { setErro('CNPJ inválido. Confira os números.'); return; }
+    if (!validarTelefone(whatsapp)) { setErro('WhatsApp inválido. Use DDD + número.'); return; }
+    if (!cidade.trim()) { setErro('Digite a cidade.'); return; }
+    setPasso(2);
+  };
+
   const criarRestaurante = async () => {
     limpar();
     if (nome.trim().length < 2) { setErro('Digite seu nome.'); return; }
-    if (!nomeRest.trim()) { setErro('Digite o nome do restaurante.'); return; }
     if (!/.+@.+\..+/.test(email)) { setErro('Digite um e-mail válido.'); return; }
     if (senha.length < 8) { setErro('A senha deve ter pelo menos 8 caracteres.'); return; }
     if (!aceitouTermos) { setErro('Marque a confirmação acima para continuar.'); return; }
     setCarregando(true);
-    const err = await criarPrimeiroAdmin({ nome: nome.trim(), email: email.trim(), senha, nomeRestaurante: nomeRest.trim(), produto });
+    const err = await criarPrimeiroAdmin({
+      nome: nome.trim(), email: email.trim(), senha,
+      nomeRestaurante: nomeRest.trim(), produto,
+      // só dígitos: é assim que o banco guarda, e é o que faz o índice único
+      // de CNPJ funcionar de verdade
+      cnpj: soDigitos(cnpj), whatsapp: soDigitos(whatsapp),
+      cidade: cidade.trim(), uf,
+      termosVersao: TERMOS_VERSAO,
+    });
     setCarregando(false);
     if (err) setErro(traduz(err));
   };
@@ -219,23 +247,87 @@ export default function Login() {
             <p className="text-[11px] text-gray-600 -mt-1">
               Dá para trocar de plano depois — é só falar com a equipe. Nada do que você cadastrar se perde.
             </p>
-            <p className="text-xs text-gray-500">Você será o administrador (Diretoria — acesso total).</p>
-            <input type="text" aria-label="Nome do restaurante" value={nomeRest} onChange={e => setNomeRest(e.target.value)} placeholder="Nome do restaurante" className={campo} />
-            <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
-            <input type="email" aria-label="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
-            <CampoSenha valor={senha} onChange={setSenha} aria="Senha (mínimo 8 caracteres)" autoComplete="new-password" placeholder="Crie uma senha (mín. 8)" />
-            <p className="text-[11px] text-gray-600 -mt-1">Use um e-mail que só você controla — quem tiver acesso a ele pode recuperar a senha da conta.</p>
-            <label className="flex items-start gap-2 text-xs text-gray-600">
-              <input type="checkbox" checked={aceitouTermos} onChange={e => setAceitouTermos(e.target.checked)}
-                className="w-4 h-4 mt-0.5 accent-[#1B2A41] flex-shrink-0" />
-              <span>
-                Li e entendo que este sistema é para <strong>produção e estoque interno</strong> da cozinha
-                (porcionamentos e semiacabados), não para atendimento ao cliente final.{' '}
-                <Link to="/termos" className="underline underline-offset-2 text-polo-navy font-semibold">Ler os termos</Link>
-              </span>
-            </label>
-            <Msg erro={erro} info={info} />
-            <button onClick={criarRestaurante} disabled={carregando} className={botao}>{carregando ? 'Criando…' : 'Criar e entrar'}</button>
+            {/* Onde estou nos dois passos */}
+            <div className="flex items-center gap-2 pt-1">
+              {[1, 2].map(n => (
+                <div key={n} className={`h-1.5 flex-1 rounded-full transition-colors
+                  ${passo >= n ? 'bg-polo-gold' : 'bg-gray-200'}`} />
+              ))}
+              <span className="text-[11px] text-gray-500 flex-shrink-0">{passo} de 2</span>
+            </div>
+
+            {passo === 1 ? <>
+              <p className="text-xs font-semibold text-polo-navy">Sobre o restaurante</p>
+              <input type="text" aria-label="Nome do restaurante" value={nomeRest}
+                onChange={e => setNomeRest(e.target.value)}
+                placeholder="Nome do restaurante" className={campo} />
+
+              {/* ⚠️ O CNPJ é a trava do teste grátis (índice único, migração
+                  28) e alimenta o rodapé da etiqueta. Máscara enquanto digita
+                  para o número ficar conferível a olho. */}
+              <input type="text" inputMode="numeric" aria-label="CNPJ" value={cnpj}
+                onChange={e => setCnpj(formatarCNPJ(e.target.value))}
+                placeholder="CNPJ (00.000.000/0001-00)" className={campo} />
+
+              <input type="tel" inputMode="numeric" aria-label="WhatsApp" value={whatsapp}
+                onChange={e => setWhatsapp(formatarTelefone(e.target.value))}
+                placeholder="WhatsApp com DDD" className={campo} />
+              <p className="text-[11px] text-gray-600 -mt-1">
+                É por aqui que a equipe confirma o pagamento e ativa a assinatura.
+              </p>
+
+              <div className="flex gap-2">
+                <input type="text" aria-label="Cidade" value={cidade}
+                  onChange={e => setCidade(e.target.value)}
+                  placeholder="Cidade" className={`${campo} flex-1`} />
+                <select aria-label="Estado" value={uf} onChange={e => setUf(e.target.value)}
+                  className={`${campo} w-24 bg-white`}>
+                  {UFS.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+              <p className="text-[11px] text-gray-600 -mt-1">
+                A norma sanitária muda de estado para estado — é o que nos deixa orientar você
+                com a regra que vale aí.
+              </p>
+
+              <Msg erro={erro} info={info} />
+              <button onClick={avancarPasso} className={botao}>Continuar</button>
+            </> : <>
+              <p className="text-xs font-semibold text-polo-navy">Seu acesso</p>
+              <p className="text-[11px] text-gray-600 -mt-1">
+                Você será o administrador (Diretoria — acesso total).
+              </p>
+              <input type="text" aria-label="Seu nome" value={nome}
+                onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
+              <input type="email" aria-label="Seu e-mail" value={email}
+                onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
+              <CampoSenha valor={senha} onChange={setSenha} aria="Senha (mínimo 8 caracteres)"
+                autoComplete="new-password" placeholder="Crie uma senha (mín. 8)" />
+              <p className="text-[11px] text-gray-600 -mt-1">
+                Use um e-mail que só você controla — quem tiver acesso a ele pode recuperar a senha.
+              </p>
+              <label className="flex items-start gap-2 text-xs text-gray-600">
+                <input type="checkbox" checked={aceitouTermos}
+                  onChange={e => setAceitouTermos(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-[#1B2A41] flex-shrink-0" />
+                <span>
+                  Li e aceito os{' '}
+                  <Link to="/termos" className="underline underline-offset-2 text-polo-navy font-semibold">
+                    Termos de Uso
+                  </Link>{' '}
+                  (versão {TERMOS_VERSAO}), incluindo que o sistema imprime a etiqueta com os dados
+                  que eu cadastrar e <strong>não substitui a definição de validade pelo responsável
+                  técnico</strong> do meu estabelecimento.
+                </span>
+              </label>
+              <Msg erro={erro} info={info} />
+              <button onClick={criarRestaurante} disabled={carregando} className={botao}>
+                {carregando ? 'Criando…' : 'Criar e entrar'}
+              </button>
+              <button onClick={() => { limpar(); setPasso(1); }}
+                className="w-full text-xs text-gray-500 pt-1">← Voltar aos dados do restaurante</button>
+            </>}
+
             <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>
           </>}
         </div>
