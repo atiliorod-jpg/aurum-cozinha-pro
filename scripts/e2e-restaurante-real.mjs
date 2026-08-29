@@ -18,7 +18,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { calcEstoquePuro } from '../src/utils/estoque.js';
 import { calcLotes } from '../src/utils/lotes.js';
-import { statusAssinatura } from '../src/utils/assinatura.js';
+import { statusAssinatura, TESTE_DIAS } from '../src/utils/assinatura.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const env = {};
@@ -74,7 +74,10 @@ ok('limite padrão de 3 usuários', (restA?.max_usuarios ?? 3) === 3, `max_usuar
 const plano = statusAssinatura({
   restauranteId: A.rid, restauranteCriadoEm: restA?.created_at, assinaturaAte: restA?.assinatura_ate, bloqueado: restA?.bloqueado,
 });
-ok('conta nova cai em "teste" com 7 dias', plano.tipo === 'teste' && plano.diasRestantes === 7, `${plano.tipo}, ${plano.diasRestantes}d`);
+// Deriva de TESTE_DIAS: o prazo ja mudou de 7 para 5 e este numero cravado
+// fez o e2e acusar falha onde nao havia. O que importa e o app e o banco
+// concordarem, nao o valor em si.
+ok(`conta nova cai em "teste" com ${TESTE_DIAS} dias`, plano.tipo === 'teste' && plano.diasRestantes === TESTE_DIAS, `${plano.tipo}, ${plano.diasRestantes}d`);
 
 // ════════════════════════════════════════════════════════════════
 titulo('2. CADASTRO DE PRODUTOS (catálogo em documentos)');

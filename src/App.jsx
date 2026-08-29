@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
-import { statusAssinatura } from './utils/assinatura';
+import { statusAssinatura, TESTE_DIAS } from './utils/assinatura';
 import SeletorModulo from './components/SeletorModulo';
 import { temRecurso } from './utils/modulos';
 import { pode, podeAbrirConfig, podeAbrirAdministracao } from './utils/permissoes';
@@ -127,7 +127,7 @@ function Rotas() {
       const st = statusAssinatura(sessao);
       // isoLocal, não toISOString: em Brasília o fim do teste caía no dia
       // seguinte na tela e o cliente contava com um dia que não tinha.
-      toast(`🎉 Bem-vindo ao Aurum Cozinha Pro! Teste grátis com tudo liberado até ${st.ate ? fmtData(isoLocal(new Date(st.ate))) : 'o fim dos 7 dias'}.`, 'sucesso', { duracao: 8000 });
+      toast(`🎉 Bem-vindo ao Aurum Cozinha Pro! Teste grátis com tudo liberado até ${st.ate ? fmtData(isoLocal(new Date(st.ate))) : `o fim dos ${TESTE_DIAS} dias`}.`, 'sucesso', { duracao: 8000 });
     } else if (flag === 'convite') {
       toast(`👋 Você entrou no restaurante ${sessao.restauranteNome || ''} como ${sessao.cargo}. Bom trabalho!`, 'sucesso', { duracao: 7000 });
     }
@@ -191,7 +191,7 @@ function Rotas() {
     );
   }
 
-  // Plano único + teste de 7 dias: vencido → bloqueio visual (dados preservados).
+  // Teste de TESTE_DIAS dias: vencido → bloqueio visual (dados preservados).
   // Superadmin/impersonação/demo são isentos (statusAssinatura resolve).
   const plano = impersonando ? { ok: true, tipo: 'isento' } : statusAssinatura(sessao);
   if (!plano.ok) {

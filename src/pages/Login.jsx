@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
-import { PRODUTOS } from '../utils/assinatura';
+import { PRODUTOS, TESTE_DIAS } from '../utils/assinatura';
 
 const campo = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm";
 const botao = "w-full bg-polo-navy text-polo-gold font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50";
@@ -129,7 +129,7 @@ export default function Login() {
             <button onClick={() => trocar('esqueci')} className="w-full text-xs text-polo-navy/70 pt-1">Esqueci minha senha</button>
             <div className="border-t border-gray-100 pt-3 flex flex-col gap-1.5">
               <button onClick={() => trocar('convite')} className="text-xs font-semibold text-polo-navy">Tenho um código de convite →</button>
-              <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante — <strong className="text-green-700">7 dias grátis</strong> →</button>
+              <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante — <strong className="text-green-700">{TESTE_DIAS} dias grátis</strong> →</button>
             </div>
             {/* ⚠️ AS DUAS DEMONSTRAÇÕES LADO A LADO, com preço.
                 Antes havia um botão grande "Ver demonstração" e um link
@@ -214,7 +214,7 @@ export default function Login() {
 
             {/* Sem "com tudo liberado" no plano menor: ali seria promessa falsa. */}
             <p className="text-xs font-semibold text-green-700">
-              7 dias grátis{produto === 'completo' ? ' com tudo liberado' : ''} · depois R$ {PRODUTOS[produto].precoMes}/mês para continuar.
+              {TESTE_DIAS} dias grátis{produto === 'completo' ? ' com tudo liberado' : ''} · depois R$ {PRODUTOS[produto].precoMes}/mês para continuar.
             </p>
             <p className="text-[11px] text-gray-600 -mt-1">
               Dá para trocar de plano depois — é só falar com a equipe. Nada do que você cadastrar se perde.

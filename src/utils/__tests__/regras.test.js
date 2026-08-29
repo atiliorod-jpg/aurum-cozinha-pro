@@ -607,26 +607,32 @@ describe('outbox — fila morta (não retentar para sempre)', () => {
   });
 });
 
-describe('statusAssinatura — borda dos 7 dias de teste (paridade com o SQL)', () => {
+describe('statusAssinatura — borda do teste grátis (paridade com o SQL)', () => {
   const DIA = 86400000;
   const base = (createdAt) => ({ restauranteId: 'r1', restauranteCriadoEm: createdAt });
 
-  it('dentro do teste (6 dias) = ok', () => {
+  // Escrito em função de TESTE_DIAS, não com número solto: a borda tem que
+  // continuar sendo testada quando o prazo mudar de novo.
+  it('no último dia do teste = ok', () => {
     const agora = Date.now();
-    const st = statusAssinatura(base(new Date(agora - 6 * DIA).toISOString()), agora);
+    const st = statusAssinatura(base(new Date(agora - (TESTE_DIAS - 1) * DIA).toISOString()), agora);
     expect(st.ok).toBe(true);
     expect(st.tipo).toBe('teste');
   });
 
-  it('passou dos 7 dias sem assinatura = vencido', () => {
+  it('passou do teste sem assinatura = vencido', () => {
     const agora = Date.now();
-    const st = statusAssinatura(base(new Date(agora - 8 * DIA).toISOString()), agora);
+    const st = statusAssinatura(base(new Date(agora - (TESTE_DIAS + 1) * DIA).toISOString()), agora);
     expect(st.ok).toBe(false);
     expect(st.tipo).toBe('vencido');
   });
 
-  it('TESTE_DIAS é 7 (precisa bater com migration10)', () => {
-    expect(TESTE_DIAS).toBe(7);
+  // ⚠️ ESTE NÚMERO É ESCRITO EM DOIS LUGARES: aqui e no `interval '5 days'` de
+  // restaurante_pode_escrever, recriada na MIGRAÇÃO 28. Se alguém mudar só o
+  // JS, o app aprova a escrita e o banco recusa — e como o app é offline-first,
+  // o lançamento entra na fila e some sem erro visível. Quebrar aqui é o aviso.
+  it('TESTE_DIAS é 5 (precisa bater com o interval da migração 28)', () => {
+    expect(TESTE_DIAS).toBe(5);
   });
 
   it('conta bloqueada não escreve mesmo com assinatura em dia', () => {

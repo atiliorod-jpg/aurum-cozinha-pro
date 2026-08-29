@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe } from '../utils/assinatura';
+import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe } from '../utils/assinatura';
 import { montarPixBRCode } from '../utils/pix';
 import { fmtData, isoLocal } from '../utils/formatters';
 
@@ -295,7 +295,7 @@ export default function Pagamento() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
         <p className="font-bold mb-1">ℹ️ Como funciona</p>
-        <p>Todo restaurante novo tem <strong>7 dias de teste grátis</strong> com tudo liberado.
+        <p>Todo restaurante novo tem <strong>{TESTE_DIAS} dias de teste grátis</strong>.
         Depois, escolha um plano e pague por Pix. A equipe Aurum confirma o pagamento e ativa sua
         assinatura — você recebe a confirmação pelo WhatsApp.</p>
       </div>

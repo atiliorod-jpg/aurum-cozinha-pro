@@ -1,18 +1,19 @@
-// Regras comerciais: DOIS produtos + período de teste de 7 dias.
+// Regras comerciais: DOIS produtos + período de teste de 5 dias.
 // Sem webhook de pagamento: a ativação é manual (super-admin, RPC ativar_assinatura).
 // Desde a migração 10 o corte também vale no banco (restaurante_pode_escrever),
 // além do bloqueio visual no app.
 //
-// ⚠️ PARIDADE: TESTE_DIAS precisa ser IGUAL ao "interval '7 days'" usado em
-// restaurante_pode_escrever (migration10). Mudou aqui, mude lá também — senão o
-// app diz "ok" e o banco nega a escrita (ou vice-versa).
+// ⚠️ PARIDADE: TESTE_DIAS precisa ser IGUAL ao "interval '5 days'" usado em
+// restaurante_pode_escrever — recriada na MIGRAÇÃO 28. Mudou aqui, mude lá
+// também: o app diria "ok" e o banco negaria a escrita, e como o app é
+// offline-first o lançamento entra na fila e some sem erro visível na tela.
 //
 // ⚠️ E o PRODUTO não entra nessa paridade, de propósito: o corte de teste/
 // assinatura/bloqueio é idêntico nos dois produtos, então a frase acima segue
 // verdadeira. Produto é o que a conta COMPROU (interface, ver utils/produto.js);
 // validade é se a conta PODE ESCREVER (acesso, espelhado no banco). Misturar os
 // dois aqui faria este comentário virar mentira.
-export const TESTE_DIAS = 7;
+export const TESTE_DIAS = 5;
 
 // ⚠️ DOIS EIXOS INDEPENDENTES, e os nomes existem para não confundi-los:
 //   PRODUTOS → O QUE a conta comprou   (etiquetas | completo)
@@ -71,7 +72,7 @@ export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
 /**
  * Situação do plano de uma sessão:
  *  { ok:true,  tipo:'assinatura', ate }            — assinatura ativa
- *  { ok:true,  tipo:'teste', diasRestantes, ate }  — dentro do teste de 7 dias
+ *  { ok:true,  tipo:'teste', diasRestantes, ate }  — dentro do teste (TESTE_DIAS)
  *  { ok:false, tipo:'vencido' }                    — teste e assinatura vencidos
  *  { ok:false, tipo:'bloqueado' }                  — conta suspensa pelo administrador
  *  { ok:true,  tipo:'isento' }                     — super-admin/demo/sem restaurante
