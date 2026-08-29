@@ -14,7 +14,7 @@ import { pode, CAPACIDADES, permissoesEfetivas } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
 import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas } from '../components/config/CartoesConfig';
 import { temRecurso } from '../utils/modulos';
-import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos } from '../utils/armazenamento';
+import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../utils/armazenamento';
 
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
 // a conversão para número acontece só no salvar.
@@ -819,7 +819,11 @@ export default function Configuracoes() {
   const pendenciasDoProduto = (p) => {
     const falta = [];
     if (!p.min && !p.max) falta.push('mín/máx');
-    if (!p.valCongelado && !p.valResfriado) falta.push('validade');
+    // ⚠️ temAlgumPrazo, não os dois campos antigos: item com prazo só em
+    // REFRIGERADO ou AMBIENTE era marcado como "falta validade" sem faltar
+    // nada. Mesmo defeito que a lista de imprimir tinha — os pontos de leitura
+    // de prazo precisam passar todos pelo adaptador.
+    if (!temAlgumPrazo(p)) falta.push('validade');
     if (p.unidade === 'unid' && !p.pesoUnidade) falta.push('peso/unid');
     return falta;
   };
