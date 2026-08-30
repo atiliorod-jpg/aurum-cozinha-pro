@@ -783,7 +783,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
 export default function Configuracoes() {
   const { produtos, setProdutos, saidas, limparTudo, resetarProdutos, exportarBackup, importarBackup,
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
-          fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref,
+          fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref, setPrefs,
           compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo, permissoes, setPermissoes } = useApp();
   const { usuarios, sessao, criarConvite, alterarCargo, convites, carregarConvites, revogarConvite,
           desativarUsuario, reativarUsuario } = useAuth();
@@ -1460,7 +1460,7 @@ ${linkConvite(conviteGerado.token)}
       <CartaoInstalarApp />
 
       {/* Suporte remoto */}
-      <CartaoSuporteRemoto prefs={prefs} setPref={setPref} toast={toast} />
+      <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />
 
       {/* Armazenamento (vem ANTES das etiquetas: define o que a etiqueta imprime) */}
       <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />

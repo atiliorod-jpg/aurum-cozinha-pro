@@ -10,7 +10,7 @@ import Botao from '../Botao';
 import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
 
-export function CartaoSuporteRemoto({ prefs, setPref, toast }) {
+export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
   // eslint-disable-next-line react-hooks/purity -- a hora atual é insumo legítimo do prazo de 24h; recalcular a cada render é o comportamento desejado
   const agora = Date.now();
   const suporteAtivo = prefs.suporteAtivo && prefs.suporteAtivo > agora;
@@ -18,17 +18,21 @@ export function CartaoSuporteRemoto({ prefs, setPref, toast }) {
     ? Math.ceil((prefs.suporteAtivo - agora) / 3600000)
     : 0;
 
+  // ⚠️ AS DUAS CHAVES NUMA GRAVAÇÃO SÓ. Eram dois setPref seguidos, e a segunda
+  // chamada montava o objeto a partir do prefs ANTIGO — as duas subiam
+  // disputando a mesma versão do documento, uma era recusada e o cliente via
+  // "Outro tablet alterou as configurações" sem tablet nenhum por perto. Pior:
+  // o valor perdido podia ser a PERMISSÃO, e aí a tela dizia "autorizado a
+  // editar" enquanto o painel da Aurum enxergava só leitura.
   const autorizar = (permissao) => {
-    setPref('suporteAtivo', Date.now() + 24 * 3600 * 1000);
-    setPref('suportePermissao', permissao); // 'ver' | 'mexer'
+    setPrefs({ suporteAtivo: Date.now() + 24 * 3600 * 1000, suportePermissao: permissao });
     toast(permissao === 'mexer'
       ? 'Suporte autorizado a VER E EDITAR seus dados por 24h.'
       : 'Suporte autorizado a visualizar seus dados por 24h.', 'sucesso');
   };
 
   const revogar = () => {
-    setPref('suporteAtivo', null);
-    setPref('suportePermissao', null);
+    setPrefs({ suporteAtivo: null, suportePermissao: null });
     toast('Acesso de suporte revogado.', 'sucesso');
   };
 

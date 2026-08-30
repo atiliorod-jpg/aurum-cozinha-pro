@@ -25,7 +25,7 @@ import { fmtData, isoLocal } from '../../utils/formatters';
  * as Configurações ficariam sem porta nenhuma.
  */
 export default function Ajustes() {
-  const { prefs, setPref, pessoas, addPessoa, removePessoa } = useApp();
+  const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa } = useApp();
   const { sessao, logout } = useAuth();
   const { toast, confirm } = useUI();
   const [novaPessoa, setNovaPessoa] = useState('');
@@ -128,7 +128,7 @@ export default function Ajustes() {
         </div>
       )}
 
-      <CartaoSuporteRemoto prefs={prefs} setPref={setPref} toast={toast} />
+      <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <Botao variante="secundario" onClick={async () => {

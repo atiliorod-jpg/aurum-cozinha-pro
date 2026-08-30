@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
@@ -37,10 +37,19 @@ function BadgeProduto({ produto }) {
   );
 }
 
+// Sem acento, sem pontuação, minúsculo — dos DOIS lados da comparação. Sem
+// isto "Jaboatao" não acha "Jaboatão" e o CNPJ digitado sem pontos não acha o
+// que está gravado com pontos.
+const normalizar = (t) => String(t || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-zA-Z0-9]/g, '')
+  .toLowerCase();
+
 export default function Admin() {
   const { sessao, verComoRestaurante } = useAuth();
   const { toast, confirm } = useUI();
   const [renomeando, setRenomeando] = useState(null); // { id, valor } | null
+  const [busca, setBusca] = useState('');
   const navigate = useNavigate();
   const [restaurantes, setRestaurantes] = useState([]);
   const [carregando,   setCarregando]   = useState(true);
@@ -76,7 +85,10 @@ export default function Admin() {
     // select completo → fallback progressivo p/ bancos sem as colunas novas
     let { data: rests, error: errR } = await supabase
       .from('restaurantes')
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto')
+      // ⚠️ cnpj/whatsapp/cidade/uf (M28) entram SÓ nesta primeira tentativa. A
+      // cadeia de fallback abaixo existe para banco sem as colunas novas; pôr
+      // as colunas lá também faria a queda em cascata falhar inteira.
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf')
       .order('created_at', { ascending: false });
     if (errR) {
       // banco sem a migração 27: cai para o select de antes e todo mundo
@@ -225,6 +237,18 @@ export default function Admin() {
     setRenomeando(null);
     toast(`Agora se chama "${data || novo}".`, 'sucesso');
   };
+
+  // ⚠️ `useMemo` e não filtro solto no JSX: a lista roda a cada tecla digitada
+  // e cada linha faz normalize/replace em quatro campos.
+  const visiveis = useMemo(() => {
+    const t = normalizar(busca);
+    if (!t) return restaurantes;
+    return restaurantes.filter(r =>
+      normalizar(r.nome).includes(t)
+      || normalizar(r.cidade).includes(t)
+      || normalizar(r.uf).includes(t)
+      || normalizar(r.cnpj).includes(t));
+  }, [restaurantes, busca]);
 
   const mudarMax = async (r, novoMax) => {
     const { error } = await supabase.rpc('definir_max_usuarios', { p_restaurante: r.id, p_max: novoMax });
@@ -383,20 +407,35 @@ export default function Admin() {
           <>
             <div className="flex items-center justify-between px-1">
               <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">
-                Restaurantes ({restaurantes.length})
+                Restaurantes ({visiveis.length === restaurantes.length
+                  ? restaurantes.length
+                  : `${visiveis.length} de ${restaurantes.length}`})
               </p>
               <span className="text-[11px] text-gray-600">
                 {restaurantes.filter(r => r.suporteAtivo).length} com suporte ativo
               </span>
             </div>
 
-            {restaurantes.length === 0 && (
+            {/* ⚠️ Busca por NOME, CIDADE e CNPJ, não só por nome: o nome é
+                justamente o que o cliente escreve errado e pede para corrigir —
+                procurar por "Jaboatão" ou pelo CNPJ do boleto acha de qualquer
+                jeito. Sem acento e sem pontuação nos dois lados, senão
+                "Jaboatao" não encontra "Jaboatão". */}
+            <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar por nome, cidade ou CNPJ…" aria-label="Buscar restaurante"
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+
+            {visiveis.length === 0 && (
               <div className="bg-white rounded-xl p-8 text-center">
-                <p className="text-sm text-gray-600">Nenhum restaurante encontrado.</p>
+                <p className="text-sm text-gray-600">
+                  {busca.trim()
+                    ? `Nada encontrado para “${busca.trim()}”.`
+                    : 'Nenhum restaurante encontrado.'}
+                </p>
               </div>
             )}
 
-            {restaurantes.map(r => {
+            {visiveis.map(r => {
               // eslint-disable-next-line react-hooks/purity -- situação depende da hora atual; recalcular por render é o desejado
               const agora = Date.now();
               const st = statusRestaurante(r, agora);

@@ -385,6 +385,45 @@ export function AppProvider({ children }) {
   const setPrecos = useCallback((v) => persistCatalogo('precos', setPrecosRaw, v), [persistCatalogo]);
   const setEstoquesDoc = useCallback((v) => persistCatalogo('estoques', setEstoquesDocRaw, v), [persistCatalogo]);
 
+  /**
+   * Grava VÁRIAS preferências de uma vez.
+   *
+   * ⚠️ DUAS CHAMADAS SEGUIDAS DE setPref PERDIAM UMA DAS DUAS, e o sintoma que
+   * apareceu foi outro: "Outro tablet alterou as configurações" ao autorizar o
+   * suporte remoto, sem tablet nenhum por perto.
+   *
+   * O motivo: `dadosRef.current` é preenchido no RENDER. Duas chamadas no mesmo
+   * clique leem o MESMO prefs antigo, então a segunda monta o objeto sem a
+   * mudança da primeira — e as duas sobem para a nuvem disputando a mesma
+   * versão do documento. Uma é recusada, o app recarrega a versão do servidor,
+   * e o valor perdido é justamente o que não venceu a corrida.
+   *
+   * No suporte remoto isso não era cosmético: `suporteAtivo` e
+   * `suportePermissao` são gravados juntos, e o painel da Aurum lê os dois do
+   * servidor. Perder o segundo faz a tela do cliente dizer "autorizado a
+   * editar" enquanto o painel vê só leitura.
+   */
+  const setPrefs = useCallback((patch) => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; }
+    const r = ridRef.current;
+    const next = { ...dadosRef.current.prefs, ...patch };
+    setPrefsRaw(next);
+    // Uma gravação por destino, mesmo quando o patch mistura os dois tipos de
+    // chave: as de aparelho não sobem, as do restaurante sobem juntas.
+    const chaves = Object.keys(patch);
+    if (chaves.some(k => PREFS_APARELHO.includes(k))) cacheSet(r, '_prefs_device', soAparelho(next));
+    if (chaves.some(k => !PREFS_APARELHO.includes(k))) {
+      const restPrefs = soRestaurante(next);
+      cacheSet(r, 'prefs', restPrefs);
+      if (nuvemDe(r)) {
+        salvarDocNuvem(r, 'prefs', restPrefs, (dadosSrv) => {
+          cacheSet(r, 'prefs', dadosSrv);
+          setPrefsRaw({ ...dadosSrv, ...cacheGet(r, '_prefs_device', {}) });
+        });
+      }
+    }
+  }, [salvarDocNuvem]);
+
   const setPref = useCallback((chave, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const r = ridRef.current;
@@ -1276,7 +1315,7 @@ export function AppProvider({ children }) {
       categorias, setCategorias,
       auditoria, logAudit,
       restaurarRegistro,
-      prefs, setPref,
+      prefs, setPref, setPrefs,
       modulo: moduloEfetivo, setModulo, recebimentos,
       estoque,
       limparTudo, resetarProdutos,
