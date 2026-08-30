@@ -171,7 +171,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
   );
 }
 
-export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
+export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeRestaurante = '' }) {
   const cfg = configEtiqueta(prefs);
   // ⚠️ O TAMANHO SAIU DA TELA. Aqui havia dois campos de mm, e eles causavam um
   // defeito que só aparece no papel: o app dizia um tamanho, o driver da
@@ -250,6 +250,19 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
       </div>
       <div className="border-t border-gray-100 pt-3 space-y-2">
         <p className="text-xs font-semibold text-gray-600">Dados do estabelecimento (rodapé da etiqueta)</p>
+        {/* ⚠️ O NOME É SÓ LEITURA AQUI, de propósito. Ele identifica a conta no
+            contrato, na cobrança e no painel de suporte — conta que se renomeia
+            sozinha vira outra conta para quem atende. A troca existe, passa
+            pela Aurum, e o caminho está escrito em vez de a pessoa concluir
+            que o campo "faltou". */}
+        <div className="bg-gray-50 rounded-lg px-3 py-2">
+          <p className="text-[11px] text-gray-600">Nome do estabelecimento</p>
+          <p className="text-sm font-semibold text-polo-navy">{nomeRestaurante || '—'}</p>
+          <p className="text-[11px] text-gray-600 mt-1">
+            Sai impresso na etiqueta. Para trocar, use <strong>Ajuda → Pedido</strong> no topo da
+            tela — a equipe Aurum confere e muda.
+          </p>
+        </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label htmlFor="est-cnpj" className="block text-[11px] text-gray-500 mb-0.5">CNPJ</label>

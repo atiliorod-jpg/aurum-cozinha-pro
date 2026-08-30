@@ -355,12 +355,20 @@ export default function Login() {
                 É por aqui que a equipe confirma o pagamento e ativa a assinatura.
               </p>
 
+              {/* ⚠️ A LARGURA VEM DO `style`, NÃO DE UMA CLASSE, e isso é o
+                  conserto de um defeito visível: `campo` já traz `w-full`, e
+                  somar `w-24` não sobrescreve — o Tailwind decide pela ORDEM em
+                  que gera o CSS, e ali `w-full` vence. Resultado medido no
+                  navegador: o campo de cidade ficava com 34 px e o seletor de
+                  estado com 294. Era impossível digitar a cidade.
+                  `minWidth: 0` é a outra metade: item de flex não encolhe
+                  abaixo do conteúdo sem isso, e a linha voltaria a estourar. */}
               <div className="flex gap-2">
                 <input type="text" aria-label="Cidade" value={cidade}
                   onChange={e => setCidade(e.target.value)}
-                  placeholder="Cidade" className={`${campo} flex-1`} />
+                  placeholder="Cidade" className={campo} style={{ flex: '1 1 auto', minWidth: 0 }} />
                 <select aria-label="Estado" value={uf} onChange={e => setUf(e.target.value)}
-                  className={`${campo} w-24 bg-white`}>
+                  className={`${campo} bg-white`} style={{ flex: '0 0 5.5rem', width: '5.5rem' }}>
                   {UFS.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
@@ -390,10 +398,17 @@ export default function Login() {
                   onChange={e => setAceitouTermos(e.target.checked)}
                   className="w-4 h-4 mt-0.5 accent-[#1B2A41] flex-shrink-0" />
                 <span>
+                  {/* ⚠️ ABRE EM OUTRA ABA, e não é preferência: com <Link> o
+                      React Router troca de rota, esta tela é DESMONTADA e todo
+                      o cadastro digitado — restaurante, CNPJ, WhatsApp, cidade,
+                      nome, e-mail, senha — se perde. Quem foi conferir o que
+                      estava aceitando voltava para um formulário em branco.
+                      Justo quem lê os termos era punido por lê-los. */}
                   Li e aceito os{' '}
-                  <Link to="/termos" className="underline underline-offset-2 text-polo-navy font-semibold">
+                  <a href={`${import.meta.env.BASE_URL}termos`} target="_blank" rel="noopener noreferrer"
+                    className="underline underline-offset-2 text-polo-navy font-semibold">
                     Termos de Uso
-                  </Link>{' '}
+                  </a>{' '}
                   (versão {TERMOS_VERSAO}), incluindo que o sistema imprime a etiqueta com os dados
                   que eu cadastrar e <strong>não substitui a definição de validade pelo responsável
                   técnico</strong> do meu estabelecimento.

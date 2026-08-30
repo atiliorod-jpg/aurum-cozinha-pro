@@ -17,7 +17,7 @@ export default function BotaoFeedback() {
   const { toast } = useUI();
   const [enviando, setEnviando] = useState(false);
   const [aberto, setAberto] = useState(false);
-  const [tipo, setTipo] = useState('bug'); // 'bug' | 'sugestao'
+  const [tipo, setTipo] = useState('bug'); // 'bug' | 'sugestao' | 'pedido'
   // bug
   const [onde, setOnde] = useState('');
   const [esperava, setEsperava] = useState('');
@@ -26,6 +26,10 @@ export default function BotaoFeedback() {
   // sugestão
   const [ideia, setIdeia] = useState('');
   const [porque, setPorque] = useState('');
+  // pedido — mudanças que a Aurum precisa autorizar (hoje: o nome do
+  // estabelecimento, que sai impresso na etiqueta e identifica a conta)
+  const [pedidoNome, setPedidoNome] = useState('');
+  const [pedidoMotivo, setPedidoMotivo] = useState('');
 
   useEffect(() => {
     if (!aberto) return;
@@ -38,13 +42,25 @@ export default function BotaoFeedback() {
     try { return navigator.userAgent.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim().slice(0, 60); }
     catch { return '—'; }
   })();
-  const limpar = () => { setOnde(''); setEsperava(''); setAconteceu(''); setRepetir(''); setIdeia(''); setPorque(''); };
+  const limpar = () => { setOnde(''); setEsperava(''); setAconteceu(''); setRepetir(''); setIdeia(''); setPorque(''); setPedidoNome(''); setPedidoMotivo(''); };
 
   const enviar = async () => {
     const dados = tipo === 'bug'
       ? { onde, esperava, aconteceu, repetir }
-      : { ideia, porque };
-    const vazio = Object.values(dados).every(v => !v.trim());
+      : tipo === 'pedido'
+        // ⚠️ O NOME ATUAL VAI JUNTO. Sem ele o pedido chega como "mudar para
+        // X" e a equipe não sabe qual conta é — o nome é justamente o que
+        // identifica o restaurante no painel, e ele é o que vai mudar.
+        ? { pedido: 'nome do estabelecimento', de: sessao?.restauranteNome || '', para: pedidoNome, motivo: pedidoMotivo }
+        : { ideia, porque };
+    // ⚠️ O pedido tem validação PRÓPRIA. A checagem genérica abaixo olha se
+    // TODO campo está vazio, e `dados.pedido` já vem preenchido pelo código —
+    // então um pedido sem o nome novo passaria batido e chegaria à equipe
+    // dizendo apenas "quero mudar o nome", sem dizer para quê.
+    if (tipo === 'pedido' && !pedidoNome.trim()) {
+      toast('Escreva como o nome deve ficar.', 'aviso'); return;
+    }
+    const vazio = Object.values(dados).every(v => !String(v || '').trim());
     if (vazio) { toast('Escreva pelo menos um campo antes de enviar.', 'aviso'); return; }
 
     // Na demonstração não há restaurante real para vincular — envio simulado.
@@ -96,7 +112,7 @@ export default function BotaoFeedback() {
 
             {/* Tipo */}
             <div className="flex gap-2 mb-3">
-              {[['bug', 'Problema'], ['sugestao', 'Sugestão']].map(([v, l]) => (
+              {[['bug', 'Problema'], ['sugestao', 'Sugestão'], ['pedido', 'Pedido']].map(([v, l]) => (
                 <button key={v} onClick={() => setTipo(v)}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2
                     ${tipo === v ? 'border-polo-gold bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-500'}`}>
@@ -125,6 +141,35 @@ export default function BotaoFeedback() {
                 <label className="block">
                   <span className="text-xs font-semibold text-gray-600">Como repetir</span>
                   <textarea className={campo} rows={2} value={repetir} onChange={e => setRepetir(e.target.value)} placeholder="Ex.: 1) abri Produção 2) toquei em salvar 3) ..." />
+                </label>
+              </div>
+            ) : tipo === 'pedido' ? (
+              /* ⚠️ O NOME NÃO SE MUDA SOZINHO, e isto não é limitação técnica.
+                 Ele sai IMPRESSO no rodapé de toda etiqueta e identifica o
+                 estabelecimento no contrato e na cobrança: conta que se
+                 renomeia sozinha vira outra conta aos olhos de quem dá
+                 suporte. O pedido chega à Aurum com o nome de ANTES junto,
+                 senão não dá para saber de quem é. */
+              <div className="space-y-3">
+                <p className="text-xs text-gray-500">
+                  O nome do estabelecimento sai impresso nas etiquetas. Por isso a troca passa
+                  pela equipe Aurum — a gente confere e muda para você.
+                </p>
+                <div className="bg-gray-50 rounded-lg px-3 py-2">
+                  <p className="text-[11px] text-gray-600">Hoje está como</p>
+                  <p className="text-sm font-semibold text-polo-navy">{sessao?.restauranteNome || '—'}</p>
+                </div>
+                <label className="block">
+                  <span className="text-xs font-semibold text-gray-600">Como deve ficar</span>
+                  <input className={campo} maxLength={60} value={pedidoNome}
+                    onChange={e => setPedidoNome(e.target.value)}
+                    placeholder="Nome correto, do jeito que deve sair na etiqueta" />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold text-gray-600">Por quê (opcional)</span>
+                  <textarea className={campo} rows={2} value={pedidoMotivo}
+                    onChange={e => setPedidoMotivo(e.target.value)}
+                    placeholder="Ex.: erro de digitação no cadastro / o restaurante mudou de nome" />
                 </label>
               </div>
             ) : (

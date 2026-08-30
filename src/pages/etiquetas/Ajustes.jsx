@@ -58,7 +58,7 @@ export default function Ajustes() {
       {/* Armazenamento vem primeiro: define o que a etiqueta imprime */}
       <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
 
-      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} mostrarQR={false} />
+      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} mostrarQR={false} nomeRestaurante={sessao?.restauranteNome} />
 
       {/* Responsáveis — é o nome que sai assinado na etiqueta */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">

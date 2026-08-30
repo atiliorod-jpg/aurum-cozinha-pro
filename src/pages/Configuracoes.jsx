@@ -1466,7 +1466,7 @@ ${linkConvite(conviteGerado.token)}
       <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
 
       {/* Etiquetas impressas */}
-      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} />
+      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} nomeRestaurante={sessao?.restauranteNome} />
 
       {/* ⚠️ O teste de Web Bluetooth que ficava aqui foi REMOVIDO — a pergunta
           dele já tem resposta, e é não. A MDK-022 fala Bluetooth CLÁSSICO

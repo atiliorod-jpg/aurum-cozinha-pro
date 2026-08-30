@@ -40,6 +40,7 @@ function BadgeProduto({ produto }) {
 export default function Admin() {
   const { sessao, verComoRestaurante } = useAuth();
   const { toast, confirm } = useUI();
+  const [renomeando, setRenomeando] = useState(null); // { id, valor } | null
   const navigate = useNavigate();
   const [restaurantes, setRestaurantes] = useState([]);
   const [carregando,   setCarregando]   = useState(true);
@@ -204,6 +205,25 @@ export default function Admin() {
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, produto: novo } : x));
     toast(`"${r.nome}" agora é ${paraEtiquetas ? 'Aurum Etiquetas' : 'Aurum Cozinha Pro'}.`, 'sucesso');
+  };
+
+  // ⚠️ RENOMEAR É COISA DA AURUM, não do cliente. O nome sai IMPRESSO no
+  // rodapé de toda etiqueta e identifica o estabelecimento no contrato e na
+  // cobrança — cliente trocando sozinho gera confusão, inclusive suporte
+  // procurando alguém que "sumiu" porque virou outro nome. O cliente PEDE pela
+  // aba de feedback (tipo 'pedido'); quem muda é aqui.
+  //
+  // ⚠️ Passa por RPC (M29) porque `restaurantes` não tem policy de escrita, de
+  // propósito: a mesma linha guarda produto, assinatura e bloqueio. Liberar
+  // UPDATE "só do nome" deixaria o cliente trocar o próprio plano.
+  const salvarNome = async (r) => {
+    const novo = (renomeando?.valor || '').trim();
+    if (!novo || novo === r.nome) { setRenomeando(null); return; }
+    const { data, error } = await supabase.rpc('definir_nome_restaurante', { p_restaurante: r.id, p_nome: novo });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, nome: data || novo } : x));
+    setRenomeando(null);
+    toast(`Agora se chama "${data || novo}".`, 'sucesso');
   };
 
   const mudarMax = async (r, novoMax) => {
@@ -390,7 +410,28 @@ export default function Admin() {
                   <div className={`px-4 py-3 flex items-center justify-between gap-2
                     ${r.bloqueado ? 'bg-red-50' : r.suporteAtivo ? 'bg-green-50' : 'bg-gray-50'}`}>
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm text-gray-900 truncate">{r.nome}</p>
+                      {renomeando?.id === r.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input value={renomeando.valor} maxLength={60} autoFocus
+                            aria-label="Nome do estabelecimento"
+                            onChange={e => setRenomeando({ id: r.id, valor: e.target.value })}
+                            onKeyDown={e => { if (e.key === 'Enter') salvarNome(r); if (e.key === 'Escape') setRenomeando(null); }}
+                            className="min-w-0 flex-1 border border-gray-300 rounded px-2 py-1 text-sm text-gray-900" />
+                          <button onClick={() => salvarNome(r)}
+                            className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded px-2 py-1 flex-shrink-0">Salvar</button>
+                          <button onClick={() => setRenomeando(null)}
+                            className="text-[11px] text-gray-600 px-1 flex-shrink-0">Cancelar</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="font-semibold text-sm text-gray-900 truncate">{r.nome}</p>
+                          <button onClick={() => setRenomeando({ id: r.id, valor: r.nome })}
+                            aria-label={`Renomear ${r.nome}`} title="Renomear"
+                            className="text-[11px] text-gray-600 border border-gray-300 rounded px-1.5 py-0.5 flex-shrink-0">
+                            editar
+                          </button>
+                        </div>
+                      )}
                       <p className="text-[11px] text-gray-600 mt-0.5">Criado em {dataBR(r.created_at)}</p>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
