@@ -38,7 +38,17 @@ export const RECURSOS_PRODUTO = {
     etiquetas: true,          // imprimir etiqueta (catálogo + avulsas)
     itens: true,              // cadastro próprio de itens
     biblioteca: true,         // itens prontos para adicionar com um toque
-    validadesEtiqueta: true,  // acompanhar o que foi impresso e o que vence
+    // ⚠️ NÃO GUARDA O QUE FOI IMPRESSO. Cada etiqueta impressa virava uma linha
+    // gravada e enviada ao servidor — e quem lê essas linhas são a contagem por
+    // câmera do Inventário e a tela de Validades, DUAS TELAS QUE ESTE PRODUTO
+    // NÃO TEM. Cinquenta etiquetas num dia eram cinquenta registros para
+    // ninguém. Aqui se imprime e pronto.
+    //
+    // ⚠️ Esta chave já se chamou `validadesEtiqueta: true` e era MENTIRA: nada
+    // no app a consultava, e o produto tinha perdido a tela de validades. Flag
+    // que ninguém lê não fica só inútil — ela fica errada em silêncio e alguém
+    // toma decisão em cima dela depois.
+    historicoEtiquetas: false,
     configEtiqueta: true,     // tamanho, campos, QR, armazenamentos
     equipe: true,             // responsáveis pela etiqueta
     // o que este produto NÃO comprou
@@ -47,7 +57,7 @@ export const RECURSOS_PRODUTO = {
     inventario: false, compras: false, fecharTurno: false,
   },
   completo: {
-    etiquetas: true, itens: true, biblioteca: true, validadesEtiqueta: true,
+    etiquetas: true, itens: true, biblioteca: true, historicoEtiquetas: true,
     configEtiqueta: true, equipe: true,
     estoque: true, lotes: true, receitas: true, relatorios: true,
     financeiro: true, multiEstoque: true, administracao: true,

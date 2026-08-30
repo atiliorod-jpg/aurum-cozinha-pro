@@ -13,6 +13,7 @@ import { loteTSPL } from '../utils/tspl';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
+import { produtoAtivo, produtoTem } from '../utils/produto';
 
 // Tamanho impresso do QR, calculado a partir do NÚMERO DE MÓDULOS do código.
 //
@@ -193,7 +194,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
 
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
-  const { sessao } = useAuth();
+  const { sessao, impersonando } = useAuth();
   const { prefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas } = useApp();
   // ⚠️ Nome que SAI IMPRESSO no pote. Com dois restaurantes na mesma conta, o
   // nome da conta sairia na etiqueta dos dois — erro visível na frente do
@@ -430,7 +431,20 @@ export default function EtiquetaPrint() {
   // Ao imprimir, cada cópia vira uma ETIQUETA FÍSICA registrada: é o que
   // permite depois contar por leitura de QR e saber o que ainda está na
   // prateleira. Sem isto o id no código seria só enfeite.
+  //
+  // ⚠️ SÓ NO PLANO COMPLETO. Quem lê esses registros são a contagem por câmera
+  // do Inventário e a tela de Validades — as duas fora do plano Etiquetas. Lá
+  // isto era uma linha gravada e enviada ao servidor por etiqueta, para tela
+  // nenhuma; num dia de cinquenta etiquetas, cinquenta registros para ninguém.
+  // O dono confirmou o desligamento em 30/08/2026.
+  //
+  // ⚠️ Quem faz UPGRADE começa o histórico do dia do upgrade. É consequência
+  // aceita: ele nunca teve a tela que usa esse histórico, então não perde nada
+  // que já enxergasse.
+  const guardaHistorico = produtoTem(produtoAtivo(sessao, impersonando), 'historicoEtiquetas');
+
   const registrarImpressao = () => {
+    if (!guardaHistorico) return;
     const hojeISO = hoje();
     const novas = [];
     itens.forEach(item => {

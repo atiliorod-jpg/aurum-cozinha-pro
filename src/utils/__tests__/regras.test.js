@@ -935,12 +935,27 @@ describe('biblioteca de itens prontos', () => {
 });
 
 describe('produto contratado (utils/produto.js)', () => {
-  it('etiquetas compra etiqueta e validade, mas não estoque nem financeiro', () => {
+  it('etiquetas compra etiqueta, mas não estoque nem financeiro', () => {
     expect(produtoTem('etiquetas', 'etiquetas')).toBe(true);
-    expect(produtoTem('etiquetas', 'validadesEtiqueta')).toBe(true);
     expect(produtoTem('etiquetas', 'estoque')).toBe(false);
     expect(produtoTem('etiquetas', 'financeiro')).toBe(false);
     expect(produtoTem('etiquetas', 'administracao')).toBe(false);
+  });
+
+  // ⚠️ Cada etiqueta impressa virava uma linha gravada e enviada ao servidor.
+  // Quem le essas linhas sao a contagem por camera do Inventario e a tela de
+  // Validades — as duas FORA deste produto. Era escrita para ninguem.
+  it('etiquetas não guarda registro do que foi impresso', () => {
+    expect(produtoTem('etiquetas', 'historicoEtiquetas')).toBe(false);
+    expect(produtoTem('completo', 'historicoEtiquetas')).toBe(true);
+  });
+
+  // ⚠️ A chave antiga (`validadesEtiqueta`) dizia `true` para etiquetas e NADA
+  // no app a consultava — o produto ja tinha perdido a tela de validades.
+  // Bandeira que ninguem le nao fica inutil, fica errada em silencio.
+  it('a bandeira antiga não existe mais, em nenhum dos dois', () => {
+    expect(produtoTem('etiquetas', 'validadesEtiqueta')).toBe(false);
+    expect(produtoTem('completo', 'validadesEtiqueta')).toBe(false);
   });
 
   it('completo compra tudo', () => {
