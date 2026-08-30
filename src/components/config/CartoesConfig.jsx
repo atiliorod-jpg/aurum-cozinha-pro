@@ -299,3 +299,131 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
     </div>
   );
 }
+
+/**
+ * Quem tem acesso ao app — convites e usuários.
+ *
+ * ⚠️ EXISTIA SÓ NO PLANO COMPLETO, e isso deixava o Aurum Etiquetas sem como
+ * colocar a equipe para dentro: a conta dona era a única que conseguia entrar,
+ * e quem etiqueta no dia a dia não é quem assina o contrato. O código de
+ * convite é o único caminho de cadastro que não passa por criar restaurante
+ * novo — sem esta tela, o plano menor era conta de uma pessoa só.
+ *
+ * ⚠️ NÃO CONFUNDIR COM "RESPONSÁVEIS". Aquele é o nome que sai IMPRESSO no
+ * campo RESP. da etiqueta e não tem login nenhum. Este é quem entra no app com
+ * e-mail e senha. São listas diferentes de propósito: a cozinheira do turno da
+ * noite assina etiqueta sem precisar de acesso ao sistema.
+ */
+export function CartaoAcessos({ sessao, usuarios, convites, criarConvite, revogarConvite, cargos, toast, confirm }) {
+  const [cargo, setCargo] = useState('cozinha');
+  const [gerado, setGerado] = useState(null);
+  const [gerando, setGerando] = useState(false);
+
+  const ativos = (usuarios || []).filter(u => u.ativo !== false);
+  const max = sessao?.maxUsuarios || 3;
+  // Cada convite pendente RESERVA uma vaga: sem contá-lo, dois códigos gerados
+  // no mesmo dia estourariam o limite e o segundo falharia só na hora do
+  // cadastro — com a pessoa já com o código na mão.
+  const vagas = Math.max(0, max - ativos.length - (convites || []).length);
+
+  const gerar = async () => {
+    if (vagas <= 0) {
+      toast(`Sem vagas: ${ativos.length} pessoa(s) e ${(convites || []).length} convite(s) pendente(s), de ${max}.`, 'aviso');
+      return;
+    }
+    setGerando(true);
+    const token = await criarConvite(cargo);
+    setGerando(false);
+    if (!token) { toast('Não consegui gerar o convite agora.', 'erro'); return; }
+    setGerado({ token, cargo });
+    toast('Convite gerado. Passe o código para a pessoa.', 'sucesso');
+  };
+
+  const copiar = async (texto, oque) => {
+    try { await navigator.clipboard.writeText(texto); toast(`${oque} copiado.`, 'sucesso'); }
+    catch { toast('Copie manualmente.', 'aviso'); }
+  };
+
+  const tirar = async (token) => {
+    const ok = await confirm({
+      titulo: 'Cancelar este convite?',
+      mensagem: 'O código para de funcionar. Quem ainda não usou vai precisar de outro.',
+      perigo: true, confirmar: 'Cancelar convite',
+    });
+    if (!ok) return;
+    const erro = await revogarConvite(token);
+    toast(erro ? `Erro: ${erro}` : 'Convite cancelado.', erro ? 'erro' : 'sucesso');
+  };
+
+  const link = (t) => `${window.location.origin}${import.meta.env.BASE_URL}?convite=${t}`;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+      <div>
+        <p className="text-sm font-bold text-polo-navy">Quem tem acesso</p>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Quem entra no app com e-mail e senha. Diferente dos responsáveis, que só assinam a etiqueta.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {ativos.length === 0
+          ? <p className="text-xs text-gray-600 italic">Só você, por enquanto.</p>
+          : ativos.map(u => (
+            <span key={u.id} className="inline-flex items-center gap-1.5 bg-polo-beige text-polo-navy text-xs font-semibold rounded-full px-3 py-1.5">
+              {u.nome || '(sem nome)'}
+              <span className="font-normal text-gray-600">· {cargos.find(c => c.id === u.cargo)?.label || u.cargo}</span>
+            </span>
+          ))}
+      </div>
+
+      <div className="border-t border-gray-100 pt-3 space-y-2">
+        <p className="text-xs font-semibold text-gray-600">
+          Convidar alguém <span className="font-normal text-gray-500">· {vagas} vaga(s) de {max}</span>
+        </p>
+        <div className="flex gap-2">
+          <select value={cargo} onChange={e => setCargo(e.target.value)} aria-label="Cargo do convidado"
+            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white">
+            {cargos.filter(c => c.id !== 'diretoria').map(c => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+          <Botao onClick={gerar} tamanho="sm" largura="auto" disabled={gerando || vagas <= 0}>
+            {gerando ? 'Gerando…' : 'Gerar código'}
+          </Botao>
+        </div>
+
+        {gerado && (
+          <div className="bg-polo-beige rounded-lg p-3 space-y-2">
+            <p className="text-[11px] text-gray-600">Código de convite</p>
+            <p className="text-lg font-bold tracking-widest text-polo-navy break-all">{gerado.token}</p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => copiar(gerado.token, 'Código')}
+                className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">Copiar código</button>
+              {/* O link já abre o app com o código preenchido — um passo a menos
+                  para quem vai receber pelo WhatsApp. */}
+              <button onClick={() => copiar(link(gerado.token), 'Link')}
+                className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">Copiar link</button>
+            </div>
+            <p className="text-[11px] text-gray-600">
+              A pessoa abre o app, toca em “Tenho um código de convite” e escolhe a própria senha.
+            </p>
+          </div>
+        )}
+
+        {(convites || []).length > 0 && (
+          <div className="space-y-1 pt-1">
+            <p className="text-[11px] font-semibold text-gray-600">Convites ainda não usados</p>
+            {convites.map(c => (
+              <div key={c.token} className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-mono text-gray-700 truncate">{c.token}</span>
+                <button onClick={() => tirar(c.token)}
+                  className="text-[11px] font-semibold text-red-700 flex-shrink-0">cancelar</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

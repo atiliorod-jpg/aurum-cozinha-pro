@@ -505,18 +505,29 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           <p key={k}><span className="font-semibold text-gray-500">{k}:</span> {v}</p>
                         ))}
                       </div>
-                      {fb.resposta && respondendo?.id !== fb.id && (
-                        <div className="mt-2 bg-polo-beige rounded-lg px-2.5 py-2">
-                          <p className="text-[11px] font-bold text-polo-navy">
-                            Sua resposta{fb.respondida_em ? ` · ${dataBR(fb.respondida_em)}` : ''}
-                            {/* Saber se o cliente LEU muda o que fazer: sem
-                                leitura, cobrar pelo WhatsApp; com leitura, o
-                                silêncio é resposta. */}
-                            <span className="ml-1 font-semibold text-gray-600">
-                              {fb.resposta_lida ? '· lida' : '· não lida'}
-                            </span>
-                          </p>
-                          <p className="text-xs text-gray-700 whitespace-pre-wrap mt-0.5">{fb.resposta}</p>
+                      {/* ⚠️ A CONVERSA INTEIRA, não só a última resposta. O
+                          cliente agora responde de volta; mostrar apenas o que
+                          a Aurum escreveu esconderia justamente o que ele disse
+                          depois — e a decisão de reabrir ou encerrar depende
+                          disso. */}
+                      {Array.isArray(fb.mensagens) && fb.mensagens.length > 0 && respondendo?.id !== fb.id && (
+                        <div className="mt-2 space-y-1.5">
+                          {fb.mensagens.map((m, i) => (
+                            <div key={i} className={`rounded-lg px-2.5 py-2 ${m.de === 'aurum' ? 'bg-polo-beige' : 'bg-gray-100'}`}>
+                              <p className="text-[11px] font-bold text-polo-navy">
+                                {m.de === 'aurum' ? 'Aurum' : 'Cliente'}
+                                {m.de === 'aurum' && i === fb.mensagens.length - 1 && (
+                                  /* Saber se o cliente LEU muda o que fazer: sem
+                                     leitura, cobrar pelo WhatsApp; com leitura,
+                                     o silêncio é resposta. */
+                                  <span className="ml-1 font-semibold text-gray-600">
+                                    {fb.resposta_lida ? '· lida' : '· não lida'}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-gray-700 whitespace-pre-wrap mt-0.5">{m.texto}</p>
+                            </div>
+                          ))}
                         </div>
                       )}
 
@@ -536,9 +547,9 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </div>
                       ) : (
                         <div className="flex flex-wrap gap-2 mt-2">
-                          <button onClick={() => setRespondendo({ id: fb.id, texto: fb.resposta || '' })}
+                          <button onClick={() => setRespondendo({ id: fb.id, texto: '' })}
                             className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
-                            {fb.resposta ? 'Editar resposta' : 'Responder'}
+                            {Array.isArray(fb.mensagens) && fb.mensagens.length ? 'Responder de novo' : 'Responder'}
                           </button>
                           {fb.status !== 'resolvido' && (
                             <button onClick={() => marcarFeedback(fb, 'resolvido')}

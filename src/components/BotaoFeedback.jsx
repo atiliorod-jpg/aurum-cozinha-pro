@@ -14,7 +14,7 @@ const campo = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-g
 
 export default function BotaoFeedback() {
   const { sessao } = useAuth();
-  const { toast } = useUI();
+  const { toast, confirm } = useUI();
   const [enviando, setEnviando] = useState(false);
   const [aberto, setAberto] = useState(false);
   const [tipo, setTipo] = useState('bug'); // 'bug' | 'sugestao' | 'pedido'
@@ -33,6 +33,8 @@ export default function BotaoFeedback() {
   // Conversa: o que este restaurante já enviou e o que a Aurum respondeu
   const [conversa, setConversa] = useState([]);
   const [aba, setAba] = useState('novo'); // 'novo' | 'conversa'
+  const [resposta, setResposta] = useState({}); // { [id]: texto } — rascunho por assunto
+  const [enviandoResp, setEnviandoResp] = useState('');
 
   // ⚠️ CARREGA MESMO COM O MODAL FECHADO: é o que permite o aviso no botão.
   // Sem isso a pessoa só descobriria a resposta se abrisse por conta própria —
@@ -84,6 +86,35 @@ export default function BotaoFeedback() {
     if (!f.resposta || f.resposta_lida) return;
     await supabase.rpc('marcar_resposta_lida', { p_id: f.id });
     setConversa(prev => prev.map(x => x.id === f.id ? { ...x, resposta_lida: true } : x));
+  };
+
+  // ⚠️ CAMPO ÚNICO, sem as três perguntas do formulário. Continuar um assunto
+  // é conversa; repetir "onde aconteceu / o que esperava / como repetir" a cada
+  // frase transformaria uma resposta de uma linha num interrogatório.
+  const continuar = async (f) => {
+    const txt = (resposta[f.id] || '').trim();
+    if (!txt) { toast('Escreva a mensagem.', 'aviso'); return; }
+    if (sessao?.demo) { toast('Demonstração: nada foi enviado de verdade.', 'aviso'); return; }
+    setEnviandoResp(f.id);
+    const { error } = await supabase.rpc('continuar_feedback', { p_id: f.id, p_texto: txt });
+    setEnviandoResp('');
+    if (error) { toast('Não consegui enviar agora.', 'erro'); return; }
+    setResposta(r => ({ ...r, [f.id]: '' }));
+    toast('Enviado.', 'sucesso');
+    carregarConversa();
+  };
+
+  const concluir = async (f) => {
+    if (sessao?.demo) { toast('Demonstração: nada é salvo.', 'aviso'); return; }
+    const ok = await confirm({
+      titulo: 'Encerrar este assunto?',
+      mensagem: 'Ele sai da lista e fica guardado em Encerrados. Se voltar a acontecer, é só abrir um novo em Escrever.',
+      confirmar: 'Encerrar',
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('concluir_feedback', { p_id: f.id });
+    if (error) { toast('Não consegui encerrar agora.', 'erro'); return; }
+    carregarConversa();
   };
 
   const navegador = (() => {
@@ -188,40 +219,92 @@ export default function BotaoFeedback() {
 
             {aba === 'conversa' ? (
               <div className="space-y-3">
-                {conversa.length === 0 ? (
+                {conversa.length === 0 && (
                   <p className="text-xs text-gray-600 py-4 text-center">
                     Você ainda não enviou nada. O que enviar aparece aqui, junto com a resposta.
                   </p>
-                ) : conversa.map(f => {
-                  const d = f.dados || {};
-                  const resumo = f.tipo === 'bug' ? (d.aconteceu || d.onde)
-                    : f.tipo === 'pedido' ? `Mudar o nome para "${d.para || '—'}"`
-                    : (d.ideia || d.porque);
-                  return (
-                    <div key={f.id} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-bold text-polo-navy">
-                          {f.tipo === 'bug' ? 'Problema' : f.tipo === 'pedido' ? 'Pedido' : 'Sugestão'}
-                        </span>
-                        <span className="text-[11px] text-gray-500">
-                          {new Date(f.created_at).toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-700 mt-1">{resumo || '—'}</p>
-                      {f.resposta ? (
-                        <div className="mt-2 bg-polo-beige rounded-lg px-2.5 py-2"
-                          ref={el => { if (el && !f.resposta_lida) marcarLida(f); }}>
-                          <p className="text-[11px] font-bold text-polo-navy">Resposta da Aurum</p>
-                          <p className="text-xs text-gray-700 whitespace-pre-wrap mt-0.5">{f.resposta}</p>
+                )}
+                {/* ⚠️ ENCERRADOS FICAM SEPARADOS, embaixo e recolhidos. Assunto
+                    que acabou continua acessível — é o histórico — mas não pode
+                    disputar espaço com o que ainda está aberto. */}
+                {[['abertos', conversa.filter(f => f.status !== 'resolvido')],
+                  ['encerrados', conversa.filter(f => f.status === 'resolvido')]].map(([grupo, lista]) => {
+                  if (!lista.length) return null;
+                  const corpo = lista.map(f => {
+                    const d = f.dados || {};
+                    const abertura = f.tipo === 'bug'
+                      ? [d.onde, d.esperava, d.aconteceu, d.repetir].filter(Boolean).join(' · ')
+                      : f.tipo === 'pedido'
+                        ? `Mudar o nome para "${d.para || '—'}"`
+                        : [d.ideia, d.porque].filter(Boolean).join(' · ');
+                    const falas = Array.isArray(f.mensagens) ? f.mensagens : [];
+                    const encerrado = f.status === 'resolvido';
+                    return (
+                      <div key={f.id} className={`border rounded-lg p-3 ${encerrado ? 'border-gray-200 bg-gray-50' : 'border-gray-200'}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold text-polo-navy">
+                            {f.tipo === 'bug' ? 'Problema' : f.tipo === 'pedido' ? 'Pedido' : 'Sugestão'}
+                          </span>
+                          <span className="text-[11px] text-gray-500">
+                            {new Date(f.created_at).toLocaleDateString('pt-BR')}
+                          </span>
                         </div>
-                      ) : (
-                        <p className="text-[11px] text-gray-500 mt-1.5">Ainda sem resposta.</p>
-                      )}
-                    </div>
+                        <p className="text-xs text-gray-700 mt-1">{abertura || '—'}</p>
+
+                        {falas.length === 0 && !encerrado && (
+                          <p className="text-[11px] text-gray-500 mt-1.5">Ainda sem resposta.</p>
+                        )}
+                        {falas.map((m, i) => (
+                          <div key={i}
+                            ref={el => { if (el && m.de === 'aurum' && i === falas.length - 1) marcarLida(f); }}
+                            className={`mt-2 rounded-lg px-2.5 py-2 ${m.de === 'aurum' ? 'bg-polo-beige' : 'bg-gray-100'}`}>
+                            <p className="text-[11px] font-bold text-polo-navy">
+                              {m.de === 'aurum' ? 'Aurum' : 'Você'}
+                            </p>
+                            <p className="text-xs text-gray-700 whitespace-pre-wrap mt-0.5">{m.texto}</p>
+                          </div>
+                        ))}
+
+                        {encerrado ? (
+                          <p className="text-[11px] text-gray-500 mt-2">Encerrado por você.</p>
+                        ) : (
+                          <div className="mt-2 space-y-2">
+                            {/* ⚠️ UM CAMPO SÓ, sem as três perguntas do
+                                formulário: continuar um assunto é conversa, e
+                                repetir "onde aconteceu / o que esperava / como
+                                repetir" a cada frase transformaria uma resposta
+                                de uma linha num interrogatório. */}
+                            <textarea rows={2} value={resposta[f.id] || ''}
+                              onChange={e => setResposta(r => ({ ...r, [f.id]: e.target.value }))}
+                              placeholder="Responder…" aria-label="Continuar a conversa"
+                              className={campo} />
+                            <div className="flex flex-wrap gap-2">
+                              <button onClick={() => continuar(f)} disabled={enviandoResp === f.id}
+                                className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-3 py-1.5 disabled:opacity-60">
+                                {enviandoResp === f.id ? 'Enviando…' : 'Enviar'}
+                              </button>
+                              <button onClick={() => concluir(f)}
+                                className="text-[11px] font-semibold text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5">
+                                Encerrar assunto
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                  if (grupo === 'abertos') return <div key={grupo} className="space-y-3">{corpo}</div>;
+                  return (
+                    <details key={grupo} className="pt-1">
+                      <summary className="cursor-pointer text-[11px] font-semibold text-gray-600">
+                        Encerrados ({lista.length})
+                      </summary>
+                      <div className="space-y-3 pt-2">{corpo}</div>
+                    </details>
                   );
                 })}
                 <p className="text-[11px] text-gray-600 text-center">
-                  Para continuar o assunto, escreva de novo na aba <strong>Escrever</strong>.
+                  Assunto novo é na aba <strong>Escrever</strong>.
                 </p>
               </div>
             ) : (

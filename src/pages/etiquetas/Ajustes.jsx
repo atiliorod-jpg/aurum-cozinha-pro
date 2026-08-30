@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import Botao from '../../components/Botao';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../store/AppContext';
-import { useAuth } from '../../store/AuthContext';
+import { useAuth, CARGOS } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
-import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto } from '../../components/config/CartoesConfig';
+import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoAcessos } from '../../components/config/CartoesConfig';
 import { statusAssinatura, produtoDe, PRODUTOS } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
@@ -26,9 +26,14 @@ import { fmtData, isoLocal } from '../../utils/formatters';
  */
 export default function Ajustes() {
   const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa } = useApp();
-  const { sessao, logout } = useAuth();
+  const { sessao, logout, usuarios, convites, carregarConvites, criarConvite, revogarConvite } = useAuth();
   const { toast, confirm } = useUI();
   const [novaPessoa, setNovaPessoa] = useState('');
+
+  // ⚠️ A lista de convites pendentes NÃO vem junto com a sessão: é uma consulta
+  // à parte, e sem ela o cartão mostraria "0 convites" mesmo com códigos vivos
+  // — e as vagas apareceriam a mais do que existem.
+  useEffect(() => { carregarConvites(); }, [carregarConvites]);
 
   const st = statusAssinatura(sessao);
   const prod = produtoDe(sessao);
@@ -127,6 +132,14 @@ export default function Ajustes() {
           </Link>
         </div>
       )}
+
+      {/* ⚠️ O plano Etiquetas não tinha COMO convidar ninguém: a tela de acessos
+          morava só em Configurações do plano completo. A conta dona era a única
+          que conseguia entrar, e quem etiqueta no dia a dia não é quem assina o
+          contrato. */}
+      <CartaoAcessos sessao={sessao} usuarios={usuarios} convites={convites}
+        criarConvite={criarConvite} revogarConvite={revogarConvite}
+        cargos={CARGOS} toast={toast} confirm={confirm} />
 
       <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />
 

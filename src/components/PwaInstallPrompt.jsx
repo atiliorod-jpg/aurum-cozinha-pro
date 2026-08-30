@@ -42,7 +42,7 @@ export default function PwaInstallPrompt() {
         <img src={`${import.meta.env.BASE_URL}pwa-192.png`} alt="Aurum" className="w-10 h-10 rounded-xl flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="text-polo-gold font-bold text-sm">Instalar Aurum Cozinha Pro</p>
-          <p className="text-white/80 text-xs mt-0.5">Acesso rápido na tela inicial do tablet</p>
+          <p className="text-white/80 text-xs mt-0.5">Acesso rápido na tela inicial do aparelho</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setDispensado(true)} className="text-white/70 text-xs px-2 py-1">Agora não</button>

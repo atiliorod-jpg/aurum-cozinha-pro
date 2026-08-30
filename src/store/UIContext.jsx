@@ -106,7 +106,10 @@ export function UIProvider({ children }) {
     };
     const handler = (e) => {
       const rotulo = ROTULOS[e.detail?.chave] || 'este catálogo';
-      toast(`Outro tablet alterou ${rotulo}. Refaça sua alteração.`, 'aviso', { duracao: 7000 });
+      // ⚠️ "Aparelho", não "tablet": o app roda em tablet, computador e celular,
+      // e nomear só um faz a mensagem parecer errada para quem está nos outros
+      // dois — que é metade dos casos.
+      toast(`Outro aparelho alterou ${rotulo}. Refaça sua alteração.`, 'aviso', { duracao: 7000 });
     };
     window.addEventListener('catalogo-conflito', handler);
     return () => window.removeEventListener('catalogo-conflito', handler);

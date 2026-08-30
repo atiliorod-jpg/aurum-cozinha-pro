@@ -31,6 +31,13 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   // Um seletor com um item é botão morto, e ainda sugere que existem outras
   // áreas que a conta nao comprou.
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
+  // ⚠️ O SUPER-ADMIN NÃO TROCA DE COZINHA. A conta dele é o painel; as cozinhas
+  // só fazem sentido dentro da conta de um cliente (modo suporte) ou na
+  // demonstração. O seletor do cabeçalho continuava oferecendo Produção,
+  // Finalização, Seco e Administração — quatro destinos que, para ele, abrem
+  // um estoque vazio que não é de ninguém. A rota inicial já tinha sido
+  // corrigida; faltava esta porta, que é a que ele viu.
+  const semCozinhas = !!sessao?.eSuperAdmin && !impersonando;
   // ⚠️ Volta para o hub da Administração. Quando a barra de rodapé da
   // Administração morreu, as telas de dentro dela (Relatório, Financeiro,
   // Configurações…) ficaram sem saída visível: só dava para voltar abrindo o
@@ -40,7 +47,9 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   // Onde a pessoa está agora. Num estoque é o nome da INSTÂNCIA, não o rótulo
   // do tipo: com dois restaurantes na conta, "Estoque Seco" sozinho não diz de
   // qual casa é, e o cabeçalho é onde se confere isso antes de lançar.
-  const mod = emAdmin
+  const mod = semCozinhas
+    ? { icone: 'config', label: 'Painel Aurum' }
+    : emAdmin
     ? { icone: 'config', label: 'Administração' }
     : soEtiq
       ? { icone: 'etiqueta', label: 'Aurum Etiquetas' }
@@ -106,7 +115,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
             Administração: é a única saída de lá desde que a barra do rodapé
             saiu, e num PWA em tablet não existe botão de voltar do navegador.
             No plano Etiquetas vira etiqueta fixa: não há outra área para onde ir. */}
-        {soEtiq ? (
+        {soEtiq || semCozinhas ? (
           <span className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1 min-h-11">
             <Icon name={mod.icone} size={18} />
             <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
