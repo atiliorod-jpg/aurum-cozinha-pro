@@ -82,25 +82,24 @@ function Dica({ texto }) {
 
 // Uma linha "RÓTULO: valor" da etiqueta (formato ficha de pré-preparo)
 //
-// ⚠️ COLUNA FIXA PARA O RÓTULO, valor alinhado à esquerda — o mesmo desenho do
-// TSPL. Antes o valor ia à direita, e a validade (que sai num corpo maior)
-// começava antes da data de manipulação: terminavam juntas, mas não ficavam
-// uma sob a outra. Quem confere duas datas lê pelo começo delas.
+// ⚠️ VALOR ENCOSTADO NA DIREITA, todos no MESMO tamanho — o mesmo desenho do
+// TSPL, e o histórico está lá em `utils/tspl.js`. O resumo: valores à direita
+// só ficam uma linha sob a outra se todos tiverem o mesmo corpo; foi tentar
+// destacar a validade aumentando a letra que quebrou o alinhamento.
+//
+// `forte` virou SUBLINHADO sob o valor. É o destaque que sobrou para a
+// validade depois que ela perdeu o corpo maior, e um traço curto sob a data
+// não se confunde com os dois divisores que a etiqueta já tem.
 //
 // ⚠️ Esta caixa se chama "Como vai sair". Sempre que o desenho do papel mudar,
 // muda aqui junto — prévia que não confere é pior que prévia nenhuma.
 function Linha({ rotulo, valor, forte = false }) {
   if (!valor) return null;
   return (
-    <div className="flex items-baseline" style={{ fontSize: '2.7mm', gap: '1mm' }}>
-      {/* ⚠️ RÓTULO MENOR QUE O VALOR, e não é só estética: em "MANIPULAÇÃO:",
-          no mesmo corpo do valor, ele VAZAVA da coluna e invadia a data (medi
-          no navegador: 78 px numa coluna de 72). Menor, cabe com folga — e
-          hierarquia certa, porque quem lê a etiqueta procura a DATA, não a
-          palavra. O overflow é a trava final para qualquer rótulo futuro. */}
-      <span style={{ fontSize: '2.5mm', fontWeight: 700, width: '20mm', flexShrink: 0,
-        whiteSpace: 'nowrap', overflow: 'hidden' }}>{rotulo}:</span>
-      <span style={{ fontWeight: 800, fontSize: forte ? '3.3mm' : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{valor}</span>
+    <div className="flex justify-between" style={{ fontSize: '2.7mm', gap: '2mm', marginBottom: forte ? '0.6mm' : 0 }}>
+      <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{rotulo}:</span>
+      <span style={{ fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        borderBottom: forte ? '0.35mm solid #000' : undefined, paddingBottom: forte ? '0.3mm' : undefined }}>{valor}</span>
     </div>
   );
 }

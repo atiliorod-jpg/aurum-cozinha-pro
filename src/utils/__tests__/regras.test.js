@@ -2798,14 +2798,35 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
     };
     const dManip = achar('29/08/2026');
     const dVal = achar('25/02/2027');
-    // ⚠️ MESMO x DE COMEÇO. Ja foram alinhadas a direita, e no papel a validade
-    // (corpo maior) comecava 72 pontos antes da manipulacao: terminavam juntas
-    // mas nao ficavam uma sob a outra. Quem confere duas datas le pelo comeco.
+    // ⚠️ ALINHADAS NAS DUAS PONTAS, e uma coisa depende da outra: valor a
+    // DIREITA + MESMO tamanho. Ja se tentou destacar a validade com corpo
+    // maior, e ai ela comecava 72 pontos antes da manipulacao — terminavam
+    // juntas, mas nao ficavam uma sob a outra. O tamanho igual e o que faz o
+    // alinhamento a direita funcionar.
+    expect(dVal.fonte).toBe(dManip.fonte);
     expect(dVal.x).toBe(dManip.x);
     expect(dVal.y).toBeGreaterThan(dManip.y); // logo abaixo
     expect(dVal.y - dManip.y).toBeLessThanOrEqual(34);
     expect(achar('VALIDADE:').y).toBe(dVal.y); // rotulo junto da data, nao acima
-    expect(dVal.fonte).toBeGreaterThan(dManip.fonte); // e maior: e o destaque dela
+    // encostada na borda direita da area util
+    expect(dVal.x + dVal.txt.length * 12).toBe(60 * PONTOS_POR_MM - Math.round(2.5 * PONTOS_POR_MM));
+  });
+
+  // ⚠️ Destaque da validade depois que ela perdeu o corpo maior: um traco sob a
+  // DATA. Nao sob a linha inteira — traco de ponta a ponta viraria mais um
+  // divisor, e a etiqueta ja tem dois.
+  it('a validade sai sublinhada, e só ela', () => {
+    const linhas = etiquetaTSPL(campos, config).split(SEP);
+    const data = linhas.find(l => l.startsWith('TEXT') && l.includes('25/02/2027'));
+    const x = parseInt(data.split(',')[0].replace('TEXT ', ''));
+    const y = parseInt(data.split(',')[1]);
+    const larg = data.split('"')[data.split('"').length - 2].length * 12;
+    const sublinhados = linhas.filter(l => l.startsWith(`BAR ${x},`));
+    expect(sublinhados).toHaveLength(1);
+    const [, by, bw] = sublinhados[0].replace('BAR ', '').split(',').map(Number);
+    expect(by).toBeGreaterThan(y);       // abaixo da data
+    expect(by - y).toBeLessThanOrEqual(26);
+    expect(bw).toBe(larg);               // do tamanho da data, nao da etiqueta
   });
 
   // ⚠️ A MESMA ETIQUETA SAIU FINA PELO CELULAR E CHEIA PELO COMPUTADOR: pela

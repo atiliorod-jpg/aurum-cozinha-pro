@@ -82,19 +82,34 @@ const texto = (x, y, fonte, mul, conteudo) => {
  * pelo TAMANHO, já que o negrito virou padrão de todo o texto e por isso
  * deixou de diferenciar qualquer coisa.
  */
-function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, colunaValor, fonte = 2, fonteValor = fonte) {
+/**
+ * ⚠️ VALOR ENCOSTADO NA DIREITA, e todos no MESMO tamanho.
+ *
+ * Esta linha já foi de três jeitos e vale registrar por quê, porque as duas
+ * exigências parecem brigar e não brigam:
+ *   1. valores à direita, validade num corpo maior → a validade começava 72
+ *      pontos antes da manipulação; terminavam juntas, mas não ficavam uma
+ *      sob a outra.
+ *   2. todos começando numa coluna fixa → alinhou, mas deixou um vão morto
+ *      na direita da etiqueta e as datas no meio do papel.
+ *   3. (aqui) todos à direita, todos do MESMO tamanho → as duas datas têm 18
+ *      caracteres, então encostadas na direita ficam alinhadas nas DUAS
+ *      pontas. O tamanho igual é o que faz o alinhamento à direita funcionar.
+ *
+ * `sublinhado` é o destaque que sobrou para a validade depois que ela perdeu o
+ * corpo maior: um traço sob a DATA, não sob a linha inteira — traço de ponta a
+ * ponta viraria mais um divisor, e a etiqueta já tem dois.
+ */
+function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, sublinhado = false) {
   const mul = 1;
   const cmds = [...texto(margem, y, fonte, mul, rotulo)];
   if (valor) {
-    // ⚠️ TODOS OS VALORES COMEÇAM NA MESMA COLUNA. Já foram alinhados à
-    // direita, e no papel a validade — que sai num corpo maior — começava 72
-    // pontos antes da data de manipulação: as duas terminavam juntas mas não
-    // ficavam uma sob a outra. Quem confere as duas datas lê pelo COMEÇO
-    // delas. Alinhar pela esquerda é o que faz a coluna existir de verdade,
-    // independente do tamanho da letra.
-    const disponivel = margem + larguraUtil - colunaValor;
-    const v = cortarParaLargura(valor, fonteValor, mul, disponivel);
-    cmds.push(...texto(colunaValor, y, fonteValor, mul, v));
+    const disponivel = larguraUtil - larguraTexto(rotulo, fonte, mul) - mm(1.5);
+    const v = cortarParaLargura(valor, fonte, mul, disponivel);
+    const larg = larguraTexto(v, fonte, mul);
+    const x = Math.max(margem, margem + larguraUtil - larg);
+    cmds.push(...texto(x, y, fonte, mul, v));
+    if (sublinhado) cmds.push(`BAR ${x},${y + ALTURA_FONTE[fonte] + 2},${larg},2`);
   }
   return cmds;
 }
@@ -161,23 +176,12 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   }
 
   // ── Datas e dados ────────────────────────────────────────────
-  // ⚠️ A COLUNA SAI DO RÓTULO MAIS LONGO QUE ESTA ETIQUETA VAI USAR, calculada
-  // antes de desenhar. Fixar um número aqui quebraria no dia em que um rótulo
-  // crescesse — "ABERTURA:" é curto, "MANIPULACAO:" não é.
-  const rotulos = [
-    c.valOriginal !== false && campos.valOriginalFmt && 'VAL. ORIG.:',
-    c.fabricacao !== false && campos.dataFabricacaoFmt && `${campos.rotuloData}:`,
-    c.validade !== false && campos.validadeFmt && 'VALIDADE:',
-    c.marca !== false && campos.marca && 'MARCA:',
-    c.sif !== false && campos.sif && 'SIF:',
-    c.responsavel !== false && campos.responsavel && 'RESP.:',
-  ].filter(Boolean);
-  const colunaValor = margem + Math.max(0, ...rotulos.map(r => larguraTexto(r, 2, 1))) + mm(1);
-
-  const linha = (rotulo, valor, { fonteValor = 2 } = {}) => {
+  const linha = (rotulo, valor, { sublinhado = false } = {}) => {
     if (!valor) return;
-    linhas.push(...linhaParDeValores(y, rotulo, valor, util, margem, colunaValor, 2, fonteValor));
-    y += Math.max(ALTURA_FONTE[2], ALTURA_FONTE[fonteValor]) + mm(0.5);
+    linhas.push(...linhaParDeValores(y, rotulo, valor, util, margem, 2, sublinhado));
+    // ⚠️ Folga a mais quando há sublinhado, senão o traço da validade encosta
+    // no rótulo da linha de baixo e vira sujeira.
+    y += ALTURA_FONTE[2] + (sublinhado ? mm(1.2) : mm(0.5));
   };
 
   if (c.valOriginal !== false) linha('VAL. ORIG.:', campos.valOriginalFmt);
@@ -195,13 +199,7 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // sob a outra é o que a equipe faz na geladeira, e comparar só funciona
   // alinhado. O destaque tinha que sair do negrito quando o negrito virou
   // padrão de tudo — então virou tamanho, que é o que se enxerga de longe.
-  // ⚠️ O TAMANHO MAIOR SÓ VALE SE COUBER. Com a coluna fixa, a data grande tem
-  // menos espaço que antes; se não couber ela sairia CORTADA, e data de
-  // validade pela metade é pior que data pequena. Aqui ela desce de corpo
-  // sozinha em vez de perder um pedaço.
-  const espacoValor = margem + util - colunaValor;
-  const fonteValidade = larguraTexto(campos.validadeFmt || '', 3, 1) <= espacoValor ? 3 : 2;
-  if (c.validade !== false) linha('VALIDADE:', campos.validadeFmt, { fonteValor: fonteValidade });
+  if (c.validade !== false) linha('VALIDADE:', campos.validadeFmt, { sublinhado: true });
   if (c.marca !== false) linha('MARCA:', campos.marca);
   if (c.sif !== false) linha('SIF:', campos.sif);
   if (c.responsavel !== false) linha('RESP.:', campos.responsavel);
