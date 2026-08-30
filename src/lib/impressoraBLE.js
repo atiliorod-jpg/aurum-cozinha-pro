@@ -69,9 +69,13 @@ export function ehCelular() {
  * que se resolve — não espalhado pela tela de impressão.
  */
 export function caminhosDeImpressao() {
-  if (!ehCelular()) return { direto: false, dialogo: true };
+  // `semBluetooth` é o aviso "abra no Chrome" — e ele SÓ vale no celular. No
+  // computador o Bluetooth está desligado de propósito, então dizer que o
+  // navegador "não conecta na impressora" seria mentira e mandaria a pessoa
+  // procurar defeito onde não tem.
+  if (!ehCelular()) return { direto: false, dialogo: true, semBluetooth: false };
   const temBLE = bleDisponivel();
-  return { direto: temBLE, dialogo: !temBLE };
+  return { direto: temBLE, dialogo: !temBLE, semBluetooth: !temBLE };
 }
 
 // Conexão viva desta aba. Não vai para o cache: um `BluetoothDevice` não

@@ -43,6 +43,26 @@ const limitarCopias = (n) => Math.min(Math.max(0, parseInt(n) || 0), MAX_COPIAS)
 // "!" tocável. Texto curto fica no rótulo; o resto vem só se a pessoa pedir —
 // parágrafo de apoio embaixo de cada campo empurra o formulário para baixo e
 // ninguém lê.
+// ⚠️ O NAVEGADOR FALA INGLÊS DE ENGENHEIRO. "GATT operation failed" ou
+// "NetworkError" no meio do serviço não diz nada para quem está com o pote na
+// mão — e o pior é que quase sempre a causa é banal: impressora desligada,
+// longe, ou presa em outro aparelho. Cada mensagem aqui termina com o que
+// FAZER; o texto original vai junto só para o suporte.
+function erroEmPortugues(e) {
+  const cru = e?.message || String(e || '');
+  const nome = e?.name || '';
+  if (nome === 'NotAllowedError') return 'O navegador bloqueou o acesso ao Bluetooth. Toque no cadeado ao lado do endereço e libere.';
+  if (nome === 'SecurityError') return 'Abra o app pelo endereço https:// — o Bluetooth não funciona fora dele.';
+  if (/GATT|disconnect|NetworkError/i.test(cru) || nome === 'NetworkError') {
+    return 'Perdeu a conexão com a impressora. Confira se ela está ligada e por perto, e mande de novo.';
+  }
+  if (/Bluetooth adapter not available|globally disabled/i.test(cru)) {
+    return 'O Bluetooth do aparelho está desligado. Ligue e tente de novo.';
+  }
+  if (/User cancelled|cancelled/i.test(cru)) return '';
+  return `Não deu para imprimir. Desligue e ligue a impressora e tente de novo. (${cru})`;
+}
+
 function Dica({ texto }) {
   const [aberta, setAberta] = useState(false);
   return (
@@ -60,12 +80,16 @@ function Dica({ texto }) {
 }
 
 // Uma linha "RÓTULO: valor" da etiqueta (formato ficha de pré-preparo)
+//
+// ⚠️ `forte` deixa o VALOR maior, não só mais escuro — é o que a impressora
+// faz com a validade. Esta caixa se chama "Como vai sair"; no dia em que ela
+// parar de bater com o papel deixa de valer alguma coisa.
 function Linha({ rotulo, valor, forte = false }) {
   if (!valor) return null;
   return (
-    <div className="flex justify-between gap-2" style={{ fontSize: '2.7mm' }}>
+    <div className="flex justify-between items-baseline gap-2" style={{ fontSize: '2.7mm' }}>
       <span style={{ fontWeight: 700 }}>{rotulo}:</span>
-      <span style={{ fontWeight: forte ? 800 : 600, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{valor}</span>
+      <span style={{ fontWeight: forte ? 800 : 600, fontSize: forte ? '3.4mm' : undefined, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{valor}</span>
     </div>
   );
 }
@@ -185,7 +209,7 @@ export default function EtiquetaPrint() {
   const [enviando, setEnviando] = useState(false);
   const [erroBLE, setErroBLE] = useState('');
   // A regra de qual caminho aparece vive em impressoraBLE, com teste.
-  const { direto: mostrarDireto, dialogo: mostrarDialogo } = caminhosDeImpressao();
+  const { direto: mostrarDireto, dialogo: mostrarDialogo, semBluetooth } = caminhosDeImpressao();
 
   // Espelha o estado externo numa cópia local editável — setState síncrono intencional.
   useEffect(() => {
@@ -449,7 +473,7 @@ export default function EtiquetaPrint() {
     } catch (e) {
       setEnviando(false);
       if (e?.name === 'NotFoundError') return; // fechou o seletor, não é erro
-      setErroBLE(e?.message || String(e));
+      setErroBLE(erroEmPortugues(e));
     }
   };
 
@@ -490,21 +514,21 @@ export default function EtiquetaPrint() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
+                      <label htmlFor={`ep-data-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">
                         {item.tipoData === 'abertura' ? 'Data de abertura' : 'Data de manipulação'}
                       </label>
-                      <input type="date" value={item.dataFabricacao} max={hoje()}
+                      <input id={`ep-data-${idx}`} type="date" value={item.dataFabricacao} max={hoje()}
                         onChange={e => setItem(idx, { dataFabricacao: e.target.value })} className={inputCls} />
                     </div>
                     {comArmazenamento && item.armazenamento !== null ? (
                       <div>
-                        <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Armazenamento</label>
+                        <label htmlFor={`ep-armaz-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Armazenamento</label>
                         {/* ⚠️ Trocar o estado RESEMEIA os dias com o prazo
                             daquele estado. Antes só esvaziava — e o campo
                             ficava em branco, dando a impressão de que não havia
                             prazo cadastrado. Deixar o número do estado anterior
                             grudado seria pior ainda: data errada, sem aviso. */}
-                        <select value={item.armazenamento || 'congelado'}
+                        <select id={`ep-armaz-${idx}`} value={item.armazenamento || 'congelado'}
                           onChange={e => setItem(idx, {
                             armazenamento: e.target.value,
                             diasOverride: String(diasDoCadastro({ ...item, armazenamento: e.target.value }) || ''),
@@ -526,8 +550,8 @@ export default function EtiquetaPrint() {
                       </div>
                     ) : (
                       <div>
-                        <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
-                        <input type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
+                        <label htmlFor={`ep-medida-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
+                        <input id={`ep-medida-${idx}`} type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
                           onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
                       </div>
                     )}
@@ -535,17 +559,23 @@ export default function EtiquetaPrint() {
                   <div className="grid grid-cols-2 gap-2">
                     {comArmazenamento && item.armazenamento !== null && (
                       <div>
-                        <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
-                        <input type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
+                        <label htmlFor={`ep-medida-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
+                        <input id={`ep-medida-${idx}`} type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
                           onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
                       </div>
                     )}
                     <div>
-                      <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
-                        Validade (dias)
+                      {/* ⚠️ A Dica fica FORA do <label>: botão dentro de label
+                          herda o clique dele e, além de abrir a explicação,
+                          jogava o foco no campo — atrapalhando justo quem
+                          navega por teclado ou leitor de tela. */}
+                      <div className="mb-0.5">
+                        <label htmlFor={`ep-dias-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                          Validade (dias)
+                        </label>
                         <Dica texto="Vem do cadastro do item. Mude se a embalagem deste lote disser outro prazo." />
-                      </label>
-                      <input type="number" inputMode="numeric" min="0"
+                      </div>
+                      <input id={`ep-dias-${idx}`} type="number" inputMode="numeric" min="0"
                         value={item.diasOverride ?? ''}
                         placeholder={String(diasDoCadastro(item) || 0)}
                         onChange={e => setItem(idx, { diasOverride: e.target.value })}
@@ -554,11 +584,13 @@ export default function EtiquetaPrint() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {config.campos.valOriginal !== false && <div>
-                      <label className="block text-[11px] font-semibold text-gray-500 mb-0.5">
-                        Val. original
+                      <div className="mb-0.5">
+                        <label htmlFor={`ep-valorig-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                          Val. original
+                        </label>
                         <Dica texto="A data impressa na embalagem do fabricante. Não muda o vencimento — serve para avisar se o prazo da casa passar dela." />
-                      </label>
-                      <input type="date" value={item.valOriginal}
+                      </div>
+                      <input id={`ep-valorig-${idx}`} type="date" value={item.valOriginal}
                         onChange={e => setItem(idx, { valOriginal: e.target.value })} className={inputCls} />
                     </div>}
                   </div>
@@ -633,7 +665,7 @@ export default function EtiquetaPrint() {
             </div>
           )}
 
-          {!mostrarDireto && (
+          {semBluetooth && (
             <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
               Este navegador não conecta na impressora. No <strong>Chrome</strong> a etiqueta sai
               direto, sem esta janela.

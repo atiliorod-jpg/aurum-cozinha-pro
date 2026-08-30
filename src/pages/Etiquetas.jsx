@@ -243,7 +243,10 @@ export default function Etiquetas() {
              "data de abertura" dentro do proprio item (ver etiquetas/Itens).
              Eram duas listas para a mesma pergunta — "o que eu etiqueto?" — e
              a pessoa tinha que adivinhar em qual procurar. */
-          ? [['catalogo', 'Meus itens'], ['impressora', 'Impressora']]
+          // ⚠️ NÃO chamar esta aba de "Meus itens": esse é o nome de OUTRA
+          // tela, na barra de baixo, onde se cadastra. Duas coisas diferentes
+          // com o mesmo nome, na mesma tela, é onde a pessoa se perde.
+          ? [['catalogo', 'Etiquetar'], ['impressora', 'Impressora']]
           : [['catalogo', 'Do estoque'], ['avulsas', 'Avulsas'], ['impressora', 'Impressora']]
         ).map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
@@ -265,7 +268,7 @@ export default function Etiquetas() {
               : 'Imprima a etiqueta de qualquer produto, a qualquer momento — a validade é calculada pelos prazos do produto (Config).'}
           </p>
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-            placeholder="Buscar produto..."
+            placeholder="Buscar produto..." aria-label="Buscar produto"
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {!buscando && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">

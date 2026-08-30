@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import Botao from '../../components/Botao';
 import { useApp } from '../../store/AppContext';
@@ -290,6 +290,14 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
   const [novaCat, setNovaCat] = useState('');
   const [criandoCat, setCriandoCat] = useState(false);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  // Esc fecha — o modal de impressão já fazia isso, este não fazia. Duas
+  // janelas do mesmo app respondendo diferente à mesma tecla é defeito.
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onFechar(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onFechar]);
 
   // ⚠️ A categoria ATUAL entra na lista mesmo que não esteja em `categorias`:
   // um <select> cujo value não casa com nenhuma option mostra a primeira e, ao

@@ -2664,18 +2664,18 @@ describe('Qual caminho de impressão aparece em cada aparelho', () => {
   // para o caminho ruim.
   it('celular com Bluetooth vê só a impressão direta', () => {
     fingir({ bluetooth: {}, userAgentData: { mobile: true }, userAgent: '' });
-    expect(caminhosDeImpressao()).toEqual({ direto: true, dialogo: false });
+    expect(caminhosDeImpressao()).toEqual({ direto: true, dialogo: false, semBluetooth: false });
   });
 
   it('iPhone vê só a janela de impressão, que é a única saída que resta', () => {
     fingir({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari', maxTouchPoints: 5 });
-    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true });
+    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true, semBluetooth: true });
   });
 
   // Navegador dentro do WhatsApp/Instagram: e celular e nao tem bluetooth.
   it('navegador embutido em outro app cai no mesmo caso do iPhone', () => {
     fingir({ userAgent: 'Mozilla/5.0 (Linux; Android 13) AppleWebKit', maxTouchPoints: 5 });
-    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true });
+    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true, semBluetooth: true });
   });
 
   // ⚠️ O COMPUTADOR NAO VE O BOTAO DE BLUETOOTH, mesmo tendo Bluetooth. A fila
@@ -2684,7 +2684,10 @@ describe('Qual caminho de impressão aparece em cada aparelho', () => {
   // no papel. Dois botoes ali so fazem escolher errado no meio do servico.
   it('no computador só a janela de impressão aparece', () => {
     fingir({ bluetooth: {}, userAgentData: { mobile: false }, userAgent: 'Windows NT 10.0', maxTouchPoints: 0 });
-    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true });
+    // ⚠️ `semBluetooth: false` no computador mesmo sem botao direto: o aviso
+    // "abra no Chrome" ali seria MENTIRA — o Bluetooth esta desligado de
+    // proposito, e a pessoa iria procurar defeito onde nao tem.
+    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true, semBluetooth: false });
   });
 
   // ⚠️ iPad moderno se anuncia como Mac. Sem o teste de toque ele seria tratado
