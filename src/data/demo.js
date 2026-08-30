@@ -39,11 +39,11 @@ function seedProducao() {
   const produtos = [
     // O estoque da casa é em PORÇÕES/UNIDADES (já porcionadas). A matéria-prima
     // a granel (filé cru, queijo, batata) fica em kg — é a exceção.
-    P('picanha', 'Picanha (porção)', 'PROTEÍNAS', 'unid', { min: 20, max: 60, valCongelado: 30, valResfriado: 3, pesoUnidade: 180, marca: 'Friboi', sif: '358' }),
+    P('picanha', 'Picanha (porção)', 'PROTEÍNAS', 'unid', { min: 20, max: 60, valCongelado: 30, valResfriado: 3, pesoUnidade: 180 }),
     P('frango', 'Filé de Frango (porção)', 'PROTEÍNAS', 'unid', { min: 20, max: 50, valCongelado: 30, valResfriado: 2, pesoUnidade: 150, marca: 'Sadia', sif: '124' }),
     P('tilapia', 'Filé de Tilápia (porção)', 'PROTEÍNAS', 'unid', { min: 15, max: 40, valCongelado: 25, valResfriado: 2, pesoUnidade: 140 }),
     // Matéria-prima crua a granel (kg) — é porcionada/produzida aqui
-    P('file', 'Filé Mignon (cru, kg)', 'PROTEÍNAS', 'kg', { min: 8, max: 18, valCongelado: 30, valResfriado: 3, marca: 'Swift', sif: '358' }),
+    P('file', 'Filé Mignon (cru, kg)', 'PROTEÍNAS', 'kg', { min: 8, max: 18, valCongelado: 30, valResfriado: 3 }),
     P('queijo', 'Queijo Muçarela', 'FRIOS', 'kg', { min: 4, max: 10, valResfriado: 12, marca: 'Tirolez' }),
     P('batata', 'Batata Palito Congelada', 'CONGELADOS', 'kg', { min: 10, max: 25, valCongelado: 90 }),
     // Semiacabados produzidos pela casa (porção/base — NUNCA prato montado)

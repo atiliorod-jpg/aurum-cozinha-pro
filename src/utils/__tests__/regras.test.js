@@ -2781,11 +2781,12 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
         fonte: parseInt(partes[1]), txt: partes[partes.length - 2],
       };
     };
-    const LARG = { 1: 8, 2: 12, 3: 16, 4: 24 };
-    const fim = (d) => d.x + d.txt.length * LARG[d.fonte];
     const dManip = achar('29/08/2026');
     const dVal = achar('25/02/2027');
-    expect(fim(dVal)).toBe(fim(dManip));      // mesma coluna: alinhadas a direita
+    // ⚠️ MESMO x DE COMEÇO. Ja foram alinhadas a direita, e no papel a validade
+    // (corpo maior) comecava 72 pontos antes da manipulacao: terminavam juntas
+    // mas nao ficavam uma sob a outra. Quem confere duas datas le pelo comeco.
+    expect(dVal.x).toBe(dManip.x);
     expect(dVal.y).toBeGreaterThan(dManip.y); // logo abaixo
     expect(dVal.y - dManip.y).toBeLessThanOrEqual(34);
     expect(achar('VALIDADE:').y).toBe(dVal.y); // rotulo junto da data, nao acima

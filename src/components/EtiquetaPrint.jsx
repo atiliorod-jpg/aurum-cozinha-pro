@@ -81,15 +81,25 @@ function Dica({ texto }) {
 
 // Uma linha "RÓTULO: valor" da etiqueta (formato ficha de pré-preparo)
 //
-// ⚠️ `forte` deixa o VALOR maior, não só mais escuro — é o que a impressora
-// faz com a validade. Esta caixa se chama "Como vai sair"; no dia em que ela
-// parar de bater com o papel deixa de valer alguma coisa.
+// ⚠️ COLUNA FIXA PARA O RÓTULO, valor alinhado à esquerda — o mesmo desenho do
+// TSPL. Antes o valor ia à direita, e a validade (que sai num corpo maior)
+// começava antes da data de manipulação: terminavam juntas, mas não ficavam
+// uma sob a outra. Quem confere duas datas lê pelo começo delas.
+//
+// ⚠️ Esta caixa se chama "Como vai sair". Sempre que o desenho do papel mudar,
+// muda aqui junto — prévia que não confere é pior que prévia nenhuma.
 function Linha({ rotulo, valor, forte = false }) {
   if (!valor) return null;
   return (
-    <div className="flex justify-between items-baseline gap-2" style={{ fontSize: '2.7mm' }}>
-      <span style={{ fontWeight: 700 }}>{rotulo}:</span>
-      <span style={{ fontWeight: forte ? 800 : 600, fontSize: forte ? '3.4mm' : undefined, textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{valor}</span>
+    <div className="flex items-baseline" style={{ fontSize: '2.7mm', gap: '1mm' }}>
+      {/* ⚠️ RÓTULO MENOR QUE O VALOR, e não é só estética: em "MANIPULAÇÃO:",
+          no mesmo corpo do valor, ele VAZAVA da coluna e invadia a data (medi
+          no navegador: 78 px numa coluna de 72). Menor, cabe com folga — e
+          hierarquia certa, porque quem lê a etiqueta procura a DATA, não a
+          palavra. O overflow é a trava final para qualquer rótulo futuro. */}
+      <span style={{ fontSize: '2.5mm', fontWeight: 700, width: '20mm', flexShrink: 0,
+        whiteSpace: 'nowrap', overflow: 'hidden' }}>{rotulo}:</span>
+      <span style={{ fontWeight: 800, fontSize: forte ? '3.3mm' : undefined, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{valor}</span>
     </div>
   );
 }
@@ -141,16 +151,20 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
       )}
       {/* Datas e dados */}
       <div className="flex-1" style={{ minHeight: 0, overflow: 'hidden' }}>
-        {c.valOriginal !== false && <Linha rotulo="VAL. ORIGINAL" valor={campos.valOriginalFmt} />}
+        {/* Os rótulos são os MESMOS que o TSPL imprime — inclusive as abreviações. */}
+        {c.valOriginal !== false && <Linha rotulo="VAL. ORIG." valor={campos.valOriginalFmt} />}
         {c.fabricacao !== false && <Linha rotulo={campos.rotuloData} valor={campos.dataFabricacaoFmt} />}
         {c.validade !== false && <Linha rotulo="VALIDADE" valor={campos.validadeFmt} forte />}
-        {c.marca !== false && <Linha rotulo="MARCA / FORN" valor={campos.marca} />}
+        {c.marca !== false && <Linha rotulo="MARCA" valor={campos.marca} />}
         {c.sif !== false && <Linha rotulo="SIF" valor={campos.sif} />}
         {c.responsavel !== false && <Linha rotulo="RESP." valor={campos.responsavel} />}
       </div>
       {/* Rodapé: estabelecimento + ID + QR */}
       <div className="flex items-end justify-between gap-1 border-t border-black" style={{ paddingTop: '0.8mm', marginTop: '0.8mm', flexShrink: 0 }}>
-        <div style={{ fontSize: '2.1mm', lineHeight: 1.3 }} className="min-w-0">
+        {/* ⚠️ 2,1 mm saía ilegível no papel — o dono leu a etiqueta impressa e
+            apontou o CNPJ e o endereço. Numa térmica, letra menor que ~2,4 mm
+            perde o traço: o ponto é grande demais para desenhar a curva. */}
+        <div style={{ fontSize: '2.4mm', lineHeight: 1.35 }} className="min-w-0">
           {c.restaurante !== false && campos.restauranteNome && (
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>{campos.restauranteNome}</div>
           )}

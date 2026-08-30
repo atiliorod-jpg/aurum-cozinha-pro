@@ -10,68 +10,45 @@ import { medidaDoProduto } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
 
-// Guia da impressora — escolhe a situação e mostra o passo a passo.
-// Imprimível (o print CSS global já esconde header/nav/botões), então
-// "salvar em PDF" = imprimir esta aba.
+// Guia da impressora — duas situações, passo a passo curto. Imprimível.
 //
-// ⚠️ O TESTE EM IMPRESSORA A4 SAIU DAQUI. Ele existia para conferir o layout
-// antes de ter térmica, e virou pegadinha: a pessoa imprimia numa folha, via a
-// etiqueta minúscula no meio do papel e achava que o app estava errado. Hoje a
-// prévia na tela mostra a etiqueta em tamanho real — o A4 não responde mais
-// nenhuma pergunta.
+// ⚠️ ESTA ABA JÁ FOI GRANDE DEMAIS e o dono cortou: tinha um bloco só para
+// iPhone, dois blocos para computador (USB e Bluetooth, quase iguais) e um
+// teste em folha A4. Guia de impressora é lido em pé, com a impressora na
+// frente, uma vez. Cada passo a mais é um passo que ninguém lê.
+//
+// ⚠️ CUIDADO COM O TEXTO DO ROLO: a Aurum VENDE a impressora e as etiquetas.
+// Isso não vira propaganda no meio de um guia técnico, mas também não se
+// escreve "compre em qualquer lugar" como se não fosse conosco. Diz o que o
+// sistema usa, diz que fornecemos, e não fecha a porta de comprar fora.
+//
+// ⚠️ Vale para OS DOIS produtos (Etiquetas e Cozinha Pro) — nada aqui pode
+// supor que a pessoa só tem etiquetas.
 const TIPOS_IMPRESSORA = [
   {
     id: 'celular',
-    titulo: 'Celular ou tablet Android — direto, sem cabo',
-    resumo: 'O caminho mais curto. Não precisa instalar nada além do app.',
-    comoFica: 'A etiqueta sai em poucos segundos, no tamanho do rolo. Não abre janela de impressão.',
+    titulo: 'Celular ou tablet Android',
+    resumo: 'Imprime direto, sem cabo e sem instalar nada.',
+    comoFica: 'A etiqueta sai em segundos, no tamanho certo. Não abre janela de impressão.',
     passos: [
-      'Ligue a impressora e deixe o Bluetooth do aparelho ligado. Não precisa parear nas configurações do Android: quem faz isso é o app.',
-      'Abra o Aurum no CHROME. Dentro do WhatsApp ou do Instagram não funciona — esses navegadores não têm Bluetooth.',
-      'Monte a etiqueta e toque em "Conectar impressora e imprimir". Escolha a impressora na lista que abrir.',
-      'Da segunda vez em diante o botão já vem como "Imprimir na impressora" e não pergunta mais nada.',
-      '⚠️ Lista vazia quer dizer três coisas: impressora desligada, longe demais, ou já conectada em outro aparelho. Ela atende um por vez — se o tablet da cozinha está com ela, o seu celular não acha.',
-      'Se a etiqueta sair pela metade ou em branco, desligue e ligue a impressora e mande de novo. Costuma ser a conexão, não o conteúdo.',
+      'Ligue a impressora. Não precisa parear no Android — quem conecta é o app.',
+      'Abra o Aurum no Chrome. Dentro do WhatsApp ou do Instagram não funciona.',
+      'Monte a etiqueta e toque em "Conectar impressora e imprimir". Escolha a impressora na lista.',
+      'Nas próximas vezes ele já conecta sozinho.',
+      '⚠️ Lista vazia: impressora desligada, longe, ou conectada em outro aparelho — ela atende um por vez.',
     ],
   },
   {
-    id: 'termica-usb',
-    titulo: 'Computador com cabo USB',
-    resumo: 'Menos coisa para dar errado. É a instalação mais simples no Windows.',
+    id: 'computador',
+    titulo: 'Computador com Windows',
+    resumo: 'Por cabo ou por Bluetooth. O cabo dá menos trabalho.',
     comoFica: 'Abre a janela de impressão do Windows e a etiqueta sai pela fila da impressora.',
     passos: [
-      'Ligue no USB e espere o Windows instalar. Se ele não achar sozinho, baixe o driver do modelo no site do fabricante.',
-      'Abra Impressoras e scanners → sua impressora → Preferências de impressão.',
-      'Configure o tamanho do papel como 60 × 50 mm. Se esse tamanho não estiver na lista, crie com o botão "Novo".',
-      '⚠️ Depois de criar, CONFIRME que ele ficou selecionado no campo "Nome". Criar o tamanho e não selecionar é o erro mais comum — e a etiqueta continua saindo na medida antiga.',
-      'No app, toque em "Imprimir pelo computador", escolha a impressora e mande imprimir.',
-      'O app é sempre 60 × 50. Não há o que configurar do lado dele — só do lado do Windows.',
-    ],
-  },
-  {
-    id: 'termica-bluetooth',
-    titulo: 'Computador por Bluetooth',
-    resumo: 'Funciona, mas tem uma armadilha que trava a impressão sem dar aviso nenhum.',
-    comoFica: 'Igual ao cabo. Muda só como o computador fala com a impressora.',
-    passos: [
-      'Pareie em Configurações → Bluetooth e dispositivos → Adicionar dispositivo.',
-      'O Windows cria uma porta serial (COM3, COM8, algo assim) e normalmente cria junto uma fila de impressão ligada nessa porta.',
-      '⚠️ A ARMADILHA: se você já usou a impressora por cabo, a fila antiga nasceu presa à porta USB e não funciona por Bluetooth — nem trocando a porta nas configurações dela. O trabalho entra na fila e fica parado, sem erro na tela. Parece que o app não imprimiu.',
-      'A saída é APAGAR a fila antiga e usar a que nasceu com o pareamento Bluetooth. Apagar e recriar resolve; trocar a porta, não.',
-      '⚠️ Ao recriar a fila o tamanho do papel volta ao padrão de fábrica. Refaça o passo dos 60 × 50 mm em Preferências de impressão.',
-      'Para conferir: mande imprimir e veja se sai em poucos segundos. Se ficar preso na fila, é a armadilha acima.',
-    ],
-  },
-  {
-    id: 'apple',
-    titulo: 'iPhone e iPad',
-    resumo: 'Não imprimem direto. É limitação da Apple, não do app.',
-    comoFica: 'O botão de impressão direta não aparece nesses aparelhos.',
-    passos: [
-      'O Safari não dá acesso ao Bluetooth para aplicativos como o Aurum. Nenhum app da App Store contorna isso.',
-      'A Apple só aceita impressora AirPrint, e térmica de etiqueta comum não faz AirPrint.',
-      'Na prática: use um celular ou tablet ANDROID na cozinha, ou imprima pelo computador. O resto do app funciona normalmente no iPhone — o cadastro, os itens, tudo.',
-      'Se a operação inteira for Apple, a saída é uma impressora de etiquetas com WI-FI e AirPrint. Vale pesar na próxima compra.',
+      'CABO: ligue no USB e espere instalar. Se o Windows não achar, baixe o driver do modelo no site do fabricante.',
+      'BLUETOOTH: pareie em Configurações → Bluetooth e dispositivos → Adicionar dispositivo.',
+      'Nos dois casos, abra Impressoras e scanners → sua impressora → Preferências de impressão e deixe o papel em 60 × 50 mm. Se não estiver na lista, crie em "Novo" e confira que ficou selecionado — criar e não selecionar é o erro mais comum.',
+      '⚠️ SÓ NO BLUETOOTH: se você já usou a impressora por cabo, a fila antiga não funciona sem fio, e o trabalho fica parado sem erro na tela. Apague a fila antiga e use a que nasceu com o pareamento. Trocar a porta não resolve. Depois de recriar, refaça o tamanho do papel.',
+      'No app, toque em "Imprimir pelo computador" e escolha a impressora.',
     ],
   },
 ];
@@ -82,15 +59,15 @@ function GuiaImpressora() {
   return (
     <div className="space-y-3">
       <div className="bg-polo-navy text-white rounded-xl p-4">
-        <p className="text-sm font-bold text-polo-gold">Rolo 60 × 50 mm</p>
+        <p className="text-sm font-bold text-polo-gold">Impressora e rolo</p>
         <p className="text-xs mt-1 text-white/90">
-          É o único tamanho do sistema — o app e a impressora já saem acertados nele.
-          Ao comprar refil, peça 60 × 50.
+          O sistema trabalha com a <strong>Tomate MDK-022</strong> e o rolo de{' '}
+          <strong>60 × 50 mm</strong>, já acertados um com o outro. A Aurum fornece a impressora
+          e os refis — peça pelo WhatsApp do suporte.
         </p>
-        <p className="text-xs mt-2 text-white/90">
-          Prefira etiqueta <strong>BOPP</strong> e, se puder escolher a impressora, uma de
-          <strong> transferência térmica</strong> (a que usa ribbon). Térmica direta desbota com
-          calor, umidade e tempo — e etiqueta de câmara fria pega os três.
+        <p className="text-xs mt-2 text-white/80">
+          Comprando por fora, peça 60 × 50 mm em BOPP: o adesivo comum solta na câmara fria e
+          borra na umidade.
         </p>
       </div>
       <div className="flex items-center justify-between gap-2 print:hidden">
@@ -125,6 +102,15 @@ function GuiaImpressora() {
           </div>
         </div>
       ))}
+      {/* ⚠️ O iPhone tinha um bloco só para ele, com quatro passos que eram
+          quatro maneiras de dizer "não dá". Uma linha resolve, e ela fica no
+          fim porque só interessa a quem tem iPhone. */}
+      <p className="text-xs text-gray-600 px-1">
+        <strong>iPhone e iPad</strong> não imprimem direto — a Apple não libera o Bluetooth para
+        aplicativos como o Aurum. Use um Android na cozinha, ou o computador. O resto do app
+        funciona normalmente neles.
+      </p>
+
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
         <p className="font-bold mb-0.5">Precisa de ajuda para configurar?</p>
         <p>Chame o suporte Aurum pelo WhatsApp — configuramos junto com você na instalação.</p>

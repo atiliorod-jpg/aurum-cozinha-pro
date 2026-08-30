@@ -82,20 +82,19 @@ const texto = (x, y, fonte, mul, conteudo) => {
  * pelo TAMANHO, já que o negrito virou padrão de todo o texto e por isso
  * deixou de diferenciar qualquer coisa.
  */
-function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, fonteValor = fonte) {
+function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, colunaValor, fonte = 2, fonteValor = fonte) {
   const mul = 1;
   const cmds = [...texto(margem, y, fonte, mul, rotulo)];
   if (valor) {
-    // ⚠️ O espaço do valor é o que SOBRA depois do rótulo, não um percentual
-    // fixo. Com percentual, "VALIDADE: 25/02/2027 - 10:00" em fonte grande
-    // saía cortado como "25/02/2027 - 10:." — perdendo a hora justamente no
-    // campo que a equipe mais olha. Um teste pegou.
-    const disponivel = larguraUtil - larguraTexto(rotulo, fonte, mul) - mm(1.5);
+    // ⚠️ TODOS OS VALORES COMEÇAM NA MESMA COLUNA. Já foram alinhados à
+    // direita, e no papel a validade — que sai num corpo maior — começava 72
+    // pontos antes da data de manipulação: as duas terminavam juntas mas não
+    // ficavam uma sob a outra. Quem confere as duas datas lê pelo COMEÇO
+    // delas. Alinhar pela esquerda é o que faz a coluna existir de verdade,
+    // independente do tamanho da letra.
+    const disponivel = margem + larguraUtil - colunaValor;
     const v = cortarParaLargura(valor, fonteValor, mul, disponivel);
-    // Alinhado à DIREITA: é o que põe as datas de manipulação e validade uma
-    // sob a outra mesmo quando têm tamanhos diferentes.
-    const x = Math.max(margem, margem + larguraUtil - larguraTexto(v, fonteValor, mul));
-    cmds.push(...texto(x, y, fonteValor, mul, v));
+    cmds.push(...texto(colunaValor, y, fonteValor, mul, v));
   }
   return cmds;
 }
@@ -162,9 +161,22 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   }
 
   // ── Datas e dados ────────────────────────────────────────────
+  // ⚠️ A COLUNA SAI DO RÓTULO MAIS LONGO QUE ESTA ETIQUETA VAI USAR, calculada
+  // antes de desenhar. Fixar um número aqui quebraria no dia em que um rótulo
+  // crescesse — "ABERTURA:" é curto, "MANIPULACAO:" não é.
+  const rotulos = [
+    c.valOriginal !== false && campos.valOriginalFmt && 'VAL. ORIG.:',
+    c.fabricacao !== false && campos.dataFabricacaoFmt && `${campos.rotuloData}:`,
+    c.validade !== false && campos.validadeFmt && 'VALIDADE:',
+    c.marca !== false && campos.marca && 'MARCA:',
+    c.sif !== false && campos.sif && 'SIF:',
+    c.responsavel !== false && campos.responsavel && 'RESP.:',
+  ].filter(Boolean);
+  const colunaValor = margem + Math.max(0, ...rotulos.map(r => larguraTexto(r, 2, 1))) + mm(1);
+
   const linha = (rotulo, valor, { fonteValor = 2 } = {}) => {
     if (!valor) return;
-    linhas.push(...linhaParDeValores(y, rotulo, valor, util, margem, 2, fonteValor));
+    linhas.push(...linhaParDeValores(y, rotulo, valor, util, margem, colunaValor, 2, fonteValor));
     y += Math.max(ALTURA_FONTE[2], ALTURA_FONTE[fonteValor]) + mm(0.5);
   };
 
@@ -183,7 +195,13 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // sob a outra é o que a equipe faz na geladeira, e comparar só funciona
   // alinhado. O destaque tinha que sair do negrito quando o negrito virou
   // padrão de tudo — então virou tamanho, que é o que se enxerga de longe.
-  if (c.validade !== false) linha('VALIDADE:', campos.validadeFmt, { fonteValor: 3 });
+  // ⚠️ O TAMANHO MAIOR SÓ VALE SE COUBER. Com a coluna fixa, a data grande tem
+  // menos espaço que antes; se não couber ela sairia CORTADA, e data de
+  // validade pela metade é pior que data pequena. Aqui ela desce de corpo
+  // sozinha em vez de perder um pedaço.
+  const espacoValor = margem + util - colunaValor;
+  const fonteValidade = larguraTexto(campos.validadeFmt || '', 3, 1) <= espacoValor ? 3 : 2;
+  if (c.validade !== false) linha('VALIDADE:', campos.validadeFmt, { fonteValor: fonteValidade });
   if (c.marca !== false) linha('MARCA:', campos.marca);
   if (c.sif !== false) linha('SIF:', campos.sif);
   if (c.responsavel !== false) linha('RESP.:', campos.responsavel);

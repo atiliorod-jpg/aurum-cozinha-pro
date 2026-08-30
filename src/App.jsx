@@ -275,10 +275,13 @@ function Rotas() {
               tinha passado. `Restrito` é o mesmo helper de /pagamento, e
               temPermissao deixa o super-admin entrar (o suporte precisa). */}
           <Route path="/ajustes"    element={<Restrito cargo="diretoria"><EtiquetasAjustes /></Restrito>} />
-          {/* ⚠️ TEMPORÁRIO — diagnóstico de impressão direta por BLE/TSPL.
-              Sai do app assim que a resposta for conclusiva. Só a conta dona:
-              é ferramenta de teste, não função do produto. */}
           <Route path="/pagamento"  element={<Restrito><Pagamento /></Restrito>} />
+          {/* ⚠️ O PAINEL PRECISA EXISTIR AQUI TAMBÉM. Esta tabela de rotas
+              manda `*` para `/`, então sem esta linha o /admin simplesmente
+              não existia no plano Etiquetas — e um super-admin cuja própria
+              conta estivesse neste produto ficava TRANCADO FORA do painel, sem
+              caminho de volta pela interface. A saída seria mexer no banco. */}
+          <Route path="/admin"      element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
           <Route path="/novidades"  element={<Novidades />} />
           <Route path="*"           element={<Navigate to="/" replace />} />
         </Routes>
