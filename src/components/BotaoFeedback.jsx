@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
@@ -30,6 +30,38 @@ export default function BotaoFeedback() {
   // estabelecimento, que sai impresso na etiqueta e identifica a conta)
   const [pedidoNome, setPedidoNome] = useState('');
   const [pedidoMotivo, setPedidoMotivo] = useState('');
+  // Conversa: o que este restaurante já enviou e o que a Aurum respondeu
+  const [conversa, setConversa] = useState([]);
+  const [aba, setAba] = useState('novo'); // 'novo' | 'conversa'
+
+  // ⚠️ CARREGA MESMO COM O MODAL FECHADO: é o que permite o aviso no botão.
+  // Sem isso a pessoa só descobriria a resposta se abrisse por conta própria —
+  // e ninguém abre um canal que nunca respondeu antes.
+  const carregarConversa = useCallback(async () => {
+    // ⚠️ Sai ANTES de qualquer setState. Zerar a lista aqui era um setState
+    // síncrono dentro do efeito, e isso dispara renderização em cascata — a
+    // lista já nasce vazia, então não havia nada para zerar.
+    if (!sessao?.restauranteId || sessao?.demo) return;
+    const { data, error } = await supabase.rpc('meus_feedbacks');
+    if (!error) setConversa(data || []);
+  }, [sessao]);
+
+  // ⚠️ A BUSCA INICIAL TEM CORPO PRÓPRIO, com trava de vida. Chamar a função
+  // de recarga aqui era setState síncrono dentro de efeito (cascata de
+  // renderização) e, pior, não tinha guarda: sair da tela no meio da consulta
+  // deixava a resposta chegar depois e gravar estado num componente que já
+  // não existe.
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      if (!sessao?.restauranteId || sessao?.demo) return;
+      const { data, error } = await supabase.rpc('meus_feedbacks');
+      if (vivo && !error) setConversa(data || []);
+    })();
+    return () => { vivo = false; };
+  }, [sessao]);
+
+  const naoLidas = conversa.filter(f => f.resposta && !f.resposta_lida).length;
 
   useEffect(() => {
     if (!aberto) return;
@@ -37,6 +69,22 @@ export default function BotaoFeedback() {
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
   }, [aberto]);
+
+  // Abriu com resposta pendente? Cai direto na conversa — quem tem resposta
+  // esperando não quer o formulário em branco na frente.
+  // ⚠️ No CLIQUE, não num efeito: decidir a aba dentro de um efeito é setState
+  // síncrono em cascata, e aqui a informação já existe no momento do toque.
+  const abrir = () => {
+    setAba(naoLidas > 0 ? 'conversa' : 'novo');
+    setAberto(true);
+    carregarConversa();
+  };
+
+  const marcarLida = async (f) => {
+    if (!f.resposta || f.resposta_lida) return;
+    await supabase.rpc('marcar_resposta_lida', { p_id: f.id });
+    setConversa(prev => prev.map(x => x.id === f.id ? { ...x, resposta_lida: true } : x));
+  };
 
   const navegador = (() => {
     try { return navigator.userAgent.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim().slice(0, 60); }
@@ -74,18 +122,28 @@ export default function BotaoFeedback() {
     const { error } = await supabase.rpc('enviar_feedback', { p_tipo: tipo, p_dados: dados, p_contexto: contexto });
     setEnviando(false);
     if (error) { toast('Não consegui enviar agora. Tente de novo em instantes.', 'erro'); return; }
-    toast('Enviado. A equipe Aurum responde pelo WhatsApp.', 'sucesso', { duracao: 6000 });
+    toast('Enviado. A resposta aparece aqui mesmo, na aba Ajuda.', 'sucesso', { duracao: 6000 });
     limpar();
+    carregarConversa();
     setAberto(false);
   };
 
   return (
     <>
-      <button onClick={() => setAberto(true)} aria-label="Enviar problema ou sugestão"
+      <button onClick={abrir}
+        aria-label={naoLidas > 0 ? `Ajuda — ${naoLidas} resposta(s) nova(s)` : 'Enviar problema ou sugestão'}
         title="Relatar problema ou sugerir melhoria"
         className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
-        <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><Icon name="suporte" size={18} /></span>
+        <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center relative">
+          <Icon name="suporte" size={18} />
+          {naoLidas > 0 && (
+            <span aria-hidden="true"
+              className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+              {naoLidas}
+            </span>
+          )}
+        </span>
         <span className="text-[8px] leading-none font-semibold text-white/70">Ajuda</span>
       </button>
 
@@ -110,6 +168,64 @@ export default function BotaoFeedback() {
               </div>
             )}
 
+            {/* ⚠️ DUAS ABAS. Sem a de conversa o cliente escrevia e não tinha
+                para onde voltar: a resposta existia no banco e ele nunca via.
+                Com resposta pendente o modal já abre nesta aba. */}
+            <div className="flex gap-2 mb-3 border-b border-gray-100 pb-3">
+              {[['novo', 'Escrever'], ['conversa', `Conversa${conversa.length ? ` (${conversa.length})` : ''}`]].map(([v, l]) => (
+                <button key={v} onClick={() => setAba(v)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-semibold
+                    ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
+                  {l}
+                  {v === 'conversa' && naoLidas > 0 && (
+                    <span className="ml-1.5 text-[10px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5">
+                      {naoLidas}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {aba === 'conversa' ? (
+              <div className="space-y-3">
+                {conversa.length === 0 ? (
+                  <p className="text-xs text-gray-600 py-4 text-center">
+                    Você ainda não enviou nada. O que enviar aparece aqui, junto com a resposta.
+                  </p>
+                ) : conversa.map(f => {
+                  const d = f.dados || {};
+                  const resumo = f.tipo === 'bug' ? (d.aconteceu || d.onde)
+                    : f.tipo === 'pedido' ? `Mudar o nome para "${d.para || '—'}"`
+                    : (d.ideia || d.porque);
+                  return (
+                    <div key={f.id} className="border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-polo-navy">
+                          {f.tipo === 'bug' ? 'Problema' : f.tipo === 'pedido' ? 'Pedido' : 'Sugestão'}
+                        </span>
+                        <span className="text-[11px] text-gray-500">
+                          {new Date(f.created_at).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-700 mt-1">{resumo || '—'}</p>
+                      {f.resposta ? (
+                        <div className="mt-2 bg-polo-beige rounded-lg px-2.5 py-2"
+                          ref={el => { if (el && !f.resposta_lida) marcarLida(f); }}>
+                          <p className="text-[11px] font-bold text-polo-navy">Resposta da Aurum</p>
+                          <p className="text-xs text-gray-700 whitespace-pre-wrap mt-0.5">{f.resposta}</p>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-gray-500 mt-1.5">Ainda sem resposta.</p>
+                      )}
+                    </div>
+                  );
+                })}
+                <p className="text-[11px] text-gray-600 text-center">
+                  Para continuar o assunto, escreva de novo na aba <strong>Escrever</strong>.
+                </p>
+              </div>
+            ) : (
+            <>
             {/* Tipo */}
             <div className="flex gap-2 mb-3">
               {[['bug', 'Problema'], ['sugestao', 'Sugestão'], ['pedido', 'Pedido']].map(([v, l]) => (
@@ -190,8 +306,10 @@ export default function BotaoFeedback() {
               {enviando ? 'Enviando…' : 'Enviar para a equipe Aurum'}
             </button>
             <p className="text-[11px] text-gray-600 text-center mt-1.5">
-              Vai direto para a equipe Aurum pelo próprio sistema. Você não precisa fazer mais nada.
+              A resposta chega aqui mesmo, na aba <strong>Conversa</strong>.
             </p>
+            </>
+            )}
           </div>
         </div>
       )}

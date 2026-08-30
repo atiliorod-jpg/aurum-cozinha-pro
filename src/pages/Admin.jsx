@@ -50,6 +50,8 @@ export default function Admin() {
   const { toast, confirm } = useUI();
   const [renomeando, setRenomeando] = useState(null); // { id, valor } | null
   const [busca, setBusca] = useState('');
+  const [respondendo, setRespondendo] = useState(null); // { id, texto } | null
+  const [editandoCadastro, setEditandoCadastro] = useState(null); // { id, cnpj, whatsapp, cidade, uf } | null
   const navigate = useNavigate();
   const [restaurantes, setRestaurantes] = useState([]);
   const [carregando,   setCarregando]   = useState(true);
@@ -250,6 +252,42 @@ export default function Admin() {
       || normalizar(r.cnpj).includes(t));
   }, [restaurantes, busca]);
 
+  // ⚠️ O CANAL ERA DE MÃO ÚNICA: o cliente escrevia, a gente lia e marcava
+  // "resolvido", e ele nunca ficava sabendo de nada. Do lado dele o botão
+  // Ajuda parecia um buraco — escreveu, sumiu. A resposta volta pelo mesmo
+  // lugar e ele vê um aviso quando chega.
+  const responder = async (fb) => {
+    const txt = (respondendo?.texto || '').trim();
+    if (!txt) { toast('Escreva a resposta.', 'aviso'); return; }
+    const { error } = await supabase.rpc('responder_feedback', { p_id: fb.id, p_resposta: txt });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setRespondendo(null);
+    toast('Resposta enviada ao cliente.', 'sucesso');
+    carregarFeedback();
+  };
+
+  // ⚠️ CAMPO EM BRANCO NÃO APAGA. A função no banco trata null como "não
+  // mexer" — corrigir só a cidade não pode limpar o CNPJ de quem já tinha.
+  const salvarCadastro = async (r) => {
+    const c = editandoCadastro;
+    if (!c) return;
+    const { error } = await supabase.rpc('definir_cadastro_restaurante', {
+      p_restaurante: r.id,
+      p_cnpj: c.cnpj || null, p_whatsapp: c.whatsapp || null,
+      p_cidade: c.cidade || null, p_uf: c.uf || null,
+    });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id ? {
+      ...x,
+      cnpj: (c.cnpj || '').replace(/[^0-9]/g, '') || x.cnpj,
+      whatsapp: (c.whatsapp || '').trim() || x.whatsapp,
+      cidade: (c.cidade || '').trim() || x.cidade,
+      uf: (c.uf || '').trim().toUpperCase() || x.uf,
+    } : x));
+    setEditandoCadastro(null);
+    toast('Cadastro atualizado.', 'sucesso');
+  };
+
   const mudarMax = async (r, novoMax) => {
     const { error } = await supabase.rpc('definir_max_usuarios', { p_restaurante: r.id, p_max: novoMax });
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
@@ -364,11 +402,15 @@ export default function Admin() {
                   const d = fb.dados || {};
                   const linhas = fb.tipo === 'bug'
                     ? [['Onde', d.onde], ['Esperava', d.esperava], ['Aconteceu', d.aconteceu], ['Repetir', d.repetir]]
-                    : [['Quer', d.ideia], ['Por quê', d.porque]];
+                    : fb.tipo === 'pedido'
+                      ? [['Pedido', d.pedido], ['Hoje é', d.de], ['Deve ficar', d.para], ['Motivo', d.motivo]]
+                      : [['Quer', d.ideia], ['Por quê', d.porque]];
                   return (
                     <div key={fb.id} className={`px-4 py-3 ${fb.status === 'resolvido' ? 'opacity-50' : ''}`}>
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <span className="text-xs font-bold">{fb.tipo === 'bug' ? 'Problema' : 'Sugestão'}</span>
+                        <span className="text-xs font-bold">
+                          {fb.tipo === 'bug' ? 'Problema' : fb.tipo === 'pedido' ? 'Pedido' : 'Sugestão'}
+                        </span>
                         <span className="text-[11px] text-gray-600">{dataBR(fb.created_at)}</span>
                       </div>
                       <p className="text-[11px] text-gray-600 mb-1.5">
@@ -379,16 +421,51 @@ export default function Admin() {
                           <p key={k}><span className="font-semibold text-gray-500">{k}:</span> {v}</p>
                         ))}
                       </div>
-                      <div className="flex gap-2 mt-2">
-                        {fb.status !== 'resolvido' && (
-                          <button onClick={() => marcarFeedback(fb, 'resolvido')}
-                            className="text-[11px] font-bold text-green-700 border border-green-200 rounded-lg px-2.5 py-1">Marcar resolvido</button>
-                        )}
-                        {fb.status === 'resolvido' && (
-                          <button onClick={() => marcarFeedback(fb, 'novo')}
-                            className="text-[11px] font-semibold text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1">Reabrir</button>
-                        )}
-                      </div>
+                      {fb.resposta && respondendo?.id !== fb.id && (
+                        <div className="mt-2 bg-polo-beige rounded-lg px-2.5 py-2">
+                          <p className="text-[11px] font-bold text-polo-navy">
+                            Sua resposta{fb.respondida_em ? ` · ${dataBR(fb.respondida_em)}` : ''}
+                            {/* Saber se o cliente LEU muda o que fazer: sem
+                                leitura, cobrar pelo WhatsApp; com leitura, o
+                                silêncio é resposta. */}
+                            <span className="ml-1 font-semibold text-gray-600">
+                              {fb.resposta_lida ? '· lida' : '· não lida'}
+                            </span>
+                          </p>
+                          <p className="text-xs text-gray-700 whitespace-pre-wrap mt-0.5">{fb.resposta}</p>
+                        </div>
+                      )}
+
+                      {respondendo?.id === fb.id ? (
+                        <div className="mt-2 space-y-2">
+                          <textarea rows={3} autoFocus value={respondendo.texto} maxLength={4000}
+                            aria-label="Resposta ao cliente"
+                            onChange={e => setRespondendo({ id: fb.id, texto: e.target.value })}
+                            placeholder="O cliente lê isto dentro do app, na aba Ajuda."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-900" />
+                          <div className="flex gap-2">
+                            <button onClick={() => responder(fb)}
+                              className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-3 py-1.5">Enviar resposta</button>
+                            <button onClick={() => setRespondendo(null)}
+                              className="text-[11px] text-gray-600 px-2">Cancelar</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <button onClick={() => setRespondendo({ id: fb.id, texto: fb.resposta || '' })}
+                            className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                            {fb.resposta ? 'Editar resposta' : 'Responder'}
+                          </button>
+                          {fb.status !== 'resolvido' && (
+                            <button onClick={() => marcarFeedback(fb, 'resolvido')}
+                              className="text-[11px] font-bold text-green-700 border border-green-200 rounded-lg px-2.5 py-1">Marcar resolvido</button>
+                          )}
+                          {fb.status === 'resolvido' && (
+                            <button onClick={() => marcarFeedback(fb, 'novo')}
+                              className="text-[11px] font-semibold text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1">Reabrir</button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -513,6 +590,64 @@ export default function Admin() {
                           </div>
                         ))}
                       </div>
+                    )}
+                  </div>
+
+                  {/* Cadastro — CNPJ, WhatsApp, cidade. O WhatsApp é por onde
+                      a Aurum fala com o cliente e o CNPJ identifica a conta na
+                      cobrança: errar a digitação deixava a conta incontactável
+                      sem conserto nenhum. */}
+                  <div className="px-4 py-2.5 border-b border-gray-50">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Cadastro</p>
+                      {editandoCadastro?.id !== r.id && (
+                        <button onClick={() => setEditandoCadastro({
+                          id: r.id, cnpj: r.cnpj || '', whatsapp: r.whatsapp || '',
+                          cidade: r.cidade || '', uf: r.uf || '',
+                        })} className="text-[11px] text-gray-600 border border-gray-300 rounded px-1.5 py-0.5">
+                          editar
+                        </button>
+                      )}
+                    </div>
+                    {editandoCadastro?.id === r.id ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          {[['cnpj', 'CNPJ', '00.000.000/0001-00'], ['whatsapp', 'WhatsApp', '(81) 99999-9999']].map(([k, l, ph]) => (
+                            <label key={k} className="block">
+                              <span className="text-[11px] text-gray-600">{l}</span>
+                              <input value={editandoCadastro[k]} placeholder={ph}
+                                onChange={e => setEditandoCadastro(c => ({ ...c, [k]: e.target.value }))}
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-gray-900" />
+                            </label>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <label className="block flex-1 min-w-0">
+                            <span className="text-[11px] text-gray-600">Cidade</span>
+                            <input value={editandoCadastro.cidade}
+                              onChange={e => setEditandoCadastro(c => ({ ...c, cidade: e.target.value }))}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-gray-900" />
+                          </label>
+                          <label className="block" style={{ flex: '0 0 4rem' }}>
+                            <span className="text-[11px] text-gray-600">UF</span>
+                            <input value={editandoCadastro.uf} maxLength={2}
+                              onChange={e => setEditandoCadastro(c => ({ ...c, uf: e.target.value.toUpperCase() }))}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-gray-900" />
+                          </label>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => salvarCadastro(r)}
+                            className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded px-3 py-1.5">Salvar</button>
+                          <button onClick={() => setEditandoCadastro(null)}
+                            className="text-[11px] text-gray-600 px-2">Cancelar</button>
+                        </div>
+                        <p className="text-[11px] text-gray-500">Campo em branco não apaga o que já está gravado.</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-700">
+                        {[r.cnpj && `CNPJ ${r.cnpj}`, r.whatsapp, [r.cidade, r.uf].filter(Boolean).join(' - ')]
+                          .filter(Boolean).join(' · ') || <span className="text-gray-500">sem dados de cadastro</span>}
+                      </p>
                     )}
                   </div>
 
