@@ -31,7 +31,6 @@ import FecharTurno from './pages/FecharTurno';
 import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
 import Termos from './pages/Termos';
-import TesteImpressora from './pages/TesteImpressora';
 import Itens from './pages/etiquetas/Itens';
 import EtiquetasAjustes from './pages/etiquetas/Ajustes';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
@@ -279,7 +278,6 @@ function Rotas() {
           {/* ⚠️ TEMPORÁRIO — diagnóstico de impressão direta por BLE/TSPL.
               Sai do app assim que a resposta for conclusiva. Só a conta dona:
               é ferramenta de teste, não função do produto. */}
-          <Route path="/teste-impressora" element={<Restrito cargo="diretoria"><TesteImpressora /></Restrito>} />
           <Route path="/pagamento"  element={<Restrito><Pagamento /></Restrito>} />
           <Route path="/novidades"  element={<Novidades />} />
           <Route path="*"           element={<Navigate to="/" replace />} />

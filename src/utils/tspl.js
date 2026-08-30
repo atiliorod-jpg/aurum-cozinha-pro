@@ -61,28 +61,41 @@ const paraASCII = (txt) => String(txt ?? '')
 // aspa simples, que imprime igual e não quebra nada.
 const limpar = (txt) => paraASCII(txt).replace(/"/g, "'").replace(/[\r\n]+/g, ' ').trim();
 
-const texto = (x, y, fonte, mul, conteudo) =>
-  `TEXT ${x},${y},"${fonte}",0,${mul},${mul},"${limpar(conteudo)}"`;
+// ⚠️ DUPLA BATIDA EM TUDO, e isto veio da comparação lado a lado: a mesma
+// etiqueta saiu pelo computador e pelo celular, e a do celular ficou visivelmente
+// mais fina. O motivo é que pelo computador o navegador RASTERIZA a fonte da
+// tela e manda como imagem, com traço cheio; em TSPL quem desenha é a fonte
+// interna da impressora, que é magra de fábrica.
+// Imprimir o mesmo texto duas vezes, deslocado um ponto (0,12 mm), engrossa o
+// traço sem borrar — é o negrito que térmica tem. Custa o dobro de comandos, o
+// que numa etiqueta inteira dá menos de meio segundo a mais no Bluetooth.
+const texto = (x, y, fonte, mul, conteudo) => {
+  const t = limpar(conteudo);
+  const cmd = (px) => `TEXT ${px},${y},"${fonte}",0,${mul},${mul},"${t}"`;
+  return [cmd(x), cmd(x + 1)];
+};
 
 /**
  * Linha de rótulo à esquerda e valor à direita, como na etiqueta da tela.
  *
- * `negrito` imprime o valor duas vezes, deslocado UM ponto. É assim que
- * térmica faz negrito com fonte interna — não existe comando para isso. Um
- * ponto é 0,12 mm: engrossa o traço sem borrar.
+ * `fonteValor` deixa o valor maior que o rótulo. É como a VALIDADE se destaca:
+ * pelo TAMANHO, já que o negrito virou padrão de todo o texto e por isso
+ * deixou de diferenciar qualquer coisa.
  */
-function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, mul = 1, negrito = false) {
-  const cmds = [texto(margem, y, fonte, mul, rotulo)];
+function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, fonteValor = fonte) {
+  const mul = 1;
+  const cmds = [...texto(margem, y, fonte, mul, rotulo)];
   if (valor) {
     // ⚠️ O espaço do valor é o que SOBRA depois do rótulo, não um percentual
     // fixo. Com percentual, "VALIDADE: 25/02/2027 - 10:00" em fonte grande
     // saía cortado como "25/02/2027 - 10:." — perdendo a hora justamente no
     // campo que a equipe mais olha. Um teste pegou.
     const disponivel = larguraUtil - larguraTexto(rotulo, fonte, mul) - mm(1.5);
-    const v = cortarParaLargura(valor, fonte, mul, disponivel);
-    const x = Math.max(margem, margem + larguraUtil - larguraTexto(v, fonte, mul));
-    cmds.push(texto(x, y, fonte, mul, v));
-    if (negrito) cmds.push(texto(x + 1, y, fonte, mul, v));
+    const v = cortarParaLargura(valor, fonteValor, mul, disponivel);
+    // Alinhado à DIREITA: é o que põe as datas de manipulação e validade uma
+    // sob a outra mesmo quando têm tamanhos diferentes.
+    const x = Math.max(margem, margem + larguraUtil - larguraTexto(v, fonteValor, mul));
+    cmds.push(...texto(x, y, fonteValor, mul, v));
   }
   return cmds;
 }
@@ -129,10 +142,10 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // Contar letra ignora o tamanho da letra. Aqui vai da maior para a menor e
   // fica na primeira que couber; cortar é o último recurso.
   const fonteNome = [4, 3, 2].find(f => larguraTexto(nome, f, 1) <= espacoNome) || 2;
-  linhas.push(texto(margem, y, fonteNome, 1, cortarParaLargura(nome, fonteNome, 1, espacoNome)));
+  linhas.push(...texto(margem, y, fonteNome, 1, cortarParaLargura(nome, fonteNome, 1, espacoNome)));
   if (campos.medida) {
     const m = cortarParaLargura(campos.medida, 3, 1, util * 0.26);
-    linhas.push(texto(margem + util - larguraTexto(m, 3, 1), y, 3, 1, m));
+    linhas.push(...texto(margem + util - larguraTexto(m, 3, 1), y, 3, 1, m));
   }
   y += ALTURA_FONTE[fonteNome] + mm(1);
 
@@ -144,15 +157,15 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
     const arm = campos.armazenamentoFaixa
       ? `${campos.armazenamentoLabel} ${campos.armazenamentoFaixa}`
       : campos.armazenamentoLabel;
-    linhas.push(texto(margem, y, 2, 1, cortarParaLargura(arm, 2, 1, util)));
+    linhas.push(...texto(margem, y, 2, 1, cortarParaLargura(arm, 2, 1, util)));
     y += ALTURA_FONTE[2] + mm(0.6);
   }
 
   // ── Datas e dados ────────────────────────────────────────────
-  const linha = (rotulo, valor, { negrito = false } = {}) => {
+  const linha = (rotulo, valor, { fonteValor = 2 } = {}) => {
     if (!valor) return;
-    linhas.push(...linhaParDeValores(y, rotulo, valor, util, margem, 2, 1, negrito));
-    y += ALTURA_FONTE[2] + mm(0.5);
+    linhas.push(...linhaParDeValores(y, rotulo, valor, util, margem, 2, fonteValor));
+    y += Math.max(ALTURA_FONTE[2], ALTURA_FONTE[fonteValor]) + mm(0.5);
   };
 
   if (c.valOriginal !== false) linha('VAL. ORIG.:', campos.valOriginalFmt);
@@ -164,13 +177,13 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // cortada em "25/02/2027 - 10:." Perder a hora no campo que a equipe mais
   // olha, para ganhar uma linha, é troca ruim. Rótulo pequeno em cima, data
   // grande embaixo: é como a etiqueta profissional faz, e a data cabe inteira.
-  // ⚠️ MESMA LINHA E MESMO TAMANHO DA MANIPULAÇÃO, com as duas datas na mesma
-  // coluna à direita. Cheguei a pôr a validade sozinha embaixo, em fonte
-  // maior, para dar destaque — e no papel ficou pior: a data descolava da
-  // coluna e a linha parecia órfã. Ler as duas datas uma sob a outra é o que
-  // a equipe faz na geladeira, e comparar só funciona se estiverem alinhadas.
-  // O destaque vem da dupla batida, não do tamanho.
-  if (c.validade !== false) linha('VALIDADE:', campos.validadeFmt, { negrito: true });
+  // ⚠️ MESMA LINHA DA MANIPULAÇÃO, alinhada à direita, com a data UM TAMANHO
+  // MAIOR. Já esteve sozinha embaixo para dar destaque, e no papel ficou pior:
+  // a data descolava da coluna e a linha parecia órfã. Ler as duas datas uma
+  // sob a outra é o que a equipe faz na geladeira, e comparar só funciona
+  // alinhado. O destaque tinha que sair do negrito quando o negrito virou
+  // padrão de tudo — então virou tamanho, que é o que se enxerga de longe.
+  if (c.validade !== false) linha('VALIDADE:', campos.validadeFmt, { fonteValor: 3 });
   if (c.marca !== false) linha('MARCA:', campos.marca);
   if (c.sif !== false) linha('SIF:', campos.sif);
   if (c.responsavel !== false) linha('RESP.:', campos.responsavel);
@@ -207,7 +220,7 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
     let yRodape = A - mm(2) - rodape.length * alturaLinha;
     linhas.push(`BAR ${margem},${yRodape - mm(1.2)},${util},2`);
     for (const l of rodape) {
-      linhas.push(texto(margem, yRodape, 2, 1, cortarParaLargura(l, 2, 1, util)));
+      linhas.push(...texto(margem, yRodape, 2, 1, cortarParaLargura(l, 2, 1, util)));
       yRodape += alturaLinha;
     }
   }

@@ -2678,9 +2678,13 @@ describe('Qual caminho de impressão aparece em cada aparelho', () => {
     expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true });
   });
 
-  it('no computador os dois aparecem', () => {
+  // ⚠️ O COMPUTADOR NAO VE O BOTAO DE BLUETOOTH, mesmo tendo Bluetooth. A fila
+  // do Windows manda a etiqueta como IMAGEM, com a fonte da tela, e sai com
+  // traco mais cheio que a fonte interna da impressora — comparado lado a lado
+  // no papel. Dois botoes ali so fazem escolher errado no meio do servico.
+  it('no computador só a janela de impressão aparece', () => {
     fingir({ bluetooth: {}, userAgentData: { mobile: false }, userAgent: 'Windows NT 10.0', maxTouchPoints: 0 });
-    expect(caminhosDeImpressao()).toEqual({ direto: true, dialogo: true });
+    expect(caminhosDeImpressao()).toEqual({ direto: false, dialogo: true });
   });
 
   // ⚠️ iPad moderno se anuncia como Mac. Sem o teste de toque ele seria tratado
@@ -2768,23 +2772,36 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
     const t = etiquetaTSPL(campos, config).split(SEP).filter(x => x.startsWith('TEXT'));
     const achar = (trecho) => {
       const l = t.find(x => x.includes(trecho));
-      return { x: parseInt(l.split(',')[0].replace('TEXT ', '')), y: parseInt(l.split(',')[1]) };
+      const partes = l.split('"');
+      return {
+        x: parseInt(l.split(',')[0].replace('TEXT ', '')), y: parseInt(l.split(',')[1]),
+        fonte: parseInt(partes[1]), txt: partes[partes.length - 2],
+      };
     };
+    const LARG = { 1: 8, 2: 12, 3: 16, 4: 24 };
+    const fim = (d) => d.x + d.txt.length * LARG[d.fonte];
     const dManip = achar('29/08/2026');
     const dVal = achar('25/02/2027');
-    expect(dVal.x).toBe(dManip.x);            // mesma coluna
+    expect(fim(dVal)).toBe(fim(dManip));      // mesma coluna: alinhadas a direita
     expect(dVal.y).toBeGreaterThan(dManip.y); // logo abaixo
-    expect(dVal.y - dManip.y).toBeLessThanOrEqual(30);
+    expect(dVal.y - dManip.y).toBeLessThanOrEqual(34);
     expect(achar('VALIDADE:').y).toBe(dVal.y); // rotulo junto da data, nao acima
+    expect(dVal.fonte).toBeGreaterThan(dManip.fonte); // e maior: e o destaque dela
   });
 
-  // ⚠️ Termica nao tem comando de negrito com fonte interna. A dupla batida
-  // (mesmo texto, um ponto ao lado) e como se faz — e a validade e o campo que
-  // precisa saltar aos olhos dentro de uma camara fria.
-  it('a validade sai em negrito, e só ela', () => {
-    const t = etiquetaTSPL(campos, config);
-    expect(t.split(SEP).filter(x => x.includes('25/02/2027'))).toHaveLength(2);
-    expect(t.split(SEP).filter(x => x.includes('29/08/2026'))).toHaveLength(1);
+  // ⚠️ A MESMA ETIQUETA SAIU FINA PELO CELULAR E CHEIA PELO COMPUTADOR: pela
+  // fila do Windows o navegador rasteriza a fonte da tela e manda como imagem;
+  // em TSPL quem desenha e a fonte interna da impressora, magra de fabrica.
+  // A dupla batida (mesmo texto, um ponto ao lado) e o negrito que termica tem.
+  it('todo texto sai em dupla batida, para engrossar o traço', () => {
+    const linhas = etiquetaTSPL(campos, config).split(SEP).filter(x => x.startsWith('TEXT'));
+    expect(linhas.length % 2).toBe(0);
+    for (let i = 0; i < linhas.length; i += 2) {
+      const x1 = parseInt(linhas[i].split(',')[0].replace('TEXT ', ''));
+      const x2 = parseInt(linhas[i + 1].split(',')[0].replace('TEXT ', ''));
+      expect(x2 - x1).toBe(1);                                        // um ponto ao lado
+      expect(linhas[i].slice(linhas[i].indexOf('"'))).toBe(linhas[i + 1].slice(linhas[i + 1].indexOf('"')));
+    }
   });
 
   // ⚠️ SAIU IMPRESSO ASSIM: as quatro linhas do rodape uma POR CIMA da outra,
@@ -2796,7 +2813,10 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
       endereco: 'Av. Anibal Ribeiro, 1210', cidade: 'Jaboatao dos Guararapes' } });
     const rodape = t.split(SEP).filter(x => x.startsWith('TEXT'))
       .map(x => ({ y: parseInt(x.split(',')[1]), fonte: parseInt(x.split('"')[1]) }))
-      .filter(x => x.y > 200);
+      .filter(x => x.y > 200)
+      // cada linha sai DUAS vezes (a dupla batida do negrito); aqui interessa
+      // a posicao, entao uma por altura basta
+      .filter((x, i, todas) => todas.findIndex(o => o.y === x.y) === i);
     expect(rodape.length).toBe(4);
     for (let i = 1; i < rodape.length; i++) {
       expect(rodape[i].y - rodape[i - 1].y).toBeGreaterThan(20); // > altura da fonte 2

@@ -128,13 +128,6 @@ export default function Ajustes() {
         </div>
       )}
 
-      {/* ⚠️ TEMPORÁRIO — ver TesteImpressora.jsx. Sai junto com a página. */}
-      <Link to="/teste-impressora"
-        className="block bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
-        <p className="text-sm font-bold text-amber-900">Teste: imprimir direto do celular</p>
-        <p className="text-xs text-amber-800 mt-1">Diagnóstico. Abra pelo Chrome do Android.</p>
-      </Link>
-
       <CartaoSuporteRemoto prefs={prefs} setPref={setPref} toast={toast} />
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">

@@ -52,21 +52,26 @@ export function ehCelular() {
 /**
  * Quais botões de impressão aparecem neste aparelho.
  *
- * ⚠️ A REGRA EM UM LUGAR SÓ, e testável, porque ela é contraintuitiva: o
- * caminho que some no celular é justamente o que a pessoa conhece.
+ * ⚠️ UM BOTÃO POR APARELHO. Cada máquina tem um caminho que é claramente o
+ * melhor dela, e mostrar os dois só faz a pessoa escolher errado no meio do
+ * serviço:
  *
- *   celular COM bluetooth  → só o direto. A janela de impressão do Android
- *     exige um app de terceiro no meio e entrega etiqueta pior; oferecer os
- *     dois é convidar para o caminho ruim.
- *   celular SEM bluetooth  → só o diálogo (iPhone, ou o app aberto dentro do
- *     WhatsApp). É a única saída que resta.
- *   computador             → os dois. A fila do Windows já funciona e é o que
- *     a pessoa espera encontrar.
+ *   computador  → só a janela de impressão. A fila do Windows manda a etiqueta
+ *     como IMAGEM, com a fonte da tela: sai com traço mais cheio que a fonte
+ *     interna da impressora. Foi comparado lado a lado no papel.
+ *   celular COM bluetooth → só o direto. A janela do Android precisaria de um
+ *     app de terceiro no meio e entrega etiqueta pior.
+ *   celular SEM bluetooth → só a janela (iPhone, ou o app aberto dentro do
+ *     WhatsApp). É a única saída que resta, e por isso ela volta.
+ *
+ * ⚠️ Isso desliga o Bluetooth no computador de propósito. Se um dia houver
+ * computador sem fila configurada e com impressora só por Bluetooth, é aqui
+ * que se resolve — não espalhado pela tela de impressão.
  */
 export function caminhosDeImpressao() {
+  if (!ehCelular()) return { direto: false, dialogo: true };
   const temBLE = bleDisponivel();
-  const celular = ehCelular();
-  return { direto: temBLE, dialogo: !celular || !temBLE };
+  return { direto: temBLE, dialogo: !temBLE };
 }
 
 // Conexão viva desta aba. Não vai para o cache: um `BluetoothDevice` não
