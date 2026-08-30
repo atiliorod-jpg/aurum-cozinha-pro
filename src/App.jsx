@@ -225,7 +225,17 @@ function Rotas() {
   // "onde você vai trabalhar?" para quem comprou só etiquetas é pedir uma
   // decisão que não existe — e ainda arriscaria o aparelho ficar apontado para
   // um estoque que aquela conta não usa.
-  if (!escolheuModulo && !soEtiquetas) {
+  // ⚠️ O SUPER-ADMIN NÃO TEM COZINHA. A conta existe para operar o negócio —
+  // planos, assinaturas, suporte, restauração — e nada disso passa por
+  // "onde você vai trabalhar?". Pior: com um estoque próprio escolhido, o
+  // painel vira mais uma tela dentro de uma cozinha vazia, e quem atende passa
+  // a olhar para números que não são de cliente nenhum.
+  // As telas de cozinha continuam existindo para ele: aparecem no MODO
+  // SUPORTE, dentro da conta do cliente, com os dados do cliente — que é o
+  // único lugar onde elas dizem alguma coisa. E há o botão de demonstração no
+  // painel, para ver como o app se comporta na entrada.
+  const superAdminSemCliente = sessao?.eSuperAdmin && !impersonando;
+  if (!escolheuModulo && !soEtiquetas && !superAdminSemCliente) {
     return <SeletorModulo comoTela aoEscolher={() => setEscolheuModulo(true)} />;
   }
 
@@ -236,7 +246,20 @@ function Rotas() {
       {sessao?.demo && (
         <div className="sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md bg-polo-gold text-polo-navy print:hidden">
           <p className="text-xs font-semibold min-w-0 truncate">Demonstração — dados de exemplo, nada é salvo</p>
-          <button onClick={logout}
+          {/* ⚠️ RECARREGA quando a demonstração foi aberta pelo painel. O
+              logout do modo demonstração zera a sessão em memória, mas a do
+              Supabase continua viva — sem o reload o super-admin caía na tela
+              de login com a conta ainda logada por baixo. Recarregando, o app
+              relê a sessão e volta sozinho para o painel. */}
+          <button onClick={async () => {
+            let doPainel = false;
+            try {
+              doPainel = sessionStorage.getItem('aurum_demo_do_painel') === '1';
+              sessionStorage.removeItem('aurum_demo_do_painel');
+            } catch { /* sem storage */ }
+            await logout();
+            if (doPainel) window.location.reload();
+          }}
             className="font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0 bg-polo-navy text-polo-gold">
             Sair da demo
           </button>
@@ -290,8 +313,13 @@ function Rotas() {
           local sobrevive — a contagem digitada na Produção continuava na tela
           do Seco e podia ser salva com produtos que não existem lá. */
       <Routes key={modulo}>
+      {/* ⚠️ `!sessao.restauranteId` SAIU da condição. Ela existia de quando o
+          super-admin nunca tinha restaurante próprio; hoje, se ele tiver um
+          (por teste, por engano, por ter sido dono antes), o app o largava
+          numa cozinha em vez do painel — e o painel virava uma URL que só quem
+          soubesse alcançava. */}
       <Route path="/" element={
-        sessao?.eSuperAdmin && !sessao.restauranteId && !impersonando
+        sessao?.eSuperAdmin && !impersonando
           ? <Navigate to="/admin" replace />
           : <Dashboard />
       } />

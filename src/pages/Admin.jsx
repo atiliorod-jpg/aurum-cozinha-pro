@@ -67,7 +67,7 @@ const dataHoraBR = (iso) => {
 };
 
 export default function Admin() {
-  const { sessao, verComoRestaurante } = useAuth();
+  const { sessao, verComoRestaurante, entrarDemo } = useAuth();
   const { toast, confirm } = useUI();
   const [renomeando, setRenomeando] = useState(null); // { id, valor } | null
   const [busca, setBusca] = useState('');
@@ -312,6 +312,17 @@ export default function Admin() {
     toast('Cadastro atualizado.', 'sucesso');
   };
 
+  // ⚠️ MARCA DE ONDE VEIO. Sair da demonstração chama o mesmo logout de sempre,
+  // que zera a sessão em memória — mas a sessão do Supabase continua viva. Sem
+  // esta marca, quem entrou pelo painel caía na tela de login com a conta ainda
+  // logada por baixo: um beco. Com ela, o Layout recarrega a página ao sair e o
+  // app volta sozinho para o painel.
+  const verDemo = (produto) => {
+    try { sessionStorage.setItem('aurum_demo_do_painel', '1'); } catch { /* sem storage */ }
+    entrarDemo(produto);
+    navigate('/');
+  };
+
   const carregarHistorico = async (r) => {
     setHistorico({ id: r.id, itens: [], carregando: true, erro: '' });
     const { data, error } = await supabase.rpc('historico_restaurante', { p_restaurante: r.id });
@@ -391,6 +402,28 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
           <p className="text-[11px] text-polo-gold/90 mt-1.5">
             🔒 Conta crítica: ative a verificação em duas etapas (MFA) no Supabase Auth e use uma senha forte e exclusiva.
           </p>
+        </div>
+
+        {/* ⚠️ VER O APP COMO O CLIENTE VÊ, sem ter cozinha própria. Esta conta
+            não escolhe mais estoque ao entrar — o painel é a tela dela — mas
+            quem vende e quem dá suporte precisa abrir o app de vez em quando
+            para conferir como está a entrada. A demonstração serve: dados de
+            exemplo, nada é salvo, e o "Sair da demo" traz de volta para cá.
+            Modo suporte é outra coisa: aquele abre a conta REAL de um cliente,
+            e depende de ele autorizar. */}
+        <div className="bg-white border border-gray-100 rounded-xl p-4">
+          <p className="text-sm font-bold text-polo-navy">Ver o app como o cliente vê</p>
+          <p className="text-[11px] text-gray-600 mt-0.5 mb-2.5">
+            Abre a demonstração com dados de exemplo. Nada é salvo e você volta para o painel ao sair.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[['etiquetas', 'Aurum Etiquetas'], ['completo', 'Aurum Cozinha Pro']].map(([id, l]) => (
+              <button key={id} onClick={() => verDemo(id)}
+                className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5">
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Erro de RLS */}
