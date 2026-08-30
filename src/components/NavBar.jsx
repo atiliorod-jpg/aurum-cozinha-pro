@@ -50,7 +50,10 @@ const NAV_ETIQUETAS = [
   { to: '/itens',   icon: 'caixa',    label: 'Meus itens' },
   // ⚠️ Só a conta dona. Botão que leva a uma tela negada é pior que botão
   // ausente: a pessoa toca, é jogada de volta e não entende o porquê.
-  { to: '/ajustes', icon: 'config',   label: 'Configurações', soDono: true },
+  // ⚠️ "Administração" e não "Configurações": ali dentro se controla quem tem
+  // acesso, a assinatura e o suporte remoto. Chamar de configuração sugere
+  // ajuste fino de tela, e a pessoa não procura conta de funcionário ali.
+  { to: '/ajustes', icon: 'config',   label: 'Administração', soDono: true },
 ];
 
 export default function NavBar({ soEtiquetas = false }) {

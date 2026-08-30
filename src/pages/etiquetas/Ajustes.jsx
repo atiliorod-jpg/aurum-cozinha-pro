@@ -10,7 +10,7 @@ import { statusAssinatura, produtoDe, PRODUTOS } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
 /**
- * Configurações do plano Aurum Etiquetas.
+ * Administração do plano Aurum Etiquetas.
  *
  * ⚠️ SÓ A CONTA DONA abre (rota protegida em App.jsx com Restrito
  * cargo="diretoria"). Aqui se muda temperatura, prazo, tamanho de etiqueta,
@@ -59,7 +59,7 @@ export default function Ajustes() {
   };
 
   return (
-    <Layout title="Configurações">
+    <Layout title="Administração">
       {/* Armazenamento vem primeiro: define o que a etiqueta imprime */}
       <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
 
