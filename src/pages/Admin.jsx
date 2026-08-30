@@ -45,6 +45,27 @@ const normalizar = (t) => String(t || '')
   .replace(/[^a-zA-Z0-9]/g, '')
   .toLowerCase();
 
+// Nome do documento em português de gente. A chave vem como 'seco::produtos'
+// e ninguém no suporte deveria precisar decorar isso para socorrer um cliente.
+const NOMES_DOC = {
+  produtos: 'catálogo de produtos', categorias: 'categorias', pessoas: 'equipe',
+  fichas: 'fichas técnicas', producoes: 'receitas', locais: 'destinos de saída',
+  destinos: 'destinos', listaManual: 'lista de compras',
+  etiquetasAvulsas: 'etiquetas avulsas', permissoes: 'permissões',
+  precos: 'preços', estoques: 'estoques', metas: 'mínimos e máximos',
+  prefs: 'configurações',
+};
+const nomeDoc = (chave) => {
+  const partes = String(chave || '').split('::');
+  const base = partes[1] || partes[0];
+  const onde = partes.length > 1 ? ` (${partes[0]})` : '';
+  return `${NOMES_DOC[base] || base}${onde}`;
+};
+const dataHoraBR = (iso) => {
+  try { return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); }
+  catch { return '—'; }
+};
+
 export default function Admin() {
   const { sessao, verComoRestaurante } = useAuth();
   const { toast, confirm } = useUI();
@@ -52,6 +73,9 @@ export default function Admin() {
   const [busca, setBusca] = useState('');
   const [respondendo, setRespondendo] = useState(null); // { id, texto } | null
   const [editandoCadastro, setEditandoCadastro] = useState(null); // { id, cnpj, whatsapp, cidade, uf } | null
+  // Histórico de UM restaurante por vez: carregar de todos de uma vez seria
+  // centenas de linhas para uma tela que se olha uma vez por mês.
+  const [historico, setHistorico] = useState(null); // { id, itens, carregando, erro } | null
   const navigate = useNavigate();
   const [restaurantes, setRestaurantes] = useState([]);
   const [carregando,   setCarregando]   = useState(true);
@@ -286,6 +310,33 @@ export default function Admin() {
     } : x));
     setEditandoCadastro(null);
     toast('Cadastro atualizado.', 'sucesso');
+  };
+
+  const carregarHistorico = async (r) => {
+    setHistorico({ id: r.id, itens: [], carregando: true, erro: '' });
+    const { data, error } = await supabase.rpc('historico_restaurante', { p_restaurante: r.id });
+    setHistorico({ id: r.id, itens: data || [], carregando: false, erro: error?.message || '' });
+  };
+  const alternarHistorico = (r) =>
+    historico?.id === r.id ? setHistorico(null) : carregarHistorico(r);
+
+  // ⚠️ CONFIRMAÇÃO COM O NOME DO DOCUMENTO E A DATA. Restaurar é sobrescrever
+  // o que o cliente tem AGORA; a versão atual vai para o histórico antes (a
+  // função no banco garante isso), mas quem clica precisa saber o que está
+  // trocando por quê. "Tem certeza?" sozinho não informa nada.
+  const restaurar = async (r, h) => {
+    const ok = await confirm({
+      titulo: 'Devolver esta versão?',
+      mensagem: `"${r.nome}" volta a ter o(a) ${nomeDoc(h.chave)} como estava em ${dataHoraBR(h.criado_em)}.
+
+O que está lá agora é guardado antes, então dá para desfazer. Os tablets do cliente recarregam sozinhos.`,
+      confirmar: 'Restaurar',
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('restaurar_documento', { p_hist: h.id });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    toast('Versão restaurada. O cliente já recebe ao abrir o app.', 'sucesso', { duracao: 6000 });
+    carregarHistorico(r); // a versão que estava lá virou mais uma linha do histórico
   };
 
   const mudarMax = async (r, novoMax) => {
@@ -589,6 +640,49 @@ export default function Admin() {
                             <span className="text-[11px] text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full flex-shrink-0">{u.cargo}</span>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Dados e restauração — a rede de segurança contra perda
+                      de cadastro. O banco guarda as versões sozinho (M31); aqui
+                      é só onde se devolve. */}
+                  <div className="px-4 py-2.5 border-b border-gray-50">
+                    <button onClick={() => alternarHistorico(r)}
+                      className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                      {historico?.id === r.id ? 'Fechar histórico' : '↺ Histórico e restaurar'}
+                    </button>
+                    {historico?.id === r.id && (
+                      <div className="mt-2">
+                        {historico.carregando && <p className="text-xs text-gray-600 animate-pulse">Carregando…</p>}
+                        {historico.erro && (
+                          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
+                            {historico.erro}
+                          </p>
+                        )}
+                        {!historico.carregando && !historico.erro && historico.itens.length === 0 && (
+                          <p className="text-xs text-gray-600">
+                            Ainda não há versões guardadas. A primeira aparece quando o cliente
+                            alterar algo do cadastro ou das configurações.
+                          </p>
+                        )}
+                        <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                          {historico.itens.map(h => (
+                            <div key={h.id} className="flex items-center justify-between gap-2 py-1.5">
+                              <div className="min-w-0">
+                                <p className="text-xs text-gray-800 truncate">{nomeDoc(h.chave)}</p>
+                                <p className="text-[11px] text-gray-600">
+                                  {dataHoraBR(h.criado_em)}
+                                  {h.itens != null ? ` · ${h.itens} item(ns)` : ''}
+                                </p>
+                              </div>
+                              <button onClick={() => restaurar(r, h)}
+                                className="text-[11px] font-bold text-polo-navy border border-gray-300 rounded-lg px-2 py-1 flex-shrink-0">
+                                Restaurar
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
