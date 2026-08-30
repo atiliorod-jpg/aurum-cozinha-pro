@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Layout from '../../components/Layout';
 import Botao from '../../components/Botao';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../store/AppContext';
 import { useAuth, CARGOS } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
-import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoAcessos } from '../../components/config/CartoesConfig';
+import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas } from '../../components/config/CartoesConfig';
 import { statusAssinatura, produtoDe, PRODUTOS } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
@@ -26,14 +26,10 @@ import { fmtData, isoLocal } from '../../utils/formatters';
  */
 export default function Ajustes() {
   const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa } = useApp();
-  const { sessao, logout, usuarios, convites, carregarConvites, criarConvite, revogarConvite } = useAuth();
+  const { sessao, logout, usuarios, criarConta, trocarSenhaDe, removerConta,
+          desativarUsuario, reativarUsuario, definirApelido } = useAuth();
   const { toast, confirm } = useUI();
   const [novaPessoa, setNovaPessoa] = useState('');
-
-  // ⚠️ A lista de convites pendentes NÃO vem junto com a sessão: é uma consulta
-  // à parte, e sem ela o cartão mostraria "0 convites" mesmo com códigos vivos
-  // — e as vagas apareceriam a mais do que existem.
-  useEffect(() => { carregarConvites(); }, [carregarConvites]);
 
   const st = statusAssinatura(sessao);
   const prod = produtoDe(sessao);
@@ -133,13 +129,14 @@ export default function Ajustes() {
         </div>
       )}
 
-      {/* ⚠️ O plano Etiquetas não tinha COMO convidar ninguém: a tela de acessos
-          morava só em Configurações do plano completo. A conta dona era a única
-          que conseguia entrar, e quem etiqueta no dia a dia não é quem assina o
-          contrato. */}
-      <CartaoAcessos sessao={sessao} usuarios={usuarios} convites={convites}
-        criarConvite={criarConvite} revogarConvite={revogarConvite}
-        cargos={CARGOS} toast={toast} confirm={confirm} />
+      {/* ⚠️ O plano Etiquetas não tinha COMO colocar ninguém para dentro: a
+          tela de acessos morava só no plano completo, e a conta dona era a
+          única que conseguia entrar. Quem etiqueta no dia a dia não é quem
+          assina o contrato. */}
+      <CartaoContas sessao={sessao} usuarios={usuarios} cargos={CARGOS}
+        criarConta={criarConta} trocarSenhaDe={trocarSenhaDe} removerConta={removerConta}
+        desativarUsuario={desativarUsuario} reativarUsuario={reativarUsuario}
+        definirApelido={definirApelido} toast={toast} confirm={confirm} />
 
       <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />
 

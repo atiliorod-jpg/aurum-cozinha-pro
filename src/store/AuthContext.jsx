@@ -3,10 +3,17 @@ import { supabase } from '../lib/supabase';
 import { limparCacheLocal } from '../lib/cache';
 import { statusAssinatura } from '../utils/assinatura';
 
+// ⚠️ ESTES TRÊS SÃO NÍVEIS DE SEGURANÇA, não rótulos. Estão numa trava da
+// tabela `perfis` e em mais de cem verificações das regras de acesso do banco
+// (quem convida, quem desativa, quem grava a matriz de permissões, quem vê o
+// financeiro). Os cargos que o DONO inventa se apoiam num destes — o que vai na
+// coluna `cargo` continua sendo o nível, e o nome dele é só rótulo.
+// `nome` e `base` existem para o cargo padrão falar a mesma língua do
+// personalizado, sem a tela precisar saber de qual dos dois veio.
 export const CARGOS = [
-  { id: 'cozinha',  label: 'Cozinha',   nivel: 0 },
-  { id: 'gerencia', label: 'Gerência',  nivel: 1 },
-  { id: 'diretoria',label: 'Diretoria', nivel: 2 },
+  { id: 'cozinha',  label: 'Cozinha',   nome: 'Cozinha',   base: 'cozinha',   nivel: 0 },
+  { id: 'gerencia', label: 'Gerência',  nome: 'Gerência',  base: 'gerencia',  nivel: 1 },
+  { id: 'diretoria',label: 'Diretoria', nome: 'Diretoria', base: 'diretoria', nivel: 2 },
 ];
 
 export const nivelDoCargo = (cargo) => CARGOS.find(c => c.id === cargo)?.nivel ?? 0;
@@ -122,7 +129,7 @@ export function AuthProvider({ children }) {
       // select completo → fallback progressivo p/ bancos sem as colunas novas
       let { data: rest, error: errRest } = await supabase
         .from('restaurantes')
-        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto')
+        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido')
         .eq('id', perfil.restaurante_id)
         .maybeSingle();
       if (errRest) {
@@ -163,6 +170,9 @@ export function AuthProvider({ children }) {
         cargo:            perfil.cargo,
         restauranteId:    perfil.restaurante_id,
         restauranteNome:  rest?.nome || '',
+        // Segunda metade do login da equipe. Sem isto a tela de contas não
+        // consegue mostrar "o login da Maria é maria.polobeer".
+        apelido:          rest?.apelido || '',
         // Assinatura/teste (migration7) + limite/bloqueio (migration9)
         restauranteCriadoEm: rest?.created_at || null,
         assinaturaAte:    rest?.assinatura_ate || null,
@@ -178,7 +188,7 @@ export function AuthProvider({ children }) {
       });
       const { data: todos } = await supabase
         .from('perfis')
-        .select('id, nome, cargo, ativo')
+        .select('id, nome, cargo, ativo, usuario, cargo_rotulo')
         .eq('restaurante_id', perfil.restaurante_id);
       setUsuarios(todos || []);
     } else {
@@ -252,10 +262,34 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, [carregarPerfil]);
 
-  // ── Login por email + senha ──────────────────────────────────
-  const login = useCallback(async (email, senha) => {
+  // ── Login: e-mail OU usuário da casa ─────────────────────────
+  //
+  // ⚠️ DUAS FORMAS DE ENTRAR, um campo só. O dono do restaurante entra com o
+  // e-mail dele, que é como a conta nasceu no cadastro. O colaborador entra com
+  // `maria.polobeer` — porque cozinheiro não tem, ou não lembra, um e-mail, e
+  // exigir um era barrar metade da equipe na porta.
+  //
+  // ⚠️ O ENDEREÇO INTERNO NÃO É SEGREDO NEM ENFEITE: o Supabase exige e-mail
+  // para autenticar, ponto. Então `maria.polobeer` vira
+  // `maria.polobeer@contas.aurum.app` aqui, e some. A pessoa nunca vê, nunca
+  // digita e nunca recebe nada nesse endereço — o domínio é inventado de
+  // propósito, justamente para não haver caixa de entrada.
+  const login = useCallback(async (identificacao, senha) => {
+    const bruto = String(identificacao || '').trim();
+    // A presença do @ é o que separa os dois mundos. Um usuário nunca tem @
+    // (a criação da conta remove tudo que não é letra ou número).
+    const email = bruto.includes('@') ? bruto : `${bruto.toLowerCase()}@contas.aurum.app`;
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
-    return error?.message || null; // null = sucesso
+    if (!error) return null;
+    // ⚠️ A mensagem crua do Supabase é "Invalid login credentials". Para quem
+    // digitou um usuário, ela não diz nada — e o erro mais provável é ter
+    // esquecido a segunda metade ("maria" em vez de "maria.polobeer").
+    if (!bruto.includes('@') && /invalid login/i.test(error.message)) {
+      return bruto.includes('.')
+        ? 'Usuário ou senha não conferem.'
+        : 'Falta o nome da casa no usuário — algo como "maria.polobeer".';
+    }
+    return error.message;
   }, []);
 
   // ── Modo demonstração (100% local — nada toca o banco real) ──
@@ -299,6 +333,63 @@ export function AuthProvider({ children }) {
     setImpersonando(null);
     setDerrubado(false);
   }, [sessao]);
+
+  // ── Contas da equipe: criar, trocar senha, remover ───────────
+  //
+  // ⚠️ ISTO NÃO ACONTECE AQUI. Criar a conta de outra pessoa e trocar a senha
+  // dela exigem a chave de administrador do Supabase, que abre o banco inteiro
+  // de TODOS os restaurantes, sem RLS. No app ela estaria no aparelho de cada
+  // cliente, legível pelo navegador. Quem faz é a função `contas`, hospedada
+  // no próprio Supabase, com a chave nos segredos do projeto.
+  //
+  // ⚠️ E a função NÃO confia no que mandamos daqui: ela relê no banco quem
+  // está chamando e de quem é a conta alvo. Tela não é trava.
+  const chamarContas = useCallback(async (corpo) => {
+    const { data: s } = await supabase.auth.getSession();
+    const jwt = s?.session?.access_token;
+    if (!jwt) return { erro: 'Sua sessão expirou. Entre de novo.' };
+    try {
+      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/contas`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(corpo),
+      });
+      const dados = await r.json().catch(() => ({}));
+      if (!r.ok) return { erro: dados?.erro || 'Não consegui falar com o servidor.' };
+      return dados;
+    } catch {
+      // ⚠️ Sem internet a mensagem tem que dizer isso. "Falha ao criar conta"
+      // manda o dono procurar erro no nome, na senha, no cargo — e o problema
+      // era o wi-fi da cozinha.
+      return { erro: 'Sem conexão. Tente de novo quando a internet voltar.' };
+    }
+  }, []);
+
+  const criarConta = useCallback(async ({ nome, usuario, senha, cargo, cargoRotulo }) => {
+    const r = await chamarContas({ acao: 'criar', nome, usuario, senha, cargo, cargoRotulo });
+    if (r.erro) return r;
+    // Entra na lista sem esperar recarregar do servidor: o dono acabou de
+    // criar e precisa ver a conta ali para anotar o login.
+    setUsuarios(prev => [...prev, { id: r.id, nome, cargo, usuario, cargo_rotulo: cargoRotulo, ativo: true }]);
+    return r;
+  }, [chamarContas]);
+
+  const trocarSenhaDe = useCallback(
+    (id, senha) => chamarContas({ acao: 'senha', id, senha }), [chamarContas]);
+
+  const removerConta = useCallback(async (id) => {
+    const r = await chamarContas({ acao: 'remover', id });
+    if (!r.erro) setUsuarios(prev => prev.filter(u => u.id !== id));
+    return r;
+  }, [chamarContas]);
+
+  // Apelido da casa — a segunda metade do login de todo mundo.
+  const definirApelido = useCallback(async (apelido) => {
+    const { data, error } = await supabase.rpc('definir_apelido', { p_apelido: apelido });
+    if (error) return { erro: error.message };
+    setSessao(prev => (prev ? { ...prev, apelido: data } : prev));
+    return { ok: true, apelido: data };
+  }, []);
 
   // ── Modo suporte (super-admin vê outro restaurante) ──
   // podeMexer=true só quando o CLIENTE autorizou "ver e editar" (24h) — a
@@ -555,6 +646,7 @@ export function AuthProvider({ children }) {
       criarPrimeiroAdmin, reenviarConfirmacao, cadastroPendenteErro,
       criarConvite, usarConvite, alterarCargo,
       desativarUsuario, reativarUsuario, avisarPagamento,
+      criarConta, trocarSenhaDe, removerConta, definirApelido,
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,

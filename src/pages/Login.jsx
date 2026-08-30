@@ -179,7 +179,16 @@ export default function Login() {
           {/* ENTRAR */}
           {modo === 'entrar' && <>
             <h2 className="font-bold text-polo-navy">Entrar</h2>
-            <input type="email" autoComplete="email" aria-label="E-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="E-mail" className={campo} />
+            {/* ⚠️ type="text", NÃO "email". Com type="email" o próprio navegador
+                recusa "maria.polobeer" antes de o app ver — e o colaborador
+                ficava travado numa mensagem do Chrome, não do sistema.
+                autoComplete="username" cobre os dois casos. */}
+            <input type="text" autoComplete="username" aria-label="E-mail ou usuário"
+              value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="E-mail ou usuário" className={campo} />
+            <p className="text-[11px] text-white/60 -mt-1">
+              Funcionário entra com o usuário que o dono criou — algo como <strong>maria.polobeer</strong>.
+            </p>
             <CampoSenha valor={senha} onChange={setSenha} aria="Senha" autoComplete="current-password" placeholder="Senha" onEnter={entrar} />
             <Msg erro={erro} info={info} />
             <button onClick={entrar} disabled={carregando} className={botao}>{carregando ? 'Entrando…' : 'Entrar'}</button>

@@ -301,126 +301,219 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
 }
 
 /**
- * Quem tem acesso ao app — convites e usuários.
+ * Contas da equipe — o dono cria, entrega e continua no comando.
  *
- * ⚠️ EXISTIA SÓ NO PLANO COMPLETO, e isso deixava o Aurum Etiquetas sem como
- * colocar a equipe para dentro: a conta dona era a única que conseguia entrar,
- * e quem etiqueta no dia a dia não é quem assina o contrato. O código de
- * convite é o único caminho de cadastro que não passa por criar restaurante
- * novo — sem esta tela, o plano menor era conta de uma pessoa só.
+ * ⚠️ SUBSTITUIU O CÓDIGO DE CONVITE entre dono e colaborador. O convite obrigava
+ * a pessoa a ter e-mail próprio, se cadastrar sozinha e escolher a própria
+ * senha — e o dono ficava sem controle nenhum depois disso: não podia trocar a
+ * senha de quem esqueceu, nem saber quem era quem. Numa cozinha, metade da
+ * equipe não tem (ou não lembra) um e-mail.
  *
- * ⚠️ NÃO CONFUNDIR COM "RESPONSÁVEIS". Aquele é o nome que sai IMPRESSO no
- * campo RESP. da etiqueta e não tem login nenhum. Este é quem entra no app com
- * e-mail e senha. São listas diferentes de propósito: a cozinheira do turno da
- * noite assina etiqueta sem precisar de acesso ao sistema.
+ * ⚠️ NÃO CONFUNDIR COM "RESPONSÁVEIS": aquele é o nome que sai IMPRESSO no
+ * campo RESP. da etiqueta e não tem login. Este é quem entra no app. A
+ * cozinheira do turno da noite assina etiqueta sem precisar de conta.
  */
-export function CartaoAcessos({ sessao, usuarios, convites, criarConvite, revogarConvite, cargos, toast, confirm }) {
-  const [cargo, setCargo] = useState('cozinha');
-  const [gerado, setGerado] = useState(null);
-  const [gerando, setGerando] = useState(false);
+export function CartaoContas({
+  sessao, usuarios, cargos, criarConta, trocarSenhaDe, removerConta,
+  desativarUsuario, reativarUsuario, definirApelido, toast, confirm,
+}) {
+  const [apelido, setApelido] = useState(sessao?.apelido || '');
+  const [salvandoApelido, setSalvandoApelido] = useState(false);
+  const [criando, setCriando] = useState(false);
+  const [form, setForm] = useState({ nome: '', usuario: '', senha: '', cargo: 'cozinha' });
+  const [ocupado, setOcupado] = useState(false);
+  const [novaSenha, setNovaSenha] = useState(null); // { id, valor }
 
   const ativos = (usuarios || []).filter(u => u.ativo !== false);
   const max = sessao?.maxUsuarios || 3;
-  // Cada convite pendente RESERVA uma vaga: sem contá-lo, dois códigos gerados
-  // no mesmo dia estourariam o limite e o segundo falharia só na hora do
-  // cadastro — com a pessoa já com o código na mão.
-  const vagas = Math.max(0, max - ativos.length - (convites || []).length);
+  const vagas = Math.max(0, max - ativos.length);
+  const casa = sessao?.apelido || '';
+  const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
 
-  const gerar = async () => {
-    if (vagas <= 0) {
-      toast(`Sem vagas: ${ativos.length} pessoa(s) e ${(convites || []).length} convite(s) pendente(s), de ${max}.`, 'aviso');
-      return;
-    }
-    setGerando(true);
-    const token = await criarConvite(cargo);
-    setGerando(false);
-    if (!token) { toast('Não consegui gerar o convite agora.', 'erro'); return; }
-    setGerado({ token, cargo });
-    toast('Convite gerado. Passe o código para a pessoa.', 'sucesso');
+  // ⚠️ Espelha o que o usuário digita JÁ NO FORMATO FINAL. O apelido e o
+  // usuário perdem acento, espaço e pontuação na criação; mostrar "maria
+  // silva" e criar "mariasilva" faria o dono anotar um login que não existe.
+  const limpar = (t) => String(t || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+
+  const salvarApelido = async () => {
+    setSalvandoApelido(true);
+    const r = await definirApelido(apelido);
+    setSalvandoApelido(false);
+    if (r.erro) { toast(r.erro, 'erro'); return; }
+    setApelido(r.apelido);
+    toast(`Apelido da casa: ${r.apelido}.`, 'sucesso');
   };
 
-  const copiar = async (texto, oque) => {
-    try { await navigator.clipboard.writeText(texto); toast(`${oque} copiado.`, 'sucesso'); }
-    catch { toast('Copie manualmente.', 'aviso'); }
+  const criar = async () => {
+    setOcupado(true);
+    const r = await criarConta({
+      nome: form.nome.trim(), usuario: limpar(form.usuario),
+      senha: form.senha, cargo: form.cargo,
+      cargoRotulo: cargos.find(c => c.id === form.cargo)?.nome || null,
+    });
+    setOcupado(false);
+    if (r.erro) { toast(r.erro, 'erro'); return; }
+    setCriando(false);
+    setForm({ nome: '', usuario: '', senha: '', cargo: 'cozinha' });
+    toast(`Conta criada. Login: ${r.login}`, 'sucesso', { duracao: 9000 });
   };
 
-  const tirar = async (token) => {
+  const trocar = async (u) => {
+    const senha = (novaSenha?.valor || '').trim();
+    if (senha.length < 6) { toast('A senha precisa de ao menos 6 caracteres.', 'aviso'); return; }
+    setOcupado(true);
+    const r = await trocarSenhaDe(u.id, senha);
+    setOcupado(false);
+    if (r.erro) { toast(r.erro, 'erro'); return; }
+    setNovaSenha(null);
+    toast(`Senha de ${u.nome} trocada. Avise a pessoa.`, 'sucesso', { duracao: 8000 });
+  };
+
+  const remover = async (u) => {
     const ok = await confirm({
-      titulo: 'Cancelar este convite?',
-      mensagem: 'O código para de funcionar. Quem ainda não usou vai precisar de outro.',
-      perigo: true, confirmar: 'Cancelar convite',
+      titulo: `Apagar a conta de ${u.nome}?`,
+      // ⚠️ Diz o que NÃO some. Sem isto, "apagar a conta" lê como "apagar o que
+      // ela fez" — e ninguém apaga, com medo de perder o histórico.
+      mensagem: 'A pessoa perde o acesso na hora. O que ela já registrou e as etiquetas que imprimiu continuam como estão.\n\nSe for afastamento temporário, use Bloquear.',
+      perigo: true, confirmar: 'Apagar conta',
     });
     if (!ok) return;
-    const erro = await revogarConvite(token);
-    toast(erro ? `Erro: ${erro}` : 'Convite cancelado.', erro ? 'erro' : 'sucesso');
+    const r = await removerConta(u.id);
+    toast(r.erro || `Conta de ${u.nome} apagada.`, r.erro ? 'erro' : 'sucesso');
   };
 
-  const link = (t) => `${window.location.origin}${import.meta.env.BASE_URL}?convite=${t}`;
+  const alternarBloqueio = async (u) => {
+    if (u.ativo === false) { await reativarUsuario(u.id); toast(`${u.nome} desbloqueado.`, 'sucesso'); return; }
+    const ok = await confirm({
+      titulo: `Bloquear ${u.nome}?`,
+      mensagem: 'A conta para de entrar até você desbloquear. Nada é apagado, e a vaga continua ocupada.',
+      confirmar: 'Bloquear',
+    });
+    if (!ok) return;
+    await desativarUsuario(u.id);
+    toast(`${u.nome} bloqueado.`, 'sucesso');
+  };
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
-        <p className="text-sm font-bold text-polo-navy">Quem tem acesso</p>
+        <p className="text-sm font-bold text-polo-navy">Contas da equipe</p>
         <p className="text-xs text-gray-500 mt-0.5">
-          Quem entra no app com e-mail e senha. Diferente dos responsáveis, que só assinam a etiqueta.
+          Quem entra no app. Você cria a conta e entrega o acesso — a pessoa não precisa de e-mail.
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {ativos.length === 0
-          ? <p className="text-xs text-gray-600 italic">Só você, por enquanto.</p>
-          : ativos.map(u => (
-            <span key={u.id} className="inline-flex items-center gap-1.5 bg-polo-beige text-polo-navy text-xs font-semibold rounded-full px-3 py-1.5">
-              {u.nome || '(sem nome)'}
-              <span className="font-normal text-gray-600">· {cargos.find(c => c.id === u.cargo)?.label || u.cargo}</span>
-            </span>
-          ))}
-      </div>
-
-      <div className="border-t border-gray-100 pt-3 space-y-2">
-        <p className="text-xs font-semibold text-gray-600">
-          Convidar alguém <span className="font-normal text-gray-500">· {vagas} vaga(s) de {max}</span>
-        </p>
-        <div className="flex gap-2">
-          <select value={cargo} onChange={e => setCargo(e.target.value)} aria-label="Cargo do convidado"
-            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm bg-white">
-            {cargos.filter(c => c.id !== 'diretoria').map(c => (
-              <option key={c.id} value={c.id}>{c.label}</option>
-            ))}
-          </select>
-          <Botao onClick={gerar} tamanho="sm" largura="auto" disabled={gerando || vagas <= 0}>
-            {gerando ? 'Gerando…' : 'Gerar código'}
-          </Botao>
-        </div>
-
-        {gerado && (
-          <div className="bg-polo-beige rounded-lg p-3 space-y-2">
-            <p className="text-[11px] text-gray-600">Código de convite</p>
-            <p className="text-lg font-bold tracking-widest text-polo-navy break-all">{gerado.token}</p>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => copiar(gerado.token, 'Código')}
-                className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">Copiar código</button>
-              {/* O link já abre o app com o código preenchido — um passo a menos
-                  para quem vai receber pelo WhatsApp. */}
-              <button onClick={() => copiar(link(gerado.token), 'Link')}
-                className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">Copiar link</button>
-            </div>
-            <p className="text-[11px] text-gray-600">
-              A pessoa abre o app, toca em “Tenho um código de convite” e escolhe a própria senha.
-            </p>
+      {/* ⚠️ O APELIDO VEM PRIMEIRO E BLOQUEIA O RESTO. Ele é a segunda metade
+          do login de todo mundo; criar contas antes dele obrigaria a refazer
+          todas quando ele mudasse. */}
+      {!casa ? (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+          <p className="text-xs font-bold text-amber-900">Escolha o apelido da casa</p>
+          <p className="text-[11px] text-amber-800">
+            Ele entra no login de todo mundo: <strong>maria.{apelido ? limpar(apelido) : 'suacasa'}</strong>.
+            Só letras e números, e não pode repetir o de outro restaurante.
+          </p>
+          <div className="flex gap-2">
+            <input value={apelido} onChange={e => setApelido(e.target.value)} maxLength={20}
+              placeholder="ex.: polobeer" aria-label="Apelido da casa"
+              className={`${inputCls} flex-1 min-w-0`} />
+            <Botao onClick={salvarApelido} tamanho="sm" largura="auto" disabled={salvandoApelido}>
+              {salvandoApelido ? 'Salvando…' : 'Salvar'}
+            </Botao>
           </div>
-        )}
+        </div>
+      ) : (
+        <p className="text-[11px] text-gray-600">
+          Apelido da casa: <strong className="text-polo-navy">{casa}</strong> — os logins terminam nele.
+        </p>
+      )}
 
-        {(convites || []).length > 0 && (
-          <div className="space-y-1 pt-1">
-            <p className="text-[11px] font-semibold text-gray-600">Convites ainda não usados</p>
-            {convites.map(c => (
-              <div key={c.token} className="flex items-center justify-between gap-2 text-xs">
-                <span className="font-mono text-gray-700 truncate">{c.token}</span>
-                <button onClick={() => tirar(c.token)}
-                  className="text-[11px] font-semibold text-red-700 flex-shrink-0">cancelar</button>
+      <div className="space-y-1.5">
+        {ativos.length === 0 && <p className="text-xs text-gray-600 italic">Só você, por enquanto.</p>}
+        {(usuarios || []).map(u => {
+          const ehEu = u.id === sessao?.usuarioId;
+          const dono = u.cargo === 'diretoria';
+          return (
+            <div key={u.id} className={`border rounded-lg p-2.5 ${u.ativo === false ? 'bg-gray-50 border-gray-200' : 'border-gray-200'}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {u.nome}{u.ativo === false && <span className="text-[11px] font-normal text-gray-500"> · bloqueado</span>}
+                  </p>
+                  <p className="text-[11px] text-gray-600">
+                    {u.cargo_rotulo || cargos.find(c => c.id === u.cargo)?.nome || u.cargo}
+                    {u.usuario && casa ? ` · ${u.usuario}.${casa}` : ''}
+                  </p>
+                </div>
+                {/* A conta dona não se mexe por aqui: é quem paga e quem
+                    administra as outras. Uma casa sem ela fica sem comando. */}
+                {!dono && !ehEu && (
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button onClick={() => setNovaSenha({ id: u.id, valor: '' })}
+                      className="text-[11px] font-semibold text-polo-navy border border-gray-300 rounded px-2 py-1">senha</button>
+                    <button onClick={() => alternarBloqueio(u)}
+                      className="text-[11px] font-semibold text-gray-600 border border-gray-300 rounded px-2 py-1">
+                      {u.ativo === false ? 'liberar' : 'bloquear'}
+                    </button>
+                    <button onClick={() => remover(u)}
+                      className="text-[11px] font-semibold text-red-700 border border-red-200 rounded px-2 py-1">apagar</button>
+                  </div>
+                )}
               </div>
-            ))}
+              {novaSenha?.id === u.id && (
+                <div className="mt-2 flex gap-2">
+                  <input type="text" value={novaSenha.valor} autoFocus minLength={6}
+                    onChange={e => setNovaSenha({ id: u.id, valor: e.target.value })}
+                    placeholder="Nova senha (mín. 6)" aria-label={`Nova senha de ${u.nome}`}
+                    className={`${inputCls} flex-1 min-w-0`} />
+                  <Botao onClick={() => trocar(u)} tamanho="sm" largura="auto" disabled={ocupado}>Trocar</Botao>
+                  <button onClick={() => setNovaSenha(null)} className="text-[11px] text-gray-600 px-1">cancelar</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="border-t border-gray-100 pt-3">
+        {!criando ? (
+          <Botao onClick={() => setCriando(true)} disabled={!casa || vagas <= 0} tamanho="sm">
+            + Criar conta {vagas > 0 ? `(${vagas} vaga${vagas > 1 ? 's' : ''})` : '— sem vagas'}
+          </Botao>
+        ) : (
+          <div className="space-y-2">
+            <input value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
+              placeholder="Nome da pessoa" aria-label="Nome da pessoa" className={inputCls} autoFocus />
+            <div>
+              <input value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))}
+                placeholder="Usuário (ex.: maria)" aria-label="Usuário" className={inputCls} />
+              {form.usuario && (
+                <p className="text-[11px] text-gray-600 mt-1">
+                  Login: <strong className="text-polo-navy">{limpar(form.usuario)}.{casa}</strong>
+                </p>
+              )}
+            </div>
+            <input type="text" value={form.senha} onChange={e => setForm(f => ({ ...f, senha: e.target.value }))}
+              placeholder="Senha inicial (mín. 6)" aria-label="Senha inicial" className={inputCls} />
+            <select value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))}
+              aria-label="Cargo" className={`${inputCls} bg-white`}>
+              {cargos.filter(c => c.base !== 'diretoria').map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+            {/* ⚠️ A senha aparece em texto: quem digita é o DONO, para outra
+                pessoa, e ele precisa anotar. Esconder aqui só faria ele errar
+                e não saber o que entregar. */}
+            <p className="text-[11px] text-gray-600">
+              Anote a senha antes de salvar — você entrega ela à pessoa, e depois só dá para trocar por outra.
+            </p>
+            <div className="flex gap-2">
+              <Botao onClick={criar} disabled={ocupado} className="flex-1">
+                {ocupado ? 'Criando…' : 'Criar conta'}
+              </Botao>
+              <button onClick={() => setCriando(false)} className="text-xs text-gray-600 px-3">Cancelar</button>
+            </div>
           </div>
         )}
       </div>
