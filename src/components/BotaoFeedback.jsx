@@ -5,8 +5,8 @@ import { supabase } from '../lib/supabase';
 import Icon from './Icons';
 
 // Canal de feedback do cliente (bug ou sugestão) direto pelo app.
-// Guia o cliente a descrever direito — o que esperava, o que aconteceu e como
-// repetir — e envia direto para a aba do super-admin (RPC enviar_feedback),
+// Guia o cliente a descrever direito e envia para a aba do super-admin (RPC
+// enviar_feedback),
 // com o contexto técnico (cargo, navegador) que facilita o conserto/análise.
 // text-gray-900 é essencial: o modal é filho do cabeçalho (texto branco) e sem
 // isto os campos herdam cor branca — o texto digitado fica invisível no fundo branco.
@@ -20,15 +20,12 @@ export default function BotaoFeedback() {
   const [tipo, setTipo] = useState('bug'); // 'bug' | 'sugestao' | 'pedido'
   // bug
   const [onde, setOnde] = useState('');
-  const [esperava, setEsperava] = useState('');
   const [aconteceu, setAconteceu] = useState('');
-  const [repetir, setRepetir] = useState('');
   // sugestão
   const [ideia, setIdeia] = useState('');
   const [porque, setPorque] = useState('');
   // pedido — mudanças que a Aurum precisa autorizar (hoje: o nome do
   // estabelecimento, que sai impresso na etiqueta e identifica a conta)
-  const [pedidoNome, setPedidoNome] = useState('');
   const [pedidoMotivo, setPedidoMotivo] = useState('');
   // Conversa: o que este restaurante já enviou e o que a Aurum respondeu
   const [conversa, setConversa] = useState([]);
@@ -121,23 +118,25 @@ export default function BotaoFeedback() {
     try { return navigator.userAgent.replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim().slice(0, 60); }
     catch { return '—'; }
   })();
-  const limpar = () => { setOnde(''); setEsperava(''); setAconteceu(''); setRepetir(''); setIdeia(''); setPorque(''); setPedidoNome(''); setPedidoMotivo(''); };
+  const limpar = () => { setOnde(''); setAconteceu(''); setIdeia(''); setPorque(''); setPedidoMotivo(''); };
 
   const enviar = async () => {
     const dados = tipo === 'bug'
-      ? { onde, esperava, aconteceu, repetir }
+      ? { onde, aconteceu }
       : tipo === 'pedido'
         // ⚠️ O NOME ATUAL VAI JUNTO. Sem ele o pedido chega como "mudar para
         // X" e a equipe não sabe qual conta é — o nome é justamente o que
         // identifica o restaurante no painel, e ele é o que vai mudar.
-        ? { pedido: 'nome do estabelecimento', de: sessao?.restauranteNome || '', para: pedidoNome, motivo: pedidoMotivo }
+        // O nome atual e o produto viajam junto: sem eles a equipe recebe
+        // "quero mudar o plano" sem saber de qual conta nem de qual plano.
+        ? { pedido: pedidoMotivo, casaHoje: sessao?.restauranteNome || '', plano: sessao?.produto || '' }
         : { ideia, porque };
     // ⚠️ O pedido tem validação PRÓPRIA. A checagem genérica abaixo olha se
     // TODO campo está vazio, e `dados.pedido` já vem preenchido pelo código —
     // então um pedido sem o nome novo passaria batido e chegaria à equipe
     // dizendo apenas "quero mudar o nome", sem dizer para quê.
-    if (tipo === 'pedido' && !pedidoNome.trim()) {
-      toast('Escreva como o nome deve ficar.', 'aviso'); return;
+    if (tipo === 'pedido' && !pedidoMotivo.trim()) {
+      toast('Escreva o que você precisa.', 'aviso'); return;
     }
     const vazio = Object.values(dados).every(v => !String(v || '').trim());
     if (vazio) { toast('Escreva pelo menos um campo antes de enviar.', 'aviso'); return; }
@@ -233,9 +232,11 @@ export default function BotaoFeedback() {
                   const corpo = lista.map(f => {
                     const d = f.dados || {};
                     const abertura = f.tipo === 'bug'
+                      // esperava/repetir existiam no formulario antigo: assunto ja
+                      // enviado continua com eles, e sumir aqui apagaria o relato.
                       ? [d.onde, d.esperava, d.aconteceu, d.repetir].filter(Boolean).join(' · ')
                       : f.tipo === 'pedido'
-                        ? `Mudar o nome para "${d.para || '—'}"`
+                        ? (d.pedido || '—')
                         : [d.ideia, d.porque].filter(Boolean).join(' · ');
                     const falas = Array.isArray(f.mensagens) ? f.mensagens : [];
                     const encerrado = f.status === 'resolvido';
@@ -322,54 +323,48 @@ export default function BotaoFeedback() {
 
             {tipo === 'bug' ? (
               <div className="space-y-3">
+                {/* ⚠️ ERAM QUATRO PERGUNTAS E VIRARAM DUAS. "Como repetir" pedia
+                    um roteiro numerado de quem está no meio do serviço com o
+                    pote na mão — e quase sempre voltava vazio ou repetindo a
+                    anterior. Ela virou parte da pergunta principal, que é onde
+                    a pessoa já ia escrever isso naturalmente. */}
                 <p className="text-xs text-gray-500">
-                  Quanto mais detalhes, mais rápido a gente resolve. Preencha o que der:
+                  Escreva do seu jeito. Quanto mais detalhe, mais rápido a gente resolve.
                 </p>
                 <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">Onde aconteceu</span>
-                  <input className={campo} value={onde} onChange={e => setOnde(e.target.value)} placeholder="Ex.: Registrar → Produção" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">O que você esperava</span>
-                  <textarea className={campo} rows={2} value={esperava} onChange={e => setEsperava(e.target.value)} placeholder="Ex.: salvar a produção" />
+                  <span className="text-xs font-semibold text-gray-600">Em que tela aconteceu</span>
+                  <input className={campo} value={onde} onChange={e => setOnde(e.target.value)}
+                    placeholder="Onde você estava quando deu errado" />
                 </label>
                 <label className="block">
                   <span className="text-xs font-semibold text-gray-600">O que aconteceu</span>
-                  <textarea className={campo} rows={2} value={aconteceu} onChange={e => setAconteceu(e.target.value)} placeholder="Ex.: deu erro / travou / salvou duplicado" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">Como repetir</span>
-                  <textarea className={campo} rows={2} value={repetir} onChange={e => setRepetir(e.target.value)} placeholder="Ex.: 1) abri Produção 2) toquei em salvar 3) ..." />
+                  <textarea className={campo} rows={4} value={aconteceu} onChange={e => setAconteceu(e.target.value)}
+                    placeholder={'Conte o que você fez, o que o app fez, e o que você esperava que acontecesse.\n\nSe souber repetir, diga como.'} />
                 </label>
               </div>
             ) : tipo === 'pedido' ? (
-              /* ⚠️ O NOME NÃO SE MUDA SOZINHO, e isto não é limitação técnica.
-                 Ele sai IMPRESSO no rodapé de toda etiqueta e identifica o
-                 estabelecimento no contrato e na cobrança: conta que se
-                 renomeia sozinha vira outra conta aos olhos de quem dá
-                 suporte. O pedido chega à Aurum com o nome de ANTES junto,
-                 senão não dá para saber de quem é. */
+              /* ⚠️ ABA DE PEDIDO, não "formulário de trocar nome". Ela nasceu para
+                 o nome do estabelecimento e ficou presa nisso — mas o que ela
+                 resolve é qualquer alteração que dependa da Aurum: plano, vagas
+                 de usuário, dados de cobrança, reativação. O primeiro texto
+                 explicava a limitação técnica para o cliente, que não tem nada
+                 a ver com isso; o que ele precisa saber é o que pedir e o que
+                 vai acontecer depois. */
               <div className="space-y-3">
                 <p className="text-xs text-gray-500">
-                  O nome do estabelecimento sai impresso nas etiquetas. Por isso a troca passa
-                  pela equipe Aurum — a gente confere e muda para você.
+                  Alterações que dependem da equipe Aurum: nome do estabelecimento, mudança de
+                  plano, mais vagas de usuário, dados de cobrança.
                 </p>
-                <div className="bg-gray-50 rounded-lg px-3 py-2">
-                  <p className="text-[11px] text-gray-600">Hoje está como</p>
-                  <p className="text-sm font-semibold text-polo-navy">{sessao?.restauranteNome || '—'}</p>
-                </div>
                 <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">Como deve ficar</span>
-                  <input className={campo} maxLength={60} value={pedidoNome}
-                    onChange={e => setPedidoNome(e.target.value)}
-                    placeholder="Nome correto, do jeito que deve sair na etiqueta" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold text-gray-600">Por quê (opcional)</span>
-                  <textarea className={campo} rows={2} value={pedidoMotivo}
+                  <span className="text-xs font-semibold text-gray-600">O que você precisa</span>
+                  <textarea className={campo} rows={4} value={pedidoMotivo}
                     onChange={e => setPedidoMotivo(e.target.value)}
-                    placeholder="Ex.: erro de digitação no cadastro / o restaurante mudou de nome" />
+                    placeholder="Descreva o pedido. Se for troca de nome, escreva exatamente como deve sair na etiqueta." />
                 </label>
+                <p className="text-[11px] text-gray-600">
+                  Seguem junto o nome atual do estabelecimento e os dados da conta — você não
+                  precisa repetir nada disso.
+                </p>
               </div>
             ) : (
               <div className="space-y-3">

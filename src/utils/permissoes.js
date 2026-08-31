@@ -20,6 +20,16 @@
 // =====================================================================
 
 // Capacidades que a diretoria pode conceder/retirar. `grupo` só organiza a UI.
+//
+// ⚠️ `etiquetas: true` marca o que EXISTE no plano Aurum Etiquetas. Sem essa
+// marca a tela de acessos daquele plano oferecia relatório, inventário,
+// remover lançamentos e ver custos — telas que a conta nem comprou. Ligar
+// qualquer uma não mudava nada, e o dono ficava procurando onde apareceria o
+// relatório que ele acabou de liberar. Permissão para tela que não existe não
+// é inofensiva: é uma promessa falsa dentro da tela de configuração.
+//
+// O texto de cada uma também muda com o plano: no Etiquetas não há "produtos e
+// receitas" nem "destinos de saída", há itens e etiqueta.
 export const CAPACIDADES = [
   { id: 'removerRegistros',  grupo: 'Operação', label: 'Remover lançamentos do histórico',
     desc: 'Apagar entradas, saídas, produções e compras já registradas.' },
@@ -30,9 +40,15 @@ export const CAPACIDADES = [
   { id: 'verAuditoria',      grupo: 'Gestão',   label: 'Ver histórico de mudanças',
     desc: 'Trilha de tudo que cada pessoa fez no sistema.' },
   { id: 'gerenciarProdutos', grupo: 'Gestão',   label: 'Cadastrar e editar produtos e receitas',
-    desc: 'Criar/alterar itens do estoque, fichas e rendimento.' },
+    desc: 'Criar/alterar itens do estoque, fichas e rendimento.',
+    etiquetas: true,
+    labelEtiquetas: 'Cadastrar e editar itens',
+    descEtiquetas: 'Criar, alterar e remover os itens que a casa etiqueta, com prazo e armazenamento.' },
   { id: 'configurarSistema', grupo: 'Gestão',   label: 'Configurar o sistema',
-    desc: 'Destinos de saída, etiquetas, mín/máx automático e demais ajustes.' },
+    desc: 'Destinos de saída, etiquetas, mín/máx automático e demais ajustes.',
+    etiquetas: true,
+    labelEtiquetas: 'Abrir a Administração',
+    descEtiquetas: 'Mexer no armazenamento, nos campos da etiqueta, nos responsáveis e nos dados do estabelecimento.' },
   { id: 'verFinanceiro',     grupo: 'Financeiro', label: 'Ver custos e preços',
     desc: 'Custo de insumo, valor do estoque e curva ABC.',
     duro: true },
@@ -40,6 +56,16 @@ export const CAPACIDADES = [
     desc: 'Mostra "R$ 340 no lixo este mês" para a equipe, sem abrir a tabela de custos. O servidor calcula e devolve só o total — a quebra por item revelaria o custo de cada insumo.',
     duro: true },
 ];
+
+/** As capacidades que fazem sentido no produto contratado, já com o texto dele. */
+export function capacidadesDoProduto(soEtiquetas) {
+  if (!soEtiquetas) return CAPACIDADES;
+  return CAPACIDADES.filter(c => c.etiquetas).map(c => ({
+    ...c,
+    label: c.labelEtiquetas || c.label,
+    desc: c.descEtiquetas || c.desc,
+  }));
+}
 
 // Padrão por cargo — reproduz EXATAMENTE o modelo hierárquico anterior
 // (cozinha operacional; gerência com gestão). Se permissoes não trouxer

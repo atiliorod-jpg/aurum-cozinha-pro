@@ -76,6 +76,10 @@ export default function Admin() {
   // Histórico de UM restaurante por vez: carregar de todos de uma vez seria
   // centenas de linhas para uma tela que se olha uma vez por mês.
   const [historico, setHistorico] = useState(null); // { id, itens, carregando, erro } | null
+  // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
+  // viram uma parede de rolagem e o painel deixa de ser consultável.
+  const [aberto, setAberto] = useState('');
+  const [abaFb, setAbaFb] = useState('abertos'); // abertos | respondidos | resolvidos
   const navigate = useNavigate();
   const [restaurantes, setRestaurantes] = useState([]);
   const [carregando,   setCarregando]   = useState(true);
@@ -350,6 +354,22 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
     carregarHistorico(r); // a versão que estava lá virou mais uma linha do histórico
   };
 
+  // ⚠️ PERGUNTA ANTES, sempre. Apagar leva a conversa junto e não tem volta —
+  // e o botão fica ao lado de "marcar resolvido", que é inofensivo. Um toque
+  // errado no tablet não pode custar o histórico de um cliente.
+  const apagarFeedback = async (fb) => {
+    const ok = await confirm({
+      titulo: 'Apagar este feedback?',
+      mensagem: `De "${fb.restaurante_nome || '—'}". A conversa some junto e não dá para recuperar.\n\nSe é só para tirar da frente, use Marcar resolvido.`,
+      perigo: true, confirmar: 'Apagar',
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('apagar_feedback', { p_id: fb.id });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setFeedbacks(prev => prev.filter(f => f.id !== fb.id));
+    toast('Feedback apagado.', 'sucesso');
+  };
+
   const mudarMax = async (r, novoMax) => {
     const { error } = await supabase.rpc('definir_max_usuarios', { p_restaurante: r.id, p_max: novoMax });
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
@@ -477,12 +497,37 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
 
               {!carregandoFeedback && !erroFeedback && feedbacks.length === 0 && (
                 <p className="px-4 py-3 text-xs text-gray-500 border-t border-gray-50">
-                  Nenhum cliente enviou feedback ainda. O botão fica no rodapé do app deles.
+                  Nenhum cliente enviou feedback ainda. O botão fica no topo do app deles.
                 </p>
               )}
 
+              {/* ⚠️ TRÊS SITUAÇÕES, TRÊS ABAS. A lista corrida misturava o que
+                  ainda precisa de resposta com o que já foi resolvido meses
+                  atrás — e o que precisa de atenção some no meio. "Respondidos"
+                  é a fila de espera: já falamos, o cliente ainda não encerrou. */}
+              <div className="flex gap-1.5 px-4 py-2 border-t border-gray-50">
+                {[['abertos', 'Precisam de resposta'], ['respondidos', 'Aguardando o cliente'], ['resolvidos', 'Resolvidos']]
+                  .map(([id, l]) => {
+                    const n = feedbacks.filter(f => (
+                      id === 'resolvidos' ? f.status === 'resolvido'
+                        : id === 'respondidos' ? f.status !== 'resolvido' && !!f.resposta
+                        : f.status !== 'resolvido' && !f.resposta)).length;
+                    return (
+                      <button key={id} onClick={() => setAbaFb(id)}
+                        className={`flex-1 text-[11px] font-semibold py-1.5 rounded-lg
+                          ${abaFb === id ? 'bg-polo-navy text-polo-gold' : 'text-gray-600 bg-gray-50'}`}>
+                        {l} ({n})
+                      </button>
+                    );
+                  })}
+              </div>
+
               <div className="divide-y divide-gray-50">
-                {feedbacks.map(fb => {
+                {feedbacks.filter(f => (
+                  abaFb === 'resolvidos' ? f.status === 'resolvido'
+                    : abaFb === 'respondidos' ? f.status !== 'resolvido' && !!f.resposta
+                    : f.status !== 'resolvido' && !f.resposta
+                )).map(fb => {
                   const d = fb.dados || {};
                   const linhas = fb.tipo === 'bug'
                     ? [['Onde', d.onde], ['Esperava', d.esperava], ['Aconteceu', d.aconteceu], ['Repetir', d.repetir]]
@@ -559,6 +604,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             <button onClick={() => marcarFeedback(fb, 'novo')}
                               className="text-[11px] font-semibold text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1">Reabrir</button>
                           )}
+                          <button onClick={() => apagarFeedback(fb)}
+                            className="text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1">Apagar</button>
                         </div>
                       )}
                     </div>
@@ -648,9 +695,22 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <BadgeProduto produto={r.produto} />
                       <BadgeStatus st={st} />
+                      {/* ⚠️ RECOLHIDO POR PADRÃO. Cada cartão tem cadastro,
+                          histórico, produto, assinatura, notas e suporte —
+                          com dezenas de clientes, tudo aberto vira uma parede
+                          de rolagem e o painel deixa de ser consultável. O que
+                          fica sempre à vista é o que se procura: nome, plano e
+                          situação. */}
+                      <button onClick={() => setAberto(aberto === r.id ? '' : r.id)}
+                        aria-expanded={aberto === r.id}
+                        aria-label={`${aberto === r.id ? 'Fechar' : 'Abrir'} ${r.nome}`}
+                        className="text-[11px] font-bold text-polo-navy border border-gray-300 rounded px-2 py-1">
+                        {aberto === r.id ? 'fechar' : 'abrir'}
+                      </button>
                     </div>
                   </div>
 
+                  {aberto === r.id && (<>
                   {/* Aviso de pagamento (o cliente tocou "Já paguei") */}
                   {r.aviso_pagamento_em && (
                     <div className="px-4 py-2 bg-polo-gold/15 border-b border-polo-gold/30 flex items-center justify-between gap-2">
@@ -884,6 +944,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       </p>
                     )}
                   </div>
+                  </>)}
                 </div>
               );
             })}

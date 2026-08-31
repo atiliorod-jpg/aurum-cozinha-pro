@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import Botao from '../Botao';
 import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
-import { CAPACIDADES, PERMISSOES_PADRAO, cargosDaCasa } from '../../utils/permissoes';
+import { CAPACIDADES, PERMISSOES_PADRAO, cargosDaCasa, capacidadesDoProduto } from '../../utils/permissoes';
 
 export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
   // eslint-disable-next-line react-hooks/purity -- a hora atual é insumo legítimo do prazo de 24h; recalcular a cada render é o comportamento desejado
@@ -538,7 +538,11 @@ export function CartaoContas({
  * "ver custos" num cargo criado por ele e o servidor continuaria recusando,
  * sem erro visível em lugar nenhum.
  */
-export function CartaoCargos({ permissoes, setPermissoes, usuarios, toast, confirm }) {
+export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas = false, toast, confirm }) {
+  // ⚠️ Só o que EXISTE neste produto. A tela oferecia relatório, inventário e
+  // custos no plano Etiquetas — ligar não mudava nada, e o dono ficava
+  // procurando onde apareceria o relatório que acabou de liberar.
+  const caps = capacidadesDoProduto(soEtiquetas);
   const [abrindo, setAbrindo] = useState('');      // id do cargo aberto
   const [novoNome, setNovoNome] = useState('');
   const [novaBase, setNovaBase] = useState('cozinha');
@@ -673,7 +677,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, toast, confi
             </div>
             {abrindo === cargo.id && (
               <div className="px-3 pb-3 space-y-1.5 border-t border-gray-100 pt-2">
-                {CAPACIDADES.map(cap => (
+                {caps.map(cap => (
                   <div key={cap.id} className="flex items-start justify-between gap-3">
                     <span id={`${cargo.id}-${cap.id}`} className="min-w-0">
                       <span className="block text-xs text-gray-800">{cap.label}</span>
@@ -733,7 +737,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, toast, confi
                   {excecoes > 0 && <span className="ml-1 font-normal text-gray-500">· com exceções</span>}
                 </summary>
                 <div className="px-3 pb-3 space-y-1.5 border-t border-gray-100 pt-2">
-                  {CAPACIDADES.map(cap => (
+                  {caps.map(cap => (
                     <div key={cap.id} className="flex items-center justify-between gap-3">
                       <span id={`${u.id}-${cap.id}`} className="text-xs text-gray-800 min-w-0">{cap.label}</span>
                       <Chave id={`${u.id}-${cap.id}`} ligado={valorDaConta(u, cap.id)}

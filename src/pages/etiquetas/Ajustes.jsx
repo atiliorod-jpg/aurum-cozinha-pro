@@ -143,7 +143,7 @@ export default function Ajustes() {
           que ele alcança são a mesma tarefa, e separá-las fazia o dono criar
           uma conta e sair da tela sem nunca ver as permissões. */}
       <CartaoCargos permissoes={permissoes} setPermissoes={setPermissoes}
-        usuarios={usuarios} toast={toast} confirm={confirm} />
+        usuarios={usuarios} soEtiquetas toast={toast} confirm={confirm} />
 
       <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />
 
