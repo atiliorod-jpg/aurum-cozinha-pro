@@ -51,6 +51,14 @@ export function UIProvider({ children }) {
   }, []);
   const fecharEtiquetas = useCallback(() => setEtiquetaState(null), []);
 
+  // ⚠️ ABRIR A AJUDA DE OUTRA TELA. O botão de Ajuda mora no Layout e guardava
+  // o estado dele sozinho, então nada no app conseguia dizer "abre aí, na aba
+  // de pedido". Mandar a pessoa "procurar o botão no topo" é o tipo de
+  // instrução que se lê e não se cumpre. `null` = ninguém pediu.
+  const [ajudaPedida, setAjudaPedida] = useState(null); // 'bug' | 'sugestao' | 'pedido'
+  const abrirAjuda = useCallback((tipo = 'pedido') => setAjudaPedida(tipo), []);
+  const fecharAjuda = useCallback(() => setAjudaPedida(null), []);
+
   useEffect(() => {
     if (!confirmState) return;
     const handler = (e) => { if (e.key === 'Escape') fecharConfirm(false); };
@@ -116,7 +124,7 @@ export function UIProvider({ children }) {
   }, [toast]);
 
   return (
-    <UIContext.Provider value={{ toast, confirm, etiquetaState, abrirEtiquetas, fecharEtiquetas, temDialogoAberto: !!confirmState || !!etiquetaState }}>
+    <UIContext.Provider value={{ toast, confirm, etiquetaState, abrirEtiquetas, fecharEtiquetas, ajudaPedida, abrirAjuda, fecharAjuda, temDialogoAberto: !!confirmState || !!etiquetaState }}>
       {children}
 
       {/* Toasts */}

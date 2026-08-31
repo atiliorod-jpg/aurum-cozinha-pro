@@ -77,7 +77,13 @@ export default function Login() {
   const [aguardandoEmail, setAguardandoEmail] = useState('');
   const [reenviando, setReenviando] = useState(false);
   // Captura de contato antes da demonstração
-  const [querDemo, setQuerDemo] = useState(false);
+  // ⚠️ O LINK COMERCIAL (?produto=etiquetas) JÁ ABRE A DEMONSTRAÇÃO. Antes ele
+  // só pré-selecionava o cadastro: quem tocava no link do WhatsApp caía na
+  // tela de entrada normal, com o nome e a frase do OUTRO produto no topo, e
+  // tinha que achar sozinho o botão de demonstração e escolher o plano de novo.
+  // O comentário do código dizia que "o cliente cai já na demonstração" — não
+  // caía. Agora cai.
+  const [querDemo, setQuerDemo] = useState(!!produtoDaURL);
   const [demoNome, setDemoNome] = useState('');
   const [demoFone, setDemoFone] = useState('');
 
@@ -166,8 +172,20 @@ export default function Login() {
         <div className="text-center mb-8">
           <img src={`${import.meta.env.BASE_URL}logo-aurum.png`} alt="Aurum Serviços Gastronômicos"
             className="w-32 h-32 mx-auto rounded-3xl ring-1 ring-polo-gold/30 shadow-2xl object-cover mb-5" />
-          <h1 className="text-2xl font-bold text-polo-gold">Aurum Cozinha Pro</h1>
-          <p className="text-white/85 text-sm mt-1">Produção interna e estoque de cozinha profissional</p>
+          {/* ⚠️ QUEM VEM PELO LINK DE ETIQUETAS LÊ O NOME DE ETIQUETAS. A tela
+              anunciava "Aurum Cozinha Pro — Produção interna e estoque" para
+              quem tinha acabado de ser convencido a comprar impressão de
+              etiqueta: nome de outro produto e uma frase sobre estoque, que é
+              justamente o que ele não está levando. Sem parâmetro na URL fica a
+              chamada da casa, que cobre os dois. */}
+          <h1 className="text-2xl font-bold text-polo-gold">
+            {produtoDaURL ? PRODUTOS[produtoDaURL].label : 'Aurum'}
+          </h1>
+          <p className="text-white/85 text-sm mt-1">
+            {produtoDaURL
+              ? 'Etiquetas de validade para cozinha profissional'
+              : 'Etiquetas de validade e controle de cozinha profissional'}
+          </p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 space-y-3 shadow-2xl">

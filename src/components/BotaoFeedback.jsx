@@ -14,10 +14,16 @@ const campo = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-g
 
 export default function BotaoFeedback() {
   const { sessao } = useAuth();
-  const { toast, confirm } = useUI();
+  const { toast, confirm, ajudaPedida, abrirAjuda, fecharAjuda } = useUI();
   const [enviando, setEnviando] = useState(false);
-  const [aberto, setAberto] = useState(false);
-  const [tipo, setTipo] = useState('bug'); // 'bug' | 'sugestao' | 'pedido'
+  // ⚠️ ABERTURA E ABA VIVEM NO CONTEXTO, como `etiquetaState` — não em estado
+  // local. Não é preferência: outras telas precisam abrir a Ajuda já na aba
+  // certa (o cartão do plano completo faz isso), e a ponte por efeito seria
+  // setState em cascata dentro de efeito, que é o que o comentário do `abrir`
+  // logo abaixo já mandava evitar. Derivando do contexto, quem abre define o
+  // tipo no próprio toque.
+  const aberto = !!ajudaPedida;
+  const tipo = ajudaPedida || 'bug'; // 'bug' | 'sugestao' | 'pedido'
   // bug
   const [onde, setOnde] = useState('');
   const [aconteceu, setAconteceu] = useState('');
@@ -30,6 +36,11 @@ export default function BotaoFeedback() {
   // Conversa: o que este restaurante já enviou e o que a Aurum respondeu
   const [conversa, setConversa] = useState([]);
   const [aba, setAba] = useState('novo'); // 'novo' | 'conversa'
+
+  // ⚠️ ABERTO DE OUTRA TELA. O cartão do plano completo, por exemplo, precisa
+  // trazer a pessoa para cá já na aba certa — "procure o botão de Ajuda no
+  // topo" é instrução que se lê e não se cumpre.
+
   const [resposta, setResposta] = useState({}); // { [id]: texto } — rascunho por assunto
   const [enviandoResp, setEnviandoResp] = useState('');
 
@@ -64,10 +75,10 @@ export default function BotaoFeedback() {
 
   useEffect(() => {
     if (!aberto) return;
-    const onEsc = (e) => { if (e.key === 'Escape') setAberto(false); };
+    const onEsc = (e) => { if (e.key === 'Escape') fecharAjuda(); };
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
-  }, [aberto]);
+  }, [aberto, fecharAjuda]);
 
   // Abriu com resposta pendente? Cai direto na conversa — quem tem resposta
   // esperando não quer o formulário em branco na frente.
@@ -75,7 +86,7 @@ export default function BotaoFeedback() {
   // síncrono em cascata, e aqui a informação já existe no momento do toque.
   const abrir = () => {
     setAba(naoLidas > 0 ? 'conversa' : 'novo');
-    setAberto(true);
+    abrirAjuda('bug');
     carregarConversa();
   };
 
@@ -145,7 +156,7 @@ export default function BotaoFeedback() {
     // Sai como AVISO, não como sucesso: um toast verde depois de a pessoa
     // escrever tudo é lido como "enviado", e o feedback nunca existiu. O
     // banner dentro do formulário avisa antes de digitar.
-    if (sessao?.demo) { toast('Demonstração: nada foi enviado de verdade.', 'aviso'); limpar(); setAberto(false); return; }
+    if (sessao?.demo) { toast('Demonstração: nada foi enviado de verdade.', 'aviso'); limpar(); fecharAjuda(); return; }
 
     setEnviando(true);
     const contexto = `${sessao?.cargo || '?'} · ${navegador}`;
@@ -155,7 +166,7 @@ export default function BotaoFeedback() {
     toast('Enviado. A resposta aparece aqui mesmo, na aba Ajuda.', 'sucesso', { duracao: 6000 });
     limpar();
     carregarConversa();
-    setAberto(false);
+    fecharAjuda();
   };
 
   return (
@@ -179,13 +190,13 @@ export default function BotaoFeedback() {
 
       {aberto && (
         <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-3 print:hidden"
-          onClick={() => setAberto(false)}>
+          onClick={fecharAjuda}>
           <div role="dialog" aria-modal="true" aria-label="Relatar problema ou sugestão"
             className="bg-white text-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-polo-navy">Falar com a equipe Aurum</h2>
-              <button onClick={() => setAberto(false)} aria-label="Fechar" className="text-gray-600 text-xl leading-none">✕</button>
+              <button onClick={fecharAjuda} aria-label="Fechar" className="text-gray-600 text-xl leading-none">✕</button>
             </div>
 
             {sessao?.demo && (
@@ -313,7 +324,7 @@ export default function BotaoFeedback() {
             {/* Tipo */}
             <div className="flex gap-2 mb-3">
               {[['bug', 'Problema'], ['sugestao', 'Sugestão'], ['pedido', 'Pedido']].map(([v, l]) => (
-                <button key={v} onClick={() => setTipo(v)}
+                <button key={v} onClick={() => abrirAjuda(v)}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2
                     ${tipo === v ? 'border-polo-gold bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-500'}`}>
                   {l}

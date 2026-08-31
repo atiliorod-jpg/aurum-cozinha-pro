@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { PRODUTOS_BASE, PESSOAS_BASE, DESTINOS_APARA, CATEGORIAS_BASE } from '../data/produtos';
 import { FICHAS_BASE } from '../data/fichas';
-import { gerarDemoSeed } from '../data/demo';
+import { gerarDemoSeed, PRODUTOS_DEMO_ETIQUETAS, PREFS_DEMO_ETIQUETAS } from '../data/demo';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { consumoComoSaidas } from '../utils/turno';
 import { conciliarAuditoria } from '../utils/auditoria';
@@ -775,14 +775,20 @@ export function AppProvider({ children }) {
       // módulos gravavam no mesmo lugar. kc() mantém a Finalização lendo o
       // catálogo da Produção, que é o comportamento correto.
       const seed = gerarDemoSeed(tipoBase(moduloEfetivo));
-      // ⚠️ A demo do plano Etiquetas comeca com "Meus itens" VAZIO, igual a uma
-      // conta nova de verdade. E de proposito: e assim que o cliente vai
-      // receber o app, e a demonstracao que vende e justamente buscar na
-      // biblioteca, conferir a ficha e imprimir em poucos toques. Mostrar um
-      // catalogo de carnes que nao e dele venderia uma tela que ele nunca vera.
-      // As categorias ficam, senao o primeiro cadastro nao tem onde classificar.
+      // ⚠️ A demo do plano Etiquetas tem CATÁLOGO PRÓPRIO, curto — quatro itens
+      // e o estabelecimento completo (ver PRODUTOS_DEMO_ETIQUETAS, onde está o
+      // porquê de cada um). Não é o catálogo do plano completo: picanha em
+      // PORÇÃO com estoque e lote é tela que esta conta nunca vai ver.
+      // As categorias da biblioteca inteira ficam, senão o primeiro cadastro do
+      // visitante não tem onde ser classificado.
       const c = soEtiqRef.current
-        ? { ...seed.catalogos, produtos: [], categorias: [...CATEGORIAS_BIBLIOTECA], etiquetasAvulsas: [] }
+        ? {
+            ...seed.catalogos,
+            produtos: PRODUTOS_DEMO_ETIQUETAS,
+            categorias: [...CATEGORIAS_BIBLIOTECA],
+            etiquetasAvulsas: [],
+            prefs: { ...seed.catalogos.prefs, ...PREFS_DEMO_ETIQUETAS },
+          }
         : seed.catalogos;
       // O seed de movimentos vale só para a instância RAIZ. Uma instância criada
       // pelo visitante tem que começar VAZIA — herdar as entradas e saídas de

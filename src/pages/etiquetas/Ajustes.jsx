@@ -29,7 +29,7 @@ export default function Ajustes() {
           permissoes, setPermissoes } = useApp();
   const { sessao, logout, usuarios, criarConta, trocarSenhaDe, removerConta,
           desativarUsuario, reativarUsuario, definirApelido } = useAuth();
-  const { toast, confirm } = useUI();
+  const { toast, confirm, abrirAjuda } = useUI();
   const [novaPessoa, setNovaPessoa] = useState('');
 
   const st = statusAssinatura(sessao);
@@ -109,12 +109,21 @@ export default function Ajustes() {
         </div>
       </div>
 
-      {/* Upgrade — some quando a conta já é completa */}
+      {/* Upgrade — some quando a conta já é completa.
+          ⚠️ DUAS TELAS DIZIAM COISAS DIFERENTES SOBRE O MESMO PLANO: o cadastro
+          mostrava o Cozinha Pro cinza, com selo "em breve" e sem poder ser
+          escolhido, e aqui dentro ele era vendido por R$399 com botão "Quero o
+          plano completo". Quem tocasse estaria pedindo o que ainda não dá para
+          entregar. Enquanto `emBreve` estiver ligado, o cartão anuncia sem
+          prometer — e o toque vira PEDIDO, que chega na aba Ajuda e vale como
+          fila de interessados para o dia em que abrir. */}
       {prod.id === 'etiquetas' && (
         <div className="bg-polo-navy rounded-xl p-4 mb-4 space-y-3">
-          <div>
-            <p className="text-sm font-bold text-polo-gold">Mudar para o Aurum Cozinha Pro</p>
-            <p className="text-xs text-white/80 mt-0.5">R$ {PRODUTOS.completo.precoMes}/mês</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-bold text-polo-gold">O Aurum Cozinha Pro</p>
+            {PRODUTOS.completo.emBreve
+              ? <span className="text-[10px] font-bold text-polo-navy bg-polo-gold rounded-full px-2 py-0.5 flex-shrink-0">em breve</span>
+              : <span className="text-xs text-white/80 flex-shrink-0">R$ {PRODUTOS.completo.precoMes}/mês</span>}
           </div>
           <ul className="text-xs text-white/90 space-y-1">
             <li>Estoque com entradas, saídas e contagem</li>
@@ -124,9 +133,15 @@ export default function Ajustes() {
           <p className="text-[11px] text-white/70">
             Seus itens e etiquetas continuam onde estão.
           </p>
-          <Link to="/pagamento" className="block">
-            <Botao variante="sobreNavy" tamanho="sm">Quero o plano completo</Botao>
-          </Link>
+          {PRODUTOS.completo.emBreve ? (
+            <Botao variante="sobreNavy" tamanho="sm" onClick={() => abrirAjuda('pedido')}>
+              Quero saber quando abrir
+            </Botao>
+          ) : (
+            <Link to="/pagamento" className="block">
+              <Botao variante="sobreNavy" tamanho="sm">Quero o plano completo</Botao>
+            </Link>
+          )}
         </div>
       )}
 

@@ -227,3 +227,55 @@ function seedFinalizacao() {
     },
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────
+//  DEMONSTRAÇÃO DO AURUM ETIQUETAS
+//
+//  ⚠️ COMEÇOU VAZIA, DE PROPÓSITO, e agora começa com QUATRO itens — também
+//  de propósito. O raciocínio antigo estava certo pela metade: a demonstração
+//  que vende é mesmo buscar na biblioteca, conferir a ficha e imprimir em
+//  poucos toques, e um catálogo cheio de carne que não é do cliente rouba esse
+//  momento. Só que a tela vazia também não mostrava NADA funcionando — nem a
+//  etiqueta, que é o produto. Quatro itens abrem a tela viva e ainda deixam
+//  257 na biblioteca para a pessoa buscar na frente do cliente.
+//
+//  ⚠️ OS QUATRO NÃO SÃO ALEATÓRIOS: cada um mostra uma coisa que o produto
+//  faz e que não dá para explicar falando.
+//    • Picanha  — congelado 180d E refrigerado 3d: o mesmo item com prazo
+//                 diferente conforme onde está guardado
+//    • Molho    — preparado da casa, o teto de 90 dias que não é o da carne crua
+//    • Mussarela— data de ABERTURA, não de manipulação
+//    • Frango   — o caso comum, para a lista não parecer uma vitrine
+//
+//  ⚠️ E O ESTABELECIMENTO VEM COMPLETO. Sem CNPJ e endereço o rodapé da
+//  etiqueta saía com uma linha só e um vazio de quatro linhas no papel — quem
+//  assistia à demonstração via uma etiqueta incompleta e concluía, com razão,
+//  que era assim que ela sairia. CNPJ 11.222.333/0001-81 é o de teste
+//  conhecido: tem dígito verificador válido e não é de ninguém.
+// ─────────────────────────────────────────────────────────────────────
+const etq = (id, nome, categoria, unidade, armazenamentoPadrao, prazos, tipoData = 'fabricacao') => ({
+  // `bib_` é o mesmo id que a biblioteca gera ao adicionar — assim os quatro
+  // aparecem como "já tenho" lá, em vez de virarem gêmeos se alguém adicionar.
+  id: `bib_${id}`, nome, categoria, unidade, ativo: true,
+  armazenamentoPadrao, prazos, tipoData,
+  valCongelado: prazos.congelado || 0, valResfriado: prazos.resfriado || 0,
+  estoqueInicial: 0, min: 0, max: 0, marca: '', sif: '', medidaPadrao: '',
+});
+
+export const PRODUTOS_DEMO_ETIQUETAS = [
+  etq('picanha_porcao', 'Picanha (porção)', 'BOVINOS', 'unid', 'congelado', { congelado: 180, refrigerado: 3 }),
+  etq('frango_desfiado', 'Frango desfiado', 'AVES', 'kg', 'refrigerado', { congelado: 90, refrigerado: 3 }),
+  etq('molho_de_tomate_da_casa', 'Molho de tomate da casa', 'MOLHOS E PREPARADOS', 'L', 'refrigerado', { congelado: 90, refrigerado: 3 }),
+  etq('queijo_mussarela', 'Queijo mussarela', 'LATICÍNIOS E FRIOS', 'kg', 'refrigerado', { refrigerado: 3 }, 'abertura'),
+];
+
+export const PREFS_DEMO_ETIQUETAS = {
+  responsavel: 'Maria',
+  estabelecimento: {
+    cnpj: '11.222.333/0001-81',
+    endereco: 'Av. Domingos Ferreira, 1200',
+    cidade: 'Recife - PE',
+    cep: '51020-000',
+  },
+};
+
