@@ -13,6 +13,7 @@ import { fmtNum, fmtData, hoje } from '../utils/formatters';
 import { somaPorUnidade } from '../utils/relatorios';
 import CalculadoraProducao from '../components/CalculadoraProducao';
 import GuideTour from '../components/GuideTour';
+import BoasVindasCompleto from '../components/BoasVindasCompleto';
 import { temRecurso } from '../utils/modulos';
 import { acharArmazenamento } from '../utils/armazenamento';
 import { pode } from '../utils/permissoes';
@@ -132,6 +133,10 @@ export default function Dashboard() {
 
   return (
     <Layout title="Início">
+      {/* Quem acabou de subir de plano vê primeiro o que falta fazer: o guia
+          do turno pede produção e saída, e sem contagem nenhuma das duas
+          significa coisa alguma no estoque. */}
+      <BoasVindasCompleto />
       {/* O guia do turno vive AQUI, não no Layout: é o progresso do dia. */}
       <GuideTour />
       {/* Resumo do dia */}

@@ -92,3 +92,21 @@ export function produtoAtivo(sessao, impersonando = null) {
 
 /** Atalho de leitura para as telas: esta conta é do produto menor? */
 export const soEtiquetas = (produto) => produto === 'etiquetas';
+
+/**
+ * O que gravar nas prefs quando o produto da conta muda debaixo do cliente.
+ *
+ * ⚠️ A conta sobe de plano no painel do super-admin, longe do cliente: do lado
+ * dele o app amanhece com telas novas e o estoque zerado. Marcar a virada é o
+ * que deixa o app dizer "seus itens estão aqui, falta a quantidade" em vez de
+ * parecer que o cadastro se perdeu.
+ *
+ * `visto` desconhecido (conta que nunca gravou a marca) só REGISTRA onde está:
+ * sem isso, o primeiro deploy daria boas-vindas de upgrade a todo mundo.
+ * Devolve `null` quando não há nada a gravar.
+ */
+export function marcaDeUpgrade(visto, atual, data) {
+  if (!atual || visto === atual) return null;
+  if (visto === 'etiquetas' && atual === 'completo') return { produtoVisto: atual, upgradeEm: data };
+  return { produtoVisto: atual };
+}

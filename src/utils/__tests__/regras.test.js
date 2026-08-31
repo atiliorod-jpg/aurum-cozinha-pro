@@ -20,7 +20,7 @@ import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlob
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
-import { produtoTem, produtoAtivo } from '../produto';
+import { produtoTem, produtoAtivo, marcaDeUpgrade } from '../produto';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
 import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM } from '../tspl';
@@ -3027,5 +3027,30 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
     // fonte 2 = 12 pontos por caractere; 120 pontos = 10 caracteres
     expect(cortarParaLargura('ABCDEFGHIJKLM', 2, 1, 120)).toHaveLength(10);
     expect(cortarParaLargura('ABC', 2, 1, 120)).toBe('ABC');
+  });
+});
+
+describe('marca de upgrade (etiquetas → completo)', () => {
+  it('sobe de plano: grava a marca E a data, que é o que faz o aviso aparecer', () => {
+    expect(marcaDeUpgrade('etiquetas', 'completo', '2026-08-31'))
+      .toEqual({ produtoVisto: 'completo', upgradeEm: '2026-08-31' });
+  });
+
+  it('conta que nunca gravou a marca só REGISTRA onde está — sem data', () => {
+    // Sem isto, o primeiro deploy daria "bem-vindo ao completo" para todo mundo.
+    expect(marcaDeUpgrade(undefined, 'completo', '2026-08-31')).toEqual({ produtoVisto: 'completo' });
+  });
+
+  it('nada mudou: não grava nada', () => {
+    expect(marcaDeUpgrade('completo', 'completo', '2026-08-31')).toBeNull();
+    expect(marcaDeUpgrade('etiquetas', 'etiquetas', '2026-08-31')).toBeNull();
+  });
+
+  it('descer de plano registra, mas não dá boas-vindas', () => {
+    expect(marcaDeUpgrade('completo', 'etiquetas', '2026-08-31')).toEqual({ produtoVisto: 'etiquetas' });
+  });
+
+  it('produto ainda desconhecido não grava (evita marcar antes de hidratar)', () => {
+    expect(marcaDeUpgrade('etiquetas', undefined, '2026-08-31')).toBeNull();
   });
 });

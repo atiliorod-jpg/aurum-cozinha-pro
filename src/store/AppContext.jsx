@@ -13,10 +13,11 @@ import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
 import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
-import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
+import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 import { armazenamentosAtivos, comEspelhoDePrazos } from '../utils/armazenamento';
+import { hoje } from '../utils/formatters';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
 const CAT = {
@@ -635,6 +636,35 @@ export function AppProvider({ children }) {
     if (mudou) setProdutos(next);
     setPref('gramaturasMigradas', true);
   }, [fichas, produtos, prefs.gramaturasMigradas, setProdutos, setPref]);
+
+  // ⚠️ QUEM ACABOU DE SUBIR DE PLANO PRECISA SABER O QUE FALTA. A conta muda
+  // de `etiquetas` para `completo` no painel, longe do cliente: do lado dele o
+  // app simplesmente amanhece com telas novas e o estoque todo zerado — o que
+  // parece perda de dado, e não é. Os itens estão lá; ninguém disse a
+  // quantidade ainda, porque no plano anterior isso não existia.
+  //
+  // Só marca a virada quando o produto ANTERIOR era conhecido: conta antiga,
+  // que nunca gravou `produtoVisto`, apenas registra onde está — senão todo
+  // mundo receberia "bem-vindo ao completo" no primeiro deploy.
+  //
+  // ⚠️ Não roda no modo suporte: quem está vendo é o super-admin, e a marca
+  // ficaria gravada nas prefs do CLIENTE por causa de uma visita.
+  const upgradeRef = useRef(false);
+  useEffect(() => {
+    if (upgradeRef.current || !rid || impersonando || sessao?.demo) return;
+    // ⚠️ SÓ DECIDE COM AS PREFS REAIS NA MÃO. Este efeito é declarado ANTES do
+    // de hidratação, então na primeira passada `prefs` ainda é o padrão — e
+    // decidir ali gravaria `produtoVisto: 'completo'` por cima da marca antiga,
+    // engolindo o aviso justamente de quem acabou de subir de plano. Aparelho
+    // novo tem o cache vazio: aí não decide nada e espera a nuvem, que ao
+    // chegar muda `prefs` e traz o efeito de volta.
+    if (cacheGet(rid, 'prefs', null) === null) return;
+    const marca = marcaDeUpgrade(prefs.produtoVisto, produtoAtivo(sessao, null), hoje());
+    upgradeRef.current = true;
+    // ⚠️ setPrefs (plural), não dois setPref: o segundo leria as prefs pelo
+    // ref, que só é atualizado no efeito seguinte, e apagaria o primeiro.
+    if (marca) setPrefs(marca);
+  }, [rid, sessao, impersonando, prefs, setPrefs]);
 
   // ⚠️ MIGRAÇÃO ÚNICA: as etiquetas avulsas viram itens do catálogo.
   // Eram uma segunda lista para a mesma pergunta — "o que eu etiqueto?" — e a
