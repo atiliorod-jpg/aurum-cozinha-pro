@@ -81,3 +81,17 @@ export function traduzErroAuth(msg) {
   // inesperado" genérico apaga a única pista que existia.
   return msg || 'Erro inesperado.';
 }
+
+// ── O último erro que derrubou uma tela ───────────────────────
+//
+// ⚠️ MORA AQUI, e não junto da BarreiraDeErro, por uma razão boba e real: um
+// arquivo de componente que exporta função solta quebra o recarregamento
+// automático do Vite em desenvolvimento. A barreira grava, este lado lê.
+export const CHAVE_ULTIMO_ERRO = 'aurum_ultimo_erro';
+
+/** O último erro guardado, para a aba Ajuda mandar junto com o recado. */
+export const ultimoErroGuardado = () => {
+  try { return JSON.parse(localStorage.getItem(CHAVE_ULTIMO_ERRO) || 'null'); }
+  catch { return null; }
+};
+

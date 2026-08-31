@@ -7,7 +7,8 @@ import { useApp } from '../store/AppContext';
 import { estabelecimentoDe } from '../utils/instancias';
 import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
-import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas } from '../utils/etiquetas';
+import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas,
+         DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL } from '../utils/tspl';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL } from '../lib/impressoraBLE';
@@ -644,13 +645,25 @@ export default function EtiquetaPrint() {
                         </label>
                         <Dica texto="Vem do cadastro do item. Mude se a embalagem deste lote disser outro prazo." />
                       </div>
-                      <input id={`ep-dias-${idx}`} type="number" inputMode="numeric" min="0"
+                      {/* ⚠️ TETO NO CAMPO E CORTE NO CÓDIGO. O `max` sozinho não
+                          segura nada: o navegador deixa digitar 18000 e só
+                          reclama em formulário validado, que aqui não existe.
+                          Quem garante é `limitarDias`. */}
+                      <input id={`ep-dias-${idx}`} type="number" inputMode="numeric"
+                        min="0" max={DIAS_VALIDADE_MAX}
                         value={item.diasOverride ?? ''}
                         placeholder={String(diasDoCadastro(item) || 0)}
-                        onChange={e => setItem(idx, { diasOverride: e.target.value })}
+                        onChange={e => setItem(idx, { diasOverride: limitarDias(e.target.value) })}
                         className={inputCls} />
                     </div>
                   </div>
+                  {/* Prazo que destoa do cadastrado — aviso, nunca bloqueio:
+                      lote com prazo diferente do padrão é caso real. */}
+                  {avisoDePrazo(item.diasOverride, diasDoCadastro(item)) && (
+                    <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                      {avisoDePrazo(item.diasOverride, diasDoCadastro(item))}
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     {config.campos.valOriginal !== false && <div>
                       <div className="mb-0.5">

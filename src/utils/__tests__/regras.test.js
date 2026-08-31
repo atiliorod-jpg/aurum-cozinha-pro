@@ -21,6 +21,7 @@ import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
 import { produtoTem, produtoAtivo, marcaDeUpgrade } from '../produto';
+import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX } from '../etiquetas';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
 import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM } from '../tspl';
@@ -3052,5 +3053,67 @@ describe('marca de upgrade (etiquetas → completo)', () => {
 
   it('produto ainda desconhecido não grava (evita marcar antes de hidratar)', () => {
     expect(marcaDeUpgrade('etiquetas', undefined, '2026-08-31')).toBeNull();
+  });
+});
+
+describe('prazo digitado na hora de imprimir', () => {
+  // ⚠️ O CASO REAL: o campo não tinha teto e 18000 imprimia validade em 2075,
+  // numa etiqueta colada em pote de comida. Foi reproduzido no navegador.
+  it('corta no teto — o dedo que erra não imprime validade em 2075', () => {
+    expect(limitarDias('18000')).toBe(String(DIAS_VALIDADE_MAX));
+    expect(limitarDias('1800')).toBe(String(DIAS_VALIDADE_MAX));
+  });
+
+  it('deixa passar o que é plausível', () => {
+    expect(limitarDias('180')).toBe('180');
+    expect(limitarDias('3')).toBe('3');
+    expect(limitarDias(String(DIAS_VALIDADE_MAX))).toBe(String(DIAS_VALIDADE_MAX));
+  });
+
+  it('vazio continua vazio — é o que faz cair no prazo do cadastro', () => {
+    expect(limitarDias('')).toBe('');
+    expect(limitarDias(null)).toBe('');
+    expect(limitarDias('abc')).toBe('');
+  });
+
+  it('negativo vira zero, que é etiqueta sem validade (identificação só)', () => {
+    expect(limitarDias('-5')).toBe('0');
+  });
+
+  // ⚠️ A régua do aviso é o prazo que A CASA cadastrou, nunca um número
+  // sanitário inventado por nós: quem valida processo é o estabelecimento.
+  it('avisa quando o digitado é muito maior que o cadastrado', () => {
+    // ⚠️ O item de prazo CURTO é onde esta régua trabalha: 3 dias de produto
+    // aberto virando 30 é o erro que o teto de 365 nunca pegaria.
+    expect(avisoDePrazo('30', '3')).toMatch(/acima do prazo cadastrado \(3 dias\)/);
+    expect(avisoDePrazo('90', '12')).toMatch(/acima do prazo cadastrado/);
+  });
+
+  it('num item de prazo longo quem segura é o teto, não o múltiplo', () => {
+    // 3 × 180 = 540, acima do teto — então o campo já cortou em 365 antes de
+    // chegar aqui, e é a mensagem do teto que a pessoa vê. Testado junto para
+    // deixar registrado que as duas regras se cobrem e não se atrapalham.
+    expect(limitarDias('1800')).toBe('365');
+    expect(avisoDePrazo(limitarDias('1800'), '180')).toMatch(/é o máximo/);
+  });
+
+  it('não avisa por estender um lote dentro do razoável', () => {
+    expect(avisoDePrazo('200', '180')).toBeNull();
+    expect(avisoDePrazo('9', '3')).toBeNull();   // exatamente 3x ainda passa
+    expect(avisoDePrazo('180', '180')).toBeNull();
+  });
+
+  it('sem prazo cadastrado não há régua, então não há aviso', () => {
+    expect(avisoDePrazo('90', 0)).toBeNull();
+    expect(avisoDePrazo('90', undefined)).toBeNull();
+  });
+
+  it('no teto, avisa mesmo sem cadastro — é onde o erro de digitação para', () => {
+    expect(avisoDePrazo(String(DIAS_VALIDADE_MAX), 0)).toMatch(/é o máximo/);
+  });
+
+  it('zero e vazio não geram aviso nenhum', () => {
+    expect(avisoDePrazo('0', '180')).toBeNull();
+    expect(avisoDePrazo('', '180')).toBeNull();
   });
 });

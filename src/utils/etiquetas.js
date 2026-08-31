@@ -277,3 +277,42 @@ export const gramasDeMedida = (txt) => {
   if (!Number.isFinite(n)) return 0;
   return m[2] === 'kg' ? Math.round(n * 1000) : Math.round(n);
 };
+
+// ── Prazo digitado na hora de imprimir ────────────────────────
+//
+// ⚠️ O CAMPO NÃO TINHA TETO, e isso saía impresso em papel colado no pote.
+// Digitando 18000 a etiqueta vencia em 12/12/2075, sem um aviso sequer. O dedo
+// que erra e digita 1800 no lugar de 180 é o caso real, e ninguém confere uma
+// data de cinco anos à frente porque ninguém espera que ela exista.
+//
+// ⚠️ E O AVISO NÃO INVENTA NÚMERO SANITÁRIO. A régua é o prazo que a PRÓPRIA
+// CASA cadastrou para aquele item naquele armazenamento: pular de 180 para
+// 1800 é dez vezes o que o responsável técnico validou. Chutar aqui um "máximo
+// saudável" seria a Aurum assinando prazo de alimento, que não é o nosso
+// papel — quem valida processo é o estabelecimento.
+export const DIAS_VALIDADE_MAX = 365;
+
+/** Corta o que a pessoa digitou no teto. Devolve texto, como o input espera. */
+export function limitarDias(valor) {
+  const txt = String(valor ?? '');
+  if (txt === '') return '';
+  const n = parseInt(txt, 10);
+  if (!Number.isFinite(n)) return '';
+  if (n < 0) return '0';
+  return String(Math.min(n, DIAS_VALIDADE_MAX));
+}
+
+/**
+ * Aviso quando o prazo digitado destoa do cadastrado. `null` = está tudo bem.
+ * Três vezes o cadastrado é o corte: cobre o erro de digitação (um zero a
+ * mais) sem incomodar quem legitimamente estende um lote.
+ */
+export function avisoDePrazo(digitado, doCadastro) {
+  const n = parseInt(digitado, 10);
+  const base = parseInt(doCadastro, 10);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (n >= DIAS_VALIDADE_MAX) return `${DIAS_VALIDADE_MAX} dias é o máximo. Confira o prazo.`;
+  if (!Number.isFinite(base) || base <= 0) return null;
+  if (n > base * 3) return `Bem acima do prazo cadastrado (${base} dias). Confira.`;
+  return null;
+}
