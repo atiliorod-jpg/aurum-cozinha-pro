@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { PRODUTOS, TESTE_DIAS } from '../utils/assinatura';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos, UFS } from '../utils/documentos';
+import { traduzErroAuth as traduz } from '../utils/erros';
 import { TERMOS_VERSAO } from './Termos';
 
 const campo = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm";
@@ -449,13 +450,4 @@ function Msg({ erro, info }) {
 }
 
 // Traduz mensagens comuns do Supabase para português
-function traduz(msg) {
-  const m = (msg || '').toLowerCase();
-  if (m.includes('invalid login')) return 'E-mail ou senha incorretos.';
-  if (m.includes('already registered') || m.includes('already been registered')) return 'Esse e-mail já tem conta. Use "Entrar".';
-  if (m.includes('email not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).';
-  if (m.includes('rate limit') || m.includes('too many')) return 'Muitas tentativas. Aguarde um momento e tente de novo.';
-  if (m.includes('password')) return 'Senha inválida (mínimo 8 caracteres).';
-  if (m.includes('network') || m.includes('fetch')) return 'Sem conexão com a internet.';
-  return msg || 'Erro inesperado.';
-}
+

@@ -25,6 +25,7 @@ import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
 import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM } from '../tspl';
 import { caminhosDeImpressao, ehCelular } from '../../lib/impressoraBLE';
+import { traduzErroAuth } from '../erros';
 import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
 import { crc16, montarPixBRCode } from '../pix';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../relatorios';
@@ -2662,6 +2663,41 @@ describe('validade que passa da do fornecedor', () => {
     // as demais continuam ligadas
     expect(ETIQUETA_CONFIG_PADRAO.campos.validade).toBe(true);
     expect(ETIQUETA_CONFIG_PADRAO.campos.armazenamento).toBe(true);
+  });
+});
+
+describe('Mensagens de autenticação em português', () => {
+  // ⚠️ A ORDEM DAS REGRAS E O QUE FAZ ISTO FUNCIONAR. "New password should be
+  // different" CONTEM a palavra "password", entao a regra generica de senha a
+  // transformaria em "Senha invalida (minimo 8 caracteres)" — mensagem errada,
+  // que manda a pessoa consertar o que ja estava certo.
+  it('a senha repetida não vira "senha inválida"', () => {
+    const r = traduzErroAuth('New password should be different from the old password.');
+    expect(r).toBe('A nova senha precisa ser diferente da atual.');
+  });
+
+  it('senha curta e senha fraca têm textos próprios', () => {
+    expect(traduzErroAuth('Password should be at least 8 characters')).toMatch(/curta/i);
+    expect(traduzErroAuth('Weak password: this is a top-10 password')).toMatch(/adivinhar/i);
+  });
+
+  // ⚠️ O NUMERO IMPORTA para quem esta esperando: "aguarde um momento" nao diz
+  // se sao 5 segundos ou 5 minutos.
+  it('a espera diz quantos segundos', () => {
+    expect(traduzErroAuth('For security purposes, you can only request this after 47 seconds'))
+      .toBe('Aguarde 47 segundos antes de pedir de novo.');
+  });
+
+  it('link velho é explicado, não mostrado cru', () => {
+    expect(traduzErroAuth('Auth session missing!')).toMatch(/Esqueci minha senha/);
+    expect(traduzErroAuth('Token has expired or is invalid')).toMatch(/expirou|nao e valido|não é válido/i);
+  });
+
+  // ⚠️ Mensagem desconhecida volta CRUA. Texto em ingles e feio, mas da para
+  // pesquisar e mandar ao suporte; "erro inesperado" apagaria a unica pista.
+  it('o que não conhecemos volta como veio', () => {
+    expect(traduzErroAuth('Something entirely new happened')).toBe('Something entirely new happened');
+    expect(traduzErroAuth('')).toBe('Erro inesperado.');
   });
 });
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../store/AuthContext';
+import { traduzErroAuth } from '../utils/erros';
 
 // Tela mostrada quando a pessoa clica no link de "esqueci minha senha" do e-mail,
 // ou quando escolhe trocar a senha estando logada.
@@ -19,7 +20,11 @@ export default function NovaSenha({ aoConcluir, titulo = 'Criar nova senha' }) {
     setCarregando(true);
     const err = await atualizarSenha(senha);
     setCarregando(false);
-    if (err) { setErro(err); return; }
+    // ⚠️ Traduzido. Esta tela mostrava o texto cru do Supabase — e "New
+    // password should be different from the old password." numa tela de senha
+    // parece defeito do sistema, então a pessoa tenta de novo em vez de mudar
+    // o que precisa mudar.
+    if (err) { setErro(traduzErroAuth(err)); return; }
     setInfo('Senha alterada com sucesso!');
     setSenha(''); setConfirma('');
     if (aoConcluir) setTimeout(aoConcluir, 900);
