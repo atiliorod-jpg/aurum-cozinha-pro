@@ -91,11 +91,14 @@ export default function Login() {
   const recuperar = async () => {
     limpar();
     if (!email) { setErro('Digite seu e-mail.'); return; }
+    // ⚠️ Barra aqui pelo TAMANHO, não pela validade: quem digitou 12 dígitos
+    // merece saber disso no campo, e não gastar uma das cinco tentativas.
+    if (cnpj.replace(/\D/g, '').length !== 14) { setErro('Digite o CNPJ do restaurante (14 dígitos).'); return; }
     setCarregando(true);
-    const err = await esqueceuSenha(email.trim());
+    const err = await esqueceuSenha(email.trim(), cnpj);
     setCarregando(false);
     if (err) setErro(traduz(err));
-    else setInfo('Enviamos um link de recuperação para o seu e-mail. Confira a caixa de entrada (e o spam).');
+    else setInfo('Enviamos um link para o seu e-mail. Confira a caixa de entrada e também o spam.');
   };
 
   // Passo 1 → 2. Barra aqui em vez de deixar descobrir no fim: quem digita
@@ -241,8 +244,19 @@ export default function Login() {
           {/* ESQUECI SENHA */}
           {modo === 'esqueci' && <>
             <h2 className="font-bold text-polo-navy">Recuperar senha</h2>
-            <p className="text-xs text-gray-500">Digite seu e-mail e enviaremos um link para criar uma nova senha.</p>
+            <p className="text-xs text-gray-500">
+              Confirme os dois dados do cadastro. O link vai para o e-mail do responsável pelo restaurante.
+            </p>
             <input type="email" aria-label="E-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="E-mail" className={campo} />
+            <input type="text" inputMode="numeric" aria-label="CNPJ do restaurante" value={cnpj}
+              onChange={e => setCnpj(formatarCNPJ(e.target.value))}
+              placeholder="CNPJ do restaurante" className={campo} />
+            {/* ⚠️ Quem tem conta de equipe precisa saber AQUI que este caminho
+                não é dele — o endereço interno dessas contas não tem caixa de
+                entrada, e o link nunca chegaria. */}
+            <p className="text-[11px] text-white/60 -mt-1">
+              Conta de funcionário não recupera por aqui: quem troca a senha dela é o dono, em Administração.
+            </p>
             <Msg erro={erro} info={info} />
             <button onClick={recuperar} disabled={carregando} className={botao}>{carregando ? 'Enviando…' : 'Enviar link'}</button>
             <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>

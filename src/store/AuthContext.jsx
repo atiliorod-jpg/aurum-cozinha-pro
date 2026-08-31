@@ -472,7 +472,34 @@ export function AuthProvider({ children }) {
   const limparDerrubado = useCallback(() => setDerrubado(false), []);
 
   // ── Esqueci minha senha (envia email de recuperação) ─────────
-  const esqueceuSenha = useCallback(async (email) => {
+  /**
+   * ⚠️ CONFERE E-MAIL + CNPJ ANTES DE MANDAR QUALQUER COISA.
+   *
+   * Antes bastava saber o e-mail de alguém para disparar um link de nova senha
+   * na caixa daquela pessoa. O link ia para o e-mail dela, então não era falha
+   * grave — era ruído que dá para eliminar. Com o CNPJ junto, quem não é da
+   * casa não consegue nem incomodar.
+   *
+   * ⚠️ A CONFERÊNCIA É NO BANCO, não aqui. Fazer no app seria trava de tela:
+   * bastaria chamar o Supabase direto. A função `recuperacao_permitida`
+   * devolve só true/false, nunca o nome do restaurante nem se o e-mail existe,
+   * e tem trava de tentativas — CNPJ é público, e sem ela exigir CNPJ viraria
+   * convite para varredura.
+   *
+   * ⚠️ SÓ A CONTA DONA. As contas de equipe entram com `maria.polobeer` e um
+   * endereço interno SEM CAIXA DE ENTRADA: link de recuperação para elas nunca
+   * chegaria. Quem troca a senha delas é o dono, em Administração → Contas da
+   * equipe. O banco devolve false para elas e a tela explica o caminho, em vez
+   * de mandar a pessoa esperar um e-mail que não vem.
+   */
+  const esqueceuSenha = useCallback(async (email, cnpj) => {
+    const { data: pode, error: eChecar } = await supabase
+      .rpc('recuperacao_permitida', { p_email: email, p_cnpj: cnpj });
+    if (eChecar) return eChecar.message;
+    if (!pode) {
+      return 'E-mail e CNPJ não conferem, ou esta conta não é a do responsável pelo restaurante. '
+        + 'Contas de equipe não recuperam senha por e-mail — quem troca é o dono, em Administração.';
+    }
     const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     return error?.message || null;
