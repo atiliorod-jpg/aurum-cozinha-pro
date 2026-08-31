@@ -12,7 +12,7 @@ import { POLO_PRESET } from '../data/presetPolo';
 import { fatorCorrecaoProduto } from '../utils/analise';
 import { pode, CAPACIDADES, permissoesEfetivas } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
-import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas } from '../components/config/CartoesConfig';
+import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas, CartaoContas } from '../components/config/CartoesConfig';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../utils/armazenamento';
 
@@ -785,8 +785,9 @@ export default function Configuracoes() {
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref, setPrefs,
           compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo, permissoes, setPermissoes } = useApp();
-  const { usuarios, sessao, criarConvite, alterarCargo, convites, carregarConvites, revogarConvite,
-          desativarUsuario, reativarUsuario } = useAuth();
+  const { usuarios, sessao, alterarCargo,
+          desativarUsuario, reativarUsuario,
+          criarConta, trocarSenhaDe, removerConta, definirApelido } = useAuth();
   const { toast, confirm } = useUI();
   const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
 
@@ -850,8 +851,6 @@ export default function Configuracoes() {
   // eslint-disable-next-line react-hooks/set-state-in-effect -- espelho de valor vindo do realtime
   useEffect(() => { setDiasMaxStr(String(prefs.diasMax || 6)); }, [prefs.diasMax]);
   const [novaCategoria, setNovaCategoria] = useState('');
-  const [conviteCargo, setConviteCargo] = useState('cozinha');
-  const [conviteGerado, setConviteGerado] = useState(null); // { token, cargo }
   const [editandoProducao, setEditandoProducao] = useState(null);
   const [criandoProducao, setCriandoProducao] = useState(false);
 
@@ -896,62 +895,15 @@ export default function Configuracoes() {
     toast('Destino adicionado.', 'sucesso');
   };
 
-  const maxUsuarios = sessao?.maxUsuarios || 3;
   const usuariosAtivos = usuarios.filter(u => u.ativo !== false);
   const usuariosInativos = usuarios.filter(u => u.ativo === false);
-  // vagas consideram usuários ATIVOS + convites pendentes (cada código reserva uma vaga)
-  const vagasRestantes = Math.max(0, maxUsuarios - usuariosAtivos.length - convites.length);
 
-  const handleGerarConvite = async () => {
-    if (vagasRestantes <= 0) {
-      toast(`Sem vagas: ${usuarios.length} usuário(s) + ${convites.length} convite(s) pendente(s) de ${maxUsuarios} no total. Revogue um convite ou remova um usuário.`, 'aviso');
-      return;
-    }
-    const token = await criarConvite(conviteCargo);
-    if (!token) { toast('Não foi possível gerar o convite (sem vagas ou sem conexão).', 'erro'); return; }
-    setConviteGerado({ token, cargo: conviteCargo });
-    logAudit('gerou convite de acesso', CARGOS.find(c => c.id === conviteCargo)?.label || conviteCargo);
-    toast('Convite gerado! Copie o código abaixo.', 'sucesso');
-  };
 
-  const copiarConvite = async () => {
-    if (!conviteGerado) return;
-    try { await navigator.clipboard.writeText(conviteGerado.token); toast('Código copiado!', 'sucesso'); }
-    catch { toast('Copie o código manualmente.', 'aviso'); }
-  };
 
   // Link direto: abre o app já no modo convite com o código preenchido
-  const linkConvite = (token) => `${window.location.origin}${import.meta.env.BASE_URL}?convite=${token}`;
 
-  const copiarLinkConvite = async () => {
-    if (!conviteGerado) return;
-    try { await navigator.clipboard.writeText(linkConvite(conviteGerado.token)); toast('Link copiado! Quem abrir já cai no cadastro com o código preenchido.', 'sucesso'); }
-    catch { toast('Copie o link manualmente.', 'aviso'); }
-  };
 
-  const compartilharWhatsApp = () => {
-    if (!conviteGerado) return;
-    const msg = encodeURIComponent(
-      `Você foi convidado para a equipe do ${sessao?.restauranteNome || 'restaurante'} no Aurum Cozinha Pro! 🍳
 
-` +
-      `Abra o link, toque em "Tenho um código de convite" e crie sua conta:
-${linkConvite(conviteGerado.token)}
-
-` +
-      `Código: ${conviteGerado.token} (válido por 7 dias)`);
-    window.open(`https://wa.me/?text=${msg}`, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleRevogarConvite = async (token) => {
-    const ok = await confirm({ titulo: 'Revogar convite', mensagem: 'Este código deixará de funcionar. Continuar?', perigo: true, confirmar: 'Revogar' });
-    if (!ok) return;
-    const erro = await revogarConvite(token);
-    if (erro) { toast(erro, 'erro'); return; }
-    if (conviteGerado?.token === token) setConviteGerado(null);
-    logAudit('revogou convite de acesso', '');
-    toast('Convite revogado.', 'sucesso');
-  };
   const [catAtiva, setCatAtiva] = useState('TODOS');
   const [editando, setEditando] = useState(null);
   const [criando, setCriando] = useState(false);
@@ -989,8 +941,6 @@ ${linkConvite(conviteGerado.token)}
   const abasVisiveis = ABAS.filter(([, , ok]) => ok);
   const abasDisponiveis = abasVisiveis.map(([v]) => v);
   const secaoAtiva = abasDisponiveis.includes(secao) ? secao : (abasDisponiveis[0] || 'produtos');
-  // Carrega os convites pendentes ao abrir a aba "Acessos"
-  useEffect(() => { if (secaoAtiva === 'acessos') carregarConvites(); }, [secaoAtiva, carregarConvites]);
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
   const planilhaRef = useRef(null);
@@ -1466,7 +1416,7 @@ ${linkConvite(conviteGerado.token)}
       <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
 
       {/* Etiquetas impressas */}
-      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} nomeRestaurante={sessao?.restauranteNome} />
+      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} nomeRestaurante={sessao?.restauranteNome} cnpjDaConta={sessao?.cnpj} />
 
       {/* ⚠️ O teste de Web Bluetooth que ficava aqui foi REMOVIDO — a pergunta
           dele já tem resposta, e é não. A MDK-022 fala Bluetooth CLÁSSICO
@@ -1659,63 +1609,24 @@ ${linkConvite(conviteGerado.token)}
         <div>
           <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Usuários e Acessos</p>
           <p className="text-xs text-gray-500 mt-1">
-            Cada pessoa entra com <strong>e-mail e senha próprios</strong>. Para dar acesso a alguém novo, gere um
-            código de convite, escolha o cargo e passe o código — a pessoa se cadastra sozinha na tela de login.
+            Você cria a conta e entrega o acesso. Pode ser uma pessoa ou um posto — “chef”, “cozinha”,
+            “noite”. Depois dá para trocar a senha, bloquear ou apagar a qualquer momento.
           </p>
         </div>
 
-        {/* Gerar convite */}
-        <p className="text-xs text-gray-500">
-          👥 Usuários <strong>{usuariosAtivos.length}/{maxUsuarios}</strong>
-          {convites.length > 0 && <> · {convites.length} convite(s) pendente(s)</>}
-          {' '}— {vagasRestantes > 0 ? `resta(m) ${vagasRestantes} vaga(s)` : 'sem vagas'}
-        </p>
-        <div className="flex gap-2">
-          <select value={conviteCargo} onChange={e => setConviteCargo(e.target.value)}
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-            {cargosAtribuiveis.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </select>
-          <button onClick={handleGerarConvite}
-            className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm whitespace-nowrap">+ Gerar convite</button>
-        </div>
-        {conviteGerado && (
-          <div className="bg-polo-beige border border-polo-gold/50 rounded-xl p-3 space-y-2">
-            <p className="text-xs text-polo-navy">
-              Código de convite ({CARGOS.find(c => c.id === conviteGerado.cargo)?.label}) — válido por 7 dias, uso único:
-            </p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-lg font-bold tracking-widest text-polo-navy text-center">
-                {conviteGerado.token}
-              </code>
-              <button onClick={copiarConvite}
-                className="bg-polo-navy text-polo-gold font-bold px-3 py-2 rounded-lg text-sm">Copiar</button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={compartilharWhatsApp}
-                className="bg-green-600 text-white font-bold py-2 rounded-lg text-xs">Enviar no WhatsApp</button>
-              <button onClick={copiarLinkConvite}
-                className="border border-polo-navy text-polo-navy font-bold py-2 rounded-lg text-xs">🔗 Copiar link direto</button>
-            </div>
-          </div>
-        )}
-
-        {/* Convites pendentes (não usados) — podem ser revogados */}
-        {convites.length > 0 && (
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold text-gray-500 mt-1">Convites pendentes ({convites.length})</p>
-            {convites.map(c => (
-              <div key={c.token} className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                <div className="min-w-0">
-                  <code className="text-xs font-bold tracking-wider text-polo-navy">{c.token}</code>
-                  <span className="text-[11px] text-gray-500 ml-2">{CARGOS.find(x => x.id === c.cargo)?.label || c.cargo}</span>
-                </div>
-                <button onClick={() => handleRevogarConvite(c.token)}
-                  aria-label={`Revogar convite ${c.token}`}
-                  className="text-red-600 text-[11px] font-semibold px-2 py-1 rounded hover:bg-red-100 flex-shrink-0">Revogar</button>
-              </div>
-            ))}
-          </div>
-        )}
+        {/* ⚠️ O CÓDIGO DE CONVITE SAIU, e ele estava QUEBRADO: a tela de
+            entrada deixou de ter o cadastro por código quando o dono passou a
+            criar as contas, mas esta parte continuou gerando códigos. Quem
+            gerasse um passaria à pessoa um código que não tinha mais onde ser
+            usado — e ninguém veria erro nenhum, dos dois lados.
+            Agora é a mesma criação de conta do plano Etiquetas. A lista de
+            usuários logo abaixo continua sendo a daqui, porque ela também
+            troca cargo. */}
+        <CartaoContas sessao={sessao} usuarios={usuarios} cargos={CARGOS}
+          criarConta={criarConta} trocarSenhaDe={trocarSenhaDe} removerConta={removerConta}
+          desativarUsuario={desativarUsuario} reativarUsuario={reativarUsuario}
+          definirApelido={definirApelido} toast={toast} confirm={confirm}
+          mostrarLista={false} />
 
         {/* Lista de usuários ativos */}
         <div className="space-y-1.5">

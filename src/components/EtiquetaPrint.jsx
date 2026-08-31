@@ -204,7 +204,11 @@ export default function EtiquetaPrint() {
   // despensa não tem congelado/resfriado: a etiqueta do seco não pergunta isso
   const comArmazenamento = temRecurso(modulo, 'armazenamento');
   const config = configEtiqueta(prefs);
-  const estabelecimento = prefs.estabelecimento || {};
+  // ⚠️ O CNPJ VEM DA CONTA, não da preferência. Ele identifica quem manipulou
+  // o alimento e não é editável pelo restaurante; contas que editaram esse
+  // campo quando ele era livre ainda têm um valor guardado, e sem esta linha o
+  // número antigo continuaria sendo impresso.
+  const estabelecimento = { ...(prefs.estabelecimento || {}), cnpj: sessao?.cnpj || prefs.estabelecimento?.cnpj || '' };
   // Estados de armazenamento configuráveis (Configurações → Sistema).
   const armazenamentos = armazenamentosAtivos(prefs);
 

@@ -172,7 +172,7 @@ export function AuthProvider({ children }) {
       // select completo → fallback progressivo p/ bancos sem as colunas novas
       let { data: rest, error: errRest } = await supabase
         .from('restaurantes')
-        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido')
+        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj')
         .eq('id', perfil.restaurante_id)
         .maybeSingle();
       if (errRest) {
@@ -219,6 +219,11 @@ export function AuthProvider({ children }) {
         // Segunda metade do login da equipe. Sem isto a tela de contas não
         // consegue mostrar "o login da Maria é maria.polobeer".
         apelido:          rest?.apelido || '',
+        // ⚠️ FONTE DA VERDADE DO CNPJ. Ele é o do CADASTRO, e é o que sai
+        // impresso no rodapé da etiqueta. Antes vivia numa preferência que o
+        // próprio restaurante editava — e CNPJ digitado errado numa etiqueta
+        // que viaja com o alimento é problema de fiscalização, não de tela.
+        cnpj:             rest?.cnpj || '',
         // Assinatura/teste (migration7) + limite/bloqueio (migration9)
         restauranteCriadoEm: rest?.created_at || null,
         assinaturaAte:    rest?.assinatura_ate || null,
@@ -702,8 +707,18 @@ export function AuthProvider({ children }) {
     const { error } = await supabase.auth.updateUser({ password: novaSenha });
     if (error) return error.message;
     setRecuperando(false);
+    // ⚠️ ENTRA NO APP, não só sai da tela. Quem chegou pelo link do e-mail já
+    // tem sessão válida, mas o perfil nunca foi carregado — o caminho da
+    // recuperação sai cedo justamente para mostrar a tela de senha. Sem esta
+    // parte, trocar a senha deixava a pessoa parada numa tela que não é mais
+    // nada: nem senha, nem app.
+    if (!sessao) {
+      const { data } = await supabase.auth.getSession();
+      const uid = data?.session?.user?.id;
+      if (uid) { carregadoRef.current = uid; carregarPerfil(uid); }
+    }
     return null;
-  }, [sessao?.demo]);
+  }, [sessao, carregarPerfil]);
 
   const temPermissao = useCallback((cargoMinimo) => {
     if (sessao?.eSuperAdmin) return true; // super-admin acessa tudo (inclusive em modo suporte)

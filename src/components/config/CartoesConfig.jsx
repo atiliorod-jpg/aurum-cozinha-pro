@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import Botao from '../Botao';
 import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
+import { formatarCNPJ } from '../../utils/documentos';
 import { CAPACIDADES, PERMISSOES_PADRAO, cargosDaCasa, capacidadesDoProduto } from '../../utils/permissoes';
 
 export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
@@ -176,7 +177,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
   );
 }
 
-export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeRestaurante = '' }) {
+export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeRestaurante = '', cnpjDaConta = '' }) {
   const cfg = configEtiqueta(prefs);
   // ⚠️ O TAMANHO SAIU DA TELA. Aqui havia dois campos de mm, e eles causavam um
   // defeito que só aparece no papel: o app dizia um tamanho, o driver da
@@ -202,7 +203,11 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
   const est = prefs.estabelecimento || {};
   const [estLocal, setEstLocal] = useState(est);
   const salvarEst = () => {
-    const limpo = Object.fromEntries(Object.entries(estLocal).map(([k, v]) => [k, (v || '').trim()]));
+    // ⚠️ O CNPJ SAI DAQUI NA GRAVAÇÃO. Contas que editaram esse campo quando
+    // ele era livre têm um valor guardado; deixá-lo passar faria o número
+    // antigo continuar indo para a etiqueta mesmo com o campo já travado.
+    const { cnpj: _ignorado, ...semCnpj } = estLocal;
+    const limpo = Object.fromEntries(Object.entries(semCnpj).map(([k, v]) => [k, (v || '').trim()]));
     setPref('estabelecimento', limpo);
     toast('Dados do estabelecimento salvos.', 'sucesso');
   };
@@ -269,11 +274,17 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">
+          {/* ⚠️ CNPJ NÃO SE EDITA AQUI. Ele vem do cadastro da conta e é o que sai
+              IMPRESSO no rodapé da etiqueta — o dado que identifica quem
+              manipulou o alimento para a fiscalização. Enquanto era um campo
+              livre, um erro de digitação (ou uma troca por engano) circulava
+              colado no pote, e ninguém tinha como saber que estava errado.
+              Mudar passa pela Aurum, como o nome do estabelecimento. */}
           <div>
-            <label htmlFor="est-cnpj" className="block text-[11px] text-gray-500 mb-0.5">CNPJ</label>
-            <input id="est-cnpj" type="text" value={estLocal.cnpj || ''} placeholder="00.000.000/0001-00"
-              onChange={e => setEstLocal(p => ({ ...p, cnpj: e.target.value }))}
-              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
+            <p className="text-[11px] text-gray-500 mb-0.5">CNPJ</p>
+            <p className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700">
+              {cnpjDaConta ? formatarCNPJ(cnpjDaConta) : '—'}
+            </p>
           </div>
           <div>
             <label htmlFor="est-cep" className="block text-[11px] text-gray-500 mb-0.5">CEP</label>
@@ -282,6 +293,10 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
               className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
           </div>
         </div>
+        <p className="text-[11px] text-gray-600">
+          O CNPJ vem do cadastro e não muda por aqui — ele identifica quem manipulou o alimento.
+          Para corrigir, use <strong>Ajuda → Pedido</strong>.
+        </p>
         <div>
           <label htmlFor="est-end" className="block text-[11px] text-gray-500 mb-0.5">Endereço</label>
           <input id="est-end" type="text" value={estLocal.endereco || ''} placeholder="Rua, número"
@@ -319,6 +334,11 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
 export function CartaoContas({
   sessao, usuarios, cargos, criarConta, trocarSenhaDe, removerConta,
   desativarUsuario, reativarUsuario, definirApelido, toast, confirm,
+  // ⚠️ O plano completo já tem a própria lista de usuários, com troca de
+  // cargo. Repetir a lista aqui mostraria as mesmas pessoas duas vezes na
+  // mesma tela, com botões diferentes em cada — o tipo de coisa que faz
+  // duvidar de qual das duas é a de verdade.
+  mostrarLista = true,
 }) {
   const [criando, setCriando] = useState(false);
   const [form, setForm] = useState({ usuario: '', senha: '', cargo: 'cozinha' });
@@ -430,7 +450,7 @@ export function CartaoContas({
         </p>
       )}
 
-      <div className="space-y-1.5">
+      <div className={`space-y-1.5 ${mostrarLista ? '' : 'hidden'}`}>
         {(usuarios || []).map(u => {
           const ehEu = u.id === sessao?.usuarioId;
           const dono = u.cargo === 'diretoria';

@@ -14,6 +14,13 @@
 // Antes de rodar, ponha no .env.local:
 //   RESEND_API_KEY=re_...
 //
+// ⚠️ SE FOR GRAVAR ESSA LINHA PELO POWERSHELL, cuidado com o `Set-Content
+// -Encoding utf8`: ele escreve um marcador invisível (BOM) no começo do
+// arquivo. O Node sobrevive (o `.trim()` engole o marcador), mas o Vite não —
+// a primeira variável vira um nome com lixo na frente, e o app quebra com
+// "supabaseUrl is required" sem nada apontar para o arquivo de ambiente.
+// Aconteceu aqui em 31/08/2026. Use `-Encoding utf8NoBOM`, ou grave pelo Node.
+//
 // Uso:
 //   node scripts/configurar-email.mjs            # confere e mostra o que fará
 //   node scripts/configurar-email.mjs --aplicar  # aplica
