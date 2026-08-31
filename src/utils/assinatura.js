@@ -81,12 +81,27 @@ export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
  *  { ok:true,  tipo:'teste', diasRestantes, ate }  — dentro do teste (TESTE_DIAS)
  *  { ok:false, tipo:'vencido' }                    — teste e assinatura vencidos
  *  { ok:false, tipo:'bloqueado' }                  — conta suspensa pelo administrador
+ *  { ok:true,  tipo:'cortesia', regime, ate }     — não paga, por decisão da Aurum
  *  { ok:true,  tipo:'isento' }                     — super-admin/demo/sem restaurante
  */
 export function statusAssinatura(sessao, agora = Date.now()) {
   if (!sessao?.restauranteId || sessao.eSuperAdmin || sessao.demo) return { ok: true, tipo: 'isento' };
   // bloqueio comercial (migração 9) passa por cima até de assinatura ativa
   if (sessao.bloqueado) return { ok: false, tipo: 'bloqueado' };
+  // ⚠️ CORTESIA VEM ANTES DA ASSINATURA, e a ordem é a regra: uma conta de
+  // cortesia que por acaso tenha data de assinatura em dia continua sendo
+  // cortesia. Se a assinatura ganhasse, a conta apareceria como pagante no
+  // painel e entraria na receita — que é exatamente o erro que o regime
+  // existe para evitar. Espelhado em restaurante_pode_escrever (M37): app e
+  // banco liberam pelo MESMO critério, senão o lançamento entra na fila
+  // offline e some sem erro na tela.
+  const regime = sessao.regime || 'pagante';
+  if (regime !== 'pagante') {
+    const ate = sessao.cortesiaAte ? new Date(sessao.cortesiaAte).getTime() : null;
+    if (!ate || ate > agora) return { ok: true, tipo: 'cortesia', regime, ate };
+    // Cortesia com prazo vencido volta a valer a régua normal — não bloqueia
+    // sozinha: a conta pode ter assinatura em dia por baixo.
+  }
   const assin = sessao.assinaturaAte ? new Date(sessao.assinaturaAte).getTime() : 0;
   if (assin > agora) return { ok: true, tipo: 'assinatura', ate: assin };
   const criado = sessao.restauranteCriadoEm ? new Date(sessao.restauranteCriadoEm).getTime() : agora;
@@ -107,5 +122,11 @@ export function statusRestaurante(rest, agora = Date.now()) {
     restauranteCriadoEm: rest?.created_at || null,
     assinaturaAte: rest?.assinatura_ate || null,
     bloqueado: !!rest?.bloqueado,
+    regime: rest?.regime || 'pagante',
+    cortesiaAte: rest?.cortesia_ate || null,
   }, agora);
 }
+
+/** Rótulo curto do regime, para o selo do painel. '' = cliente normal. */
+export const rotuloRegime = (regime) =>
+  regime === 'cortesia' ? 'Cortesia' : regime === 'parceiro' ? 'Parceiro' : '';

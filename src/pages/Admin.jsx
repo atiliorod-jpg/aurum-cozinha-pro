@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
-import { statusRestaurante, TESTE_DIAS, PLANOS, produtoDe, precoPlano, planoPorId } from '../utils/assinatura';
+import { statusRestaurante, TESTE_DIAS, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime } from '../utils/assinatura';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarTelefone, UFS } from '../utils/documentos';
@@ -88,7 +88,10 @@ export default function Admin() {
   const [uso, setUso] = useState(null); // { id, dados, carregando, erro } | null
   const [enviandoSenha, setEnviandoSenha] = useState('');
   // Abrir conta de cliente pelo painel. `null` = formulário fechado.
-  const [situacao, setSituacao] = useState('todos'); // todos|pagantes|teste|vencidos|bloqueados|etiquetas|completo
+  const [situacao, setSituacao] = useState('todos'); // todos|pagantes|teste|vencidos|bloqueados|cortesia|etiquetas|completo
+  const [cobrando, setCobrando] = useState(null);   // { id, valor, dias, plano, extras, valorExtras, obs } | null
+  const [regimeEdit, setRegimeEdit] = useState(null); // { id, regime, motivo, ate } | null
+  const [pagamentos, setPagamentos] = useState(null); // { id, itens, carregando, erro } | null
   const [novaConta, setNovaConta] = useState(null);
   const [criandoConta, setCriandoConta] = useState(false);
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
@@ -133,7 +136,7 @@ export default function Admin() {
       // ⚠️ cnpj/whatsapp/cidade/uf (M28) entram SÓ nesta primeira tentativa. A
       // cadeia de fallback abaixo existe para banco sem as colunas novas; pôr
       // as colunas lá também faria a queda em cascata falhar inteira.
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, regime, regime_motivo, cortesia_ate')
       .order('created_at', { ascending: false });
     if (errR) {
       // banco sem a migração 27: cai para o select de antes e todo mundo
@@ -233,6 +236,83 @@ export default function Admin() {
     const { error } = await supabase.rpc('marcar_feedback', { p_id: fb.id, p_status: status });
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
     setFeedbacks(prev => prev.map(x => x.id === fb.id ? { ...x, status } : x));
+  };
+
+  // ⚠️ UM TOQUE FAZ AS TRÊS COISAS: grava o pagamento, soma os dias e limpa o
+  // aviso. Antes eram dois botões separados (liberar dias / dispensar aviso) e
+  // o registro do dinheiro simplesmente não existia — a informação de que houve
+  // pagamento morria no momento em que o aviso era apagado.
+  const abrirCobranca = (r) => {
+    const plano = planoPorId(r.aviso_pagamento_plano || 'mensal');
+    setCobrando({
+      id: r.id,
+      // Valor e dias já vêm do plano que o cliente disse ter pago: é o número
+      // que tem que bater no extrato, e digitar de novo só cria divergência.
+      valor: String(precoPlano(plano, r.produto)),
+      dias: String(plano.dias),
+      plano: plano.id,
+      extras: '', valorExtras: '', obs: '',
+    });
+  };
+
+  const registrarPagamento = async (r) => {
+    const c = cobrando;
+    if (!c) return;
+    const valor = Number(String(c.valor).replace(',', '.')) || 0;
+    const dias = parseInt(c.dias, 10) || 0;
+    const extras = parseInt(c.extras, 10) || 0;
+    const valorExtras = Number(String(c.valorExtras).replace(',', '.')) || 0;
+    if (valor <= 0 && valorExtras <= 0) { toast('Digite o valor recebido.', 'aviso'); return; }
+    const ok = await confirm({
+      titulo: 'Registrar pagamento',
+      mensagem: `${r.nome}\n\nRecebido: ${brlAdmin(valor + valorExtras)}`
+        + (dias > 0 ? `\nAcesso liberado por mais ${dias} dia(s).` : '\nSem alterar a data de acesso.')
+        + '\n\nIsto fica registrado no histórico financeiro da conta.',
+      confirmar: 'Registrar',
+    });
+    if (!ok) return;
+    const { data, error } = await supabase.rpc('registrar_pagamento', {
+      p_restaurante: r.id, p_valor: valor, p_dias: dias, p_plano: c.plano,
+      p_meio: 'pix', p_contas_extras: extras, p_valor_extras: valorExtras,
+      p_observacao: c.obs || null, p_pago_em: null,
+    });
+    if (error) { toast('Erro ao registrar: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id
+      ? { ...x, assinatura_ate: data, aviso_pagamento_em: null, aviso_pagamento_plano: null, aviso_pagamento_nome: null }
+      : x));
+    setCobrando(null);
+    if (pagamentos?.id === r.id) carregarPagamentos(r);
+    toast(`✅ ${r.nome}: ${brlAdmin(valor + valorExtras)} registrado${dias > 0 ? `, acesso até ${dataBR(data)}` : ''}.`, 'sucesso');
+  };
+
+  const carregarPagamentos = async (r) => {
+    setPagamentos({ id: r.id, itens: [], carregando: true, erro: '' });
+    const { data, error } = await supabase.rpc('pagamentos_do_restaurante', { p_restaurante: r.id });
+    setPagamentos({ id: r.id, itens: data || [], carregando: false, erro: error?.message || '' });
+  };
+  const alternarPagamentos = (r) =>
+    pagamentos?.id === r.id ? setPagamentos(null) : carregarPagamentos(r);
+
+  // ⚠️ O MOTIVO É OBRIGATÓRIO fora de 'pagante' — a função no banco também
+  // exige. Cortesia sem motivo escrito é a conta que, seis meses depois,
+  // ninguém lembra por que não paga e ninguém tem coragem de voltar a cobrar.
+  const salvarRegime = async (r) => {
+    const e = regimeEdit;
+    if (!e) return;
+    if (e.regime !== 'pagante' && !e.motivo.trim()) { toast('Escreva o motivo.', 'aviso'); return; }
+    const { error } = await supabase.rpc('definir_regime', {
+      p_restaurante: r.id, p_regime: e.regime,
+      p_motivo: e.motivo || null,
+      p_ate: e.ate ? new Date(`${e.ate}T23:59:59`).toISOString() : null,
+    });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id ? {
+      ...x, regime: e.regime,
+      regime_motivo: e.regime === 'pagante' ? null : e.motivo.trim(),
+      cortesia_ate: e.regime === 'pagante' || !e.ate ? null : new Date(`${e.ate}T23:59:59`).toISOString(),
+    } : x));
+    setRegimeEdit(null);
+    toast(e.regime === 'pagante' ? 'Voltou a ser conta paga.' : `Agora é conta de ${e.regime}.`, 'sucesso');
   };
 
   const dispensarAviso = async (r) => {
@@ -604,12 +684,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
         {/* ══ OS NÚMEROS ═════════════════════════════════════════════ */}
         {!carregando && restaurantes.length > 0 && (
           <div className="bg-white border border-gray-100 rounded-xl px-4 py-3">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-2 gap-x-3">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-y-2 gap-x-3">
               {[
                 ['pagantes', 'Pagando', 'text-green-700'],
                 ['teste', 'Em teste', 'text-amber-700'],
                 ['vencidos', 'Vencidos', 'text-red-700'],
                 ['bloqueados', 'Suspensos', 'text-gray-700'],
+                ['cortesia', 'Cortesia', 'text-polo-navy'],
               ].map(([k, rotulo, cor]) => (
                 <button key={k} onClick={() => setSituacao(situacao === k ? 'todos' : k)}
                   className={`text-left rounded-lg px-2 py-1 -mx-2 ${situacao === k ? 'bg-polo-beige' : ''}`}>
@@ -992,6 +1073,16 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       <p className="text-[11px] text-gray-600 mt-0.5">Criado em {dataBR(r.created_at)}</p>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {/* ⚠️ O SELO DE CORTESIA VEM PRIMEIRO. Sem ele, a conta que
+                          a Aurum decidiu não cobrar fica visualmente idêntica a
+                          um cliente pagante — e é assim que alguém acaba
+                          cobrando quem não devia, ou contando como receita quem
+                          não paga. O motivo aparece no cartão aberto. */}
+                      {rotuloRegime(r.regime) && (
+                        <span className="text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 bg-polo-beige text-polo-navy border border-polo-gold">
+                          ⭐ {rotuloRegime(r.regime)}
+                        </span>
+                      )}
                       <BadgeProduto produto={r.produto} />
                       <BadgeStatus st={st} />
                       {/* ⚠️ RECOLHIDO POR PADRÃO. Cada cartão tem cadastro,
@@ -1029,6 +1120,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     <span>Assinatura até: <strong>{dataBR(r.assinatura_ate)}</strong></span>
                     <span>Usuários: <strong>{r.usuarios.length}/{maxU}</strong></span>
                     <span>Suporte: <strong>{r.suporteAtivo ? `ativo ~${restanteH}h${r.podeMexer ? ' (editar)' : ' (ver)'}` : '—'}</strong></span>
+                    {r.regime_motivo && (
+                      <span className="col-span-2 text-polo-navy">
+                        ⭐ {rotuloRegime(r.regime)}: {r.regime_motivo}
+                        {r.cortesia_ate ? ` — até ${dataBR(r.cortesia_ate)}` : ' — sem prazo'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Usuários (com e-mail quando a migração 9 está no banco) */}
@@ -1056,6 +1153,168 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             </span>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ══ FINANCEIRO ═════════════════════════════
+                      ⚠️ ANTES ISTO ERAM DOIS BOTÕES SOLTOS — "liberar 30 dias"
+                      e "dispensar aviso" — e o dinheiro não era registrado em
+                      lugar nenhum: a informação de que houve pagamento morria
+                      no instante em que o aviso era apagado. Agora um toque
+                      grava o pagamento, soma os dias e limpa o aviso (M37). */}
+                  <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {cobrando?.id !== r.id && (
+                        <button onClick={() => abrirCobranca(r)}
+                          className="text-[11px] font-bold text-white bg-green-700 rounded-lg px-2.5 py-1">
+                          💰 Registrar pagamento
+                        </button>
+                      )}
+                      <button onClick={() => alternarPagamentos(r)}
+                        className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                        {pagamentos?.id === r.id ? 'Fechar histórico' : '📒 Pagamentos'}
+                      </button>
+                      {regimeEdit?.id !== r.id && (
+                        <button onClick={() => setRegimeEdit({
+                          id: r.id, regime: r.regime || 'pagante',
+                          motivo: r.regime_motivo || '',
+                          ate: r.cortesia_ate ? String(r.cortesia_ate).slice(0, 10) : '',
+                        })}
+                          className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                          {rotuloRegime(r.regime) ? 'Mudar regime' : '⭐ Tornar cortesia'}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Registrar pagamento */}
+                    {cobrando?.id === r.id && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-2.5 space-y-2">
+                        <p className="text-[11px] font-bold text-green-900">Registrar pagamento</p>
+                        <div className="flex gap-2">
+                          {PLANOS.map(pl => (
+                            <button key={pl.id}
+                              onClick={() => setCobrando(v => ({ ...v, plano: pl.id, valor: String(precoPlano(pl, r.produto)), dias: String(pl.dias) }))}
+                              aria-pressed={cobrando.plano === pl.id}
+                              className={`flex-1 text-[11px] font-bold py-1.5 rounded border
+                                ${cobrando.plano === pl.id ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
+                              {pl.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label htmlFor={`pg-valor-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Valor recebido (R$)</label>
+                            <input id={`pg-valor-${r.id}`} type="text" inputMode="decimal" value={cobrando.valor}
+                              onChange={e => setCobrando(v => ({ ...v, valor: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          </div>
+                          <div>
+                            <label htmlFor={`pg-dias-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Libera quantos dias</label>
+                            <input id={`pg-dias-${r.id}`} type="number" min="0" max="400" value={cobrando.dias}
+                              onChange={e => setCobrando(v => ({ ...v, dias: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          </div>
+                        </div>
+                        {/* ⚠️ O ADICIONAL POR CONTA DE EQUIPE NÃO TEM PREÇO NO
+                            CÓDIGO, de propósito: o valor ainda não foi definido
+                            e é negociado caso a caso. Quem digita é quem cobra. */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label htmlFor={`pg-ex-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Contas extras</label>
+                            <input id={`pg-ex-${r.id}`} type="number" min="0" value={cobrando.extras} placeholder="0"
+                              onChange={e => setCobrando(v => ({ ...v, extras: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          </div>
+                          <div>
+                            <label htmlFor={`pg-exv-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Valor das extras (R$)</label>
+                            <input id={`pg-exv-${r.id}`} type="text" inputMode="decimal" value={cobrando.valorExtras} placeholder="0"
+                              onChange={e => setCobrando(v => ({ ...v, valorExtras: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          </div>
+                        </div>
+                        <input type="text" value={cobrando.obs} placeholder="Observação (opcional)"
+                          aria-label="Observação do pagamento"
+                          onChange={e => setCobrando(v => ({ ...v, obs: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                        <div className="flex gap-2">
+                          <button onClick={() => setCobrando(null)}
+                            className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-1.5 bg-white">Cancelar</button>
+                          <button onClick={() => registrarPagamento(r)}
+                            className="flex-1 text-[11px] font-bold text-white bg-green-700 rounded py-1.5">Registrar</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Regime da conta */}
+                    {regimeEdit?.id === r.id && (
+                      <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
+                        <p className="text-[11px] font-bold text-polo-navy">Regime da conta</p>
+                        <div className="flex gap-2">
+                          {[['pagante', 'Paga'], ['cortesia', 'Cortesia'], ['parceiro', 'Parceiro']].map(([v, l]) => (
+                            <button key={v} onClick={() => setRegimeEdit(x => ({ ...x, regime: v }))}
+                              aria-pressed={regimeEdit.regime === v}
+                              className={`flex-1 text-[11px] font-bold py-1.5 rounded border
+                                ${regimeEdit.regime === v ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                        {regimeEdit.regime !== 'pagante' && (<>
+                          <input type="text" value={regimeEdit.motivo}
+                            placeholder="Por que não paga? (obrigatório)" aria-label="Motivo da cortesia"
+                            onChange={e => setRegimeEdit(x => ({ ...x, motivo: e.target.value }))}
+                            className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          <div>
+                            <label htmlFor={`rg-ate-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">
+                              Até quando (deixe vazio para sem prazo)
+                            </label>
+                            <input id={`rg-ate-${r.id}`} type="date" value={regimeEdit.ate}
+                              onChange={e => setRegimeEdit(x => ({ ...x, ate: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          </div>
+                          <p className="text-[10px] text-gray-600">
+                            Conta de cortesia sai da fila de cobrança e não entra na receita.
+                          </p>
+                        </>)}
+                        <div className="flex gap-2">
+                          <button onClick={() => setRegimeEdit(null)}
+                            className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-1.5 bg-white">Cancelar</button>
+                          <button onClick={() => salvarRegime(r)}
+                            className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-1.5">Salvar</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Histórico de pagamentos */}
+                    {pagamentos?.id === r.id && (
+                      <div>
+                        {pagamentos.carregando && <p className="text-xs text-gray-600 animate-pulse">Carregando…</p>}
+                        {pagamentos.erro && (
+                          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">{pagamentos.erro}</p>
+                        )}
+                        {!pagamentos.carregando && !pagamentos.erro && pagamentos.itens.length === 0 && (
+                          <p className="text-xs text-gray-600">
+                            Nenhum pagamento registrado ainda. O primeiro aparece aqui assim que você registrar.
+                          </p>
+                        )}
+                        <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
+                          {pagamentos.itens.map(pg => (
+                            <div key={pg.id} className="flex items-center justify-between gap-2 py-1.5 text-[11px]">
+                              <span className="min-w-0">
+                                <span className="block text-gray-700">{dataBR(pg.pago_em)} · {pg.plano || '—'}</span>
+                                {(pg.observacao || pg.contas_extras > 0) && (
+                                  <span className="block text-gray-500 truncate">
+                                    {pg.contas_extras > 0 ? `${pg.contas_extras} conta(s) extra · ` : ''}{pg.observacao || ''}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="font-bold text-polo-navy flex-shrink-0 tabular-nums">
+                                {brlAdmin(Number(pg.valor) + Number(pg.valor_extras || 0))}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

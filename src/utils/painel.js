@@ -32,6 +32,11 @@ export function filaDoPainel(restaurantes, agora = Date.now()) {
   const itens = [];
   for (const r of restaurantes || []) {
     const st = statusRestaurante(r, agora);
+    // ⚠️ CORTESIA NÃO ENTRA NA FILA. É o ponto do regime existir: sem isso, a
+    // conta que a Aurum decidiu não cobrar apareceria todo dia entre as que
+    // precisam de cobrança — e uma fila com item que nunca sai é uma fila que
+    // se aprende a ignorar inteira.
+    if (st.tipo === 'cortesia') continue;
     // ⚠️ O AVISO VALE MESMO COM A CONTA ATIVA, e é de propósito: quem paga
     // adiantado avisa antes de vencer. Descartar o aviso porque "está em dia"
     // deixaria o cliente esperando confirmação que nunca vem.
@@ -59,11 +64,14 @@ export function filaDoPainel(restaurantes, agora = Date.now()) {
  * número responde "quanto deveria entrar", nunca "quanto entrou".
  */
 export function numerosDoPainel(restaurantes, agora = Date.now()) {
-  const n = { total: 0, pagantes: 0, teste: 0, vencidos: 0, bloqueados: 0, mrr: 0 };
+  const n = { total: 0, pagantes: 0, teste: 0, vencidos: 0, bloqueados: 0, cortesia: 0, mrr: 0 };
   for (const r of restaurantes || []) {
     n.total++;
     const st = statusRestaurante(r, agora);
     if (st.tipo === 'bloqueado') { n.bloqueados++; continue; }
+    // ⚠️ Conta contada à parte e FORA da receita: somar cortesia inflaria o
+    // faturamento exatamente onde não há dinheiro nenhum entrando.
+    if (st.tipo === 'cortesia') { n.cortesia++; continue; }
     if (st.tipo === 'assinatura') { n.pagantes++; n.mrr += produtoDe(r.produto).precoMes; continue; }
     if (st.tipo === 'teste') { n.teste++; continue; }
     if (st.tipo === 'vencido') n.vencidos++;
@@ -88,5 +96,6 @@ export function passaNoFiltro(r, situacao, agora = Date.now()) {
   if (situacao === 'teste') return st === 'teste';
   if (situacao === 'vencidos') return st === 'vencido';
   if (situacao === 'bloqueados') return st === 'bloqueado';
+  if (situacao === 'cortesia') return st === 'cortesia';
   return true;
 }

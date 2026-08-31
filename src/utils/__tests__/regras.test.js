@@ -19,7 +19,7 @@ import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
-import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
+import { statusAssinatura, statusRestaurante, rotuloRegime, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
 import { produtoTem, produtoAtivo, marcaDeUpgrade } from '../produto';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../painel';
 import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX,
@@ -3309,5 +3309,56 @@ describe('painel super-admin — a fila do dia e os números', () => {
       expect(passaNoFiltro(pagante, 'completo', AGORA)).toBe(false);
       expect(passaNoFiltro({ id: 'z' }, 'completo', AGORA)).toBe(true);
     });
+  });
+});
+
+describe('conta de cortesia (regime)', () => {
+  const AGORA = new Date('2026-08-31T12:00:00Z').getTime();
+  const dias = (n) => new Date(AGORA + n * 86400000).toISOString();
+  const vencida = { id: 'c', nome: 'Cortesia', created_at: dias(-90), assinatura_ate: dias(-10) };
+
+  it('cortesia sem prazo funciona mesmo com a assinatura vencida', () => {
+    const st = statusRestaurante({ ...vencida, regime: 'cortesia' }, AGORA);
+    expect(st.ok).toBe(true);
+    expect(st.tipo).toBe('cortesia');
+  });
+
+  it('cortesia com prazo em dia funciona; com prazo vencido volta à régua normal', () => {
+    expect(statusRestaurante({ ...vencida, regime: 'cortesia', cortesia_ate: dias(30) }, AGORA).tipo).toBe('cortesia');
+    expect(statusRestaurante({ ...vencida, regime: 'cortesia', cortesia_ate: dias(-1) }, AGORA).tipo).toBe('vencido');
+  });
+
+  // ⚠️ Suspender é a decisão mais forte do painel. Uma cortesia que não pudesse
+  // ser suspensa seria uma conta impossível de fechar.
+  it('bloqueio passa por cima da cortesia', () => {
+    expect(statusRestaurante({ ...vencida, regime: 'cortesia', bloqueado: true }, AGORA).tipo).toBe('bloqueado');
+  });
+
+  // ⚠️ A ORDEM É A REGRA: cortesia ganha da assinatura em dia. Se fosse o
+  // contrário, a conta apareceria como pagante e entraria na receita — que é
+  // exatamente o erro que o regime existe para evitar.
+  it('cortesia ganha da assinatura em dia', () => {
+    const st = statusRestaurante({ ...vencida, assinatura_ate: dias(30), regime: 'cortesia' }, AGORA);
+    expect(st.tipo).toBe('cortesia');
+  });
+
+  it('parceiro segue a mesma regra da cortesia', () => {
+    expect(statusRestaurante({ ...vencida, regime: 'parceiro' }, AGORA).tipo).toBe('cortesia');
+    expect(rotuloRegime('parceiro')).toBe('Parceiro');
+    expect(rotuloRegime('pagante')).toBe('');
+  });
+
+  it('sai da fila de cobrança e não entra na receita', () => {
+    const conta = { ...vencida, regime: 'cortesia' };
+    expect(filaDoPainel([conta], AGORA)).toHaveLength(0);
+    const n = numerosDoPainel([conta], AGORA);
+    expect(n.cortesia).toBe(1);
+    expect(n.mrr).toBe(0);
+    expect(n.vencidos).toBe(0);
+  });
+
+  it('conta sem regime continua sendo cliente normal', () => {
+    expect(statusRestaurante(vencida, AGORA).tipo).toBe('vencido');
+    expect(numerosDoPainel([vencida], AGORA).cortesia).toBe(0);
   });
 });
