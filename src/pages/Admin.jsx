@@ -5,6 +5,8 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import { statusRestaurante, TESTE_DIAS, PLANOS, produtoDe, precoPlano } from '../utils/assinatura';
+import { temCaixaDeEntrada } from '../utils/contas';
+import { formatarCNPJ, formatarTelefone, UFS } from '../utils/documentos';
 
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
@@ -61,6 +63,10 @@ const nomeDoc = (chave) => {
   const onde = partes.length > 1 ? ` (${partes[0]})` : '';
   return `${NOMES_DOC[base] || base}${onde}`;
 };
+// Data e hora, ou um travessão quando nunca aconteceu. `dataHoraBR` devolve
+// '—' só quando a conversão ESTOURA; null vira "Invalid Date" e ia para a tela.
+const dataHoraOuNunca = (iso) => iso ? dataHoraBR(iso) : 'nunca';
+
 const dataHoraBR = (iso) => {
   try { return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); }
   catch { return '—'; }
@@ -76,6 +82,13 @@ export default function Admin() {
   // Histórico de UM restaurante por vez: carregar de todos de uma vez seria
   // centenas de linhas para uma tela que se olha uma vez por mês.
   const [historico, setHistorico] = useState(null); // { id, itens, carregando, erro } | null
+  // Uso da conta, também um por vez: é uma consulta por restaurante e ninguém
+  // olha o uso de trinta clientes ao mesmo tempo.
+  const [uso, setUso] = useState(null); // { id, dados, carregando, erro } | null
+  const [enviandoSenha, setEnviandoSenha] = useState('');
+  // Abrir conta de cliente pelo painel. `null` = formulário fechado.
+  const [novaConta, setNovaConta] = useState(null);
+  const [criandoConta, setCriandoConta] = useState(false);
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
   // viram uma parede de rolagem e o painel deixa de ser consultável.
   const [aberto, setAberto] = useState('');
@@ -268,6 +281,53 @@ export default function Admin() {
     toast(`Agora se chama "${data || novo}".`, 'sucesso');
   };
 
+  // ⚠️ A VENDA ACONTECE NO WHATSAPP, e o cadastro na tela de entrada assume o
+  // contrário: que o cliente se cadastra sozinho. Fechar negócio e responder
+  // "agora entra no site e preenche" é perder a pessoa na porta. Aqui a conta
+  // sai pronta, com plano e dias de teste já no lugar.
+  //
+  // ⚠️ NINGUÉM ESCOLHE SENHA AQUI, nem eu. A conta nasce com uma senha
+  // aleatória que ninguém conhece e o dono recebe o link para escolher a dele.
+  // Senha ditada por telefone é senha que vaza — e o link ainda prova, na
+  // hora, que o e-mail digitado existe: ele é o único caminho de recuperação
+  // do dono, e descobrir o erro seis meses depois é descobrir tarde.
+  const abrirConta = async () => {
+    const f = novaConta;
+    if (!f) return;
+    const { data: sess } = await supabase.auth.getSession();
+    const jwt = sess?.session?.access_token;
+    if (!jwt) { toast('Sua sessão expirou. Entre de novo.', 'erro'); return; }
+
+    setCriandoConta(true);
+    // Mesmo desenho de chamarContas (AuthContext): a função relê no banco quem
+    // está chamando e não confia em nada daqui. Tela não é trava.
+    let resp;
+    try {
+      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/restaurante`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(f),
+      });
+      resp = await r.json().catch(() => ({}));
+      if (!r.ok) resp = { erro: resp?.erro || 'Não consegui falar com o servidor.' };
+    } catch {
+      resp = { erro: 'Sem conexão. Tente de novo quando a internet voltar.' };
+    }
+    if (resp?.erro) { setCriandoConta(false); toast(resp.erro, 'erro'); return; }
+
+    // O link é o que entrega a conta. Falhar aqui NÃO desfaz o restaurante: ele
+    // existe e está certo — só reenviar pelo botão "nova senha" da lista.
+    const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
+    const { error: eLink } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo });
+    setCriandoConta(false);
+    setNovaConta(null);
+    await carregar();
+    toast(eLink
+      ? `"${f.nomeRestaurante}" criado, mas o link de senha não saiu (${eLink.message}). Reenvie por "nova senha".`
+      : `"${f.nomeRestaurante}" criado. O link de senha foi para ${f.email}.`,
+      eLink ? 'aviso' : 'sucesso', { duracao: 9000 });
+  };
+
   // ⚠️ `useMemo` e não filtro solto no JSX: a lista roda a cada tecla digitada
   // e cada linha faz normalize/replace em quatro campos.
   const visiveis = useMemo(() => {
@@ -334,6 +394,41 @@ export default function Admin() {
   };
   const alternarHistorico = (r) =>
     historico?.id === r.id ? setHistorico(null) : carregarHistorico(r);
+
+  // ⚠️ NÚMEROS, NUNCA CONTEÚDO (M36). Serve para saber se a conta está viva
+  // antes de ligar oferecendo renovação, e para separar "não usa" de "não
+  // conseguiu usar" — que pedem conversas opostas. Ver o que o cliente tem
+  // dentro continua sendo o modo suporte, que ele autoriza e fica na trilha.
+  const carregarUso = async (r) => {
+    setUso({ id: r.id, dados: null, carregando: true, erro: '' });
+    const { data, error } = await supabase.rpc('uso_do_restaurante', { p_restaurante: r.id });
+    setUso({ id: r.id, dados: Array.isArray(data) ? data[0] : data, carregando: false, erro: error?.message || '' });
+  };
+  const alternarUso = (r) => uso?.id === r.id ? setUso(null) : carregarUso(r);
+
+  // ⚠️ MANDA O LINK, NÃO DEFINE A SENHA. Digitar uma senha para o cliente
+  // significaria eu conhecer a senha dele — e depois ditar por telefone, que é
+  // onde ela vaza. O link vai para a caixa DELE e só ele escolhe a nova.
+  //
+  // É a saída para o caso que a M35 criou de propósito: recuperar exige e-mail
+  // + CNPJ, e quem não tem o CNPJ à mão fica preso. Aqui o dono já foi
+  // identificado por outro caminho (falou com a gente), então basta o botão.
+  const mandarLinkSenha = async (r, u) => {
+    const ok = await confirm({
+      titulo: 'Enviar link de nova senha',
+      mensagem: `Vai um e-mail para ${u.email} com o link para escolher uma senha nova.
+
+A senha atual continua valendo até ele usar o link. Você não vê nem escolhe a senha.`,
+      confirmar: 'Enviar link',
+    });
+    if (!ok) return;
+    setEnviandoSenha(u.id);
+    const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
+    const { error } = await supabase.auth.resetPasswordForEmail(u.email, { redirectTo });
+    setEnviandoSenha('');
+    if (error) { toast('Não saiu: ' + error.message, 'erro'); return; }
+    toast(`Link enviado para ${u.email}.`, 'sucesso');
+  };
 
   // ⚠️ CONFIRMAÇÃO COM O NOME DO DOCUMENTO E A DATA. Restaurar é sobrescrever
   // o que o cliente tem AGORA; a versão atual vai para o histórico antes (a
@@ -644,6 +739,76 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               placeholder="Buscar por nome, cidade ou CNPJ…" aria-label="Buscar restaurante"
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
 
+            {/* ── Abrir conta de cliente ────────────────────────────── */}
+            {!novaConta ? (
+              <button onClick={() => setNovaConta({
+                nomeRestaurante: '', nomeDono: '', email: '',
+                produto: 'etiquetas', cnpj: '', whatsapp: '', cidade: '', uf: 'PE',
+              })}
+                className="w-full border-2 border-dashed border-polo-navy/30 text-polo-navy font-bold text-xs rounded-xl py-2.5">
+                + Abrir conta de cliente
+              </button>
+            ) : (
+              <div className="bg-white rounded-xl p-3 space-y-2 border border-polo-gold/50">
+                <p className="text-xs font-bold text-polo-navy">Abrir conta de cliente</p>
+                <p className="text-[11px] text-gray-600">
+                  A conta nasce com {TESTE_DIAS} dias de teste. O dono recebe por e-mail o link
+                  para escolher a senha dele — você não vê nem escolhe senha nenhuma.
+                </p>
+
+                {[['nomeRestaurante', 'Nome do restaurante'], ['nomeDono', 'Nome do responsável'], ['email', 'E-mail do responsável']].map(([k, l]) => (
+                  <input key={k} type={k === 'email' ? 'email' : 'text'} value={novaConta[k]}
+                    onChange={e => setNovaConta(v => ({ ...v, [k]: e.target.value }))}
+                    placeholder={l} aria-label={l}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                ))}
+
+                <div className="flex gap-2">
+                  {['etiquetas', 'completo'].map(pr => (
+                    <button key={pr} onClick={() => setNovaConta(v => ({ ...v, produto: pr }))}
+                      aria-pressed={novaConta.produto === pr}
+                      className={`flex-1 text-xs font-bold py-2 rounded-lg border-2
+                        ${novaConta.produto === pr ? 'border-polo-gold bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-600'}`}>
+                      {pr === 'etiquetas' ? 'Etiquetas' : 'Completo'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ⚠️ CNPJ opcional, mas é o que trava o teste repetido e o que
+                    sai impresso na etiqueta — vale insistir na hora. */}
+                <input type="text" inputMode="numeric" value={novaConta.cnpj}
+                  onChange={e => setNovaConta(v => ({ ...v, cnpj: formatarCNPJ(e.target.value) }))}
+                  placeholder="CNPJ (recomendado)" aria-label="CNPJ"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <input type="tel" inputMode="numeric" value={novaConta.whatsapp}
+                  onChange={e => setNovaConta(v => ({ ...v, whatsapp: formatarTelefone(e.target.value) }))}
+                  placeholder="WhatsApp com DDD" aria-label="WhatsApp"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <div className="flex gap-2">
+                  <input type="text" value={novaConta.cidade}
+                    onChange={e => setNovaConta(v => ({ ...v, cidade: e.target.value }))}
+                    placeholder="Cidade" aria-label="Cidade"
+                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  <select value={novaConta.uf} aria-label="UF"
+                    onChange={e => setNovaConta(v => ({ ...v, uf: e.target.value }))}
+                    className="w-20 border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white">
+                    {UFS.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setNovaConta(null)} disabled={criandoConta}
+                    className="flex-1 border border-gray-200 text-gray-600 font-semibold text-xs py-2.5 rounded-lg">
+                    Cancelar
+                  </button>
+                  <button onClick={abrirConta} disabled={criandoConta}
+                    className="flex-1 bg-polo-navy text-polo-gold font-bold text-xs py-2.5 rounded-lg disabled:opacity-60">
+                    {criandoConta ? 'Abrindo…' : 'Abrir conta'}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {visiveis.length === 0 && (
               <div className="bg-white rounded-xl p-8 text-center">
                 <p className="text-sm text-gray-600">
@@ -741,9 +906,54 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         {r.usuarios.map(u => (
                           <div key={u.id} className="flex items-center justify-between text-xs gap-2">
                             <span className="text-gray-700 truncate">{u.nome || '(sem nome)'}{u.email ? <span className="text-gray-600"> · {u.email}</span> : null}</span>
-                            <span className="text-[11px] text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full flex-shrink-0">{u.cargo}</span>
+                            <span className="flex items-center gap-1.5 flex-shrink-0">
+                              {/* ⚠️ SÓ PARA QUEM TEM CAIXA DE ENTRADA. As contas de
+                                  equipe são `maria.polobeer@contas.aurum.app`,
+                                  endereço interno que não recebe nada — o botão ali
+                                  seria um e-mail para o vazio. A senha delas quem
+                                  troca é o dono, em Administração → Contas. */}
+                              {temCaixaDeEntrada(u.email) && (
+                                <button onClick={() => mandarLinkSenha(r, u)} disabled={enviandoSenha === u.id}
+                                  className="text-[11px] font-semibold text-polo-navy underline underline-offset-2 disabled:opacity-50">
+                                  {enviandoSenha === u.id ? 'enviando…' : 'nova senha'}
+                                </button>
+                              )}
+                              <span className="text-[11px] text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full">{u.cargo}</span>
+                            </span>
                           </div>
                         ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ⚠️ USO DA CONTA — o painel mostrava o que a Aurum vendeu e
+                      nada do que o cliente faz. Na hora de renovar ou de
+                      socorrer, "entrou quando?" e "chegou a cadastrar item?"
+                      separam duas conversas opostas: quem não usa e quem não
+                      CONSEGUIU usar. Números só, nunca conteúdo (M36). */}
+                  <div className="px-4 py-2.5 border-b border-gray-50">
+                    <button onClick={() => alternarUso(r)}
+                      className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                      {uso?.id === r.id ? 'Fechar uso' : '📊 Uso da conta'}
+                    </button>
+                    {uso?.id === r.id && (
+                      <div className="mt-2">
+                        {uso.carregando && <p className="text-xs text-gray-600 animate-pulse">Carregando…</p>}
+                        {uso.erro && (
+                          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
+                            {uso.erro}
+                          </p>
+                        )}
+                        {!uso.carregando && !uso.erro && uso.dados && (
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-600">
+                            <span>Último acesso: <strong>{dataHoraOuNunca(uso.dados.ultimo_acesso)}</strong></span>
+                            <span>Última gravação: <strong>{dataHoraOuNunca(uso.dados.ultima_gravacao)}</strong></span>
+                            <span>Itens cadastrados: <strong>{uso.dados.itens ?? 0}</strong></span>
+                            <span>Etiquetas impressas: <strong>{uso.dados.etiquetas ?? 0}</strong></span>
+                            <span>Lançamentos: <strong>{uso.dados.registros ?? 0}</strong></span>
+                            <span>Contas ativas: <strong>{uso.dados.usuarios_ativos ?? 0}/{uso.dados.usuarios ?? 0}</strong></span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

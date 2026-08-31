@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { emailDeLogin } from '../utils/contas';
 import { limparCacheLocal } from '../lib/cache';
 import { statusAssinatura } from '../utils/assinatura';
 
@@ -329,7 +330,7 @@ export function AuthProvider({ children }) {
     const bruto = String(identificacao || '').trim();
     // A presença do @ é o que separa os dois mundos. Um usuário nunca tem @
     // (a criação da conta remove tudo que não é letra ou número).
-    const email = bruto.includes('@') ? bruto : `${bruto.toLowerCase()}@contas.aurum.app`;
+    const email = emailDeLogin(bruto);
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
     if (!error) return null;
     // ⚠️ A mensagem crua do Supabase é "Invalid login credentials". Para quem
