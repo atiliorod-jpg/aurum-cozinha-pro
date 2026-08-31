@@ -50,7 +50,9 @@ if (!CHAVE) {
 const aplicar = process.argv.includes('--aplicar');
 const config = {
   smtp_host: 'smtp.resend.com',
-  smtp_port: 587,
+  // ⚠️ STRING, não número: a API do Supabase recusa 587 com "expected string,
+  // received number". Erro de digitação silencioso se ninguém ler a resposta.
+  smtp_port: '587',
   smtp_user: 'resend',            // usuário fixo do Resend; a senha é a chave
   smtp_pass: CHAVE,
   smtp_admin_email: REMETENTE,
