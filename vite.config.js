@@ -3,8 +3,20 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { copyFileSync } from 'fs'
 
-// Em produção (GitHub Pages) o app vive em /polo-estoque/ — o workflow define VITE_BASE.
-const base = process.env.VITE_BASE || '/'
+// Onde o app mora. Com domínio próprio (app.aurumcozinha.com.br) é a RAIZ; o
+// workflow define VITE_BASE.
+//
+// ⚠️ VALOR ESTRANHO VIRA RAIZ, e isto pegou um defeito de verdade: rodando o
+// build pelo Git Bash no Windows, `VITE_BASE=/` chega aqui como
+// "C:/Program Files/Git/" — o shell converte a barra em caminho do Windows. O
+// build passa, ninguém vê erro, e o manifesto do app instalável sai com
+// `start_url` apontando para uma pasta do computador de quem compilou. O PWA
+// instalado abre em nada.
+// Não acontece no servidor (Linux não faz essa conversão), mas um build local
+// publicado à mão bastaria. Só caminho que começa com "/" é aceito.
+const bruto = process.env.VITE_BASE || '/'
+const base = /^\/[^\s]*$/.test(bruto) ? bruto : '/'
+if (base !== bruto) console.warn(`[vite] VITE_BASE inválido (${bruto}) — usando "/"`)
 
 // Copia index.html → 404.html para que GitHub Pages sirva o app em rotas diretas (SPA fallback)
 const ghPagesFallback = {
