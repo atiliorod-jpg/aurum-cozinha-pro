@@ -4,7 +4,8 @@ import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
-import { statusRestaurante, TESTE_DIAS, PLANOS, produtoDe, precoPlano } from '../utils/assinatura';
+import { statusRestaurante, TESTE_DIAS, PLANOS, produtoDe, precoPlano, planoPorId } from '../utils/assinatura';
+import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarTelefone, UFS } from '../utils/documentos';
 
@@ -87,6 +88,7 @@ export default function Admin() {
   const [uso, setUso] = useState(null); // { id, dados, carregando, erro } | null
   const [enviandoSenha, setEnviandoSenha] = useState('');
   // Abrir conta de cliente pelo painel. `null` = formulário fechado.
+  const [situacao, setSituacao] = useState('todos'); // todos|pagantes|teste|vencidos|bloqueados|etiquetas|completo
   const [novaConta, setNovaConta] = useState(null);
   const [criandoConta, setCriandoConta] = useState(false);
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
@@ -328,17 +330,51 @@ export default function Admin() {
       eLink ? 'aviso' : 'sucesso', { duracao: 9000 });
   };
 
+  // ⚠️ O PAINEL RESPONDIA "o que há com ESTE cliente" e nada de "o que eu
+  // preciso fazer HOJE". O aviso de pagamento ficava dentro do cartão de cada
+  // restaurante, e o cartão começa fechado — para saber quem avisou era abrir
+  // um por um. Com dez clientes já é ruim; com trinta ninguém faz.
+  //
+  // ⚠️ NÃO PRECISOU DE MIGRAÇÃO: as três colunas do aviso já vinham na consulta
+  // que o painel faz desde a M13. Era só ninguém estar olhando para elas juntas.
+  const fila = useMemo(
+    // eslint-disable-next-line react-hooks/purity -- a fila é do AGORA; recalcular a cada render é o desejado
+    () => filaDoPainel(restaurantes, Date.now()), [restaurantes]);
+
+  // ⚠️ RECEITA ESTIMADA, e a palavra importa: sai do preço do plano de cada
+  // conta ativa, não de pagamento registrado — porque pagamento registrado não
+  // existe ainda (nada guarda que houve pagamento; ver a auditoria, seção H).
+  // Chamar isto de "receita" sem o "estimada" seria dar um número de balanço a
+  // partir de um chute educado.
+  const numeros = useMemo(
+    // eslint-disable-next-line react-hooks/purity -- idem: teste que venceu sai da conta sozinho
+    () => numerosDoPainel(restaurantes, Date.now()), [restaurantes]);
+
+  // Leva ao restaurante do aviso: abre o cartão e rola até ele. Sem o scroll,
+  // com a lista longa o cartão abre fora da tela e parece que nada aconteceu.
+  const irAoRestaurante = (id) => {
+    setSituacao('todos');   // senão o filtro ativo pode estar escondendo justo ele
+    setBusca('');
+    setAberto(id);
+    // No quadro seguinte: o cartão precisa existir aberto antes de rolar.
+    requestAnimationFrame(() => {
+      document.getElementById(`rest-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   // ⚠️ `useMemo` e não filtro solto no JSX: a lista roda a cada tecla digitada
   // e cada linha faz normalize/replace em quatro campos.
   const visiveis = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity -- o filtro "vencidos" depende da hora
+    const agora = Date.now();
     const t = normalizar(busca);
-    if (!t) return restaurantes;
-    return restaurantes.filter(r =>
-      normalizar(r.nome).includes(t)
+    // ⚠️ Situação e busca se SOMAM: "vencidos" + "jaboatao" é pergunta legítima.
+    return restaurantes.filter(r => passaNoFiltro(r, situacao, agora) && (!t
+      || normalizar(r.nome).includes(t)
       || normalizar(r.cidade).includes(t)
       || normalizar(r.uf).includes(t)
-      || normalizar(r.cnpj).includes(t));
-  }, [restaurantes, busca]);
+      || normalizar(r.cnpj).includes(t)));
+  }, [restaurantes, busca, situacao]);
 
   // ⚠️ O CANAL ERA DE MÃO ÚNICA: o cliente escrevia, a gente lia e marcava
   // "resolvido", e ele nunca ficava sabendo de nada. Do lado dele o botão
@@ -518,6 +554,80 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
             🔒 Conta crítica: ative a verificação em duas etapas (MFA) no Supabase Auth e use uma senha forte e exclusiva.
           </p>
         </div>
+
+        {/* ══ A FILA DO DIA ══════════════════════════════════════════
+            ⚠️ VEM ANTES DE TUDO, e some sozinha quando está vazia. É a única
+            parte do painel que responde "o que eu preciso fazer agora": o
+            resto responde "o que há com este cliente", e para isso é preciso
+            já saber em qual cliente olhar. */}
+        {!carregando && fila.length > 0 && (
+          <div className="bg-white border-2 border-polo-gold rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 bg-polo-gold/15 border-b border-polo-gold/30">
+              <p className="text-sm font-bold text-polo-navy">
+                {fila.length === 1 ? '1 coisa para hoje' : `${fila.length} coisas para hoje`}
+              </p>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {fila.map(({ r, tipo }) => {
+                const plano = planoPorId(r.aviso_pagamento_plano || 'mensal');
+                return (
+                  <button key={`${tipo}-${r.id}`} onClick={() => irAoRestaurante(r.id)}
+                    className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-3
+                               active:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-polo-navy truncate">{r.nome}</span>
+                      <span className="block text-[11px] text-gray-600">
+                        {tipo === 'aviso' && <>
+                          💰 Avisou pagamento — {plano.label.toLowerCase()}
+                          {r.aviso_pagamento_nome ? ` por ${r.aviso_pagamento_nome}` : ''}
+                          {' · '}{dataBRHora(r.aviso_pagamento_em)}
+                        </>}
+                        {tipo === 'teste' && <>⏳ Teste acabando — {statusRestaurante(r).diasRestantes} dia(s)</>}
+                        {tipo === 'vencido' && <>🔴 Vencido desde {dataBR(r.assinatura_ate)}</>}
+                      </span>
+                    </span>
+                    {/* O valor já calculado poupa a conta de cabeça na hora de
+                        conferir o Pix — é o número que tem que bater no extrato. */}
+                    {tipo === 'aviso' && (
+                      <span className="text-xs font-bold text-polo-navy flex-shrink-0 tabular-nums">
+                        {brlAdmin(precoPlano(plano, r.produto))}
+                      </span>
+                    )}
+                    <span aria-hidden="true" className="text-gray-400 text-lg leading-none flex-shrink-0">›</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ══ OS NÚMEROS ═════════════════════════════════════════════ */}
+        {!carregando && restaurantes.length > 0 && (
+          <div className="bg-white border border-gray-100 rounded-xl px-4 py-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-2 gap-x-3">
+              {[
+                ['pagantes', 'Pagando', 'text-green-700'],
+                ['teste', 'Em teste', 'text-amber-700'],
+                ['vencidos', 'Vencidos', 'text-red-700'],
+                ['bloqueados', 'Suspensos', 'text-gray-700'],
+              ].map(([k, rotulo, cor]) => (
+                <button key={k} onClick={() => setSituacao(situacao === k ? 'todos' : k)}
+                  className={`text-left rounded-lg px-2 py-1 -mx-2 ${situacao === k ? 'bg-polo-beige' : ''}`}>
+                  <span className={`block text-xl font-bold tabular-nums ${cor}`}>{numeros[k]}</span>
+                  <span className="block text-[11px] text-gray-600">{rotulo}</span>
+                </button>
+              ))}
+            </div>
+            {/* ⚠️ "ESTIMADA" NÃO É MODÉSTIA. Este número sai do PREÇO do plano de
+                cada conta ativa, não de pagamento registrado — nada no sistema
+                guarda que houve pagamento (ver a seção H da auditoria). Chamar
+                de "receita" seria dar número de balanço a partir de estimativa. */}
+            <p className="text-[11px] text-gray-600 mt-2.5 pt-2.5 border-t border-gray-100">
+              Receita mensal <strong>estimada</strong>: <strong className="text-polo-navy">{brlAdmin(numeros.mrr)}</strong>
+              <span className="text-gray-500"> — pelo plano das contas ativas, não por pagamento registrado.</span>
+            </p>
+          </div>
+        )}
 
         {/* ⚠️ VER O APP COMO O CLIENTE VÊ, sem ter cozinha própria. Esta conta
             não escolhe mais estoque ao entrar — o painel é a tela dela — mas
@@ -739,6 +849,28 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               placeholder="Buscar por nome, cidade ou CNPJ…" aria-label="Buscar restaurante"
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
 
+            {/* ⚠️ Filtro de PRODUTO em fichas, separado dos números acima: são
+                perguntas diferentes. Os números respondem "quantos pagam"; isto
+                responde "quem comprou o quê" — e as duas se somam. */}
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
+              {[['todos', 'Todos'], ['etiquetas', 'Etiquetas'], ['completo', 'Completo']].map(([v, l]) => (
+                <button key={v} onClick={() => setSituacao(v)} aria-pressed={situacao === v}
+                  className={`whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0 border
+                    ${situacao === v ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
+                  {l}
+                </button>
+              ))}
+              {/* Some quando não há filtro de situação — botão que não faz nada
+                  é pior que botão ausente. */}
+              {!['todos', 'etiquetas', 'completo'].includes(situacao) && (
+                <button onClick={() => setSituacao('todos')}
+                  className="whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0
+                             bg-polo-beige text-polo-navy border border-polo-gold">
+                  {{ pagantes: 'Pagando', teste: 'Em teste', vencidos: 'Vencidos', bloqueados: 'Suspensos' }[situacao]} ✕
+                </button>
+              )}
+            </div>
+
             {/* ── Abrir conta de cliente ────────────────────────────── */}
             {!novaConta ? (
               <button onClick={() => setNovaConta({
@@ -814,7 +946,9 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 <p className="text-sm text-gray-600">
                   {busca.trim()
                     ? `Nada encontrado para “${busca.trim()}”.`
-                    : 'Nenhum restaurante encontrado.'}
+                    : situacao !== 'todos'
+                      ? 'Nenhum restaurante nesta situação.'
+                      : 'Nenhum restaurante encontrado.'}
                 </p>
               </div>
             )}
@@ -827,7 +961,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               const restanteH = r.suporteAte ? Math.ceil((r.suporteAte - agora) / 3600000) : 0;
               const maxU = r.max_usuarios || 3;
               return (
-                <div key={r.id} className={`bg-white border rounded-xl overflow-hidden
+                <div key={r.id} id={`rest-${r.id}`} className={`bg-white border rounded-xl overflow-hidden
                   ${r.bloqueado ? 'border-red-300' : r.suporteAtivo ? 'border-green-300' : 'border-gray-100'}`}>
                   {/* Header: nome + status comercial */}
                   <div className={`px-4 py-3 flex items-center justify-between gap-2

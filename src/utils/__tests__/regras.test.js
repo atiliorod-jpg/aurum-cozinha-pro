@@ -21,6 +21,7 @@ import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
 import { produtoTem, produtoAtivo, marcaDeUpgrade } from '../produto';
+import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../painel';
 import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX,
          diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura, DIAS_SUGERIDOS_ABERTURA } from '../etiquetas';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
@@ -3201,5 +3202,112 @@ describe('produto aberto sem prazo cadastrado', () => {
     expect(usandoSugestaoDeAbertura({ tipoData: 'abertura', armazenamento: 'refrigerado', prazos: { refrigerado: 3 } }, 3)).toBe(false);
     expect(usandoSugestaoDeAbertura({ tipoData: 'abertura', prazos: {} }, 10)).toBe(false);
     expect(usandoSugestaoDeAbertura({ tipoData: 'fabricacao', prazos: {} }, 3)).toBe(false);
+  });
+});
+
+describe('painel super-admin — a fila do dia e os números', () => {
+  const AGORA = new Date('2026-08-31T12:00:00Z').getTime();
+  const dias = (n) => new Date(AGORA + n * 86400000).toISOString();
+  // conta criada há muito tempo → o teste grátis já acabou
+  const velha = { created_at: dias(-90) };
+
+  const pagante   = { id: 'p', nome: 'Paga',    ...velha, assinatura_ate: dias(20), produto: 'etiquetas' };
+  const vencido   = { id: 'v', nome: 'Vencido', ...velha, assinatura_ate: dias(-5), produto: 'etiquetas' };
+  const bloqueado = { id: 'b', nome: 'Suspenso',...velha, bloqueado: true, produto: 'completo' };
+  const testando  = { id: 't', nome: 'Testando', created_at: dias(-4), produto: 'etiquetas' }; // 5 dias de teste → resta 1
+  const novo      = { id: 'n', nome: 'Novo',     created_at: dias(-1), produto: 'etiquetas' }; // resta 4
+
+  describe('a fila', () => {
+    it('quem avisou pagamento entra, com a hora do aviso', () => {
+      const r = { ...pagante, aviso_pagamento_em: dias(-1) };
+      const f = filaDoPainel([r], AGORA);
+      expect(f).toHaveLength(1);
+      expect(f[0].tipo).toBe('aviso');
+    });
+
+    // ⚠️ Conta EM DIA que avisou também entra: quem paga adiantado avisa antes
+    // de vencer, e descartar deixaria o cliente esperando confirmação.
+    it('aviso de conta ativa não é descartado', () => {
+      expect(filaDoPainel([{ ...pagante, aviso_pagamento_em: dias(-1) }], AGORA)[0].tipo).toBe('aviso');
+    });
+
+    it('teste acabando entra; teste com folga não', () => {
+      expect(filaDoPainel([testando], AGORA).map(x => x.tipo)).toEqual(['teste']);
+      expect(filaDoPainel([novo], AGORA)).toHaveLength(0);
+    });
+
+    it('vencido entra', () => {
+      expect(filaDoPainel([vencido], AGORA).map(x => x.tipo)).toEqual(['vencido']);
+    });
+
+    it('conta em dia e sem aviso NÃO aparece — a fila é do que precisa de mim', () => {
+      expect(filaDoPainel([pagante, novo], AGORA)).toHaveLength(0);
+    });
+
+    it('aviso vem antes de teste, e teste antes de vencido', () => {
+      const comAviso = { ...pagante, aviso_pagamento_em: dias(-1) };
+      const f = filaDoPainel([vencido, testando, comAviso], AGORA);
+      expect(f.map(x => x.tipo)).toEqual(['aviso', 'teste', 'vencido']);
+    });
+
+    it('dentro do mesmo tipo, quem esperou mais vem primeiro', () => {
+      const a = { ...pagante, id: 'a', nome: 'A', aviso_pagamento_em: dias(-3) };
+      const b = { ...pagante, id: 'b2', nome: 'B', aviso_pagamento_em: dias(-1) };
+      expect(filaDoPainel([b, a], AGORA).map(x => x.r.nome)).toEqual(['A', 'B']);
+    });
+
+    it('sem restaurante nenhum não quebra', () => {
+      expect(filaDoPainel([], AGORA)).toEqual([]);
+      expect(filaDoPainel(null, AGORA)).toEqual([]);
+    });
+  });
+
+  describe('os números', () => {
+    const todos = [pagante, vencido, bloqueado, testando, novo];
+
+    it('conta cada situação uma vez só', () => {
+      const n = numerosDoPainel(todos, AGORA);
+      expect(n).toMatchObject({ total: 5, pagantes: 1, teste: 2, vencidos: 1, bloqueados: 1 });
+    });
+
+    // ⚠️ Bloqueado NÃO entra na receita nem que a assinatura esteja em dia:
+    // conta suspensa não fatura, e somá-la inflaria o número justo no caso em
+    // que alguém parou de pagar.
+    it('conta suspensa sai da receita mesmo com assinatura em dia', () => {
+      const n = numerosDoPainel([{ ...pagante, bloqueado: true }], AGORA);
+      expect(n.pagantes).toBe(0);
+      expect(n.mrr).toBe(0);
+      expect(n.bloqueados).toBe(1);
+    });
+
+    it('a receita soma o preço do plano de cada conta ativa', () => {
+      const n = numerosDoPainel([pagante, { ...pagante, id: 'x', produto: 'completo' }], AGORA);
+      expect(n.mrr).toBe(PRODUTOS.etiquetas.precoMes + PRODUTOS.completo.precoMes);
+    });
+
+    it('teste e vencido não entram na receita — ninguém pagou ainda', () => {
+      expect(numerosDoPainel([testando, vencido], AGORA).mrr).toBe(0);
+    });
+  });
+
+  describe('o filtro da lista', () => {
+    it('"todos" deixa tudo passar', () => {
+      expect(passaNoFiltro(vencido, 'todos', AGORA)).toBe(true);
+      expect(passaNoFiltro(vencido, '', AGORA)).toBe(true);
+    });
+
+    it('separa por situação', () => {
+      expect(passaNoFiltro(pagante, 'pagantes', AGORA)).toBe(true);
+      expect(passaNoFiltro(vencido, 'pagantes', AGORA)).toBe(false);
+      expect(passaNoFiltro(vencido, 'vencidos', AGORA)).toBe(true);
+      expect(passaNoFiltro(bloqueado, 'bloqueados', AGORA)).toBe(true);
+      expect(passaNoFiltro(testando, 'teste', AGORA)).toBe(true);
+    });
+
+    it('separa por produto, e conta sem produto conta como completo', () => {
+      expect(passaNoFiltro(pagante, 'etiquetas', AGORA)).toBe(true);
+      expect(passaNoFiltro(pagante, 'completo', AGORA)).toBe(false);
+      expect(passaNoFiltro({ id: 'z' }, 'completo', AGORA)).toBe(true);
+    });
   });
 });
