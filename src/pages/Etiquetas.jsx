@@ -123,8 +123,8 @@ function GuiaImpressora() {
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
 export default function Etiquetas() {
-  const { produtos, categorias, etiquetasAvulsas, setEtiquetasAvulsas, prefs, modulo } = useApp();
-  const { abrirEtiquetas, toast, confirm } = useUI();
+  const { produtos, categorias, prefs, modulo } = useApp();
+  const { abrirEtiquetas } = useUI();
 
   const { sessao, impersonando } = useAuth();
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
@@ -138,7 +138,15 @@ export default function Etiquetas() {
       .filter(x => x.dias > 0);
   };
 
-  const [tab, setTab] = useState('catalogo'); // 'catalogo' | 'avulsas'
+  // Uma linha só quando todos os estados dão o mesmo número.
+  const resumoDePrazos = (p) => {
+    const v = prazosVisiveis(p);
+    if (!v.length) return 'sem prazo cadastrado — etiqueta só de identificação';
+    if (v.length > 1 && v.every(x => x.dias === v[0].dias)) return `${v[0].dias}d em qualquer estado`;
+    return v.map(x => `${x.nome} ${x.dias}d`).join(' · ');
+  };
+
+  const [tab, setTab] = useState('catalogo'); // 'catalogo' | 'impressora'
   const [busca, setBusca] = useState('');
   const [catAtiva, setCatAtiva] = useState('');
 
@@ -176,47 +184,6 @@ export default function Etiquetas() {
     quantidade: 1,
   }]);
 
-  // ── Aba Avulsas ──────────────────────────────────────────────
-  const [criando, setCriando] = useState(false);
-  const [novoNome, setNovoNome] = useState('');
-  const [novoTipo, setNovoTipo] = useState('abertura');
-  const [novoDias, setNovoDias] = useState('');
-
-  const salvarAvulsa = () => {
-    const nome = novoNome.trim();
-    if (!nome) { toast('Digite o nome da etiqueta.', 'aviso'); return; }
-    if (etiquetasAvulsas.some(e => e.nome.toLowerCase() === nome.toLowerCase())) {
-      toast('Já existe uma etiqueta avulsa com esse nome.', 'aviso'); return;
-    }
-    const nova = {
-      id: `etq_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-      nome,
-      tipoData: novoTipo,
-      diasValidade: parseFloat(novoDias) || 0,
-    };
-    setEtiquetasAvulsas([...etiquetasAvulsas, nova]);
-    setNovoNome(''); setNovoDias(''); setCriando(false);
-    toast('Etiqueta avulsa criada.', 'sucesso');
-  };
-
-  const removerAvulsa = async (e) => {
-    const ok = await confirm({ titulo: 'Remover etiqueta', mensagem: `Remover a etiqueta "${e.nome}" da lista?`, perigo: true, confirmar: 'Remover' });
-    if (!ok) return;
-    setEtiquetasAvulsas(etiquetasAvulsas.filter(x => x.id !== e.id));
-    toast('Etiqueta removida.', 'sucesso');
-  };
-
-  const imprimirAvulsa = (e) => abrirEtiquetas([{
-    produtoId: null,
-    nome: e.nome,
-    tipoData: e.tipoData || 'abertura',
-    dataFabricacao: hoje(),
-    armazenamento: null, // avulsa não tem seletor de armazenamento — prazo é fixo
-    diasValidade: e.diasValidade || 0,
-    responsavel: prefs.responsavel || '',
-    quantidade: 1,
-  }]);
-
   return (
     <Layout title={soEtiq ? "Imprimir etiqueta" : "Etiquetas"}>
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1 print:hidden">
@@ -224,17 +191,17 @@ export default function Etiquetas() {
             estoque nenhum, e o rótulo mandaria a pessoa procurar uma tela que
             a conta dela não tem. É a mesma aba, com o nome certo em cada
             produto. */}
-        {(soEtiq
-          /* No plano Etiquetas a aba Avulsas NAO existe: ela virou o campo
-             "data de abertura" dentro do proprio item (ver etiquetas/Itens).
-             Eram duas listas para a mesma pergunta — "o que eu etiqueto?" — e
-             a pessoa tinha que adivinhar em qual procurar. */
-          // ⚠️ NÃO chamar esta aba de "Meus itens": esse é o nome de OUTRA
-          // tela, na barra de baixo, onde se cadastra. Duas coisas diferentes
-          // com o mesmo nome, na mesma tela, é onde a pessoa se perde.
-          ? [['catalogo', 'Etiquetar'], ['impressora', 'Impressora']]
-          : [['catalogo', 'Do estoque'], ['avulsas', 'Avulsas'], ['impressora', 'Impressora']]
-        ).map(([v, l]) => (
+        {/* ⚠️ AS MESMAS DUAS ABAS NOS DOIS PRODUTOS. O completo tinha uma
+            terceira, "Avulsas": uma lista paralela para leite aberto, molho do
+            dia. Eram duas listas para a mesma pergunta — "o que eu etiqueto?"
+            — e a pessoa tinha que adivinhar em qual procurar. O que diferencia
+            um item avulso é a DATA SER DE ABERTURA, e isso virou um campo do
+            próprio item (ver etiquetas/Itens). A migração dos avulsos que já
+            existem roda sozinha, uma vez (migrarAvulsas).
+            ⚠️ NÃO chamar a primeira de "Meus itens": esse é o nome de OUTRA
+            tela, onde se cadastra. Duas coisas com o mesmo nome na mesma tela é
+            onde a pessoa se perde. */}
+        {[['catalogo', 'Etiquetar'], ['impressora', 'Impressora']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
@@ -245,13 +212,10 @@ export default function Etiquetas() {
 
       {tab === 'impressora' ? (
         <GuiaImpressora />
-      ) : tab === 'catalogo' ? (
+      ) : (
         <div className="space-y-4">
           <p className="text-xs text-gray-500 px-1">
-            {soEtiq
-              /* "(Config)" nao existe neste plano: o cadastro fica em Meus itens. */
-              ? 'Toque em Imprimir no item. A validade sai calculada pelo prazo que você cadastrou em Meus itens.'
-              : 'Imprima a etiqueta de qualquer produto, a qualquer momento — a validade é calculada pelos prazos do produto (Config).'}
+            Toque em Imprimir no item. A validade sai calculada pelo prazo que você cadastrou em Meus itens.
           </p>
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto..." aria-label="Buscar produto"
@@ -302,84 +266,19 @@ export default function Etiquetas() {
                       "sem prazo cadastrado" — mentira, e o dono viu. Agora
                       percorre os estados configurados e mostra cada um pelo
                       NOME que o restaurante deu. */}
+                  {/* ⚠️ PRAZO IGUAL EM TODOS OS ESTADOS SAI EM UMA PALAVRA SÓ.
+                      É o caso dos itens que vieram das etiquetas avulsas: leite
+                      aberto virava "Congelado 3d · Refrigerado 3d · Resfriado
+                      3d · Temperatura ambiente 3d" — quatro vezes o mesmo
+                      número, e o olho tem que ler tudo para descobrir isso. */}
                   <div className="text-xs text-gray-500">
-                    {prazosVisiveis(p).length > 0
-                      ? prazosVisiveis(p).map(x => `${x.nome} ${x.dias}d`).join(' · ')
-                      : 'sem prazo cadastrado — etiqueta só de identificação'}
+                    {resumoDePrazos(p)}
                   </div>
                 </div>
                 <button onClick={() => imprimirProduto(p)} aria-label={`Imprimir etiqueta de ${p.nome}`}
                   className="bg-polo-navy text-polo-gold font-bold text-xs px-3.5 py-2.5 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
                   🏷️ Imprimir
                 </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <p className="text-xs text-gray-500 px-1">
-            Etiquetas de itens que não estão no estoque (ex.: leite aberto, molho do dia). Crie uma vez e reimprima quando quiser.
-          </p>
-
-          {criando ? (
-            <div className="bg-white rounded-xl p-4 space-y-3">
-              <p className="font-bold text-polo-navy text-sm">Nova etiqueta avulsa</p>
-              <div>
-                <label htmlFor="etq-nome" className="block text-xs font-semibold text-gray-600 mb-1">Nome do item</label>
-                <input id="etq-nome" type="text" value={novoNome} onChange={e => setNovoNome(e.target.value)}
-                  placeholder="Ex: Leite aberto" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">A data na etiqueta é de…</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[['abertura', 'Abertura'], ['fabricacao', 'Fabricação']].map(([v, l]) => (
-                    <button key={v} type="button" onClick={() => setNovoTipo(v)}
-                      className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors
-                        ${novoTipo === v ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                      {l}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label htmlFor="etq-dias" className="block text-xs font-semibold text-gray-600 mb-1">Validade (dias após a data)</label>
-                <input id="etq-dias" type="number" min="0" inputMode="numeric" value={novoDias} onChange={e => setNovoDias(e.target.value)}
-                  placeholder="0 = sem validade" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-              </div>
-              <div className="flex gap-3 pt-1">
-                <button onClick={() => { setCriando(false); setNovoNome(''); setNovoDias(''); }}
-                  className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Cancelar</button>
-                <button onClick={salvarAvulsa}
-                  className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl">Salvar</button>
-              </div>
-            </div>
-          ) : (
-            <button onClick={() => setCriando(true)}
-              className="w-full border-2 border-dashed border-polo-gold/60 text-polo-navy font-bold py-3.5 rounded-xl text-sm active:scale-[0.98] transition-transform">
-              ＋ Nova etiqueta avulsa
-            </button>
-          )}
-
-          <div className="bg-white rounded-xl overflow-hidden">
-            {etiquetasAvulsas.length === 0 && !criando && (
-              <div className="text-center text-gray-500 py-6 text-sm">Nenhuma etiqueta avulsa ainda.</div>
-            )}
-            {etiquetasAvulsas.map((e, i, arr) => (
-              <div key={e.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-gray-800 truncate">{e.nome}</div>
-                  <div className="text-xs text-gray-500">
-                    {e.tipoData === 'abertura' ? 'data de abertura' : 'data de fabricação'}
-                    {e.diasValidade > 0 ? ` · vence em ${e.diasValidade}d` : ' · sem validade'}
-                  </div>
-                </div>
-                <button onClick={() => imprimirAvulsa(e)} aria-label={`Imprimir etiqueta de ${e.nome}`}
-                  className="bg-polo-navy text-polo-gold font-bold text-xs px-3.5 py-2.5 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
-                  🏷️ Imprimir
-                </button>
-                <button onClick={() => removerAvulsa(e)} aria-label={`Remover etiqueta ${e.nome}`}
-                  className="text-red-700 text-lg font-bold px-1.5 flex-shrink-0">×</button>
               </div>
             ))}
           </div>

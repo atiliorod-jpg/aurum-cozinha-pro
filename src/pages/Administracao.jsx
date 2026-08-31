@@ -53,13 +53,21 @@ export default function Administracao() {
     // (espelha Configuracoes). Sem isso os três apareciam para todo mundo e,
     // ao tocar, Configurações abria noutra aba ou barrava — um cartão que
     // some ao ser tocado é pior que cartão nenhum.
+    // ⚠️ O CADASTRO DE ITENS MUDOU DE CASA. Era um formulário de 12 campos em
+    // Configurações; virou a mesma tela do plano de etiquetas — com os 257
+    // itens prontos e o estoque num bloco recolhido. Cadastro pesado é onde o
+    // cliente desiste, e não havia motivo para o completo ter o pior dos dois.
     can('gerenciarProdutos') && {
-      to: '/configuracoes?secao=produtos', icone: 'caixa', titulo: 'Cadastros',
-      desc: 'Produtos e categorias do estoque',
+      to: '/itens', icone: 'caixa', titulo: 'Meus itens',
+      desc: 'Cadastro, prazos de validade e itens prontos',
+    },
+    can('gerenciarProdutos') && {
+      to: '/configuracoes?secao=produtos', icone: 'relatorio', titulo: 'Planilha de produtos',
+      desc: 'Importar, exportar e mexer em vários de uma vez',
     },
     (eDiretoria || sessao?.cargo === 'gerencia') && {
       to: '/configuracoes?secao=acessos', icone: 'equipe', titulo: 'Equipe e acessos',
-      desc: 'Convites, cargos e o que cada função pode fazer',
+      desc: 'Contas da equipe, cargos e o que cada função pode fazer',
     },
     can('configurarSistema') && {
       to: '/configuracoes?secao=sistema', icone: 'config', titulo: 'Sistema e backup',

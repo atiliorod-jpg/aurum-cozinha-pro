@@ -16,6 +16,7 @@ import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
+import { armazenamentosAtivos, comEspelhoDePrazos } from '../utils/armazenamento';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
 const CAT = {
@@ -634,6 +635,54 @@ export function AppProvider({ children }) {
     if (mudou) setProdutos(next);
     setPref('gramaturasMigradas', true);
   }, [fichas, produtos, prefs.gramaturasMigradas, setProdutos, setPref]);
+
+  // ⚠️ MIGRAÇÃO ÚNICA: as etiquetas avulsas viram itens do catálogo.
+  // Eram uma segunda lista para a mesma pergunta — "o que eu etiqueto?" — e a
+  // pessoa tinha que adivinhar em qual procurar. O que diferenciava um avulso
+  // era a data ser de ABERTURA, e isso hoje é um campo do próprio item.
+  //
+  // O prazo vai IGUAL em todos os estados de armazenamento, de propósito: a
+  // etiqueta avulsa não passava por seletor nenhum (`armazenamento: null`,
+  // prazo fixo). Repetir o número é o que garante que a validade impressa saia
+  // a MESMA de antes, escolha a pessoa o estado que escolher. Quem quiser
+  // separar congelado de resfriado ajusta em Meus itens, uma vez.
+  //
+  // Não apaga a lista velha: se algo aqui estiver errado, o dado original
+  // ainda está no documento `etiquetasAvulsas` para eu conferir. Ela só deixa
+  // de ter tela — e a flag em prefs impede que rode duas vezes.
+  const avulsasRef = useRef(false);
+  useEffect(() => {
+    if (avulsasRef.current || prefs.avulsasMigradas) { avulsasRef.current = true; return; }
+    if (!etiquetasAvulsas.length) return;
+    avulsasRef.current = true;
+
+    const estados = armazenamentosAtivos(prefs).map(a => a.id);
+    const novos = [];
+    for (const e of etiquetasAvulsas) {
+      // id ESTÁVEL: se a migração rodar de novo (dois aparelhos, prefs que não
+      // sincronizou), o item é o mesmo — não nasce um gêmeo.
+      const id = `avulsa_${e.id}`;
+      if (produtos.some(p => p.id === id)) continue;
+      const dias = Number(e.diasValidade) || 0;
+      novos.push(comEspelhoDePrazos({
+        id,
+        nome: e.nome,
+        categoria: 'Abertos',
+        unidade: 'unid',
+        tipoData: e.tipoData || 'abertura',
+        armazenamentoPadrao: estados[0] || 'congelado',
+        marca: '', sif: '', medidaPadrao: '', gramatura: 0,
+        min: 0, max: 0, estoqueInicial: 0, pesoUnidade: 0,
+        ativo: true,
+      }, Object.fromEntries(estados.map(k => [k, dias]))));
+    }
+
+    if (novos.length) {
+      setProdutos([...produtos, ...novos]);
+      if (!categorias.includes('Abertos')) setCategorias([...categorias, 'Abertos']);
+    }
+    setPref('avulsasMigradas', true);
+  }, [etiquetasAvulsas, produtos, categorias, prefs, setProdutos, setCategorias, setPref]);
 
   // Modo automático mín/máx
   // Usa saidas como trigger principal; produtos via ref para não criar loop de re-render.

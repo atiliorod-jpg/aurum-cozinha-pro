@@ -6,6 +6,8 @@ import { useUI } from '../../store/UIContext';
 import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../../data/bibliotecaEtiquetas';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../../utils/armazenamento';
 import { medidaDoProduto, gramasDeMedida } from '../../utils/etiquetas';
+import { useAuth } from '../../store/AuthContext';
+import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../../utils/produto';
 
 // Campo numérico fica como texto enquanto edita (apagar funciona); converte ao salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
@@ -30,6 +32,12 @@ const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
 export default function Itens() {
   const { produtos, setProdutos, categorias, setCategorias, prefs } = useApp();
   const { toast, confirm } = useUI();
+  const { sessao, impersonando } = useAuth();
+  // ⚠️ ESTA TELA VIROU O CADASTRO DOS DOIS PRODUTOS. No plano de etiquetas
+  // ela é o que sempre foi; no completo ela substituiu um formulário de 12
+  // campos, e os campos de ESTOQUE aparecem num bloco recolhido. Cadastro
+  // pesado é onde o cliente desiste — mas quem tem estoque precisa deles.
+  const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   const armazenamentos = armazenamentosAtivos(prefs);
 
   const [aba, setAba] = useState('meus');   // 'meus' | 'biblioteca'
@@ -104,10 +112,13 @@ export default function Itens() {
         // Mantem `gramatura` numerica quando a medida for em gramas puras: e o
         // campo que o app COMPLETO usa, e o cliente pode migrar de plano.
         gramatura: gramasDeMedida(form.medidaPadrao),
-        // ⚠️ zerados de propósito: o item nasce um produto estruturalmente
-        // VÁLIDO, para o dia em que a conta virar o plano completo e ele
-        // aparecer na Cozinha de Produção sem remendo nenhum.
-        min: 0, max: 0, estoqueInicial: 0,
+        // ⚠️ Zero quando não foi preenchido, NUNCA undefined: o item nasce um
+        // produto estruturalmente válido, para o dia em que a conta virar o
+        // plano completo e ele aparecer na Cozinha de Produção sem remendo.
+        min: Number(form.min) || 0,
+        max: Number(form.max) || 0,
+        estoqueInicial: Number(form.estoqueInicial) || 0,
+        pesoUnidade: Number(form.pesoUnidade) || 0,
         ativo: true,
       }, form.prazos),
     };
@@ -206,7 +217,7 @@ export default function Itens() {
                   <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-1.5 px-1">{cat}</p>
                   <div className="bg-white rounded-xl divide-y divide-gray-100">
                     {itens.map(p => (
-                      <button key={p.id} onClick={() => setEditando({ ...p, prazos: prazosDoProduto(p), medidaPadrao: medidaDoProduto(p) })}
+                      <button key={p.id} onClick={() => setEditando({ ...p, prazos: prazosDoProduto(p), medidaPadrao: medidaDoProduto(p), min: numVazio(p.min), max: numVazio(p.max), estoqueInicial: numVazio(p.estoqueInicial), pesoUnidade: numVazio(p.pesoUnidade) })}
                         className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50">
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-sm text-gray-900 truncate">{p.nome}</span>
@@ -273,6 +284,7 @@ export default function Itens() {
           inicial={editando}
           categorias={ordemCategorias}
           armazenamentos={armazenamentos}
+          soEtiq={soEtiq}
           onSalvar={salvar}
           onRemover={editando.id ? () => remover(editando) : null}
           onFechar={() => setEditando(null)}
@@ -282,7 +294,7 @@ export default function Itens() {
   );
 }
 
-function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, onFechar }) {
+function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, onFechar, soEtiq }) {
   const [form, setForm] = useState(() => ({
     ...inicial,
     prazos: Object.fromEntries(Object.entries(inicial.prazos || {}).map(([k, v]) => [k, numVazio(v)])),
@@ -473,6 +485,41 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
             </p>
           )}
         </div>
+
+        {/* ⚠️ RECOLHIDO, e só existe no plano completo. Quem comprou só etiqueta
+            não tem estoque para controlar, e mostrar mínimo/máximo ali seria
+            oferecer tela que a conta não tem. Quem tem estoque abre uma vez, no
+            cadastro, e não vê mais. */}
+        {!soEtiq && (
+          <details className="border border-gray-200 rounded-lg">
+            <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-gray-600">
+              Controle de estoque <span className="font-normal text-gray-500">· opcional</span>
+            </summary>
+            <div className="px-3 pb-3 space-y-2 border-t border-gray-100 pt-2">
+              <p className="text-[11px] text-gray-600">
+                Deixe em branco o que não usa. Dá para preencher depois, quando o item começar a girar.
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {[['estoqueInicial', 'Tem hoje'], ['min', 'Mínimo'], ['max', 'Máximo']].map(([k, l]) => (
+                  <div key={k}>
+                    <label htmlFor={`mi-${k}`} className="block text-[11px] text-gray-600 mb-1">{l}</label>
+                    <input id={`mi-${k}`} type="number" inputMode="decimal" min="0"
+                      value={form[k] ?? ''} onChange={e => set(k, e.target.value)}
+                      placeholder="0" className={inputCls} />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label htmlFor="mi-peso" className="block text-[11px] text-gray-600 mb-1">
+                  Peso por unidade (g) <span className="text-gray-500">· só para item contado por unidade</span>
+                </label>
+                <input id="mi-peso" type="number" inputMode="decimal" min="0"
+                  value={form.pesoUnidade ?? ''} onChange={e => set('pesoUnidade', e.target.value)}
+                  placeholder="ex.: 180" className={inputCls} />
+              </div>
+            </div>
+          </details>
+        )}
 
         <div className="flex gap-3 pt-1">
           <button onClick={onFechar}
