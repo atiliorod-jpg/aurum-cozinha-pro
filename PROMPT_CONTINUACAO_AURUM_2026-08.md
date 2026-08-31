@@ -181,14 +181,93 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (28/08/2026) — DOIS PRODUTOS COMERCIAIS
+## Onde paramos (31/08/2026) — UMA EXPERIÊNCIA SÓ, E O PAINEL COMPLETO
+
+### Preços novos, e o completo saiu da venda
+
+| Produto | Preço | Estado |
+|---|---|---|
+| **Aurum Etiquetas** | R$ 249/mês | à venda |
+| **Aurum Cozinha Pro** | R$ 399/mês | **em breve** — em teste, não se vende ainda |
+
+`PRODUTOS.completo.emBreve = true` (`utils/assinatura.js`). No cadastro o cartão
+dele aparece cinza, com selo "em breve", e não dá para escolher. **Na
+demonstração os dois abrem** — ver funcionando é o que faz alguém esperar por
+ele; o selo evita a promessa de que já dá para assinar.
+
+⚠️ Os testes de preço **derivam de `PRODUTOS`**, menos três âncoras com número
+cravado (`249`, `399`, `2689.2`, `2274.3`). Se o preço mudar de novo, é só
+ajustar essas âncoras — a versão anterior repetia 500 e 270 em doze lugares e
+doze testes quebraram de uma vez sem dizer nada útil.
+
+### A integração etiquetas ↔ completo (as quatro fases, feitas)
+
+Antes, quem fizesse upgrade encontrava OUTRO app: abas diferentes, sem
+biblioteca, com um cadastro de 12 campos. Agora é a mesma experiência.
+
+- **Fase 1** — `etiquetas/Itens.jsx` virou o cadastro **dos dois produtos**. Os
+  campos de estoque (tem hoje / mín / máx / peso por unidade) vivem num
+  `<details>` recolhido que **só existe no completo**. Cadastro pesado é onde o
+  cliente desiste, mas quem tem estoque precisa deles.
+- **Fase 2** — as mesmas duas abas nos dois: **Etiquetar · Impressora**.
+- **Fase 3** — a aba **"Avulsas" não existe mais**. Era uma segunda lista para a
+  mesma pergunta ("o que eu etiqueto?") e a pessoa tinha que adivinhar em qual
+  procurar. O que diferenciava um avulso era a data ser de ABERTURA, e isso já é
+  campo do item. Migração única em `AppContext` converte os avulsos que existem
+  em itens da categoria **"Abertos"** (id estável `avulsa_<id>`, flag
+  `prefs.avulsasMigradas`, lista antiga preservada no banco).
+  ⚠️ O prazo vai **igual em todos os estados** de propósito: a etiqueta avulsa
+  não passava por seletor nenhum, então repetir o número é o que garante a mesma
+  validade impressa. A linha do item colapsa para "3d em qualquer estado".
+- **Fase 4** — quem sobe de plano vê no Início: *"Seus N itens já estão aqui —
+  falta dizer quanto tem de cada um"*, com botão para a contagem
+  (`components/BoasVindasCompleto.jsx`). Some sozinho na primeira contagem.
+  ⚠️ A decisão saiu para `marcaDeUpgrade()` (função pura, com teste) e o efeito
+  **espera as prefs hidratarem** antes de decidir — ele é declarado antes do
+  efeito de hidratação, e decidir cedo gravaria por cima da marca antiga,
+  engolindo o aviso justamente de quem acabou de subir.
+
+### O painel super-admin (M36 + edge function `restaurante`)
+
+Três poderes novos, todos dentro do cartão de cada restaurante:
+
+1. **📊 Uso da conta** — último acesso, última gravação, itens, etiquetas
+   impressas, lançamentos, contas ativas. **Números, nunca conteúdo**: ver o que
+   o cliente tem dentro continua sendo o modo suporte, que ele autoriza e que
+   fica na trilha dele (M25).
+2. **nova senha** — manda o link para a caixa do cliente. Não é senha que eu
+   escolho e dito por telefone. Só aparece para endereço que RECEBE e-mail:
+   conta de equipe é `@contas.aurum.app` e não tem caixa de entrada
+   (`utils/contas.js` é onde essa regra mora agora — estava solta em dois
+   lugares, e bastava um mudar para o outro mentir em silêncio).
+3. **+ Abrir conta de cliente** — a venda acontece no WhatsApp; mandar o cliente
+   "entrar no site e preencher" é perder a pessoa na porta. Edge function
+   `restaurante`: cria auth user + restaurante + perfil de diretoria, com
+   rollback em cada passo. **A senha nasce aleatória e ninguém a conhece** — o
+   dono recebe o link para escolher a dele, o que de quebra prova que o e-mail
+   existe (é o único caminho de recuperação dele).
+   ⚠️ Não reusa `criar_restaurante` (M28): aquela é escrita em cima de
+   `auth.uid()` e criaria o restaurante para a conta da Aurum.
+
+**Sondado contra o banco real:** M36 é SECURITY DEFINER, `anon` sem execute, e a
+trava recusa até a conexão de administração. A função `restaurante` publicada:
+sem sessão → 401, com a chave anônima → 401, nada criado.
+**Falta o Atílio conferir a TELA do painel** — ela só abre com a conta
+super-admin, que o agente não tem.
+
+**Estado:** 337 testes, lint 0 erros (2 warnings antigos), build ok,
+audit-check ok. Migração 36 aplicada.
+
+---
+
+## Antes disso (28/08/2026) — DOIS PRODUTOS COMERCIAIS
 
 O app passou a vender **dois produtos a partir do mesmo código**:
 
 | Produto | Preço | O que entrega |
 |---|---|---|
-| **Aurum Etiquetas** | R$ 270/mês | Biblioteca de itens prontos, cadastro próprio, impressão, controle do que vence |
-| **Aurum Cozinha Pro** | R$ 500/mês | Tudo acima + estoque, compras, produção, receitas, relatórios, financeiro |
+| **Aurum Etiquetas** | R$ 270/mês (hoje 249) | Biblioteca de itens prontos, cadastro próprio, impressão, controle do que vence |
+| **Aurum Cozinha Pro** | R$ 500/mês (hoje 399) | Tudo acima + estoque, compras, produção, receitas, relatórios, financeiro |
 
 `PRECO_MES = 149` **não existe mais.** Preço vem de `PRODUTOS` em `utils/assinatura.js`.
 
@@ -265,7 +344,7 @@ esse mesmo defeito três vezes — os comentários das linhas 233-238, 248-250 e
   tem estoque que aquele produto não mostra).
 - Estoque Seco e o `valCongelado` como prazo de prateleira (item 4 acima).
 
-**Estado:** 268 testes, lint 0 erros, build ok, audit-check ok. Contra o BANCO:
+**Estado na época:** 268 testes, lint 0 erros, build ok, audit-check ok. Contra o BANCO:
 auditoria 27/27, e2e 48/48, pentest-produto 5/5, contas de teste limpas.
 
 ---
