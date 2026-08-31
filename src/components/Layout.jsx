@@ -43,7 +43,12 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   // Configurações…) ficaram sem saída visível: só dava para voltar abrindo o
   // seletor do cabeçalho e escolhendo Administração de novo — dois toques e
   // nada na tela dizendo que era esse o caminho.
-  const dentroDaAdmin = emAdmin && pathname !== '/administracao';
+  // ⚠️ `!semCozinhas` é o conserto de um defeito que o dono viu: no PAINEL do
+  // super-admin este botão aparecia e levava para /administracao — a
+  // Administração de COZINHA, com relatório, histórico e financeiro de um
+  // restaurante que não existe. A área se chama "admin" nos dois casos, mas só
+  // uma delas tem para onde voltar.
+  const dentroDaAdmin = emAdmin && !semCozinhas && pathname !== '/administracao';
   // Onde a pessoa está agora. Num estoque é o nome da INSTÂNCIA, não o rótulo
   // do tipo: com dois restaurantes na conta, "Estoque Seco" sozinho não diz de
   // qual casa é, e o cabeçalho é onde se confere isso antes de lançar.

@@ -20,12 +20,55 @@ export const nivelDoCargo = (cargo) => CARGOS.find(c => c.id === cargo)?.nivel ?
 
 const AuthContext = createContext(null);
 
+/**
+ * O endereço já traz a recuperação de senha?
+ *
+ * ⚠️ Lido ANTES do React montar qualquer coisa. O Supabase limpa o endereço
+ * assim que troca o token por uma sessão, então quem ler tarde não acha mais
+ * nada — e o `type=recovery` some junto.
+ */
+const recuperacaoNaURL = (() => {
+  try {
+    const h = new URLSearchParams(String(window.location.hash || '').replace(/^#/, ''));
+    return h.get('type') === 'recovery';
+  } catch { return false; }
+})();
+
+/**
+ * O link veio quebrado? (expirado, já usado, endereço não autorizado)
+ *
+ * ⚠️ Sem isto o app mostra a tela de login limpa, como se nada tivesse
+ * acontecido — e a pessoa fica clicando no mesmo link velho do e-mail sem
+ * entender por que "não faz nada".
+ */
+const erroNaURL = (() => {
+  try {
+    const h = new URLSearchParams(String(window.location.hash || '').replace(/^#/, ''));
+    if (!h.get('error')) return '';
+    const codigo = h.get('error_code') || '';
+    if (/expired/i.test(codigo)) return 'Este link expirou. Peça um novo em "Esqueci minha senha".';
+    if (/used|already/i.test(codigo)) return 'Este link já foi usado. Peça um novo em "Esqueci minha senha".';
+    return h.get('error_description')?.replace(/\+/g, ' ') || 'O link não funcionou. Peça um novo.';
+  } catch { return ''; }
+})();
+
 export function AuthProvider({ children }) {
   const [sessao,     setSessao]     = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [usuarios,   setUsuarios]   = useState([]);
   const [convites,   setConvites]   = useState([]); // convites pendentes (não usados/não expirados)
-  const [recuperando, setRecuperando] = useState(false); // veio do link "esqueci a senha"
+  // ⚠️ LIDO DO ENDEREÇO, NÃO DO EVENTO — e isto conserta um defeito que só
+  // aparecia no cliente. O link do e-mail chega como
+  // `https://app.aurumcozinha.com.br/#type=recovery&access_token=...`, e o
+  // Supabase avisa por um evento (`PASSWORD_RECOVERY`). Só que ele processa o
+  // endereço quando o CLIENTE é criado, no carregamento do arquivo, e a gente
+  // só se inscreve para ouvir depois — dentro de um efeito do React, que roda
+  // após a primeira renderização. Quando o aviso chega cedo demais, ninguém
+  // está escutando: a pessoa clicava no link do e-mail e caía na tela de
+  // login, sem nunca ver onde digitar a senha nova.
+  // Ler o endereço é síncrono e não depende de ordem nenhuma. O evento
+  // continua ouvido logo abaixo, como segundo caminho.
+  const [recuperando, setRecuperando] = useState(recuperacaoNaURL);
   // Modo suporte: super-admin vendo os dados de OUTRO restaurante
   const [impersonando, setImpersonando] = useState(null); // { restauranteId, restauranteNome } | null (suporte = só leitura)
   // Cadastro que confirmou o e-mail mas a criação do restaurante falhou
@@ -643,7 +686,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      sessao, carregando, usuarios, recuperando,
+      sessao, carregando, usuarios, recuperando, erroDoLink: erroNaURL,
       convites, carregarConvites, revogarConvite,
       login, logout, entrarDemo, esqueceuSenha, atualizarSenha,
       criarPrimeiroAdmin, reenviarConfirmacao, cadastroPendenteErro,

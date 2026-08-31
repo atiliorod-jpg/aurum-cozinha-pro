@@ -38,7 +38,7 @@ const produtoDaURL = (() => {
 })();
 
 export default function Login() {
-  const { login, esqueceuSenha, criarPrimeiroAdmin, reenviarConfirmacao, entrarDemo } = useAuth();
+  const { login, esqueceuSenha, criarPrimeiroAdmin, reenviarConfirmacao, entrarDemo, erroDoLink } = useAuth();
   const [modo, setModo] = useState('entrar'); // entrar | novo | esqueci
   const [aceitouTermos, setAceitouTermos] = useState(false);
   // Produto escolhido no cadastro. O padrao e o ETIQUETAS: e o produto de
@@ -47,7 +47,11 @@ export default function Login() {
   // dois cartoes do mesmo jeito.
   const [produto, setProduto] = useState(produtoDaURL || 'etiquetas');
   const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState('');
+  // ⚠️ Link de e-mail que falhou (expirado, já usado) começa mostrado. Sem
+  // isto o app abria a tela de entrada limpa, como se nada tivesse acontecido,
+  // e a pessoa ficava clicando no mesmo link velho sem entender por que "não
+  // faz nada".
+  const [erro, setErro] = useState(erroDoLink || '');
   const [info, setInfo] = useState('');
 
   // campos
