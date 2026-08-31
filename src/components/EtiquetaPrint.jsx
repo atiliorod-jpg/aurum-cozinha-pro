@@ -82,6 +82,15 @@ function Dica({ texto }) {
 
 // Uma linha "RÓTULO: valor" da etiqueta (formato ficha de pré-preparo)
 //
+// ⚠️ TAMANHOS EM MILÍMETROS, e um pouco maiores que o óbvio (31/08/2026): a
+// mesma etiqueta saiu do computador com letra menor que a do celular, porque
+// aqui quem desenha é a fonte da tela e lá é a fonte interna da impressora, que
+// tem outra proporção. Subiram ~10%, e SÓ o tamanho: espaçamento, colunas e
+// ordem das linhas ficaram como estavam — o formato foi aprovado no papel, e
+// mexer nele para "ganhar espaço" desfaria três rodadas de acerto.
+// ⚠️ A etiqueta tem altura FIXA com corte no que passar. Subir mais que isso
+// começa a empurrar o rodapé para fora — confira no navegador antes.
+//
 // ⚠️ VALOR ENCOSTADO NA DIREITA, todos no MESMO tamanho — o mesmo desenho do
 // TSPL, e o histórico está lá em `utils/tspl.js`. O resumo: valores à direita
 // só ficam uma linha sob a outra se todos tiverem o mesmo corpo; foi tentar
@@ -93,10 +102,10 @@ function Dica({ texto }) {
 //
 // ⚠️ Esta caixa se chama "Como vai sair". Sempre que o desenho do papel mudar,
 // muda aqui junto — prévia que não confere é pior que prévia nenhuma.
-function Linha({ rotulo, valor, forte = false }) {
+function Linha({ rotulo, valor, forte = false, corpo = '3mm' }) {
   if (!valor) return null;
   return (
-    <div className="flex justify-between" style={{ fontSize: '2.7mm', gap: '2mm', marginBottom: forte ? '0.6mm' : 0 }}>
+    <div className="flex justify-between" style={{ fontSize: corpo, gap: '2mm', marginBottom: forte ? '0.6mm' : 0 }}>
       <span style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{rotulo}:</span>
       <span style={{ fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         borderBottom: forte ? '0.35mm solid #000' : undefined, paddingBottom: forte ? '0.3mm' : undefined }}>{valor}</span>
@@ -110,6 +119,35 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
   const comQR = config.incluirQR && qr?.svg;
   const est = estabelecimento || {};
   const qrMm = comQR ? tamanhoQRmm(qr.modulos, config.alturaMm) : 0;
+
+  // ⚠️ ETIQUETA CHEIA ENCOLHIA A LETRA SOZINHA — cortando linha, em silêncio.
+  // A etiqueta tem altura FIXA com corte no que passar, e o rodapé é ancorado
+  // embaixo: com os seis campos ligados MAIS as quatro linhas de
+  // estabelecimento, o miolo passava do espaço e a última linha simplesmente
+  // não saía no papel. Ninguém via erro; via uma etiqueta sem o responsável.
+  // (Medido no navegador: 59 px além do espaço, quase duas linhas.)
+  //
+  // ⚠️ Isto NÃO é o caso comum. Val. original vem desligada e marca/SIF costumam
+  // ficar vazios — a etiqueta do dia a dia tem quatro linhas e cabe folgada no
+  // tamanho maior. Por isso a redução é condicional: quem tem pouca coisa não
+  // perde legibilidade por causa de quem tem muita.
+  const linhasDeDados = [
+    c.valOriginal !== false && campos.valOriginalFmt,
+    c.fabricacao !== false && campos.dataFabricacaoFmt,
+    c.validade !== false && campos.validadeFmt,
+    c.marca !== false && campos.marca,
+    c.sif !== false && campos.sif,
+    c.responsavel !== false && campos.responsavel,
+  ].filter(Boolean).length;
+  const linhasDeRodape = (c.restaurante !== false && campos.restauranteNome ? 1 : 0)
+    + (c.estabelecimento === false ? 0 : [est.cnpj || est.cep, est.endereco, est.cidade].filter(Boolean).length);
+  const apertado = linhasDeDados + linhasDeRodape >= 8;
+  // ⚠️ A validade NÃO muda de tamanho — o destaque dela é o sublinhado, por
+  // decisão do dono: valores de tamanhos diferentes quebram o alinhamento à
+  // direita, e foi isso que a gente já corrigiu uma vez.
+  // ⚠️ 2,5 e não 2,6: medido no navegador, 2,6 ainda passava 2 px do espaço
+  // no caso cheio — e 2 px é uma linha cortada pela metade no papel.
+  const corpo = apertado ? '2.5mm' : '3mm';
   return (
     <div className="etiqueta-label bg-white text-black flex flex-col"
       style={{ width: `${config.larguraMm}mm`, height: `${config.alturaMm}mm`, padding: '1.6mm 2mm', boxSizing: 'border-box', lineHeight: 1.25, fontFamily: 'system-ui, sans-serif' }}>
@@ -122,7 +160,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
       <div className="flex items-start justify-between gap-1 border-b border-black"
         style={{ paddingBottom: '0.8mm', marginBottom: '0.8mm', flexShrink: 0 }}>
         <div style={{
-          fontSize: (campos.nome || '').length > 24 ? '3.0mm' : '3.6mm',
+          fontSize: (campos.nome || '').length > 24 ? '3.2mm' : '3.9mm',
           fontWeight: 800, textTransform: 'uppercase',
           // Duas travas somadas de propósito: o line-clamp corta com reticências
           // onde o -webkit-box vale, e o maxHeight garante o corte mesmo onde
@@ -131,7 +169,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           maxHeight: '9.5mm', overflow: 'hidden', wordBreak: 'break-word',
         }}>{campos.nome}</div>
-        {campos.medida && <div style={{ fontSize: '3.2mm', fontWeight: 800, whiteSpace: 'nowrap' }}>{campos.medida}</div>}
+        {campos.medida && <div style={{ fontSize: '3.4mm', fontWeight: 800, whiteSpace: 'nowrap' }}>{campos.medida}</div>}
       </div>
       {c.armazenamento !== false && campos.armazenamentoLabel && (
         // ⚠️ nowrap + ellipsis obrigatórios. A etiqueta tem ALTURA FIXA com
@@ -140,7 +178,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
         // do papel — o mesmo defeito que o nome comprido já causou. O limite
         // de caracteres na tela de Configurações é a outra metade da trava.
         <div style={{
-          fontSize: '2.7mm', fontWeight: 700,
+          fontSize: apertado ? '2.7mm' : '3mm', fontWeight: 700,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {campos.armazenamentoLabel}
@@ -152,19 +190,19 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
       {/* Datas e dados */}
       <div className="flex-1" style={{ minHeight: 0, overflow: 'hidden' }}>
         {/* Os rótulos são os MESMOS que o TSPL imprime — inclusive as abreviações. */}
-        {c.valOriginal !== false && <Linha rotulo="VAL. ORIG." valor={campos.valOriginalFmt} />}
-        {c.fabricacao !== false && <Linha rotulo={campos.rotuloData} valor={campos.dataFabricacaoFmt} />}
-        {c.validade !== false && <Linha rotulo="VALIDADE" valor={campos.validadeFmt} forte />}
-        {c.marca !== false && <Linha rotulo="MARCA" valor={campos.marca} />}
-        {c.sif !== false && <Linha rotulo="SIF" valor={campos.sif} />}
-        {c.responsavel !== false && <Linha rotulo="RESP." valor={campos.responsavel} />}
+        {c.valOriginal !== false && <Linha rotulo="VAL. ORIG." valor={campos.valOriginalFmt} corpo={corpo} />}
+        {c.fabricacao !== false && <Linha rotulo={campos.rotuloData} valor={campos.dataFabricacaoFmt} corpo={corpo} />}
+        {c.validade !== false && <Linha rotulo="VALIDADE" valor={campos.validadeFmt} forte corpo={corpo} />}
+        {c.marca !== false && <Linha rotulo="MARCA" valor={campos.marca} corpo={corpo} />}
+        {c.sif !== false && <Linha rotulo="SIF" valor={campos.sif} corpo={corpo} />}
+        {c.responsavel !== false && <Linha rotulo="RESP." valor={campos.responsavel} corpo={corpo} />}
       </div>
       {/* Rodapé: estabelecimento + ID + QR */}
       <div className="flex items-end justify-between gap-1 border-t border-black" style={{ paddingTop: '0.8mm', marginTop: '0.8mm', flexShrink: 0 }}>
         {/* ⚠️ 2,1 mm saía ilegível no papel — o dono leu a etiqueta impressa e
             apontou o CNPJ e o endereço. Numa térmica, letra menor que ~2,4 mm
             perde o traço: o ponto é grande demais para desenhar a curva. */}
-        <div style={{ fontSize: '2.4mm', lineHeight: 1.35 }} className="min-w-0">
+        <div style={{ fontSize: apertado ? '2.2mm' : '2.6mm', lineHeight: 1.35 }} className="min-w-0">
           {c.restaurante !== false && campos.restauranteNome && (
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>{campos.restauranteNome}</div>
           )}
