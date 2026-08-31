@@ -24,7 +24,7 @@ export const PRODUTOS = {
   etiquetas: {
     id: 'etiquetas',
     label: 'Aurum Etiquetas',
-    precoMes: 270,
+    precoMes: 249,
     // ⚠️ NÃO prometer "acompanhar o que vence": a tela de Validades saiu deste
     // produto de propósito — ele imprime a data na etiqueta, não monitora
     // vencimento. Quem quer acompanhamento compra o completo. Prometer aqui é
@@ -34,8 +34,14 @@ export const PRODUTOS = {
   completo: {
     id: 'completo',
     label: 'Aurum Cozinha Pro',
-    precoMes: 500,
+    precoMes: 399,
     resumo: 'Estoque, compras, produção, receitas, relatórios — e as etiquetas junto.',
+    // ⚠️ AINDA NÃO SE VENDE. O produto existe e funciona, mas está em teste — e
+    // vender agora é assumir suporte de um app que ainda vai mudar de forma.
+    // A tela de cadastro mostra "em breve" e não deixa escolher; o super-admin
+    // continua podendo ATIVAR uma conta nele pelo painel, que é como um piloto
+    // começa.
+    emBreve: true,
   },
 };
 export const PRODUTO_PADRAO = 'completo';

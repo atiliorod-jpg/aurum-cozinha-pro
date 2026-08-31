@@ -46,7 +46,11 @@ export default function Login() {
   // entrada, e quem quer o completo escolhe conscientemente. O link direto
   // (?produto=etiquetas) so confirma o padrao; quem chega sem parametro ve os
   // dois cartoes do mesmo jeito.
-  const [produto, setProduto] = useState(produtoDaURL || 'etiquetas');
+  // ⚠️ Nunca nasce no plano que ainda não se vende: um `?produto=completo` na
+  // URL levaria ao cadastro com um plano que o próprio botão não oferece, e o
+  // cadastro criaria a conta nele.
+  const [produto, setProduto] = useState(
+    PRODUTOS[produtoDaURL]?.emBreve || !produtoDaURL ? 'etiquetas' : produtoDaURL);
   const [carregando, setCarregando] = useState(false);
   // ⚠️ Link de e-mail que falhou (expirado, já usado) começa mostrado. Sem
   // isto o app abria a tela de entrada limpa, como se nada tivesse acontecido,
@@ -219,13 +223,18 @@ export default function Login() {
                   <input type="tel" inputMode="numeric" aria-label="Seu WhatsApp" value={demoFone}
                     onChange={e => setDemoFone(formatarTelefone(e.target.value))}
                     placeholder="WhatsApp com DDD" className={campo} />
+                  {/* ⚠️ A DEMONSTRAÇÃO ABRE OS DOIS, inclusive o que ainda não se
+                      vende: ver funcionando é o que faz alguém esperar por ele.
+                      O selo evita a promessa de que já dá para assinar. */}
                   {Object.values(PRODUTOS).map(p => (
                     <button key={p.id} onClick={() => abrirDemo(p.id)}
                       className="w-full text-left rounded-xl p-3 border-2 border-gray-200 active:scale-[0.99] transition-transform">
                       <span className="flex items-center justify-between gap-2">
                         <span className="font-bold text-sm text-polo-navy">{p.label}</span>
                         <span className="text-xs font-bold text-polo-navy flex-shrink-0">
-                          R$ {p.precoMes}<span className="font-normal text-gray-500">/mês</span>
+                          {p.emBreve
+                            ? <span className="text-gray-600 bg-gray-200 rounded-full px-2 py-0.5">em breve</span>
+                            : <>R$ {p.precoMes}<span className="font-normal text-gray-500">/mês</span></>}
                         </span>
                       </span>
                       <span className="block text-[11px] text-gray-600 mt-0.5">{p.resumo}</span>
@@ -306,8 +315,27 @@ export default function Login() {
                 e rebaixar depois é pior: a pessoa passa o teste conhecendo
                 telas que vai perder, e isso é a sensação de produto capado. */}
             <div className="space-y-2">
+              {/* ⚠️ O COMPLETO APARECE MAS NÃO SE ESCOLHE. Ele existe e funciona,
+                  mas está em teste — vender agora é assumir suporte de um app
+                  que ainda vai mudar de forma. Escondê-lo seria pior: quem já
+                  ouviu falar acharia que sumiu, e some também a chance de dizer
+                  "já já tem". Fica visível, cinza, com "em breve". */}
               {Object.values(PRODUTOS).map(p => {
                 const sel = produto === p.id;
+                if (p.emBreve) {
+                  return (
+                    <div key={p.id} aria-disabled="true"
+                      className="w-full text-left rounded-xl p-3 border-2 border-gray-200 bg-gray-50 opacity-70">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-sm text-gray-600">{p.label}</span>
+                        <span className="text-[11px] font-bold text-gray-600 bg-gray-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                          em breve
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-600 mt-0.5">{p.resumo}</p>
+                    </div>
+                  );
+                }
                 return (
                   <button key={p.id} type="button" onClick={() => setProduto(p.id)}
                     aria-pressed={sel}

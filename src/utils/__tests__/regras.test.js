@@ -19,7 +19,7 @@ import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
-import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano } from '../assinatura';
+import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
 import { produtoTem, produtoAtivo } from '../produto';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
@@ -653,36 +653,51 @@ describe('planos de pagamento (Pix)', () => {
   // querer, o cliente paga o valor errado e a conciliação vira manual — por
   // isso valem os dois produtos, com as contas escritas por extenso.
   // Descontos: semestral -5%, anual -10% (baixados de 10/20% em 28/08/2026).
-  describe('Aurum Cozinha Pro (R$500/mês)', () => {
-    it('mensal = R$500 sem desconto', () => {
-      expect(precoPlano(plano('mensal'), 'completo')).toBe(500);
+  // ⚠️ AS CONTAS SAEM DO PREÇO, não de números copiados. A versão anterior
+  // repetia 500 e 270 em doze lugares; quando o dono baixou para 399 e 249,
+  // doze testes quebraram de uma vez e nenhum deles dizia nada útil — só que o
+  // preço tinha mudado, coisa que a gente já sabia. Assim o teste continua
+  // guardando o que importa: a REGRA de desconto e o arredondamento.
+  describe('Aurum Cozinha Pro', () => {
+    const m = PRODUTOS.completo.precoMes;
+    it('mensal é o preço cheio', () => {
+      expect(precoPlano(plano('mensal'), 'completo')).toBe(m);
     });
-    it('semestral = 5% off (500×6×0,95 = 2850) e mostra economia', () => {
-      expect(precoPlano(plano('semestral'), 'completo')).toBe(2850);
-      expect(precoMensalEquivalente(plano('semestral'), 'completo')).toBe(475);
-      expect(economiaPlano(plano('semestral'), 'completo')).toBe(150);
+    it('semestral tira 5% e mostra a economia', () => {
+      expect(precoPlano(plano('semestral'), 'completo')).toBeCloseTo(m * 6 * 0.95, 2);
+      expect(precoMensalEquivalente(plano('semestral'), 'completo')).toBeCloseTo(m * 0.95, 2);
+      expect(economiaPlano(plano('semestral'), 'completo')).toBeCloseTo(m * 6 * 0.05, 2);
     });
-    it('anual = 10% off (500×12×0,9 = 5400)', () => {
-      expect(precoPlano(plano('anual'), 'completo')).toBe(5400);
-      expect(precoMensalEquivalente(plano('anual'), 'completo')).toBe(450);
-      expect(economiaPlano(plano('anual'), 'completo')).toBe(600);
+    it('anual tira 10%', () => {
+      expect(precoPlano(plano('anual'), 'completo')).toBeCloseTo(m * 12 * 0.9, 2);
+      expect(precoMensalEquivalente(plano('anual'), 'completo')).toBeCloseTo(m * 0.9, 2);
+      expect(economiaPlano(plano('anual'), 'completo')).toBeCloseTo(m * 12 * 0.1, 2);
     });
   });
 
-  describe('Aurum Etiquetas (R$270/mês)', () => {
-    it('mensal = R$270 sem desconto', () => {
-      expect(precoPlano(plano('mensal'), 'etiquetas')).toBe(270);
+  describe('Aurum Etiquetas', () => {
+    const m = PRODUTOS.etiquetas.precoMes;
+    it('mensal é o preço cheio', () => {
+      expect(precoPlano(plano('mensal'), 'etiquetas')).toBe(m);
     });
-    it('semestral = 5% off (270×6×0,95 = 1539)', () => {
-      expect(precoPlano(plano('semestral'), 'etiquetas')).toBe(1539);
-      expect(precoMensalEquivalente(plano('semestral'), 'etiquetas')).toBe(256.5);
-      expect(economiaPlano(plano('semestral'), 'etiquetas')).toBe(81);
+    it('semestral tira 5%', () => {
+      expect(precoPlano(plano('semestral'), 'etiquetas')).toBeCloseTo(m * 6 * 0.95, 2);
+      expect(economiaPlano(plano('semestral'), 'etiquetas')).toBeCloseTo(m * 6 * 0.05, 2);
     });
-    it('anual = 10% off (270×12×0,9 = 2916)', () => {
-      expect(precoPlano(plano('anual'), 'etiquetas')).toBe(2916);
-      expect(precoMensalEquivalente(plano('anual'), 'etiquetas')).toBe(243);
-      expect(economiaPlano(plano('anual'), 'etiquetas')).toBe(324);
+    it('anual tira 10%', () => {
+      expect(precoPlano(plano('anual'), 'etiquetas')).toBeCloseTo(m * 12 * 0.9, 2);
+      expect(economiaPlano(plano('anual'), 'etiquetas')).toBeCloseTo(m * 12 * 0.1, 2);
     });
+  });
+
+  // ⚠️ O de baixo continua com número CRAVADO, e de propósito: é o que
+  // desmascara um erro no cálculo que "bate" com uma fórmula igualmente
+  // errada. Se o preço mudar de novo, ajuste estes três — eles são a âncora.
+  it('nos preços de hoje, as contas fecham', () => {
+    expect(PRODUTOS.etiquetas.precoMes).toBe(249);
+    expect(PRODUTOS.completo.precoMes).toBe(399);
+    expect(precoPlano(plano('anual'), 'etiquetas')).toBe(2689.2);  // 249×12×0,9
+    expect(precoPlano(plano('semestral'), 'completo')).toBe(2274.3); // 399×6×0,95
   });
 
   // Trava os percentuais em si: se alguém mexer nos descontos, quebra aqui e
@@ -696,9 +711,9 @@ describe('planos de pagamento (Pix)', () => {
   // Produto desconhecido ou ausente NÃO pode virar preço zero (Pix de R$0,00
   // seria aceito pelo banco e o cliente entraria de graça): cai no completo.
   it('produto ausente ou inválido cobra o preço do completo', () => {
-    expect(precoPlano(plano('mensal'))).toBe(500);
-    expect(precoPlano(plano('mensal'), 'xpto')).toBe(500);
-    expect(precoPlano(plano('mensal'), { produto: 'etiquetas' })).toBe(270);
+    expect(precoPlano(plano('mensal'))).toBe(PRODUTOS.completo.precoMes);
+    expect(precoPlano(plano('mensal'), 'xpto')).toBe(PRODUTOS.completo.precoMes);
+    expect(precoPlano(plano('mensal'), { produto: 'etiquetas' })).toBe(PRODUTOS.etiquetas.precoMes);
   });
 
   it('dias por plano batem com 30/180/365', () => {

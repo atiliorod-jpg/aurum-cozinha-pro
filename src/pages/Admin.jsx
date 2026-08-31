@@ -238,8 +238,8 @@ export default function Admin() {
     const ok = await confirm({
       titulo: paraEtiquetas ? 'Mudar para Aurum Etiquetas' : 'Mudar para Aurum Cozinha Pro',
       mensagem: paraEtiquetas
-        ? `"${r.nome}" passa a ver só as telas de etiqueta (R$ 270/mês).\n\nNENHUM dado é apagado: o estoque, as compras e o histórico continuam no banco e reaparecem inteiros se você voltar para o plano completo.`
-        : `"${r.nome}" passa a ver o app inteiro (R$ 500/mês).\n\nOs itens e as etiquetas que ele já cadastrou continuam onde estão — aparecem na Cozinha de Produção.`,
+        ? `"${r.nome}" passa a ver só as telas de etiqueta (R$ ${produtoDe('etiquetas').precoMes}/mês).\n\nNENHUM dado é apagado: o estoque, as compras e o histórico continuam no banco e reaparecem inteiros se você voltar para o plano completo.`
+        : `"${r.nome}" passa a ver o app inteiro (R$ ${produtoDe('completo').precoMes}/mês).\n\nOs itens e as etiquetas que ele já cadastrou continuam onde estão — aparecem na Cozinha de Produção.`,
       confirmar: paraEtiquetas ? 'Mudar para Etiquetas' : 'Mudar para Completo',
     });
     if (!ok) return;

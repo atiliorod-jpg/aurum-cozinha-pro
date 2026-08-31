@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
  * ⚠️ Por que página e não modal: os termos anteriores eram um resumo
  * explicativo dentro de um modal do login. Não falavam de propriedade
  * intelectual, cópia, rescisão nem responsabilidade, e não dava para guardar
- * nem imprimir. Um cliente que assina R$500/mês espera poder salvar o que
+ * nem imprimir. Um cliente que assina uma mensalidade espera poder salvar o que
  * aceitou.
  *
  * ⚠️ "Como se fosse PDF" NÃO gera PDF. Usa `window.print()` + o `@media print`
