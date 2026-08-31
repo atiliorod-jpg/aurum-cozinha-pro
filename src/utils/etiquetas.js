@@ -28,6 +28,12 @@ export const ETIQUETA_CONFIG_PADRAO = {
   campos: {
     restaurante: true, validade: true, fabricacao: true, armazenamento: true,
     responsavel: true, marca: true, sif: true, estabelecimento: true,
+    // ⚠️ LOTE DO FABRICANTE — o número impresso na caixa que veio do
+    // fornecedor, NÃO o id interno do QR (esse é `loteId`, outra coisa). É o
+    // que liga o pote na câmara ao recall do frigorífico: sem ele, "lote X foi
+    // recolhido" não tem como ser respondido depois de porcionar.
+    // Nasce ligado, mas só sai no papel quando alguém preenche.
+    lote: true,
     // ⚠️ DESLIGADO por padrão. É a validade impressa na embalagem do
     // fabricante — não muda o vencimento da etiqueta, e mais um campo para a
     // equipe preencher a cada impressão. Quem precisa de rastreio de lote liga
@@ -74,6 +80,7 @@ export function montarCamposEtiqueta({
   valOriginal = null,
   marca = '',
   sif = '',
+  lote = '',
   hora = '',
   loteId = null,
   // ⚠️ Nome e faixa do estado de armazenamento entram COMO PARÂMETRO, já
@@ -122,6 +129,14 @@ export function montarCamposEtiqueta({
     medida: medida || '',
     marca: marca || '',
     sif: sif || '',
+    lote: lote || '',
+    // ⚠️ SIF E LOTE DIVIDEM UMA LINHA na etiqueta, e não é economia à toa: com
+    // val. original + marca + SIF + lote em linhas próprias o corpo passava por
+    // cima do rodapé por 0,6 mm — o RESP. imprimia em cima do nome da casa.
+    // São os dois números do fornecedor e andam juntos na prática. Sozinho,
+    // cada um ocupa a linha inteira, com o rótulo só dele.
+    sifLoteRotulo: sif && lote ? 'SIF / LOTE:' : sif ? 'SIF:' : lote ? 'LOTE:' : '',
+    sifLoteValor: [sif, lote].filter(Boolean).join(' · '),
     restauranteNome: restauranteNome || '',
     responsavel: responsavel || '',
     hora: hora || '',
@@ -316,3 +331,40 @@ export function avisoDePrazo(digitado, doCadastro) {
   if (n > base * 3) return `Bem acima do prazo cadastrado (${base} dias). Confira.`;
   return null;
 }
+
+// ── Produto aberto sem prazo cadastrado ───────────────────────
+//
+// ⚠️ SUGESTÃO, NÃO REGRA DA AURUM. Quando a embalagem foi só ABERTA (não
+// manipulada) e ninguém cadastrou prazo, o item saía sem validade nenhuma — e
+// "leite aberto" sem data é exatamente a etiqueta que não serve para nada.
+//
+// O número 3 é o limite usual para produto aberto sob refrigeração, e é o que
+// as referências técnicas usam quando o fabricante NÃO informa. A ordem certa
+// continua sendo a do rótulo: quem tem a informação do fabricante digita por
+// cima, e é isso que a tela pede. Por isso é sugestão preenchida e visível,
+// nunca um valor imposto em silêncio.
+//
+// ⚠️ Só vale para `tipoData: 'abertura'`. Alimento MANIPULADO depende do
+// processo daquela cozinha — ali chutar três dias seria inventar prazo.
+export const DIAS_SUGERIDOS_ABERTURA = 3;
+
+/** Prazo de partida do item na hora de imprimir. 0 = não temos o que sugerir. */
+export function diasIniciaisDaEtiqueta(item) {
+  const doCadastro = item?.diasValidade != null
+    ? item.diasValidade
+    : (item?.prazos?.[item?.armazenamento]
+       ?? item?.prazos?.congelado
+       ?? item?.diasCongelado
+       ?? 0);
+  if (Number(doCadastro) > 0) return Number(doCadastro);
+  if (item?.tipoData === 'abertura') return DIAS_SUGERIDOS_ABERTURA;
+  return 0;
+}
+
+/** A sugestão está sendo usada? É o que faz a explicação aparecer na tela. */
+export const usandoSugestaoDeAbertura = (item, diasNoCampo) =>
+  item?.tipoData === 'abertura'
+  && Number(diasNoCampo) === DIAS_SUGERIDOS_ABERTURA
+  && !(Number(item?.diasValidade) > 0)
+  && !(Number(item?.prazos?.[item?.armazenamento]) > 0);
+

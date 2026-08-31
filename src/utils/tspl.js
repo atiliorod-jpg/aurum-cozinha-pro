@@ -120,7 +120,7 @@ function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, sub
  * `campos` é o mesmo objeto que `montarCamposEtiqueta` devolve — a fonte da
  * verdade é uma só, então o que sai no papel bate com o que a tela mostra.
  */
-export function etiquetaTSPL(campos, config, opcoes = {}) {
+function montarEtiqueta(campos, config, opcoes = {}) {
   const { larguraMm = 60, alturaMm = 50 } = config || {};
   const c = config?.campos || {};
   const copias = Math.max(1, parseInt(opcoes.copias) || 1);
@@ -201,7 +201,14 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // padrão de tudo — então virou tamanho, que é o que se enxerga de longe.
   if (c.validade !== false) linha('VALIDADE:', campos.validadeFmt, { sublinhado: true });
   if (c.marca !== false) linha('MARCA:', campos.marca);
-  if (c.sif !== false) linha('SIF:', campos.sif);
+  // ⚠️ SIF E LOTE NA MESMA LINHA. Medido em pontos antes de decidir: com val.
+  // original + marca + SIF + lote cada um na sua linha, o corpo passava do
+  // rodapé por 0,6 mm e o RESP. imprimia por cima do nome da casa. Juntos
+  // sobram 2,4 mm. O rótulo se ajusta ao que existe (`sifLoteRotulo`), então
+  // quem preenche só o SIF continua vendo "SIF:" como sempre viu.
+  if (c.sif !== false || c.lote !== false) {
+    linha(campos.sifLoteRotulo, campos.sifLoteValor);
+  }
   if (c.responsavel !== false) linha('RESP.:', campos.responsavel);
 
   // ── Rodapé: quem produziu ────────────────────────────────────
@@ -223,6 +230,7 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
     const local = [est.cidade, est.cep].filter(Boolean).join('  ');
     if (local) rodape.push(local);
   }
+  let topoDoRodape = null;
   if (rodape.length) {
     // ⚠️ FONTE 2, NÃO A 1, e o motivo saiu impresso: com a fonte 1 as quatro
     // linhas do rodapé saíram UMA POR CIMA DA OUTRA, ilegíveis. A altura real
@@ -234,7 +242,8 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
     // saía com o CNPJ cortado, que é justo o dado que identifica a cozinha.
     const alturaLinha = ALTURA_FONTE[2] + mm(1);
     let yRodape = A - mm(2) - rodape.length * alturaLinha;
-    linhas.push(`BAR ${margem},${yRodape - mm(1.2)},${util},2`);
+    topoDoRodape = yRodape - mm(1.2);   // a barra separadora e onde o corpo tem que parar
+    linhas.push(`BAR ${margem},${topoDoRodape},${util},2`);
     for (const l of rodape) {
       linhas.push(...texto(margem, yRodape, 2, 1, cortarParaLargura(l, 2, 1, util)));
       yRodape += alturaLinha;
@@ -246,7 +255,30 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
   // conexão oscilar no meio.
   linhas.push(`PRINT 1,${copias}`);
 
-  return linhas.join('\r\n') + '\r\n';
+  return { texto: linhas.join('\r\n') + '\r\n', fimDoCorpo: y, topoDoRodape };
+}
+
+/** O que vai para a impressora. */
+export function etiquetaTSPL(campos, config, opcoes = {}) {
+  return montarEtiqueta(campos, config, opcoes).texto;
+}
+
+/**
+ * Cabe? — e quanto sobra, em milímetros.
+ *
+ * ⚠️ MEDE O DESENHO DE VERDADE, não uma cópia da conta. O corpo cresce de cima
+ * e o rodapé é ancorado embaixo; quando os dois se encontram o texto imprime
+ * SOBREPOSTO e nada avisa — apareceu ligando val. original, marca, SIF e lote
+ * ao mesmo tempo: o RESP. caía em cima do nome da casa. Refazer a soma aqui
+ * daria uma segunda versão da verdade, que envelhece separada da primeira. Por
+ * isso passa pelo MESMO `montarEtiqueta` que a impressora recebe.
+ */
+export function medirEtiqueta(campos, config, opcoes = {}) {
+  const { fimDoCorpo, topoDoRodape } = montarEtiqueta(campos, config, opcoes);
+  // Sem rodapé, o limite é a borda de baixo do papel.
+  const limite = topoDoRodape ?? Math.round(((config?.alturaMm ?? 50) - 2) * PONTOS_POR_MM);
+  const folga = limite - fimDoCorpo;
+  return { cabe: folga >= 0, folgaMm: Math.round((folga / PONTOS_POR_MM) * 10) / 10 };
 }
 
 /** Vários itens numa tacada: cada bloco é uma etiqueta completa. */

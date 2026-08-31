@@ -8,9 +8,10 @@ import { estabelecimentoDe } from '../utils/instancias';
 import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas,
-         DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo } from '../utils/etiquetas';
+         DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo,
+         diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
-import { loteTSPL } from '../utils/tspl';
+import { loteTSPL, medirEtiqueta } from '../utils/tspl';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
@@ -137,7 +138,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
     c.fabricacao !== false && campos.dataFabricacaoFmt,
     c.validade !== false && campos.validadeFmt,
     c.marca !== false && campos.marca,
-    c.sif !== false && campos.sif,
+    (c.sif !== false || c.lote !== false) && campos.sifLoteValor,
     c.responsavel !== false && campos.responsavel,
   ].filter(Boolean).length;
   const linhasDeRodape = (c.restaurante !== false && campos.restauranteNome ? 1 : 0)
@@ -195,7 +196,11 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
         {c.fabricacao !== false && <Linha rotulo={campos.rotuloData} valor={campos.dataFabricacaoFmt} corpo={corpo} />}
         {c.validade !== false && <Linha rotulo="VALIDADE" valor={campos.validadeFmt} forte corpo={corpo} />}
         {c.marca !== false && <Linha rotulo="MARCA" valor={campos.marca} corpo={corpo} />}
-        {c.sif !== false && <Linha rotulo="SIF" valor={campos.sif} corpo={corpo} />}
+        {/* ⚠️ SIF e LOTE dividem a linha — ver o porquê em utils/tspl.js.
+            A prévia tem que bater com o papel, senão vira duas verdades. */}
+        {(c.sif !== false || c.lote !== false) && (
+          <Linha rotulo={(campos.sifLoteRotulo || '').replace(':', '')} valor={campos.sifLoteValor} corpo={corpo} />
+        )}
         {c.responsavel !== false && <Linha rotulo="RESP." valor={campos.responsavel} corpo={corpo} />}
       </div>
       {/* Rodapé: estabelecimento + ID + QR */}
@@ -286,6 +291,9 @@ export default function EtiquetaPrint() {
           // marca/SIF vêm do cadastro do produto (Config → Produtos), editáveis por impressão
           marca: p?.marca || '',
           sif: p?.sif || '',
+          // ⚠️ NÃO vem do cadastro do item: o lote muda a cada caixa que chega
+          // do fornecedor, então ele nasce vazio e é digitado na impressão.
+          lote: '',
           _unidade: p?.unidade || '',
           ...i,
         };
@@ -296,12 +304,9 @@ export default function EtiquetaPrint() {
         // `placeholder`, então aparecia VAZIO — e o dono leu isso como "não
         // veio preenchido", que era justamente o contrário do combinado. Aqui
         // é a abertura do modal (efeito), nunca o render.
-        const diasIniciais = resolvido.diasValidade != null
-          ? resolvido.diasValidade
-          : (resolvido.prazos?.[resolvido.armazenamento]
-             ?? resolvido.prazos?.congelado
-             ?? resolvido.diasCongelado
-             ?? 0);
+        // ⚠️ Produto ABERTO sem prazo cadastrado ganha a sugestão de 3 dias em
+        // vez de sair sem validade nenhuma — ver diasIniciaisDaEtiqueta.
+        const diasIniciais = diasIniciaisDaEtiqueta(resolvido);
         return {
           ...resolvido,
           diasOverride: diasIniciais > 0 ? String(diasIniciais) : '',
@@ -388,6 +393,7 @@ export default function EtiquetaPrint() {
       valOriginal: item.valOriginal || null,
       marca: item.marca,
       sif: item.sif,
+      lote: item.lote,
       hora: horaImpressao,
       loteId,
     });
@@ -664,6 +670,16 @@ export default function EtiquetaPrint() {
                       {avisoDePrazo(item.diasOverride, diasDoCadastro(item))}
                     </p>
                   )}
+                  {/* ⚠️ A SUGESTÃO SE EXPLICA. Preencher 3 em silêncio faria a
+                      pessoa achar que o prazo veio do cadastro dela. Aqui ela
+                      lê de onde veio e que o rótulo do fabricante manda mais. */}
+                  {usandoSugestaoDeAbertura(item, item.diasOverride) && (
+                    <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
+                      Sem prazo cadastrado. Sugerimos <strong>3 dias</strong>, o limite usual
+                      para produto aberto sob refrigeração — se a embalagem disser outro prazo
+                      depois de aberto, é o dela que vale.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     {config.campos.valOriginal !== false && <div>
                       <div className="mb-0.5">
@@ -674,6 +690,23 @@ export default function EtiquetaPrint() {
                       </div>
                       <input id={`ep-valorig-${idx}`} type="date" value={item.valOriginal}
                         onChange={e => setItem(idx, { valOriginal: e.target.value })} className={inputCls} />
+                    </div>}
+                    {/* ⚠️ LOTE DO FABRICANTE, e ele mora AQUI e não no cadastro
+                        do item: o número muda a cada caixa que chega do
+                        fornecedor. Preso no cadastro, seria o lote da compra
+                        passada impresso na carne de hoje — pior que não ter.
+                        É o que responde "o lote X foi recolhido" depois que a
+                        peça já virou dez porções. */}
+                    {config.campos.lote !== false && <div>
+                      <div className="mb-0.5">
+                        <label htmlFor={`ep-lote-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                          Lote do fabricante
+                        </label>
+                        <Dica texto="O número do lote impresso na caixa ou no rótulo do fornecedor. Só isso liga este pote ao recall do frigorífico depois de porcionar." />
+                      </div>
+                      <input id={`ep-lote-${idx}`} type="text" maxLength={20}
+                        value={item.lote ?? ''} placeholder="opcional"
+                        onChange={e => setItem(idx, { lote: e.target.value })} className={inputCls} />
                     </div>}
                   </div>
                   {/* ⚠️ O alerta que justifica o campo existir: prazo da casa
@@ -688,7 +721,7 @@ export default function EtiquetaPrint() {
                     {campos.validadeFmt
                       ? <>Vencimento na etiqueta: <strong className="text-polo-navy">{campos.validadeFmt}</strong></>
                       : 'Sem validade — etiqueta só de identificação.'}
-                    {(item.marca || item.sif) && <> · {item.marca}{item.sif ? ` · SIF ${item.sif}` : ''}</>}
+                    {(item.marca || item.sif || item.lote) && <> · {item.marca}{item.sif ? ` · SIF ${item.sif}` : ''}{item.lote ? ` · lote ${item.lote}` : ''}</>}
                   </p>
                 </div>
               );
@@ -705,6 +738,18 @@ export default function EtiquetaPrint() {
               <p className="text-xs font-semibold text-gray-700 mb-1.5">
                 Como vai sair — {config.larguraMm}×{config.alturaMm} mm
               </p>
+              {/* ⚠️ ANTES DE GASTAR ROLO. O corpo cresce de cima e o rodapé é
+                  ancorado embaixo: com val. original, marca, SIF e lote ligados
+                  ao mesmo tempo os dois se encontram, e o RESP. imprime EM CIMA
+                  do nome da casa — sem erro, sem aviso, direto no papel. A
+                  medida vem do mesmo desenho que vai para a impressora
+                  (medirEtiqueta), não de uma segunda conta. */}
+              {!medirEtiqueta(camposDe(itens[0], loteDaCopia(itens[0], 0)), config).cabe && (
+                <p className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2 mb-2">
+                  Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
+                  Em Administração → Etiquetas, desligue um campo (marca ou validade original).
+                </p>
+              )}
               <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
                 <div className="shadow-md flex-shrink-0">
                   <EtiquetaLabel

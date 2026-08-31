@@ -21,10 +21,11 @@ import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
 import { produtoTem, produtoAtivo, marcaDeUpgrade } from '../produto';
-import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX } from '../etiquetas';
+import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX,
+         diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura, DIAS_SUGERIDOS_ABERTURA } from '../etiquetas';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
-import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM } from '../tspl';
+import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM, medirEtiqueta } from '../tspl';
 import { caminhosDeImpressao, ehCelular } from '../../lib/impressoraBLE';
 import { traduzErroAuth } from '../erros';
 import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
@@ -3115,5 +3116,90 @@ describe('prazo digitado na hora de imprimir', () => {
   it('zero e vazio não geram aviso nenhum', () => {
     expect(avisoDePrazo('0', '180')).toBeNull();
     expect(avisoDePrazo('', '180')).toBeNull();
+  });
+});
+
+describe('lote do fabricante e o espaço da etiqueta', () => {
+  const est = { cnpj: '12.345.678/0001-90', endereco: 'Rua das Flores, 120', cidade: 'Recife', cep: '51020-000' };
+  const cfg = (campos = {}) => ({
+    larguraMm: 60, alturaMm: 50, estabelecimento: est,
+    campos: {
+      restaurante: true, validade: true, fabricacao: true, armazenamento: true,
+      responsavel: true, marca: true, sif: true, estabelecimento: true,
+      lote: true, valOriginal: true, ...campos,
+    },
+  });
+  const campos = (extra = {}) => montarCamposEtiqueta({
+    nome: 'Picanha (porção)', dataFabricacao: '2026-08-31', diasValidade: 180,
+    armazenamento: 'congelado', armazenamentoNome: 'CONGELADO', armazenamentoFaixa: '-18°C',
+    restauranteNome: 'Restaurante Exemplo', responsavel: 'Maria', hora: '15:56', ...extra,
+  });
+
+  it('SIF e lote saem na MESMA linha quando os dois existem', () => {
+    const c = campos({ sif: '1234', lote: 'A45-22' });
+    expect(c.sifLoteRotulo).toBe('SIF / LOTE:');
+    expect(c.sifLoteValor).toBe('1234 · A45-22');
+    // ⚠️ No papel o `·` vira `-`: a MDK-022 ignora CODEPAGE e o paraASCII
+    // troca tudo que não é ASCII. Na TELA sai o ponto médio; aqui, o traço.
+    const tspl = etiquetaTSPL(c, cfg());
+    expect(tspl).toContain('SIF / LOTE:');
+    expect(tspl).toContain('1234 - A45-22');
+  });
+
+  it('cada um sozinho continua com o rótulo só dele', () => {
+    expect(campos({ sif: '1234' }).sifLoteRotulo).toBe('SIF:');
+    expect(campos({ lote: 'A45' }).sifLoteRotulo).toBe('LOTE:');
+    expect(campos({ lote: 'A45' }).sifLoteValor).toBe('A45');
+  });
+
+  it('sem nenhum dos dois, a linha não existe', () => {
+    const c = campos();
+    expect(c.sifLoteRotulo).toBe('');
+    expect(etiquetaTSPL(c, cfg())).not.toContain('LOTE');
+  });
+
+  // ⚠️ ESTE É O TESTE QUE JUSTIFICA O DESENHO. Com val. original, marca, SIF e
+  // lote cada um na sua linha, o corpo passava do rodapé e o RESP. imprimia em
+  // cima do nome da casa — direto no papel, sem erro nenhum na tela.
+  it('com TUDO ligado a etiqueta ainda cabe', () => {
+    const m = medirEtiqueta(campos({ sif: '1234', lote: 'A45-22', marca: 'Friboi', valOriginal: '2026-12-10' }), cfg());
+    expect(m.cabe).toBe(true);
+    expect(m.folgaMm).toBeGreaterThan(0);
+  });
+
+  it('a etiqueta do dia a dia sobra folga de sobra', () => {
+    const m = medirEtiqueta(campos(), cfg({ valOriginal: false }));
+    expect(m.cabe).toBe(true);
+    expect(m.folgaMm).toBeGreaterThan(5);
+  });
+
+  it('medirEtiqueta acusa quando NÃO cabe (papel menor)', () => {
+    const apertado = { ...cfg(), alturaMm: 30 };
+    expect(medirEtiqueta(campos({ sif: '1', lote: '2', marca: 'X', valOriginal: '2026-12-10' }), apertado).cabe).toBe(false);
+  });
+});
+
+describe('produto aberto sem prazo cadastrado', () => {
+  it('ganha a sugestão de 3 dias em vez de sair sem validade', () => {
+    expect(diasIniciaisDaEtiqueta({ tipoData: 'abertura', prazos: {} })).toBe(DIAS_SUGERIDOS_ABERTURA);
+  });
+
+  it('o prazo cadastrado sempre manda mais que a sugestão', () => {
+    expect(diasIniciaisDaEtiqueta({ tipoData: 'abertura', armazenamento: 'refrigerado', prazos: { refrigerado: 5 } })).toBe(5);
+    expect(diasIniciaisDaEtiqueta({ tipoData: 'abertura', diasValidade: 7 })).toBe(7);
+  });
+
+  // ⚠️ Alimento MANIPULADO depende do processo daquela cozinha: chutar três
+  // dias ali seria a Aurum inventando prazo de alimento.
+  it('item manipulado sem prazo NÃO recebe sugestão nenhuma', () => {
+    expect(diasIniciaisDaEtiqueta({ tipoData: 'fabricacao', prazos: {} })).toBe(0);
+  });
+
+  it('a explicação só aparece quando a sugestão está de fato em uso', () => {
+    expect(usandoSugestaoDeAbertura({ tipoData: 'abertura', prazos: {} }, 3)).toBe(true);
+    // digitou 3 por conta própria num item que TEM cadastro de 3 → não é sugestão
+    expect(usandoSugestaoDeAbertura({ tipoData: 'abertura', armazenamento: 'refrigerado', prazos: { refrigerado: 3 } }, 3)).toBe(false);
+    expect(usandoSugestaoDeAbertura({ tipoData: 'abertura', prazos: {} }, 10)).toBe(false);
+    expect(usandoSugestaoDeAbertura({ tipoData: 'fabricacao', prazos: {} }, 3)).toBe(false);
   });
 });
