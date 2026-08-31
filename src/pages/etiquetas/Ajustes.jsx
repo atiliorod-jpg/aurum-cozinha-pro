@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../../store/AppContext';
 import { useAuth, CARGOS } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
-import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas } from '../../components/config/CartoesConfig';
+import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos } from '../../components/config/CartoesConfig';
 import { statusAssinatura, produtoDe, PRODUTOS } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
@@ -25,7 +25,8 @@ import { fmtData, isoLocal } from '../../utils/formatters';
  * as Configurações ficariam sem porta nenhuma.
  */
 export default function Ajustes() {
-  const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa } = useApp();
+  const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa,
+          permissoes, setPermissoes } = useApp();
   const { sessao, logout, usuarios, criarConta, trocarSenhaDe, removerConta,
           desativarUsuario, reativarUsuario, definirApelido } = useAuth();
   const { toast, confirm } = useUI();
@@ -137,6 +138,12 @@ export default function Ajustes() {
         criarConta={criarConta} trocarSenhaDe={trocarSenhaDe} removerConta={removerConta}
         desativarUsuario={desativarUsuario} reativarUsuario={reativarUsuario}
         definirApelido={definirApelido} toast={toast} confirm={confirm} />
+
+      {/* ⚠️ Vem logo depois das contas de propósito: criar o acesso e decidir o
+          que ele alcança são a mesma tarefa, e separá-las fazia o dono criar
+          uma conta e sair da tela sem nunca ver as permissões. */}
+      <CartaoCargos permissoes={permissoes} setPermissoes={setPermissoes}
+        usuarios={usuarios} toast={toast} confirm={confirm} />
 
       <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />
 

@@ -67,14 +67,68 @@ export const PERMISSOES_PADRAO = {
 };
 
 // Fonte da verdade da UI: pode a sessão atual fazer `cap`?
+/**
+ * ⚠️ ORDEM DE RESOLUÇÃO, e ela não é arbitrária:
+ *
+ *   1. exceção da CONTA      — "a Maria é cozinha, mas vê o relatório"
+ *   2. cargo INVENTADO pelo dono ("Confeiteiro")
+ *   3. cargo BASE            — cozinha ou gerência
+ *   4. padrão de fábrica
+ *
+ * A exceção vem antes do cargo porque exceção que perde para a regra geral não
+ * é exceção. E o cargo inventado vem antes da base porque é ele que o dono
+ * enxerga na tela — se a base ganhasse, ele desligaria algo em "Confeiteiro" e
+ * continuaria valendo, sem entender por quê.
+ *
+ * ⚠️ O CARGO INVENTADO NÃO ULTRAPASSA A BASE onde o BANCO decide. `cozinha` e
+ * `gerencia` são níveis de segurança gravados no banco; o rótulo é só rótulo.
+ * Para `verFinanceiro` e `verPerdaEmReais` — as duas travas duras — quem manda
+ * no servidor é a exceção por conta, e é por isso que a tela grava essa exceção
+ * sempre que o valor efetivo difere da base (ver CartaoCargos).
+ */
 export function pode(sessao, permissoes, cap) {
   if (!sessao) return false;
   if (sessao.eSuperAdmin) return true;
-  const cargo = sessao.cargo;
-  if (cargo === 'diretoria') return true;        // dono do restaurante
-  const padrao = PERMISSOES_PADRAO[cargo] || {};
-  const doCargo = (permissoes && permissoes[cargo]) || {};
-  return doCargo[cap] !== undefined ? !!doCargo[cap] : !!padrao[cap];
+  const base = sessao.cargo;
+  if (base === 'diretoria') return true;        // dono do restaurante
+  const m = permissoes || {};
+
+  const daConta = (m.porConta || {})[sessao.usuarioId] || {};
+  if (daConta[cap] !== undefined) return !!daConta[cap];
+
+  const rotulo = sessao.cargoRotulo;
+  if (rotulo && rotulo !== base) {
+    const doRotulo = m[rotulo] || {};
+    if (doRotulo[cap] !== undefined) return !!doRotulo[cap];
+  }
+
+  const doCargo = m[base] || {};
+  if (doCargo[cap] !== undefined) return !!doCargo[cap];
+  return !!(PERMISSOES_PADRAO[base] || {})[cap];
+}
+
+/**
+ * Todos os cargos da casa: os três de fábrica (com o nome que o dono deu) mais
+ * os que ele inventou.
+ *
+ * ⚠️ `base` é o que vai para a coluna `cargo` do banco. O `id` só existe para a
+ * matriz de permissões e para o rótulo na tela — o banco nunca vê um cargo
+ * inventado, e é isso que mantém as mais de cem verificações de acesso válidas.
+ */
+export function cargosDaCasa(permissoes) {
+  const salvos = Array.isArray(permissoes?.cargos) ? permissoes.cargos : [];
+  const nomeDe = (id, padrao) => salvos.find(c => c.id === id)?.nome || padrao;
+  const fixos = [
+    { id: 'cozinha',   base: 'cozinha',   nome: nomeDe('cozinha', 'Cozinha'),     fixo: true },
+    { id: 'gerencia',  base: 'gerencia',  nome: nomeDe('gerencia', 'Gerência'),   fixo: true },
+    { id: 'diretoria', base: 'diretoria', nome: nomeDe('diretoria', 'Diretoria'), fixo: true },
+  ];
+  const extras = salvos
+    .filter(c => !['cozinha', 'gerencia', 'diretoria'].includes(c.id))
+    // ⚠️ Cargo inventado NUNCA se apoia em diretoria: seria criar uma segunda
+    // conta dona por um caminho lateral, e o banco entregaria tudo a ela.
+    .map(c => ({ ...c, base: c.base === 'gerencia' ? 'gerencia' : 'cozinha', fixo: false }));
+  return [...fixos, ...extras];
 }
 
 // Consegue abrir a tela de Configurações? (qualquer capacidade de gestão)

@@ -25,11 +25,6 @@ function CampoSenha({ valor, onChange, aria, placeholder, autoComplete, onEnter 
   );
 }
 
-// Código vindo do link direto (?convite=TOKEN) — compartilhado via WhatsApp
-const conviteDaURL = (() => {
-  try { return new URLSearchParams(window.location.search).get('convite') || ''; }
-  catch { return ''; }
-})();
 
 // Produto do link direto (?produto=etiquetas) — mesmo mecanismo do convite.
 // É o link que o dono manda no WhatsApp depois da visita comercial: o cliente
@@ -43,8 +38,8 @@ const produtoDaURL = (() => {
 })();
 
 export default function Login() {
-  const { login, esqueceuSenha, criarPrimeiroAdmin, reenviarConfirmacao, usarConvite, entrarDemo } = useAuth();
-  const [modo, setModo] = useState(conviteDaURL ? 'convite' : 'entrar'); // entrar | convite | novo | esqueci
+  const { login, esqueceuSenha, criarPrimeiroAdmin, reenviarConfirmacao, entrarDemo } = useAuth();
+  const [modo, setModo] = useState('entrar'); // entrar | novo | esqueci
   const [aceitouTermos, setAceitouTermos] = useState(false);
   // Produto escolhido no cadastro. O padrao e o ETIQUETAS: e o produto de
   // entrada, e quem quer o completo escolhe conscientemente. O link direto
@@ -60,7 +55,6 @@ export default function Login() {
   const [senha, setSenha] = useState('');
   const [nome, setNome] = useState('');
   const [nomeRest, setNomeRest] = useState('');
-  const [token, setToken] = useState(conviteDaURL);
   // Dados do estabelecimento (passo 1 do cadastro)
   const [cnpj, setCnpj] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
@@ -153,17 +147,6 @@ export default function Login() {
     entrarDemo(produtoId);
   };
 
-  const cadastrarConvite = async () => {
-    limpar();
-    if (!token.trim()) { setErro('Digite o código de convite.'); return; }
-    if (nome.trim().length < 2) { setErro('Digite seu nome.'); return; }
-    if (!/.+@.+\..+/.test(email)) { setErro('Digite um e-mail válido.'); return; }
-    if (senha.length < 8) { setErro('A senha deve ter pelo menos 8 caracteres.'); return; }
-    setCarregando(true);
-    const err = await usarConvite({ token: token.trim().toLowerCase(), nome: nome.trim(), email: email.trim(), senha });
-    setCarregando(false);
-    if (err) setErro(traduz(err));
-  };
 
   return (
     <div className="min-h-screen bg-polo-navy flex items-center justify-center p-6">
@@ -180,21 +163,21 @@ export default function Login() {
           {modo === 'entrar' && <>
             <h2 className="font-bold text-polo-navy">Entrar</h2>
             {/* ⚠️ type="text", NÃO "email". Com type="email" o próprio navegador
-                recusa "maria.polobeer" antes de o app ver — e o colaborador
-                ficava travado numa mensagem do Chrome, não do sistema.
-                autoComplete="username" cobre os dois casos. */}
+                recusa um usuário como "chef.suacasa" antes de o app ver — e a
+                pessoa travava numa mensagem do Chrome, não do sistema.
+                autoComplete="username" cobre os dois casos.
+                ⚠️ E SEM TEXTO DE APOIO ENTRE OS CAMPOS: o bloco usa espaçamento
+                uniforme, então um parágrafo no meio ganhava a mesma folga de um
+                campo e afastava a senha — parecia defeito de tela. */}
             <input type="text" autoComplete="username" aria-label="E-mail ou usuário"
               value={email} onChange={e => setEmail(e.target.value)}
               placeholder="E-mail ou usuário" className={campo} />
-            <p className="text-[11px] text-white/60 -mt-1">
-              Funcionário entra com o usuário que o dono criou — algo como <strong>maria.polobeer</strong>.
-            </p>
             <CampoSenha valor={senha} onChange={setSenha} aria="Senha" autoComplete="current-password" placeholder="Senha" onEnter={entrar} />
             <Msg erro={erro} info={info} />
             <button onClick={entrar} disabled={carregando} className={botao}>{carregando ? 'Entrando…' : 'Entrar'}</button>
             <button onClick={() => trocar('esqueci')} className="w-full text-xs text-polo-navy/70 pt-1">Esqueci minha senha</button>
             <div className="border-t border-gray-100 pt-3 flex flex-col gap-1.5">
-              <button onClick={() => trocar('convite')} className="text-xs font-semibold text-polo-navy">Tenho um código de convite →</button>
+              
               <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante — <strong className="text-green-700">{TESTE_DIAS} dias grátis</strong> →</button>
             </div>
             {/* ⚠️ A DEMO PASSA A PEDIR CONTATO. Antes era aberta e quem
@@ -261,19 +244,12 @@ export default function Login() {
             <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>
           </>}
 
-          {/* CONVITE */}
-          {modo === 'convite' && <>
-            <h2 className="font-bold text-polo-navy">Cadastro com convite</h2>
-            <p className="text-xs text-gray-500">Use o código que a diretoria do seu restaurante te passou.</p>
-            <input type="text" aria-label="Código de convite" value={token} onChange={e => setToken(e.target.value)} placeholder="Código de convite"
-              className={`${campo} tracking-widest text-center font-bold`} />
-            <input type="text" aria-label="Seu nome" value={nome} onChange={e => setNome(e.target.value)} placeholder="Seu nome" className={campo} />
-            <input type="email" aria-label="Seu e-mail" value={email} onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
-            <CampoSenha valor={senha} onChange={setSenha} aria="Senha (mínimo 8 caracteres)" autoComplete="new-password" placeholder="Crie uma senha (mín. 8)" />
-            <Msg erro={erro} info={info} />
-            <button onClick={cadastrarConvite} disabled={carregando} className={botao}>{carregando ? 'Criando…' : 'Criar conta'}</button>
-            <button onClick={() => trocar('entrar')} className="w-full text-xs text-gray-500 pt-1">← Voltar</button>
-          </>}
+          {/* ⚠️ O CADASTRO POR CÓDIGO DE CONVITE SAIU DAQUI. Quem coloca gente
+              para dentro agora é o dono, em Administração → Contas da equipe:
+              ele cria o acesso e entrega. O convite obrigava cada pessoa a ter
+              e-mail próprio e escolher a própria senha — e deixava o dono sem
+              como socorrer quem esquecesse. Link antigo com ?convite= cai na
+              tela de entrada normal, que é o que existe. */}
 
           {/* CONFIRME SEU E-MAIL — some quando a confirmação está desligada,
               porque aí o signUp devolve sessão e a pessoa já entra. */}

@@ -168,6 +168,9 @@ export function AuthProvider({ children }) {
         desativado:       perfil.ativo === false,
         nome:             perfil.nome,
         cargo:            perfil.cargo,
+        // Cargo que o DONO inventou ("Confeiteiro"). O `cargo` acima continua
+        // sendo o nível de segurança que o banco reconhece.
+        cargoRotulo:      perfil.cargo_rotulo || null,
         restauranteId:    perfil.restaurante_id,
         restauranteNome:  rest?.nome || '',
         // Segunda metade do login da equipe. Sem isto a tela de contas não
