@@ -40,6 +40,12 @@ export const ETIQUETA_CONFIG_PADRAO = {
     // em Configurações e ganha junto o alerta de validade estourada.
     valOriginal: false,
   },
+  // ⚠️ DESLIGADO por padrão, e ligável pelo dono. Veio de um erro real dele:
+  // imprimiu um lote inteiro, só viu depois que o RESP. saiu em branco e teve
+  // que refazer — rolo gasto e trabalho repetido. Onde a etiqueta é documento
+  // sanitário, o responsável não é opcional; onde é só identificação, exigir
+  // atrapalharia. Por isso é escolha da casa, não regra nossa.
+  exigirResponsavel: false,
 };
 
 // Junta a config salva nas prefs com os padrões (tolerante a chaves faltando)
@@ -368,3 +374,48 @@ export const usandoSugestaoDeAbertura = (item, diasNoCampo) =>
   && !(Number(item?.diasValidade) > 0)
   && !(Number(item?.prazos?.[item?.armazenamento]) > 0);
 
+
+// ── O armazenamento que a pessoa usou da última vez ───────────
+//
+// ⚠️ A DOR QUE ISTO RESOLVE, contada pelo dono: ele estava etiquetando filé
+// para RESFRIADO e, a cada item, o modal abria em CONGELADO — o padrão do
+// cadastro. Trocar o seletor uma vez é nada; trocar a cada pote, no meio do
+// serviço, é o atrito que faz a pessoa largar o app e voltar para a caneta.
+//
+// ⚠️ POR ITEM E SÓ NESTE APARELHO. Não mexe no cadastro de propósito: uma
+// impressão avulsa não pode redefinir para a casa inteira o lugar onde o filé
+// mora — quem faz isso é o responsável, em Meus itens, uma vez. E fica no
+// aparelho porque é hábito de quem está imprimindo, não regra do restaurante:
+// a cozinha e o estoque seco usam estados diferentes no mesmo item.
+//
+// ⚠️ GRAVA NA IMPRESSÃO, nunca ao trocar o seletor. Abrir o modal, olhar o
+// congelado e desistir não é um hábito — é uma olhada.
+
+/** Guarda o estado usado em cada item. `idsValidos` poda item já apagado. */
+export function lembrarArmazenamentos(memoria, itens, idsValidos = null) {
+  const novo = { ...(memoria || {}) };
+  for (const it of itens || []) {
+    if (it?.produtoId && it?.armazenamento) novo[it.produtoId] = it.armazenamento;
+  }
+  if (Array.isArray(idsValidos)) {
+    const vivos = new Set(idsValidos);
+    for (const id of Object.keys(novo)) if (!vivos.has(id)) delete novo[id];
+  }
+  return novo;
+}
+
+/**
+ * Com que estado o modal abre para este item.
+ *
+ * ⚠️ A memória só vale se o estado AINDA EXISTE e se o item tem prazo nele.
+ * Sem essa checagem, desligar "resfriado" nas configurações deixaria itens
+ * abrindo num estado que sumiu da lista — e a etiqueta sairia sem validade,
+ * calada. O cadastro é sempre o plano B.
+ */
+export function armazenamentoInicial(produto, memoria, estadosAtivos, prazos = null) {
+  const ids = (estadosAtivos || []).map(a => a?.id ?? a);
+  const lembrado = memoria?.[produto?.id];
+  const temPrazo = (id) => !prazos || Number(prazos[id]) > 0;
+  if (lembrado && ids.includes(lembrado) && temPrazo(lembrado)) return lembrado;
+  return produto?.armazenamentoPadrao || ids[0] || 'congelado';
+}

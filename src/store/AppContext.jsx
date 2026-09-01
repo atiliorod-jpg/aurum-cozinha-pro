@@ -94,7 +94,10 @@ const linhaParaRegistro = (row) => ({ id: row.id, ts: Number(row.ts), ...row.dad
 // Preferências de APARELHO (ficam só no tablet, não sincronizam):
 // "último responsável/turno/destino" são conveniência local de cada aparelho.
 // As demais (ex.: autoMinMax) são do restaurante e vão para a nuvem.
-const PREFS_APARELHO = ['responsavel', 'turno', 'destino'];
+// ⚠️ `ultimoArmazenamento` é HÁBITO DE QUEM IMPRIME, não regra da casa: a
+// cozinha e o estoque seco usam estados diferentes no mesmo item, e subir
+// isso para a nuvem faria um tablet mudar o padrão do outro no meio do turno.
+const PREFS_APARELHO = ['responsavel', 'turno', 'destino', 'ultimoArmazenamento'];
 const soRestaurante = (p) => { const o = { ...p }; PREFS_APARELHO.forEach(k => delete o[k]); return o; };
 const soAparelho = (p) => { const o = {}; PREFS_APARELHO.forEach(k => { if (p[k] !== undefined) o[k] = p[k]; }); return o; };
 

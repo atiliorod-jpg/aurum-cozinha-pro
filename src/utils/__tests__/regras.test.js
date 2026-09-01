@@ -23,7 +23,8 @@ import { statusAssinatura, statusRestaurante, rotuloRegime, TESTE_DIAS, PLANOS, 
 import { produtoTem, produtoAtivo, marcaDeUpgrade } from '../produto';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../painel';
 import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX,
-         diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura, DIAS_SUGERIDOS_ABERTURA } from '../etiquetas';
+         diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura, DIAS_SUGERIDOS_ABERTURA,
+         lembrarArmazenamentos, armazenamentoInicial } from '../etiquetas';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
 import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM, medirEtiqueta } from '../tspl';
@@ -3360,5 +3361,56 @@ describe('conta de cortesia (regime)', () => {
   it('conta sem regime continua sendo cliente normal', () => {
     expect(statusRestaurante(vencida, AGORA).tipo).toBe('vencido');
     expect(numerosDoPainel([vencida], AGORA).cortesia).toBe(0);
+  });
+});
+
+describe('o armazenamento que a pessoa usou da última vez', () => {
+  const ATIVOS = [{ id: 'congelado' }, { id: 'refrigerado' }, { id: 'resfriado' }];
+  const FILE = { id: 'file', armazenamentoPadrao: 'congelado' };
+  const PRAZOS = { congelado: 180, refrigerado: 3, resfriado: 2 };
+
+  it('sem memória nenhuma, abre no padrão do cadastro', () => {
+    expect(armazenamentoInicial(FILE, {}, ATIVOS, PRAZOS)).toBe('congelado');
+  });
+
+  // ⚠️ A DOR: o dono etiquetava filé para RESFRIADO e o modal reabria em
+  // CONGELADO a cada pote, porque o padrão do cadastro sempre ganhava.
+  it('lembra o que foi usado no item, e é isso que abre', () => {
+    const mem = lembrarArmazenamentos({}, [{ produtoId: 'file', armazenamento: 'resfriado' }]);
+    expect(armazenamentoInicial(FILE, mem, ATIVOS, PRAZOS)).toBe('resfriado');
+  });
+
+  it('a memória é POR ITEM — outro produto não herda', () => {
+    const mem = lembrarArmazenamentos({}, [{ produtoId: 'file', armazenamento: 'resfriado' }]);
+    expect(armazenamentoInicial({ id: 'picanha', armazenamentoPadrao: 'congelado' }, mem, ATIVOS, PRAZOS))
+      .toBe('congelado');
+  });
+
+  it('a última impressão manda, não a primeira', () => {
+    let mem = lembrarArmazenamentos({}, [{ produtoId: 'file', armazenamento: 'resfriado' }]);
+    mem = lembrarArmazenamentos(mem, [{ produtoId: 'file', armazenamento: 'refrigerado' }]);
+    expect(armazenamentoInicial(FILE, mem, ATIVOS, PRAZOS)).toBe('refrigerado');
+  });
+
+  // ⚠️ Sem esta regra, desligar um estado nas configurações deixaria itens
+  // abrindo num estado que sumiu — e a etiqueta sairia sem validade, calada.
+  it('estado desligado nas configurações é ignorado, cai no cadastro', () => {
+    const mem = { file: 'resfriado' };
+    const semResfriado = [{ id: 'congelado' }, { id: 'refrigerado' }];
+    expect(armazenamentoInicial(FILE, mem, semResfriado, PRAZOS)).toBe('congelado');
+  });
+
+  it('estado sem prazo cadastrado também é ignorado', () => {
+    const mem = { file: 'resfriado' };
+    expect(armazenamentoInicial(FILE, mem, ATIVOS, { congelado: 180, resfriado: 0 })).toBe('congelado');
+  });
+
+  it('item apagado do catálogo sai da memória', () => {
+    const mem = { file: 'resfriado', sumiu: 'congelado' };
+    expect(lembrarArmazenamentos(mem, [], ['file'])).toEqual({ file: 'resfriado' });
+  });
+
+  it('etiqueta avulsa (sem produtoId) não suja a memória', () => {
+    expect(lembrarArmazenamentos({}, [{ produtoId: null, armazenamento: 'resfriado' }])).toEqual({});
   });
 });

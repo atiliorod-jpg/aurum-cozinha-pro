@@ -196,6 +196,7 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
     ['armazenamento', 'Armazenamento'],
     ['marca', 'Marca / fornecedor'],
     ['sif', 'SIF'],
+    ['lote', 'Lote do fabricante'],
     ['responsavel', 'Responsável'],
   ];
 
@@ -257,6 +258,23 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
           ))}
         </div>
         <p className="text-[11px] text-gray-600 mt-2">O nome do produto sempre aparece.</p>
+
+        {/* ⚠️ NÃO É UM CAMPO, É UMA REGRA — por isso fica fora da grade acima.
+            Veio de um lote impresso com o RESP. em branco, percebido tarde
+            demais: rolo gasto e trabalho refeito. Onde a etiqueta é documento
+            sanitário isso não é opcional; onde é só identificação, exigir
+            atrapalha. Quem decide é a casa. */}
+        <label className="flex items-start gap-2 text-xs text-gray-700 mt-3 pt-3 border-t border-gray-100">
+          <input type="checkbox" checked={cfg.exigirResponsavel === true}
+            onChange={() => setPref('etiquetaConfig', { ...cfg, exigirResponsavel: cfg.exigirResponsavel !== true })}
+            className="w-4 h-4 accent-[#1B2A41] mt-0.5 flex-shrink-0" />
+          <span>
+            <span className="font-semibold">Exigir o responsável para imprimir</span>
+            <span className="block text-[11px] text-gray-600">
+              Sem alguém escolhido no campo RESP., o botão de imprimir não libera.
+            </span>
+          </span>
+        </label>
       </div>
       <div className="border-t border-gray-100 pt-3 space-y-2">
         <p className="text-xs font-semibold text-gray-600">Dados do estabelecimento (rodapé da etiqueta)</p>

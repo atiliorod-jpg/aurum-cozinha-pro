@@ -9,7 +9,8 @@ import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas,
          DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo,
-         diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura } from '../utils/etiquetas';
+         diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura,
+         lembrarArmazenamentos } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL, medirEtiqueta } from '../utils/tspl';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL } from '../lib/impressoraBLE';
@@ -238,7 +239,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao, impersonando } = useAuth();
-  const { prefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas } = useApp();
+  const { prefs, setPref, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas } = useApp();
   // ⚠️ Nome que SAI IMPRESSO no pote. Com dois restaurantes na mesma conta, o
   // nome da conta sairia na etiqueta dos dois — erro visível na frente do
   // cliente, e o pote ainda circula. O nome do ESTOQUE manda quando o dono
@@ -521,8 +522,25 @@ export default function EtiquetaPrint() {
   };
 
   // ── Caminho 1: diálogo do navegador (sempre existe) ─────────
-  const imprimir = () => {
+  // ⚠️ TUDO QUE ACONTECE AO IMPRIMIR PASSA POR AQUI, nos dois caminhos. A
+  // memória do armazenamento NÃO podia ir dentro de `registrarImpressao`: ela
+  // só roda quando a conta guarda histórico, e o plano Etiquetas não guarda —
+  // então a memória nunca funcionaria justo no produto que vai ser vendido.
+  const aoImprimir = () => {
     registrarImpressao();
+    setPref('ultimoArmazenamento', lembrarArmazenamentos(
+      prefs.ultimoArmazenamento, itens, produtos.map(p => p.id),
+    ));
+  };
+
+  // ⚠️ FALTA O RESPONSÁVEL? Veio de um erro real: o dono imprimiu um lote,
+  // só viu depois que o RESP. saiu em branco e teve que refazer. Trava os DOIS
+  // botões, não só o do diálogo — senão a impressão direta, que é a que a
+  // cozinha usa, passaria por baixo da regra que o dono ligou.
+  const faltaResponsavel = config.exigirResponsavel === true && !responsavel.trim();
+
+  const imprimir = () => {
+    aoImprimir();
     window.print();
   };
 
@@ -543,7 +561,7 @@ export default function EtiquetaPrint() {
       // O estabelecimento não vive em `config`, mas o rodapé do papel precisa
       // dele para ficar igual à prévia da tela.
       await enviarTSPL(loteTSPL(lote, { ...config, estabelecimento }));
-      registrarImpressao();
+      aoImprimir();
       setEnviando(false);
       fecharEtiquetas();
     } catch (e) {
@@ -567,6 +585,11 @@ export default function EtiquetaPrint() {
           </div>
 
           <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+          {faltaResponsavel && (
+            <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+              Escolha quem assina antes de imprimir.
+            </p>
+          )}
 
           <div className="space-y-3">
             {itens.map((item, idx) => {
@@ -776,7 +799,7 @@ export default function EtiquetaPrint() {
               única saída que resta — mas com uma linha dizendo por quê. */}
           {mostrarDireto && (
             <div className="space-y-2">
-              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando}>
+              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel}>
                 {enviando ? 'Enviando…'
                   : impressoraConectada() ? 'Imprimir na impressora'
                   : 'Conectar impressora e imprimir'}
@@ -805,7 +828,7 @@ export default function EtiquetaPrint() {
               {mostrarDialogo ? 'Agora não' : 'Fechar'}
             </button>
             {mostrarDialogo && (
-              <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente}
+              <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente || faltaResponsavel}
                 className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
                 {qrPendente
                   ? 'Gerando QR…'

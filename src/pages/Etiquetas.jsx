@@ -6,6 +6,7 @@ import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
+import { armazenamentoInicial } from '../utils/etiquetas';
 import { medidaDoProduto } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
@@ -171,8 +172,14 @@ export default function Etiquetas() {
     // da lista fazia azeite sair com "CONGELADO" impresso na etiqueta.
     // Cai no primeiro configurado só quando o item não diz nada (cadastro
     // antigo), nunca num 'congelado' cravado — a casa pode nem ter freezer.
+    // ⚠️ O ESTADO QUE ESTA PESSOA USOU DA ÚLTIMA VEZ NESTE ITEM ganha do
+    // padrão do cadastro. O dono estava etiquetando filé para RESFRIADO e o
+    // modal abria em CONGELADO a cada pote — trocar uma vez é nada, trocar a
+    // cada item no meio do serviço é o atrito que faz largar o app.
+    // `armazenamentoInicial` só aceita a memória se o estado ainda existe e
+    // tem prazo; senão cai no cadastro, como sempre foi.
     armazenamento: temRecurso(modulo, 'armazenamento')
-      ? (p.armazenamentoPadrao || armazenamentos[0]?.id || 'congelado')
+      ? armazenamentoInicial(p, prefs.ultimoArmazenamento, armazenamentos, prazosDoProduto(p))
       : null,
     // Prazo por estado, no formato novo. Os dois campos antigos seguem indo
     // junto porque o produto pode ainda não ter sido salvo no formato novo —
