@@ -17,7 +17,10 @@ import { statusRestaurante, produtoDe } from './assinatura';
 // ele avisou que pagou e está olhando para uma conta que ainda não liberou.
 // Depois o teste acabando, que ainda dá para virar venda. Vencido por último:
 // já aconteceu, e não fica pior por esperar mais uma hora.
-const ORDEM = { aviso: 0, teste: 1, vencido: 2 };
+// ⚠️ FEEDBACK LOGO DEPOIS DO AVISO, e pelo mesmo motivo: nos dois casos há
+// alguém do outro lado ESPERANDO RESPOSTA. Teste acabando e vencido são
+// coisas nossas, não do cliente — podem esperar mais uma hora.
+const ORDEM = { aviso: 0, feedback: 1, teste: 2, vencido: 3 };
 
 /** Quantos dias antes do fim do teste a conta entra na fila. */
 export const DIAS_TESTE_ACABANDO = 2;
@@ -28,8 +31,26 @@ export const DIAS_TESTE_ACABANDO = 2;
  * Devolve `[{ r, tipo, quando }]` ordenado por urgência e, dentro de cada
  * tipo, do mais antigo para o mais novo — quem esperou mais aparece primeiro.
  */
-export function filaDoPainel(restaurantes, agora = Date.now()) {
+export function filaDoPainel(restaurantes, agora = Date.now(), feedbacks = []) {
   const itens = [];
+
+  // ⚠️ FEEDBACK ENTRA NA FILA (G5). O painel já contava feedback aberto num
+  // selo vermelho lá embaixo, mas a fila do topo o ignorava — então com dois
+  // feedbacks e nenhum aviso de pagamento a fila NÃO APARECIA, e a única
+  // pista de que havia gente esperando estava a três telas de rolagem.
+  // Uma fila que diz "o que fazer hoje" e omite metade do que há para fazer
+  // é pior que fila nenhuma: ela ensina a confiar num número incompleto.
+  for (const f of feedbacks || []) {
+    if (f?.status === 'resolvido') continue;
+    itens.push({
+      // `restaurante_nome` é como a RPC `feedback_todos` (M15) devolve.
+      r: { id: f.restaurante_id, nome: f.restaurante_nome || 'Restaurante' },
+      tipo: 'feedback',
+      quando: new Date(f.created_at || 0).getTime(),
+      feedback: f,
+    });
+  }
+
   for (const r of restaurantes || []) {
     const st = statusRestaurante(r, agora);
     // ⚠️ CORTESIA NÃO ENTRA NA FILA. É o ponto do regime existir: sem isso, a

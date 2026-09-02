@@ -502,7 +502,7 @@ export default function Admin() {
   // que o painel faz desde a M13. Era só ninguém estar olhando para elas juntas.
   const fila = useMemo(
     // eslint-disable-next-line react-hooks/purity -- a fila é do AGORA; recalcular a cada render é o desejado
-    () => filaDoPainel(restaurantes, Date.now()), [restaurantes]);
+    () => filaDoPainel(restaurantes, Date.now(), feedbacks), [restaurantes, feedbacks]);
 
   // ⚠️ RECEITA ESTIMADA, e a palavra importa: sai do preço do plano de cada
   // conta ativa, não de pagamento registrado — porque pagamento registrado não
@@ -522,6 +522,15 @@ export default function Admin() {
     // No quadro seguinte: o cartão precisa existir aberto antes de rolar.
     requestAnimationFrame(() => {
       document.getElementById(`rest-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  // Feedback não tem cartão próprio para abrir — mora todo na seção de
+  // feedback. A fila leva até lá, com a aba certa já aberta.
+  const irAoFeedback = () => {
+    setAbaFb('abertos');
+    requestAnimationFrame(() => {
+      document.getElementById('bloco-feedback')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   };
 
@@ -743,10 +752,11 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               </p>
             </div>
             <div className="divide-y divide-gray-100">
-              {fila.map(({ r, tipo }) => {
+              {fila.map(({ r, tipo, feedback }) => {
                 const plano = planoPorId(r.aviso_pagamento_plano || 'mensal');
                 return (
-                  <button key={`${tipo}-${r.id}`} onClick={() => irAoRestaurante(r.id)}
+                  <button key={`${tipo}-${feedback?.id || r.id}`}
+                    onClick={() => (tipo === 'feedback' ? irAoFeedback() : irAoRestaurante(r.id))}
                     className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-3
                                active:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
                     <span className="min-w-0 flex-1">
@@ -756,6 +766,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           💰 Avisou pagamento — {plano.label.toLowerCase()}
                           {r.aviso_pagamento_nome ? ` por ${r.aviso_pagamento_nome}` : ''}
                           {' · '}{dataBRHora(r.aviso_pagamento_em)}
+                        </>}
+                        {/* ⚠️ Mostra o COMEÇO DA MENSAGEM, não só "tem feedback".
+                            Ler a primeira linha aqui é o que deixa decidir se
+                            responde agora ou depois, sem abrir nada. */}
+                        {tipo === 'feedback' && <>
+                          💬 {feedback?.tipo === 'pedido' ? 'Pedido' : feedback?.tipo === 'bug' ? 'Problema' : 'Recado'}
+                          {' — '}
+                          {String(feedback?.dados?.mensagem || feedback?.dados?.texto || '').slice(0, 60) || 'sem texto'}
                         </>}
                         {tipo === 'teste' && <>⏳ Teste acabando — {statusRestaurante(r).diasRestantes} dia(s)</>}
                         {tipo === 'vencido' && <>🔴 Vencido desde {dataBR(r.assinatura_ate)}</>}
@@ -848,7 +866,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
           // `open` também quando só há resolvidos: senão o bloco aparece fechado
           // e parece vazio para quem já respondeu tudo.
           return (
-            <details className="bg-white border border-gray-100 rounded-xl overflow-hidden" open={abertos > 0 || !!erroFeedback}>
+            <details id="bloco-feedback" className="bg-white border border-gray-100 rounded-xl overflow-hidden" open={abertos > 0 || !!erroFeedback}>
               <summary className="cursor-pointer px-4 py-3 flex items-center justify-between">
                 <span className="text-sm font-bold text-polo-navy">📨 Feedback dos clientes</span>
                 {erroFeedback

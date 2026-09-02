@@ -3476,3 +3476,49 @@ describe('plano Etiquetas não abre tela do plano completo', () => {
     }
   });
 });
+
+describe('a fila do painel inclui o feedback (G5)', () => {
+  const hoje = new Date('2026-09-02T12:00:00Z').getTime();
+  const ativo = { id: 'r1', nome: 'Casa A', created_at: '2026-01-01', assinatura_ate: '2027-01-01' };
+
+  it('feedback aberto entra na fila mesmo sem nada de cobrança', () => {
+    // ⚠️ Era o buraco: sem aviso de pagamento a fila não aparecia, e a única
+    // pista de que havia cliente esperando ficava a três telas de rolagem.
+    const fila = filaDoPainel([ativo], hoje, [
+      { id: 'f1', restaurante_id: 'r1', restaurante_nome: 'Casa A', status: 'novo', created_at: '2026-09-01' },
+    ]);
+    expect(fila).toHaveLength(1);
+    expect(fila[0].tipo).toBe('feedback');
+    expect(fila[0].r.nome).toBe('Casa A');
+  });
+
+  it('feedback resolvido não entra', () => {
+    const fila = filaDoPainel([ativo], hoje, [
+      { id: 'f1', restaurante_id: 'r1', status: 'resolvido', created_at: '2026-09-01' },
+    ]);
+    expect(fila).toHaveLength(0);
+  });
+
+  it('aviso de pagamento vem antes do feedback, e os dois antes do vencido', () => {
+    // Os dois primeiros têm alguém esperando resposta; vencido é assunto nosso.
+    const vencido = { id: 'r2', nome: 'Casa B', created_at: '2026-01-01', assinatura_ate: '2026-08-01' };
+    const comAviso = { ...ativo, aviso_pagamento_em: '2026-09-02T09:00:00Z' };
+    const fila = filaDoPainel([vencido, comAviso], hoje, [
+      { id: 'f1', restaurante_id: 'r2', restaurante_nome: 'Casa B', status: 'novo', created_at: '2026-09-01' },
+    ]);
+    expect(fila.map(x => x.tipo)).toEqual(['aviso', 'feedback', 'vencido']);
+  });
+
+  it('sem feedback nenhum, a fila continua como era', () => {
+    expect(filaDoPainel([ativo], hoje)).toHaveLength(0);
+    expect(filaDoPainel([ativo], hoje, [])).toHaveLength(0);
+  });
+
+  it('feedback de restaurante já apagado não quebra a fila', () => {
+    const fila = filaDoPainel([], hoje, [
+      { id: 'f1', restaurante_id: null, restaurante_nome: null, status: 'novo', created_at: '2026-09-01' },
+    ]);
+    expect(fila).toHaveLength(1);
+    expect(fila[0].r.nome).toBe('Restaurante');
+  });
+});
