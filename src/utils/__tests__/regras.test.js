@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { calcEstoquePuro } from '../estoque';
 import { consumoComoSaidas } from '../turno';
 import { comprasQueEntram } from '../visaoEstoque';
@@ -3412,5 +3413,66 @@ describe('o armazenamento que a pessoa usou da última vez', () => {
 
   it('etiqueta avulsa (sem produtoId) não suja a memória', () => {
     expect(lembrarArmazenamentos({}, [{ produtoId: null, armazenamento: 'resfriado' }])).toEqual({});
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+//  A separação comercial dos dois produtos
+//
+//  ⚠️ ESTE É O TESTE QUE FALTAVA (F2 da auditoria de 31/08). O que separa um
+//  cliente de R$249 de um de R$399 é qual árvore de rotas o App.jsx monta —
+//  e isso não tinha teste nenhum. Uma rota do plano completo colada por
+//  engano dentro do ramo do Etiquetas entrega de graça o produto caro, e
+//  ninguém perceberia até um cliente contar.
+//
+//  ⚠️ É um teste ESTRUTURAL: lê o App.jsx e confere a forma da árvore. Ele NÃO
+//  monta a tela — para isso faltam bibliotecas que o projeto não tem, e não
+//  vale trazê-las só por isto. O que ele garante é o que costuma quebrar numa
+//  refatoração: a rota que aparece onde não devia e o curinga que sumiu.
+// ─────────────────────────────────────────────────────────────────────
+describe('plano Etiquetas não abre tela do plano completo', () => {
+  const fonte = readFileSync(
+    new URL('../../App.jsx', import.meta.url), 'utf8');
+
+  // O ramo do Etiquetas vai de `soEtiquetas ? (` até o `) : (` do completo.
+  const ramoEtiquetas = (() => {
+    const i = fonte.indexOf('soEtiquetas ? (');
+    expect(i).toBeGreaterThan(-1);
+    const fim = fonte.indexOf('</Routes>', i);
+    expect(fim).toBeGreaterThan(i);
+    return fonte.slice(i, fim);
+  })();
+
+  const rotasDoRamo = [...ramoEtiquetas.matchAll(/path="([^"]+)"/g)].map(m => m[1]);
+
+  it('só monta as rotas que este produto comprou', () => {
+    expect(rotasDoRamo.sort()).toEqual(
+      ['*', '/', '/admin', '/ajustes', '/etiquetas', '/itens', '/novidades', '/pagamento'].sort(),
+    );
+  });
+
+  it.each([
+    '/compras', '/entradas', '/saidas', '/producao', '/inventario',
+    '/aparas', '/relatorio', '/financeiro', '/administracao', '/estoques',
+    '/balanco', '/fechar-turno', '/validades', '/historico', '/registrar',
+  ])('não abre %s', (rota) => {
+    expect(rotasDoRamo).not.toContain(rota);
+  });
+
+  it('tem o curinga que joga qualquer outro endereço para a tela inicial', () => {
+    // ⚠️ Sem ele, digitar /financeiro no plano Etiquetas cairia numa tela em
+    // branco — ou pior, na rota do outro produto.
+    expect(ramoEtiquetas).toMatch(/path="\*"[\s\S]{0,80}Navigate to="\/"/);
+  });
+
+  it('as telas do plano completo são carregadas sob demanda', () => {
+    // ⚠️ F1: elas eram importadas direto e viajavam para o cliente de
+    // etiquetas, que nunca vai poder abrir nenhuma. Se alguém trocar um
+    // `lazy` por `import` direto, o pacote volta a inchar em silêncio.
+    for (const tela of ['Compras', 'Entradas', 'Saidas', 'Producao', 'Inventario',
+                        'Dashboard', 'Historico', 'Registrar', 'Validades']) {
+      expect(fonte).toMatch(new RegExp(`const ${tela} = lazy\\(`));
+      expect(fonte).not.toMatch(new RegExp(`^import ${tela} from`, 'm'));
+    }
   });
 });

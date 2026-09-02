@@ -15,26 +15,32 @@ import AvisoVencimento from './components/AvisoVencimento';
 import NovidadesPopup from './components/NovidadesPopup';
 import Login from './pages/Login';
 import NovaSenha from './pages/NovaSenha';
-import Dashboard from './pages/Dashboard';
-import Registrar from './pages/Registrar';
-import Historico from './pages/Historico';
-import Compras from './pages/Compras';
-import Entradas from './pages/Entradas';
-import Saidas from './pages/Saidas';
-import Producao from './pages/Producao';
-import Inventario from './pages/Inventario';
-import AparasPerdas from './pages/AparasPerdas';
-import Auditoria from './pages/Auditoria';
 import Pagamento from './pages/Pagamento';
 import Etiquetas from './pages/Etiquetas';
-import FecharTurno from './pages/FecharTurno';
-import Validades from './pages/Validades';
 import Novidades from './pages/Novidades';
 import Termos from './pages/Termos';
 import Itens from './pages/etiquetas/Itens';
 import EtiquetasAjustes from './pages/etiquetas/Ajustes';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
+// ⚠️ AS TELAS DO PLANO COMPLETO SÓ BAIXAM QUANDO ALGUÉM ABRE UMA DELAS.
+// Elas eram importadas direto, então o cliente do Aurum Etiquetas — que nunca
+// vai poder abrir nenhuma — carregava as doze no primeiro acesso, dentro do
+// pacote principal. Numa cozinha com internet ruim isso é o tempo de espera da
+// primeira abertura, no produto que está sendo vendido.
+// O ramo do Etiquetas já estava separado logo abaixo; faltava só o `lazy`.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Registrar = lazy(() => import('./pages/Registrar'));
+const Historico = lazy(() => import('./pages/Historico'));
+const Compras = lazy(() => import('./pages/Compras'));
+const Entradas = lazy(() => import('./pages/Entradas'));
+const Saidas = lazy(() => import('./pages/Saidas'));
+const Producao = lazy(() => import('./pages/Producao'));
+const Inventario = lazy(() => import('./pages/Inventario'));
+const AparasPerdas = lazy(() => import('./pages/AparasPerdas'));
+const Auditoria = lazy(() => import('./pages/Auditoria'));
+const FecharTurno = lazy(() => import('./pages/FecharTurno'));
+const Validades = lazy(() => import('./pages/Validades'));
 const Relatorio = lazy(() => import('./pages/Relatorio'));
 const Configuracoes = lazy(() => import('./pages/Configuracoes'));
 const Admin = lazy(() => import('./pages/Admin'));

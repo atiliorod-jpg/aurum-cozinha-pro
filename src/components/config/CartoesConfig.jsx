@@ -40,7 +40,11 @@ export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-      <p className="text-sm font-bold text-polo-navy">Suporte remoto</p>
+      {/* ⚠️ <h2>, NÃO <p> em negrito. A Administração tem quatro telas de
+          rolagem; para quem enxerga tanto faz, mas quem usa leitor de tela
+          navega justamente pulando de título em título — e sem títulos de
+          verdade não há como. A aparência é a mesma. */}
+      <h2 className="text-sm font-bold text-polo-navy">Suporte remoto</h2>
       {suporteAtivo ? (
         <>
           <p className="text-xs text-green-700 mt-0.5">
@@ -108,7 +112,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
-        <p className="text-sm font-bold text-polo-navy">Armazenamento</p>
+        <h2 className="text-sm font-bold text-polo-navy">Armazenamento</h2>
         <p className="text-xs text-gray-500 mt-0.5">
           Como os itens são guardados na sua casa. O nome e a faixa saem impressos na etiqueta,
           e cada produto tem um prazo de validade por armazenamento.
@@ -216,7 +220,7 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
-        <p className="text-sm font-bold text-polo-navy">Etiquetas</p>
+        <h2 className="text-sm font-bold text-polo-navy">Etiquetas</h2>
         <p className="text-xs text-gray-500 mt-0.5">
           O que aparece na etiqueta impressa.
         </p>
@@ -455,7 +459,7 @@ export function CartaoContas({
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
-        <p className="text-sm font-bold text-polo-navy">Contas da equipe</p>
+        <h2 className="text-sm font-bold text-polo-navy">Contas da equipe</h2>
         <p className="text-xs text-gray-500 mt-0.5">
           Quem entra no app. Pode ser uma pessoa ou um posto — “chef”, “cozinha”, “noite”.
         </p>
@@ -686,7 +690,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
-        <p className="text-sm font-bold text-polo-navy">Cargos e acessos</p>
+        <h2 className="text-sm font-bold text-polo-navy">Cargos e acessos</h2>
         <p className="text-xs text-gray-500 mt-0.5">
           O que cada grupo alcança no app. Você pode renomear os cargos e criar outros.
         </p>
