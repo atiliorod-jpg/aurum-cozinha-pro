@@ -1,10 +1,10 @@
-// Regras comerciais: DOIS produtos + período de teste de 5 dias.
+// Regras comerciais: DOIS produtos + período de teste de 14 dias.
 // Sem webhook de pagamento: a ativação é manual (super-admin, RPC ativar_assinatura).
 // Desde a migração 10 o corte também vale no banco (restaurante_pode_escrever),
 // além do bloqueio visual no app.
 //
-// ⚠️ PARIDADE: TESTE_DIAS precisa ser IGUAL ao "interval '5 days'" usado em
-// restaurante_pode_escrever — recriada na MIGRAÇÃO 28. Mudou aqui, mude lá
+// ⚠️ PARIDADE: TESTE_DIAS precisa ser IGUAL ao "interval '14 days'" usado em
+// restaurante_pode_escrever — recriada na MIGRAÇÃO 40. Mudou aqui, mude lá
 // também: o app diria "ok" e o banco negaria a escrita, e como o app é
 // offline-first o lançamento entra na fila e some sem erro visível na tela.
 //
@@ -13,7 +13,12 @@
 // verdadeira. Produto é o que a conta COMPROU (interface, ver utils/produto.js);
 // validade é se a conta PODE ESCREVER (acesso, espelhado no banco). Misturar os
 // dois aqui faria este comentário virar mentira.
-export const TESTE_DIAS = 5;
+// ⚠️ ERAM 5, E 5 NÃO DAVA. O produto se vende com a impressora junto: o
+// cliente precisa cadastrar itens, ESPERAR O CORREIO trazer a MDK-022 e o
+// rolo, conectar por Bluetooth e imprimir. Com 5 dias o teste acabava antes
+// de a caixa chegar, e a pessoa julgava o produto sem nunca ter visto uma
+// etiqueta sair. 14 cobre o frete e ainda sobra semana de uso real.
+export const TESTE_DIAS = 14;
 
 // ⚠️ DOIS EIXOS INDEPENDENTES, e os nomes existem para não confundi-los:
 //   PRODUTOS → O QUE a conta comprou   (etiquetas | completo)

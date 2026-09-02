@@ -635,12 +635,16 @@ describe('statusAssinatura — borda do teste grátis (paridade com o SQL)', () 
     expect(st.tipo).toBe('vencido');
   });
 
-  // ⚠️ ESTE NÚMERO É ESCRITO EM DOIS LUGARES: aqui e no `interval '5 days'` de
-  // restaurante_pode_escrever, recriada na MIGRAÇÃO 28. Se alguém mudar só o
+  // ⚠️ ESTE NÚMERO É ESCRITO EM DOIS LUGARES: aqui e no `interval '14 days'` de
+  // restaurante_pode_escrever, recriada na MIGRAÇÃO 40. Se alguém mudar só o
   // JS, o app aprova a escrita e o banco recusa — e como o app é offline-first,
   // o lançamento entra na fila e some sem erro visível. Quebrar aqui é o aviso.
-  it('TESTE_DIAS é 5 (precisa bater com o interval da migração 28)', () => {
-    expect(TESTE_DIAS).toBe(5);
+  //
+  // ⚠️ E ELE FEZ O TRABALHO DELE: ao passar de 5 para 14 dias (02/09), este
+  // teste quebrou junto e foi o que lembrou de recriar a função no banco na
+  // mesma leva. Se um dia mudar de novo, o par é ESTE número e a M40.
+  it('TESTE_DIAS é 14 (precisa bater com o interval da migração 40)', () => {
+    expect(TESTE_DIAS).toBe(14);
   });
 
   it('conta bloqueada não escreve mesmo com assinatura em dia', () => {
@@ -3216,8 +3220,12 @@ describe('painel super-admin — a fila do dia e os números', () => {
   const pagante   = { id: 'p', nome: 'Paga',    ...velha, assinatura_ate: dias(20), produto: 'etiquetas' };
   const vencido   = { id: 'v', nome: 'Vencido', ...velha, assinatura_ate: dias(-5), produto: 'etiquetas' };
   const bloqueado = { id: 'b', nome: 'Suspenso',...velha, bloqueado: true, produto: 'completo' };
-  const testando  = { id: 't', nome: 'Testando', created_at: dias(-4), produto: 'etiquetas' }; // 5 dias de teste → resta 1
-  const novo      = { id: 'n', nome: 'Novo',     created_at: dias(-1), produto: 'etiquetas' }; // resta 4
+  // ⚠️ DERIVADOS DE `TESTE_DIAS`, não cravados. Estavam em -4 e -1 porque o
+  // teste durava 5 dias; quando passou para 14 (M40) os dois viraram "conta
+  // novinha" e a fila deixou de trazer o que devia. Assim o dia muda sozinho
+  // junto com a regra.
+  const testando  = { id: 't', nome: 'Testando', created_at: dias(-(TESTE_DIAS - 1)), produto: 'etiquetas' }; // resta 1
+  const novo      = { id: 'n', nome: 'Novo',     created_at: dias(-1), produto: 'etiquetas' };                // resta quase tudo
 
   describe('a fila', () => {
     it('quem avisou pagamento entra, com a hora do aviso', () => {

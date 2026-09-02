@@ -80,6 +80,42 @@ const MUDANCAS = [
   // 402 — "available on Pro Plans and up". A conferência contra senhas vazadas
   // é paga. Testado em 31/08/2026, com o projeto no plano gratuito. Se um dia
   // o plano subir, é só acrescentar aqui.
+  // ⚠️ C5 (`sessions_inactivity_timeout`) TAMBÉM NÃO ENTRA, pelo mesmo motivo
+  // do hibp: a API devolve 402 — "User sessions can only be configured on Pro
+  // Plans and up". Testado em 02/09/2026.
+  //
+  // ⚠️ E ISSO É UMA DECISÃO DE NEGÓCIO ESCONDIDA NUM ARQUIVO TÉCNICO: dois
+  // itens de segurança da auditoria (senha vazada e expiração de sessão)
+  // dependem do plano pago do Supabase, hoje ~US$25/mês. Com um cliente é caro;
+  // com dez, é menos de 3% da receita e resolve os dois de uma vez. Quando o
+  // plano subir, basta descomentar o bloco abaixo e o do hibp.
+  //
+  // {
+  //   chave: 'sessions_inactivity_timeout',
+  //   valor: 2592000,   // 30 dias em segundos
+  //   titulo: 'C5 · sessão parada há 30 dias cai',
+  //   porque: 'A sessão não expira NUNCA: tablet esquecido, vendido ou roubado '
+  //     + 'segue dentro da conta para sempre. 30 dias é escolhido com cuidado — '
+  //     + 'prazo curto faria a cozinha digitar senha no meio do serviço, com a '
+  //     + 'mão suja, e o fim seria a senha num papel colado no tablet.',
+  // },
+  {
+    // ⚠️ NÃO É CAPTCHA, e a diferença importa. Ligar o hCaptcha exige conta em
+    // outro serviço e põe um obstáculo entre o cliente de verdade e o cadastro
+    // — caro para um problema que ainda não existe. O que dá para fazer hoje,
+    // sem fricção nenhuma e sem depender de terceiro, é baixar o teto de
+    // e-mails por hora: é ele que limita quantas contas um robô abre de uma
+    // vez, porque toda conta nova dispara um e-mail de confirmação.
+    // 30/hora é MUITO acima do que a operação real vai usar (o dono não terá
+    // 30 cadastros por hora tão cedo) e corta um abuso em massa pela raiz.
+    chave: 'rate_limit_email_sent',
+    valor: 30,
+    titulo: 'C6 · teto de 30 e-mails por hora',
+    porque: 'Estava em 100/h. Como cada cadastro dispara um e-mail, esse número '
+      + 'é o teto prático de contas que um robô abre por hora — e também o do '
+      + 'seu custo de envio. O captcha continua sendo o passo seguinte SE '
+      + 'aparecer abuso; até lá ele só atrapalharia quem quer comprar.',
+  },
 ];
 
 // ⚠️ Os modelos de e-mail vêm em INGLÊS de fábrica, e são justamente os que o
