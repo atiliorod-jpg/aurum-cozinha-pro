@@ -21,6 +21,11 @@
 --  a edge function `restaurante`, que tem a chave de administrador. Fazer isso
 --  em SQL exigiria mexer por dentro do esquema de autenticação do Supabase.
 --
+--  ⚠️ `sou_super_admin()` COMPARA auth.uid() CONTRA UM UUID CRAVADO, não o
+--  e-mail (conferido no banco em 02/09). A edge function `restaurante` compara
+--  e-mail. São travas DIFERENTES para a mesma pessoa — o que é bom, mas quem
+--  for mexer numa precisa saber que a outra não muda junto.
+--
 --  ⚠️ A TRAVA É O NOME DIGITADO. Não é confirmação de tela — tela não é trava.
 --  Quem chama precisa mandar o nome exato do restaurante; errou uma letra, não
 --  apaga. É o que separa "apagar o cliente que pediu" de "apagar o cliente que

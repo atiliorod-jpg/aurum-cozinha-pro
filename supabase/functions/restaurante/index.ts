@@ -37,9 +37,17 @@ const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const ANON = Deno.env.get('SUPABASE_ANON_KEY')!;
 
-// ⚠️ A MESMA linha de sou_super_admin() (M19). Se um dia virar tabela, os dois
-// lados mudam no mesmo commit — senão o painel deixa de abrir contas e o erro
-// aparece como "não autorizado" sem explicação.
+// ⚠️ ATENÇÃO — ESTA TRAVA E A DO BANCO NÃO SÃO A MESMA REGRA, e eu já
+// documentei errado aqui uma vez. Conferido no banco em 02/09/2026:
+//
+//    aqui                → compara o E-MAIL do JWT
+//    sou_super_admin()   → compara auth.uid() com um UUID cravado
+//
+// As duas apontam para a mesma pessoa hoje, e ter duas travas diferentes é
+// até bom (uma não cai junto com a outra). O perigo é acreditar que mexer numa
+// mexe na outra: trocar o e-mail da conta derruba ESTA e deixa a do banco de
+// pé; recriar a conta muda o uid e derruba a de LÁ, deixando esta passando.
+// Se um dia mudar, confira as duas — e o teste é abrir o painel, que usa ambas.
 const SUPER_ADMIN = 'atiliopinpolho@gmail.com';
 
 const CORS = {

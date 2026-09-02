@@ -31,8 +31,8 @@ if (!URL_BASE || !ANON) { console.error('Faltam VITE_SUPABASE_URL / VITE_SUPABAS
 // (M37) guarda quanto cada cliente pagou e `admin_exclusoes` (M38) guarda
 // quem foi apagado — as duas seriam ótimas para um curioso, e nenhuma estava
 // sendo conferida até 02/09.
-const TABELAS = ['admin_notas', 'admin_exclusoes', 'convites', 'documentos', 'documentos_historico',
-  'feedback', 'pagamentos', 'perfis', 'registros', 'restaurantes', 'sessoes'];
+const TABELAS = ['admin_notas', 'admin_exclusoes', 'admin_log', 'convites', 'documentos',
+  'documentos_historico', 'feedback', 'pagamentos', 'perfis', 'registros', 'restaurantes', 'sessoes'];
 const RPCS = [
   'aceitar_convite', 'alterar_cargo', 'ativar_assinatura', 'avisar_pagamento',
   'convite_valido', 'criar_restaurante', 'definir_bloqueio', 'definir_max_usuarios',
@@ -42,7 +42,7 @@ const RPCS = [
   // ⚠️ MESMA REGRA das tabelas: função nova entra na varredura no mesmo dia.
   // Estas seis nasceram entre 31/08 e 02/09 e nenhuma estava sendo conferida.
   'uso_do_restaurante', 'apagar_restaurante', 'exclusoes_admin',
-  'registrar_pagamento', 'pagamentos_do_restaurante', 'definir_regime',
+  'registrar_pagamento', 'pagamentos_do_restaurante', 'definir_regime', 'log_admin',
 ];
 
 const req = (caminho, chave, opts = {}) =>
@@ -157,6 +157,7 @@ const SENSIVEIS = [
   ['registrar_pagamento',   { p_restaurante: uuidFake, p_valor: 1, p_dias: 30 }, 'forjar pagamento'],
   ['pagamentos_do_restaurante', { p_restaurante: uuidFake }, 'ler pagamentos alheios'],
   ['recebido_por_mes',      {}, 'ler o faturamento da Aurum'],
+  ['log_admin',             {}, 'ler o registro de ações da Aurum'],
   ['definir_regime',        { p_restaurante: uuidFake, p_regime: 'cortesia' }, 'virar cortesia sozinho'],
   ['enviar_feedback',       { p_tipo: 'bug', p_dados: {} }, 'poluir a caixa de feedback'],
 ];

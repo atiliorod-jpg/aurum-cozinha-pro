@@ -86,6 +86,7 @@ export default function Admin() {
   // Uso da conta, também um por vez: é uma consulta por restaurante e ninguém
   // olha o uso de trinta clientes ao mesmo tempo.
   const [uso, setUso] = useState(null); // { id, dados, carregando, erro } | null
+  const [log, setLog] = useState(null); // { id, itens, carregando, erro } | null
   const [enviandoSenha, setEnviandoSenha] = useState('');
   // Abrir conta de cliente pelo painel. `null` = formulário fechado.
   const [situacao, setSituacao] = useState('todos'); // todos|pagantes|teste|vencidos|bloqueados|cortesia|etiquetas|completo
@@ -603,6 +604,18 @@ export default function Admin() {
     setUso({ id: r.id, dados: Array.isArray(data) ? data[0] : data, carregando: false, erro: error?.message || '' });
   };
   const alternarUso = (r) => uso?.id === r.id ? setUso(null) : carregarUso(r);
+
+  // ⚠️ O QUE A AURUM FEZ NESTA CONTA (M39). A trilha da M25 registra a entrada
+  // em modo suporte; isto registra o resto — liberar dias, trocar plano,
+  // renomear, corrigir CNPJ, apagar feedback, restaurar documento. Sem isso,
+  // "vocês mexeram no meu cadastro" não tinha resposta, nem para o cliente nem
+  // para nós mesmos seis meses depois.
+  const carregarLog = async (r) => {
+    setLog({ id: r.id, itens: [], carregando: true, erro: '' });
+    const { data, error } = await supabase.rpc('log_admin', { p_restaurante: r.id, p_limite: 50 });
+    setLog({ id: r.id, itens: data || [], carregando: false, erro: error?.message || '' });
+  };
+  const alternarLog = (r) => log?.id === r.id ? setLog(null) : carregarLog(r);
 
   // ⚠️ MANDA O LINK, NÃO DEFINE A SENHA. Digitar uma senha para o cliente
   // significaria eu conhecer a senha dele — e depois ditar por telefone, que é
@@ -1411,6 +1424,46 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
                       {uso?.id === r.id ? 'Fechar uso' : '📊 Uso da conta'}
                     </button>
+                    {/* ⚠️ Ao lado do uso de propósito: as duas respondem "o que
+                        andou acontecendo nesta conta" — uma pelo lado do
+                        cliente, outra pelo nosso. */}
+                    <button onClick={() => alternarLog(r)}
+                      className="ml-2 text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                      {log?.id === r.id ? 'Fechar registro' : '📋 O que fizemos aqui'}
+                    </button>
+                    {log?.id === r.id && (
+                      <div className="mt-2">
+                        {log.carregando && <p className="text-xs text-gray-600 animate-pulse">Carregando…</p>}
+                        {log.erro && (
+                          <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">{log.erro}</p>
+                        )}
+                        {!log.carregando && !log.erro && log.itens.length === 0 && (
+                          <p className="text-[11px] text-gray-600">
+                            Nada registrado ainda. A partir de agora, tudo que a Aurum mexer
+                            nesta conta aparece aqui.
+                          </p>
+                        )}
+                        <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
+                          {log.itens.map(l => (
+                            <div key={l.id} className="py-1.5">
+                              <p className="text-[11px] text-gray-700">
+                                <strong>{nomeDoc(l.tabela)}</strong>
+                                <span className="text-gray-500"> · {dataHoraBR(l.criado_em)} · {l.feito_por}</span>
+                              </p>
+                              {/* Uma linha por campo que mudou, em vez do JSON cru:
+                                  quem lê isto está com o cliente no telefone. */}
+                              {Object.entries(l.mudancas || {}).map(([campo, v]) => (
+                                <p key={campo} className="text-[11px] text-gray-600 pl-2">
+                                  {campo}: {v && typeof v === 'object' && 'de' in v
+                                    ? <><span className="line-through">{String(v.de ?? '—')}</span>{' → '}<strong>{String(v.para ?? '—')}</strong></>
+                                    : String(v ?? '—')}
+                                </p>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {uso?.id === r.id && (
                       <div className="mt-2">
                         {uso.carregando && <p className="text-xs text-gray-600 animate-pulse">Carregando…</p>}
