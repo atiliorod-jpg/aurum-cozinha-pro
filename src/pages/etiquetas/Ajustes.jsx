@@ -5,7 +5,8 @@ import { Link } from 'react-router-dom';
 import { useApp } from '../../store/AppContext';
 import { useAuth, CARGOS } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
-import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos } from '../../components/config/CartoesConfig';
+import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos,
+         CartaoMeusDados } from '../../components/config/CartoesConfig';
 import { statusAssinatura, produtoDe, PRODUTOS } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
@@ -26,7 +27,7 @@ import { fmtData, isoLocal } from '../../utils/formatters';
  */
 export default function Ajustes() {
   const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa,
-          permissoes, setPermissoes } = useApp();
+          permissoes, setPermissoes, exportarBackup, importarBackup } = useApp();
   const { sessao, logout, usuarios, criarConta, trocarSenhaDe, removerConta,
           desativarUsuario, reativarUsuario, definirApelido } = useAuth();
   const { toast, confirm, abrirAjuda } = useUI();
@@ -159,6 +160,12 @@ export default function Ajustes() {
           uma conta e sair da tela sem nunca ver as permissões. */}
       <CartaoCargos permissoes={permissoes} setPermissoes={setPermissoes}
         usuarios={usuarios} soEtiquetas toast={toast} confirm={confirm} />
+
+      {/* ⚠️ ANTES do suporte remoto e depois da conta: é assunto do dono, não
+          da operação do dia. Os Termos prometem esta exportação (cláusula 15) e
+          o plano Etiquetas não tinha botão nenhum. */}
+      <CartaoMeusDados exportarBackup={exportarBackup} importarBackup={importarBackup}
+        toast={toast} confirm={confirm} />
 
       <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />
 

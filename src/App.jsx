@@ -81,6 +81,16 @@ function BannerSuporte({ nome, podeMexer, onSair }) {
 // Tela cheia quando teste/assinatura venceram OU a conta foi suspensa —
 // só a página Assinatura fica acessível (dados sempre preservados)
 function BloqueioAssinatura({ podeAssinar, bloqueado, onSair }) {
+  // ⚠️ EXPORTAR PRECISA FUNCIONAR AQUI DENTRO. Os Termos prometem, em duas
+  // cláusulas, que a conta exporta a íntegra dos dados "a qualquer momento" e
+  // que, encerrada a relação, o cliente leva o que é dele. Só que o vencimento
+  // trancava TODAS as rotas menos a de pagamento — ou seja, a exportação
+  // sumia exatamente no momento em que o contrato mais a promete. Contrato que
+  // promete o que o app não faz é problema de verdade, não de texto.
+  //
+  // ⚠️ E ela funciona mesmo bloqueado porque o corte é de ESCRITA: os dados
+  // continuam no aparelho e o banco continua deixando ler.
+  const { exportarBackup } = useApp();
   return (
     <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
       <p className="text-4xl">{bloqueado ? '🔒' : '⏳'}</p>
@@ -97,7 +107,16 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, onSair }) {
       ) : (
         <p className="text-white/80 text-xs max-w-xs">Peça à diretoria/gerência do restaurante para assinar em Configurações → Assinatura.</p>
       )}
-      <button onClick={onSair} className="text-white/70 text-xs underline underline-offset-2">Sair da conta</button>
+      <div className="flex flex-col items-center gap-2.5 mt-2 pt-4 border-t border-white/15 w-full max-w-xs">
+        <p className="text-white/70 text-[11px]">
+          Seus dados continuam seus. Baixe uma cópia quando quiser.
+        </p>
+        <button onClick={exportarBackup}
+          className="border border-white/40 text-white font-semibold text-xs px-5 py-2.5 rounded-xl min-h-11">
+          ↓ Baixar meus dados
+        </button>
+      </div>
+      <button onClick={onSair} className="text-white/70 text-xs underline underline-offset-2 mt-1">Sair da conta</button>
     </div>
   );
 }

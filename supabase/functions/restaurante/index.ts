@@ -35,6 +35,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 const URL_SUPABASE = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const ANON = Deno.env.get('SUPABASE_ANON_KEY')!;
 
 // ⚠️ A MESMA linha de sou_super_admin() (M19). Se um dia virar tabela, os dois
 // lados mudam no mesmo commit — senão o painel deixa de abrir contas e o erro
@@ -98,6 +99,43 @@ Deno.serve(async (req) => {
 
   let corpo: Record<string, unknown> = {};
   try { corpo = await req.json(); } catch { /* corpo vazio */ }
+
+  // ⚠️ 'criar' é o padrão para não quebrar quem já chama esta função sem
+  // mandar ação nenhuma — era o único comportamento que existia.
+  const acao = limpo(corpo.acao) || 'criar';
+
+  // ── APAGAR ────────────────────────────────────────────────────
+  if (acao === 'apagar') {
+    const alvo = limpo(corpo.id);
+    const confirmacao = limpo(corpo.confirmacao);
+    if (!alvo || !confirmacao) return json({ erro: 'Falta o restaurante ou o nome de confirmação.' }, 400);
+
+    // ⚠️ A RPC É CHAMADA COMO O USUÁRIO, não com a chave de administrador. A
+    // trava dela é `sou_super_admin()`, que lê o e-mail do JWT — com a chave de
+    // administrador não há JWT nenhum e a trava recusaria. Passar por aqui
+    // mantém a verificação do BANCO valendo, em vez de confiar só neste
+    // arquivo. Duas travas, não uma.
+    const comoUsuario = createClient(URL_SUPABASE, ANON, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+      auth: { persistSession: false },
+    });
+    const { data: usuarios, error: eApagar } = await comoUsuario
+      .rpc('apagar_restaurante', { p_restaurante: alvo, p_confirmacao: confirmacao });
+    if (eApagar) return json({ erro: eApagar.message }, 400);
+
+    // ⚠️ AS CONTAS DE ACESSO SAEM POR ÚLTIMO e só depois que o banco confirmou.
+    // `perfis` cascateia, mas `auth.users` não: sem esta parte sobrariam contas
+    // que ainda entram no app e não pertencem a restaurante nenhum.
+    const ids = (usuarios || []).map((u: { usuario_id: string }) => u.usuario_id).filter(Boolean);
+    const sobraram: string[] = [];
+    for (const id of ids) {
+      const { error } = await admin.auth.admin.deleteUser(id);
+      if (error) sobraram.push(id);
+    }
+    // O restaurante já foi apagado; se alguma conta resistiu, é preciso dizer —
+    // ficar calado deixaria uma conta órfã que ninguém sabe que existe.
+    return json({ ok: true, usuariosApagados: ids.length - sobraram.length, sobraram });
+  }
 
   const nomeRestaurante = limpo(corpo.nomeRestaurante);
   const nomeDono = limpo(corpo.nomeDono);

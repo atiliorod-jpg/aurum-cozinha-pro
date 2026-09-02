@@ -795,3 +795,73 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
     </div>
   );
 }
+
+// =====================================================================
+//  Meus dados — baixar e restaurar a cópia de segurança
+//
+//  ⚠️ POR QUE ISTO EXISTE. Os Termos prometem, em duas cláusulas, que a conta
+//  exporta a íntegra dos dados a qualquer momento e que, encerrada a relação, o
+//  cliente leva o que é dele. A exportação existia só no plano completo, em
+//  Configurações → Sistema. Quem comprou o Aurum Etiquetas não tinha botão
+//  nenhum — o contrato prometia uma coisa que o app não fazia.
+//
+//  ⚠️ A FUNÇÃO É A MESMA do plano completo (`exportarBackup` do AppContext),
+//  não uma segunda versão. Duas exportações seriam dois formatos, e no dia de
+//  restaurar um deles não abriria.
+// =====================================================================
+export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm }) {
+  const aoEscolherArquivo = (e) => {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = async (ev) => {
+      try {
+        const dados = JSON.parse(ev.target.result);
+        const ok = await confirm({
+          titulo: 'Restaurar cópia',
+          mensagem: 'Os itens e as configurações do arquivo entram por cima dos atuais. '
+            + 'O que existe hoje e não está no arquivo continua onde está.\n\nContinuar?',
+          perigo: true,
+          confirmar: 'Restaurar',
+        });
+        if (ok) { importarBackup(dados); toast('Cópia restaurada.', 'sucesso'); }
+      } catch (err) {
+        toast(err?.message || 'Arquivo inválido. Escolha uma cópia baixada do Aurum.', 'erro');
+      }
+    };
+    leitor.readAsText(arquivo);
+    e.target.value = '';   // deixa escolher o MESMO arquivo de novo se der erro
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-bold text-polo-navy">Meus dados</h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Seus itens, prazos, equipe e configurações. A cópia é um arquivo só, que fica com você.
+        </p>
+      </div>
+
+      <button onClick={() => { exportarBackup(); toast('Cópia baixada.', 'sucesso'); }}
+        className="w-full border border-polo-navy/30 text-polo-navy font-bold text-sm py-2.5 rounded-xl min-h-11">
+        ↓ Baixar uma cópia
+      </button>
+
+      {/* ⚠️ O input fica escondido atrás do label porque input de arquivo não
+          aceita estilo: sem isto, o botão sai com a cara do navegador, em
+          inglês, no meio de uma tela em português. */}
+      <label className="block">
+        <span className="sr-only">Restaurar uma cópia</span>
+        <input type="file" accept="application/json,.json" onChange={aoEscolherArquivo} className="hidden" />
+        <span className="block w-full text-center border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl min-h-11 cursor-pointer leading-6">
+          ↑ Restaurar uma cópia
+        </span>
+      </label>
+
+      <p className="text-[11px] text-gray-600">
+        Vale guardar uma cópia depois de cadastrar seus itens. Se trocar de aparelho ou
+        precisar voltar atrás, é por aqui que tudo volta.
+      </p>
+    </div>
+  );
+}

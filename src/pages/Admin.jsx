@@ -373,6 +373,88 @@ export default function Admin() {
   // Senha ditada por telefone é senha que vaza — e o link ainda prova, na
   // hora, que o e-mail digitado existe: ele é o único caminho de recuperação
   // do dono, e descobrir o erro seis meses depois é descobrir tarde.
+  // Fala com a edge function `restaurante`. A função relê no banco quem está
+  // chamando e não confia em nada daqui — tela não é trava.
+  const chamarRestaurante = async (corpo) => {
+    const { data: sess } = await supabase.auth.getSession();
+    const jwt = sess?.session?.access_token;
+    if (!jwt) return { erro: 'Sua sessão expirou. Entre de novo.' };
+    try {
+      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/restaurante`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(corpo),
+      });
+      const dados = await r.json().catch(() => ({}));
+      if (!r.ok) return { erro: dados?.erro || 'Não consegui falar com o servidor.' };
+      return dados;
+    } catch {
+      return { erro: 'Sem conexão. Tente de novo quando a internet voltar.' };
+    }
+  };
+
+  // ⚠️ APAGAR DE VERDADE, e é isto que os Termos prometem em até 4 dias úteis
+  // (cláusula 15). Três redes antes do estrago:
+  //   1. baixa uma cópia dos dados ANTES — é a prova de que a conta existiu, e
+  //      a única coisa que resta se o pedido tiver vindo errado;
+  //   2. exige digitar o nome do restaurante, conferido NO BANCO (M38), não
+  //      aqui — errou uma letra, não apaga;
+  //   3. a exclusão deixa uma lápide em `admin_exclusoes`, sem chave
+  //      estrangeira, para sobreviver ao restaurante que descreve.
+  const apagarRestaurante = async (r) => {
+    const digitado = window.prompt(
+      `APAGAR DEFINITIVAMENTE "${r.nome}"?\n\n`
+      + 'Some tudo: itens, lançamentos, etiquetas, histórico, feedback e as contas '
+      + 'de acesso da equipe. Não tem desfazer.\n\n'
+      + 'Uma cópia dos dados será baixada antes.\n\n'
+      + 'Para confirmar, digite o nome do restaurante:',
+    );
+    if (digitado === null) return;
+    if (digitado.trim() !== r.nome.trim()) {
+      toast('O nome não confere. Nada foi apagado.', 'aviso');
+      return;
+    }
+
+    // A cópia primeiro. Se não der para baixar, não apaga: sair sem cópia é o
+    // único erro desta tela que não tem conserto.
+    const copiaOk = await baixarCopiaDoCliente(r);
+    if (!copiaOk) { toast('Não consegui baixar a cópia. Nada foi apagado.', 'erro'); return; }
+
+    const resp = await chamarRestaurante({ acao: 'apagar', id: r.id, confirmacao: digitado });
+    if (resp?.erro) { toast(resp.erro, 'erro'); return; }
+
+    setRestaurantes(prev => prev.filter(x => x.id !== r.id));
+    setAberto('');
+    const sobra = resp.sobraram?.length
+      ? ` ⚠️ ${resp.sobraram.length} conta(s) de acesso resistiram — me avise.`
+      : '';
+    toast(`"${r.nome}" apagado. ${resp.usuariosApagados || 0} conta(s) removida(s).${sobra}`,
+      sobra ? 'aviso' : 'sucesso', { duracao: 9000 });
+  };
+
+  // Baixa TUDO que o banco tem daquele restaurante, num arquivo só.
+  const baixarCopiaDoCliente = async (r) => {
+    try {
+      const [docs, regs] = await Promise.all([
+        supabase.from('documentos').select('chave, dados').eq('restaurante_id', r.id),
+        supabase.from('registros').select('*').eq('restaurante_id', r.id),
+      ]);
+      const pacote = {
+        aviso: 'Cópia gerada pela Aurum antes de apagar a conta. Guarde este arquivo.',
+        restaurante: r, geradoEm: new Date().toISOString(),
+        documentos: docs.data || [], registros: regs.data || [],
+      };
+      const blob = new Blob([JSON.stringify(pacote, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `aurum-copia-${normalizar(r.nome) || r.id}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return true;
+    } catch { return false; }
+  };
+
   const abrirConta = async () => {
     const f = novaConta;
     if (!f) return;
@@ -1519,6 +1601,32 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 ${r.bloqueado ? 'bg-green-600 text-white' : 'bg-red-100 text-red-700'}`}>
                       {r.bloqueado ? '✅ Reativar conta' : 'Suspender conta'}
                     </button>
+                  </div>
+
+                  {/* ⚠️ ZONA DE PERIGO, no fim do cartão e visualmente separada
+                      do resto. Os Termos prometem exclusão definitiva em até 4
+                      dias úteis (cláusula 15) e não havia ferramenta nenhuma —
+                      a saída era escrever DELETE à mão no banco. A trava real
+                      é o nome digitado, conferido no BANCO (M38); a cópia é
+                      baixada antes, porque sair sem cópia é o único erro desta
+                      tela que não tem conserto. */}
+                  <div className="px-4 py-2.5 border-b border-gray-50">
+                    <details>
+                      <summary className="text-[11px] font-bold text-red-700 cursor-pointer">
+                        Apagar esta conta
+                      </summary>
+                      <div className="mt-2 bg-red-50 border border-red-200 rounded-lg p-2.5 space-y-2">
+                        <p className="text-[11px] text-red-800">
+                          Some tudo: itens, lançamentos, etiquetas, histórico, feedback e as
+                          contas da equipe. Uma cópia é baixada antes, e você precisa digitar
+                          o nome do restaurante para confirmar.
+                        </p>
+                        <button onClick={() => apagarRestaurante(r)}
+                          className="text-[11px] font-bold text-white bg-red-700 rounded-lg px-3 py-2 min-h-11">
+                          Apagar &ldquo;{r.nome}&rdquo; definitivamente
+                        </button>
+                      </div>
+                    </details>
                   </div>
 
                   {/* Notas internas (invisíveis ao cliente) */}
