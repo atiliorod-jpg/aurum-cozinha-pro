@@ -181,7 +181,68 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (31/08/2026) — UMA EXPERIÊNCIA SÓ, E O PAINEL COMPLETO
+## Onde paramos (02/09/2026) — A AUDITORIA APLICADA
+
+Auditoria completa em 31/08 (41 achados, documento no artefato) e **24 já
+resolvidos e publicados**. O app está no ar em `app.aurumcozinha.com.br`, e
+**push agora é a cada lote** — ver [[feedback_commitar_sempre]].
+
+### O que entrou (migrações 36 a 39)
+
+| | |
+|---|---|
+| M36 | uso da conta no painel — números, nunca conteúdo |
+| M37 | regime (cortesia/VIP) e registro de pagamento |
+| M38 | apagar restaurante de verdade + lápide `admin_exclusoes` |
+| M39 | **log do que a Aurum faz na conta do cliente** (gatilho) |
+
+### As armadilhas que estas quatro deixaram registradas
+
+⚠️ **`sou_super_admin()` compara `auth.uid()` com um UUID cravado, NÃO o
+e-mail** (conferido no banco em 02/09). A edge function `restaurante` compara
+E-MAIL. São travas diferentes para a mesma pessoa — trocar o e-mail da conta
+derruba uma; recriar a conta derruba a outra. Eu documentei errado uma vez.
+
+⚠️ **Duas tabelas NÃO cascateiam de `restaurantes`**: `documentos_historico` e
+`feedback`. Um `delete` ingênuo deixaria o histórico do cliente vivo no banco.
+A M38 apaga as duas explicitamente. Tabela nova → conferir a cascata.
+
+⚠️ **O log é GATILHO, não chamada em função.** Doze funções para instrumentar
+e a décima terceira nasceria sem registro. O filtro `sou_super_admin()` na
+primeira linha é o que mantém `documentos` (que o cliente grava a cada toque)
+fora do caminho.
+
+⚠️ **Sonda de segurança com assinatura errada passa para sempre.** A de
+`registrar_pagamento` estava sem `p_dias`, o PostgREST devolvia 404 e a sonda
+dava por "negada" sem nunca chegar na função. Ao acrescentar RPC na varredura,
+conferir que o erro é **401**, não 404.
+
+⚠️ **Teste de segurança vermelho pelo motivo errado é pior que teste que
+falha.** O `pentest-produto` deu 0/2 por três dias porque a confirmação de
+e-mail foi ligada e o login falhava em SILÊNCIO. Agora ele confirma o e-mail
+pela API de administração e **falha alto** se não autenticar.
+
+### Estado
+
+405→410 testes · lint 0 erros · varredura Supabase **38/38** ·
+pentest-produto 5/5 · pacote principal 735 KB (era 873).
+
+**Supabase:** C1/C2/C3 ligados (reautenticação para trocar senha — testado em
+produção com o dono; avisos de senha e MFA; mínimo 8). `password_hibp_enabled`
+**é pago**, fica de fora.
+
+### O que sobrou, e é decisão do dono
+
+- **A6** — CVS 3/2026 vale a partir de 04/10 e é de SP; ele é de PE (vale a
+  RDC 216/2004 da ANVISA). Os 5 campos obrigatórios o app já imprime. **Nunca
+  escrever "conforme norma X" na tela.**
+- **C7** — MFA na conta super-admin. Só ele confere.
+- **D4** — esticar o teste de 5 dias.
+- **C5/C6** — sessão sem prazo, cadastro sem captcha.
+
+---
+
+## Antes disso (31/08/2026) — UMA EXPERIÊNCIA SÓ, E O PAINEL COMPLETO
 
 ### Preços novos, e o completo saiu da venda
 
