@@ -27,13 +27,22 @@ if (!URL_BASE || !ANON) { console.error('Faltam VITE_SUPABASE_URL / VITE_SUPABAS
 // `feedback` estava de fora: não passava pelo teste de isolamento anônimo (o
 // que importa — é texto que o cliente escreveu) e ainda aparecia na lista de
 // "tabelas expostas que o código não usa", como se fosse resíduo.
-const TABELAS = ['admin_notas', 'convites', 'documentos', 'feedback', 'perfis', 'registros', 'restaurantes', 'sessoes'];
+// ⚠️ REGRA: tabela nova entra AQUI no mesmo dia em que nasce. `pagamentos`
+// (M37) guarda quanto cada cliente pagou e `admin_exclusoes` (M38) guarda
+// quem foi apagado — as duas seriam ótimas para um curioso, e nenhuma estava
+// sendo conferida até 02/09.
+const TABELAS = ['admin_notas', 'admin_exclusoes', 'convites', 'documentos', 'documentos_historico',
+  'feedback', 'pagamentos', 'perfis', 'registros', 'restaurantes', 'sessoes'];
 const RPCS = [
   'aceitar_convite', 'alterar_cargo', 'ativar_assinatura', 'avisar_pagamento',
   'convite_valido', 'criar_restaurante', 'definir_bloqueio', 'definir_max_usuarios',
   'desativar_usuario', 'enviar_feedback', 'feedback_todos', 'limpar_aviso_pagamento',
   'marcar_feedback', 'notas_admin_todas', 'reativar_usuario', 'salvar_documento',
   'salvar_notas_admin', 'usuarios_do_restaurante',
+  // ⚠️ MESMA REGRA das tabelas: função nova entra na varredura no mesmo dia.
+  // Estas seis nasceram entre 31/08 e 02/09 e nenhuma estava sendo conferida.
+  'uso_do_restaurante', 'apagar_restaurante', 'exclusoes_admin',
+  'registrar_pagamento', 'pagamentos_do_restaurante', 'definir_regime',
 ];
 
 const req = (caminho, chave, opts = {}) =>
@@ -137,6 +146,18 @@ const SENSIVEIS = [
   ['feedback_todos',        {}, 'ler feedback de todos os clientes'],
   ['notas_admin_todas',     {}, 'ler notas internas do admin'],
   ['usuarios_do_restaurante', { p_restaurante: uuidFake }, 'listar equipe alheia'],
+  ['uso_do_restaurante',    { p_restaurante: uuidFake }, 'espiar o uso de conta alheia'],
+  ['apagar_restaurante',    { p_restaurante: uuidFake, p_confirmacao: 'x' }, 'APAGAR restaurante alheio'],
+  ['exclusoes_admin',       {}, 'ler quem já foi apagado'],
+  // ⚠️ OS ARGUMENTOS PRECISAM BATER COM A ASSINATURA. Faltando `p_dias`, o
+  // PostgREST devolvia 404 ("função não encontrada") e a sonda dava por
+  // negada sem nunca ter chegado na função — um teste que passaria para
+  // sempre, inclusive se a trava caísse. Assinatura errada aqui é pior que
+  // sonda faltando: dá a sensação de cobertura que não existe.
+  ['registrar_pagamento',   { p_restaurante: uuidFake, p_valor: 1, p_dias: 30 }, 'forjar pagamento'],
+  ['pagamentos_do_restaurante', { p_restaurante: uuidFake }, 'ler pagamentos alheios'],
+  ['recebido_por_mes',      {}, 'ler o faturamento da Aurum'],
+  ['definir_regime',        { p_restaurante: uuidFake, p_regime: 'cortesia' }, 'virar cortesia sozinho'],
   ['enviar_feedback',       { p_tipo: 'bug', p_dados: {} }, 'poluir a caixa de feedback'],
 ];
 
