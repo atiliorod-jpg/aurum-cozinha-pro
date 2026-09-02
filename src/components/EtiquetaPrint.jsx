@@ -239,7 +239,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao, impersonando } = useAuth();
-  const { prefs, setPref, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas } = useApp();
+  const { prefs, setPrefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas } = useApp();
   // ⚠️ Nome que SAI IMPRESSO no pote. Com dois restaurantes na mesma conta, o
   // nome da conta sairia na etiqueta dos dois — erro visível na frente do
   // cliente, e o pote ainda circula. O nome do ESTOQUE manda quando o dono
@@ -528,9 +528,22 @@ export default function EtiquetaPrint() {
   // então a memória nunca funcionaria justo no produto que vai ser vendido.
   const aoImprimir = () => {
     registrarImpressao();
-    setPref('ultimoArmazenamento', lembrarArmazenamentos(
-      prefs.ultimoArmazenamento, itens, produtos.map(p => p.id),
-    ));
+    // ⚠️ `setPrefs` (plural) para gravar as duas de uma vez. Dois `setPref`
+    // seguidos leriam as prefs pelo ref, que só é atualizado no efeito
+    // seguinte — o segundo apagaria o primeiro.
+    setPrefs({
+      ultimoArmazenamento: lembrarArmazenamentos(
+        prefs.ultimoArmazenamento, itens, produtos.map(p => p.id),
+      ),
+      // ⚠️ QUEM ETIQUETA VIRA O PADRÃO DA PRÓXIMA ETIQUETA. Oito telas do app
+      // já gravavam isto ao registrar (Entradas, Produção, Saídas...) e a
+      // etiqueta era a única que só LIA e nunca escrevia. No plano Etiquetas,
+      // onde aquelas telas nem existem, o campo nunca era preenchido por
+      // ninguém: a pessoa escolhia o nome a cada pote, o dia inteiro.
+      // Só grava quando alguém foi escolhido — imprimir sem responsável não
+      // pode apagar quem estava lembrado.
+      ...(responsavel.trim() ? { responsavel } : {}),
+    });
   };
 
   // ⚠️ FALTA O RESPONSÁVEL? Veio de um erro real: o dono imprimiu um lote,
