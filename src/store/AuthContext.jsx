@@ -28,6 +28,9 @@ const AuthContext = createContext(null);
  * assim que troca o token por uma sessão, então quem ler tarde não acha mais
  * nada — e o `type=recovery` some junto.
  */
+// Chave que uma aba usa para contar às outras que a senha já foi trocada.
+const AVISO_SENHA_TROCADA = 'aurum_senha_trocada';
+
 const recuperacaoNaURL = (() => {
   try {
     const h = new URLSearchParams(String(window.location.hash || '').replace(/^#/, ''));
@@ -293,6 +296,19 @@ export function AuthProvider({ children }) {
       else setCarregando(false);
     });
 
+    // ⚠️ A OUTRA ABA TROCOU A SENHA → esta sai da tela de recuperação e entra
+    // no app. A sessão é a mesma (o Supabase guarda no localStorage da origem),
+    // então aqui não há nada a refazer: é só parar de mostrar o formulário.
+    const aoTrocarEmOutraAba = (e) => {
+      if (e.key !== AVISO_SENHA_TROCADA || !e.newValue) return;
+      setRecuperando(false);
+      supabase.auth.getSession().then(({ data }) => {
+        const uid = data?.session?.user?.id;
+        if (uid && carregadoRef.current !== uid) { carregadoRef.current = uid; carregarPerfil(uid); }
+      });
+    };
+    window.addEventListener('storage', aoTrocarEmOutraAba);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') { setRecuperando(true); setCarregando(false); return; }
       const uid = session?.user?.id || null;
@@ -311,7 +327,10 @@ export function AuthProvider({ children }) {
       }, 0);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('storage', aoTrocarEmOutraAba);
+    };
   }, [carregarPerfil]);
 
   // ── Login: e-mail OU usuário da casa ─────────────────────────
@@ -708,6 +727,15 @@ export function AuthProvider({ children }) {
     const { error } = await supabase.auth.updateUser({ password: novaSenha });
     if (error) return error.message;
     setRecuperando(false);
+    // ⚠️ AVISA AS OUTRAS ABAS. O app é instalável, então o link do e-mail abre
+    // em DOIS lugares no celular: a aba do navegador e a janela do app já
+    // instalado. As duas dividem a mesma sessão, mas cada uma tem o seu estado
+    // de tela — quem trocou a senha entra no app e a outra fica parada,
+    // mostrando um formulário que já não vale mais. O dono viu isso na prática.
+    // `localStorage` porque o evento `storage` dispara justamente nas OUTRAS
+    // abas da mesma origem, que é exatamente quem precisa saber.
+    try { localStorage.setItem(AVISO_SENHA_TROCADA, String(Date.now())); }
+    catch { /* aparelho sem storage — a aba órfã continua, mas nada quebra */ }
     // ⚠️ ENTRA NO APP, não só sai da tela. Quem chegou pelo link do e-mail já
     // tem sessão válida, mas o perfil nunca foi carregado — o caminho da
     // recuperação sai cedo justamente para mostrar a tela de senha. Sem esta
