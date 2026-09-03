@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
+import PrimeiroUso from '../components/PrimeiroUso';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
@@ -221,6 +222,10 @@ export default function Etiquetas() {
         <GuiaImpressora />
       ) : (
         <div className="space-y-4">
+          {/* ⚠️ NO CAMINHO DE ENTRADA, e não escondido na Administração: uma
+              conta nova imprimia um rolo inteiro com o RESP. em branco e nada
+              avisava. Some sozinho quando as duas coisas estão preenchidas. */}
+          <PrimeiroUso />
           {/* ⚠️ gray-600, NÃO gray-500. Esta frase fica direto no fundo bege da
               página (#F3EFE6), e ali o gray-500 dá 4,21 de contraste — abaixo
               do mínimo de 4,5 para texto normal. Dentro dos cartões brancos o

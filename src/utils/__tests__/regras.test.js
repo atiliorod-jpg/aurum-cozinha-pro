@@ -18,6 +18,7 @@ import { listarEstoques, estoquesAtivos, acharEstoque, estabelecimentoDe, salvar
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque } from '../visaoEstoque';
 import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
 import { planoDeEnvio } from '../../lib/impressoraBLE';
+import { faltasDoPrimeiroUso } from '../primeiroUso';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
@@ -3663,5 +3664,55 @@ describe('planoDeEnvio — como falar com a impressora sem chutar o MTU', () => 
     expect(planoDeEnvio({})).toBe(null);
     expect(planoDeEnvio(null)).toBe(null);
     expect(planoDeEnvio(undefined)).toBe(null);
+  });
+});
+
+// =====================================================================
+//  Primeiro uso: o RESP. em branco no primeiro rolo
+//
+//  Conta nova, item cadastrado, rolo impresso — e o campo RESP. saiu vazio,
+//  porque não havia ninguém cadastrado e nada avisava. O responsável é um dos
+//  cinco campos que a etiqueta de manipulação precisa ter.
+// =====================================================================
+describe('faltasDoPrimeiroUso — o cartão que pede o RESP. e o endereço', () => {
+  const cheio = { pessoas: ['Maria'], prefs: { estabelecimento: { endereco: 'Rua A, 1' } }, ehDiretoria: true };
+
+  it('conta nova (sem ninguém e sem endereço) mostra as duas faltas', () => {
+    const r = faltasDoPrimeiroUso({ pessoas: [], prefs: {}, ehDiretoria: true });
+    expect(r).toEqual({ mostrar: true, faltaPessoa: true, faltaEndereco: true });
+  });
+
+  it('com tudo preenchido some sozinho — não precisa fechar', () => {
+    expect(faltasDoPrimeiroUso(cheio).mostrar).toBe(false);
+  });
+
+  it('só falta o endereço → mostra, e diz que é só ele', () => {
+    const r = faltasDoPrimeiroUso({ ...cheio, prefs: {} });
+    expect(r).toEqual({ mostrar: true, faltaPessoa: false, faltaEndereco: true });
+  });
+
+  it('só falta a pessoa → mostra, e diz que é só ela', () => {
+    const r = faltasDoPrimeiroUso({ ...cheio, pessoas: [] });
+    expect(r).toEqual({ mostrar: true, faltaPessoa: true, faltaEndereco: false });
+  });
+
+  // ⚠️ A cozinha não alcança equipe nem dados do estabelecimento. Mostrar o
+  // formulário para ela seria o mesmo beco do "Meus itens" negado.
+  it('não aparece para quem não é a conta dona, mesmo faltando tudo', () => {
+    expect(faltasDoPrimeiroUso({ pessoas: [], prefs: {}, ehDiretoria: false }).mostrar).toBe(false);
+  });
+
+  it('adiado pelo dono não volta a incomodar', () => {
+    expect(faltasDoPrimeiroUso({ pessoas: [], prefs: { primeiroUsoAdiado: true }, ehDiretoria: true }).mostrar).toBe(false);
+  });
+
+  // Endereço só de espaços é endereço em branco — sai impresso vazio no rodapé.
+  it('endereço em branco não conta como preenchido', () => {
+    const r = faltasDoPrimeiroUso({ ...cheio, prefs: { estabelecimento: { endereco: '   ' } } });
+    expect(r.faltaEndereco).toBe(true);
+  });
+
+  it('aguenta prefs e pessoas ausentes sem quebrar', () => {
+    expect(faltasDoPrimeiroUso({ ehDiretoria: true }).mostrar).toBe(true);
   });
 });

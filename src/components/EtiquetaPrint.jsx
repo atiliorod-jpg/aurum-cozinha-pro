@@ -514,7 +514,24 @@ export default function EtiquetaPrint() {
   // gravado: mandar de novo reimprimia tudo, gastando rolo e colando etiqueta
   // duplicada em pote que já tinha uma. Sem argumento continua registrando
   // tudo — é o caminho do diálogo do navegador, que é atômico.
-  const registrarImpressao = (soEstes) => {
+  // ⚠️ `umCodigoPorCopia` decide se o lote vira N linhas ou UMA — e a regra é
+  // simples: só se grava código que EXISTE em papel.
+  //
+  // O caminho do Bluetooth manda `PRINT 1,N`, que faz a impressora repetir a
+  // MESMA etiqueta N vezes — as N saem com o mesmo código. Mas o histórico
+  // gravava N códigos diferentes: N-1 deles não existiam em pote nenhum. Um
+  // código inventado é pior que código nenhum, porque a tela de Validades e a
+  // leitura por câmera tratam cada linha como um pote real.
+  //
+  // No caminho do diálogo do navegador cada cópia é desenhada separada, com o
+  // seu próprio QR — ali os N códigos existem mesmo, e continuam N linhas.
+  // Com o QR desligado nem ali há código impresso, e vira uma linha só.
+  //
+  // ⚠️ Consequência aceita pelo dono (03/09): com uma linha por lote, o
+  // histórico conta LOTES e não potes. Três potes iguais aparecem como uma
+  // linha — por isso `copias` vai gravado junto, para a tela poder dizer
+  // quantos foram sem precisar inventar identidade para cada um.
+  const registrarImpressao = (soEstes, umCodigoPorCopia = true) => {
     if (!guardaHistorico) return;
     const hojeISO = hoje();
     const novas = [];
@@ -522,7 +539,8 @@ export default function EtiquetaPrint() {
       const n = limitarCopias(item.quantidade);
       if (!n) return;
       const c = camposDe(item);
-      for (let i = 0; i < n; i++) {
+      const quantos = umCodigoPorCopia ? n : 1;
+      for (let i = 0; i < quantos; i++) {
         const loteId = loteDaCopia(item, i);
         if (!loteId) continue;
         novas.push({
@@ -535,6 +553,8 @@ export default function EtiquetaPrint() {
           responsavel: c.responsavel || '',
           impressoEm: hojeISO,
           status: 'valida',
+          // quantas etiquetas de papel esta linha representa
+          copias: umCodigoPorCopia ? 1 : n,
         });
       }
     });
@@ -548,8 +568,8 @@ export default function EtiquetaPrint() {
   // memória do armazenamento NÃO podia ir dentro de `registrarImpressao`: ela
   // só roda quando a conta guarda histórico, e o plano Etiquetas não guarda —
   // então a memória nunca funcionaria justo no produto que vai ser vendido.
-  const aoImprimir = (soEstes) => {
-    registrarImpressao(soEstes);
+  const aoImprimir = (soEstes, umCodigoPorCopia = true) => {
+    registrarImpressao(soEstes, umCodigoPorCopia);
     // ⚠️ `setPrefs` (plural) para gravar as duas de uma vez. Dois `setPref`
     // seguidos leriam as prefs pelo ref, que só é atualizado no efeito
     // seguinte — o segundo apagaria o primeiro.
@@ -575,7 +595,10 @@ export default function EtiquetaPrint() {
   const faltaResponsavel = config.exigirResponsavel === true && !responsavel.trim();
 
   const imprimir = () => {
-    aoImprimir();
+    // Aqui cada cópia é uma etiqueta desenhada por conta própria: com o QR
+    // ligado, cada uma leva o SEU código impresso — então são N linhas. Com o
+    // QR desligado não há código no papel, e o lote vira uma linha só.
+    aoImprimir(itens, config.incluirQR === true);
     window.print();
   };
 
@@ -608,7 +631,8 @@ export default function EtiquetaPrint() {
         saiu.push(it);
         setProgresso({ feitos: contarEtiquetas(saiu), total: contarEtiquetas(aEnviar) });
       }
-      aoImprimir(saiu);
+      // `false`: o TSPL manda PRINT 1,N — um código para as N cópias.
+      aoImprimir(saiu, false);
       setEnviando(false);
       setProgresso(null);
       fecharEtiquetas();
@@ -618,7 +642,7 @@ export default function EtiquetaPrint() {
       if (e?.name === 'NotFoundError') return; // fechou o seletor, não é erro
       // ⚠️ GRAVA O QUE JÁ SAIU antes de mostrar o erro. É o que permite mandar
       // só o resto em vez do lote inteiro.
-      if (saiu.length) aoImprimir(saiu);
+      if (saiu.length) aoImprimir(saiu, false);
       const feitas = contarEtiquetas(saiu);
       const total = contarEtiquetas(aEnviar);
       const parcial = feitas > 0 && feitas < total

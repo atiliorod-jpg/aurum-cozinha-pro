@@ -187,8 +187,16 @@ export default function Validades() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-semibold text-sm text-gray-800 truncate">{e.nome}</p>
+                        {/* ⚠️ `copias` diz quantos potes ESTA linha representa. Ele
+                            nasceu quando o registro parou de inventar um código por
+                            cópia: no envio direto a impressora repete a MESMA
+                            etiqueta N vezes (PRINT 1,N), com um código só, e gravar
+                            N identidades diferentes criava potes que não existiam.
+                            Linha antiga não tem o campo — daí o `> 1` em vez de
+                            imprimir "1 etiqueta" em tudo que é histórico velho. */}
                         <p className="text-[11px] text-gray-500">
                           lote <span className="font-mono">{e.id}</span>
+                          {e.copias > 1 && ` · ${e.copias} etiquetas`}
                           {e.medida && ` · ${e.medida}`}
                           {e.responsavel && ` · ${e.responsavel}`}
                         </p>
