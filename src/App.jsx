@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/AuthContext';
-import { statusAssinatura, TESTE_DIAS } from './utils/assinatura';
+import { statusAssinatura, produtoDe } from './utils/assinatura';
 import SeletorModulo from './components/SeletorModulo';
 import { temRecurso } from './utils/modulos';
 import { pode, podeAbrirConfig, podeAbrirAdministracao } from './utils/permissoes';
@@ -152,7 +152,18 @@ function Rotas() {
       const st = statusAssinatura(sessao);
       // isoLocal, não toISOString: em Brasília o fim do teste caía no dia
       // seguinte na tela e o cliente contava com um dia que não tinha.
-      toast(`🎉 Bem-vindo ao Aurum Cozinha Pro! Teste grátis com tudo liberado até ${st.ate ? fmtData(isoLocal(new Date(st.ate))) : `o fim dos ${TESTE_DIAS} dias`}.`, 'sucesso', { duracao: 8000 });
+      // ⚠️ O NOME SAI DA CONTA, não é cravado. Esta linha dizia "Bem-vindo ao
+      // Aurum Cozinha Pro" para quem tinha acabado de comprar o Aurum
+      // Etiquetas — o nome do produto que a própria tela de cadastro mostrou
+      // em cinza, com selo "em breve", mais caro. E prometia "tudo liberado",
+      // que nesse plano é falso. É a pior hora possível para errar o nome do
+      // que a pessoa comprou.
+      const prod = produtoDe(sessao);
+      const ate = st.ate ? ` até ${fmtData(isoLocal(new Date(st.ate)))}` : '';
+      toast(soEtiquetas
+        ? `🎉 Bem-vindo ao ${prod.label}! Comece cadastrando seus itens em Meus itens.`
+        : `🎉 Bem-vindo ao ${prod.label}! Teste grátis com tudo liberado${ate}.`,
+        'sucesso', { duracao: 8000 });
     } else if (flag === 'convite') {
       toast(`👋 Você entrou no restaurante ${sessao.restauranteNome || ''} como ${sessao.cargo}. Bom trabalho!`, 'sucesso', { duracao: 7000 });
     }

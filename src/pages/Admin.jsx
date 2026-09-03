@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
-import { statusRestaurante, TESTE_DIAS, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime } from '../utils/assinatura';
+import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime } from '../utils/assinatura';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarTelefone, UFS } from '../utils/documentos';
@@ -67,6 +67,13 @@ const nomeDoc = (chave) => {
 // Data e hora, ou um travessão quando nunca aconteceu. `dataHoraBR` devolve
 // '—' só quando a conversão ESTOURA; null vira "Invalid Date" e ia para a tela.
 const dataHoraOuNunca = (iso) => iso ? dataHoraBR(iso) : 'nunca';
+
+// ⚠️ FORA DO COMPONENTE de propósito: o lint do React barra `Date.now()`
+// chamado durante o render, e com razão — resultado que muda a cada desenho
+// faz a tela discordar de si mesma. Aqui elas só rodam em clique ou dentro de
+// um `useMemo` com dependência declarada.
+const daquiADias = (n) => new Date(Date.now() + n * 86400000).toISOString();
+const aindaVale = (iso, agora) => !!iso && new Date(iso).getTime() > agora;
 
 const dataHoraBR = (iso) => {
   try { return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); }
@@ -137,7 +144,7 @@ export default function Admin() {
       // ⚠️ cnpj/whatsapp/cidade/uf (M28) entram SÓ nesta primeira tentativa. A
       // cadeia de fallback abaixo existe para banco sem as colunas novas; pôr
       // as colunas lá também faria a queda em cascata falhar inteira.
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, regime, regime_motivo, cortesia_ate')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, teste_ate, produto_teste, produto_teste_ate, regime, regime_motivo, cortesia_ate')
       .order('created_at', { ascending: false });
     if (errR) {
       // banco sem a migração 27: cai para o select de antes e todo mundo
@@ -327,6 +334,33 @@ export default function Admin() {
   // movido ou apagado, porque o plano Etiquetas grava nas mesmas chaves que o
   // app completo lê. O texto do confirm diz isso ao dono na hora de decidir —
   // "downgrade apaga os dados?" é a primeira dúvida que aparece.
+  // ⚠️ O TESTE AGORA É DADO, NÃO GANHO (M41). Antes qualquer cadastro entrava
+  // sozinho por 14 dias; hoje é esta data que abre a porta. `null` fecha.
+  const darTeste = async (r, dias) => {
+    const ate = dias === null ? null : daquiADias(dias);
+    const { error } = await supabase.rpc('definir_teste', { p_restaurante: r.id, p_ate: ate });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, teste_ate: ate } : x));
+    toast(ate ? `${r.nome}: teste liberado por ${dias} dia(s).` : `${r.nome}: teste encerrado.`, 'sucesso');
+  };
+
+  // ⚠️ EMPRESTAR UM PLANO, sem mexer no que a conta PAGA. O `produto` continua
+  // sendo a base da cobrança; o emprestado é só o que ela vê. Quando a data
+  // passa, o app volta sozinho — e o que ela lançou no plano emprestado fica
+  // guardado, porque os dois produtos gravam nas mesmas chaves.
+  const emprestarPlano = async (r, produto, dias) => {
+    const ate = produto === null ? null : daquiADias(dias);
+    const { error } = await supabase.rpc('definir_produto_teste', {
+      p_restaurante: r.id, p_produto: produto, p_ate: ate,
+    });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id
+      ? { ...x, produto_teste: produto, produto_teste_ate: ate } : x));
+    toast(produto
+      ? `${r.nome} vai ver o ${produtoDe(produto).label} por ${dias} dia(s).`
+      : `${r.nome}: empréstimo encerrado — voltou para o plano dela.`, 'sucesso');
+  };
+
   const mudarProduto = async (r, novo) => {
     const atual = r.produto || 'completo';
     if (novo === atual) return;
@@ -1078,7 +1112,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               <div className="bg-white rounded-xl p-3 space-y-2 border border-polo-gold/50">
                 <p className="text-xs font-bold text-polo-navy">Abrir conta de cliente</p>
                 <p className="text-[11px] text-gray-600">
-                  A conta nasce com {TESTE_DIAS} dias de teste. O dono recebe por e-mail o link
+                  A conta nasce SEM acesso — libere o teste no cartão dela depois de criar.
+                  O dono recebe por e-mail o link
                   para escolher a senha dele — você não vê nem escolhe senha nenhuma.
                 </p>
 
@@ -1151,7 +1186,6 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               // eslint-disable-next-line react-hooks/purity -- situação depende da hora atual; recalcular por render é o desejado
               const agora = Date.now();
               const st = statusRestaurante(r, agora);
-              const fimTeste = r.created_at ? new Date(r.created_at).getTime() + TESTE_DIAS * 86400000 : null;
               const restanteH = r.suporteAte ? Math.ceil((r.suporteAte - agora) / 3600000) : 0;
               const maxU = r.max_usuarios || 3;
               return (
@@ -1229,7 +1263,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
 
                   {/* Visão comercial */}
                   <div className="px-4 py-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-600 border-b border-gray-50">
-                    <span>Teste até: <strong>{dataBR(fimTeste)}</strong></span>
+                    <span>Teste até: <strong>{r.teste_ate ? dataBR(r.teste_ate) : '— não liberado'}</strong></span>
                     <span>Assinatura até: <strong>{dataBR(r.assinatura_ate)}</strong></span>
                     <span>Usuários: <strong>{r.usuarios.length}/{maxU}</strong></span>
                     <span>Suporte: <strong>{r.suporteAtivo ? `ativo ~${restanteH}h${r.podeMexer ? ' (editar)' : ' (ver)'}` : '—'}</strong></span>
@@ -1239,6 +1273,63 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         {r.cortesia_ate ? ` — até ${dataBR(r.cortesia_ate)}` : ' — sem prazo'}
                       </span>
                     )}
+                    {r.produto_teste && aindaVale(r.produto_teste_ate, agora) && (
+                      <span className="col-span-2 text-polo-navy">
+                        🎁 Vendo o {produtoDe(r.produto_teste).label} até {dataBR(r.produto_teste_ate)}
+                        {' '}(paga {produtoDe(r.produto).label})
+                      </span>
+                    )}
+                  </div>
+
+                  {/* ⚠️ TESTE E EMPRÉSTIMO — as duas coisas que só a Aurum dá.
+                      Ficam juntas porque respondem a mesma pergunta na hora da
+                      venda: "deixo essa pessoa experimentar o quê, e até
+                      quando?". Separadas de "liberar dias", que é pagamento. */}
+                  <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
+                    <div>
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">
+                        Teste grátis
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[7, 14, 30].map(d => (
+                          <button key={d} onClick={() => darTeste(r, d)}
+                            className="text-[11px] font-semibold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1.5 min-h-11">
+                            {d} dias
+                          </button>
+                        ))}
+                        {r.teste_ate && (
+                          <button onClick={() => darTeste(r, null)}
+                            className="text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1.5 min-h-11">
+                            encerrar
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">
+                        Emprestar o outro plano
+                      </p>
+                      <p className="text-[11px] text-gray-600 mb-1.5">
+                        Ela continua pagando o {produtoDe(r.produto).label}. Quando a data passa,
+                        volta sozinha — e o que ela lançou no plano emprestado fica guardado.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[7, 14, 30].map(d => (
+                          <button key={d}
+                            onClick={() => emprestarPlano(r, r.produto === 'etiquetas' ? 'completo' : 'etiquetas', d)}
+                            className="text-[11px] font-semibold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1.5 min-h-11">
+                            {produtoDe(r.produto === 'etiquetas' ? 'completo' : 'etiquetas').label} · {d} dias
+                          </button>
+                        ))}
+                        {r.produto_teste && (
+                          <button onClick={() => emprestarPlano(r, null, 0)}
+                            className="text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1.5 min-h-11">
+                            encerrar
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Usuários (com e-mail quando a migração 9 está no banco) */}

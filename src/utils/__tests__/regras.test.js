@@ -21,7 +21,7 @@ import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlob
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
 import { statusAssinatura, statusRestaurante, rotuloRegime, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
-import { produtoTem, produtoAtivo, marcaDeUpgrade } from '../produto';
+import { produtoTem, produtoAtivo, marcaDeUpgrade, emprestimoAtivo } from '../produto';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../painel';
 import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX,
          diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura, DIAS_SUGERIDOS_ABERTURA,
@@ -615,24 +615,42 @@ describe('outbox — fila morta (não retentar para sempre)', () => {
   });
 });
 
-describe('statusAssinatura — borda do teste grátis (paridade com o SQL)', () => {
+describe('statusAssinatura — o teste é dado pela Aurum, não ganho no cadastro', () => {
   const DIA = 86400000;
   const base = (createdAt) => ({ restauranteId: 'r1', restauranteCriadoEm: createdAt });
+  const comTeste = (ate) => ({ restauranteId: 'r1', testeAte: new Date(ate).toISOString() });
 
-  // Escrito em função de TESTE_DIAS, não com número solto: a borda tem que
-  // continuar sendo testada quando o prazo mudar de novo.
-  it('no último dia do teste = ok', () => {
+  // ⚠️ A REGRA MUDOU EM 03/09/2026 (M41). Antes o acesso saía de
+  // `created_at + TESTE_DIAS`: quem preenchesse o cadastro entrava sozinho por
+  // duas semanas. Agora só entra quem a Aurum liberou, por data.
+  it('cadastro novo NÃO ganha teste — nasce vencido', () => {
     const agora = Date.now();
-    const st = statusAssinatura(base(new Date(agora - (TESTE_DIAS - 1) * DIA).toISOString()), agora);
-    expect(st.ok).toBe(true);
-    expect(st.tipo).toBe('teste');
-  });
-
-  it('passou do teste sem assinatura = vencido', () => {
-    const agora = Date.now();
-    const st = statusAssinatura(base(new Date(agora - (TESTE_DIAS + 1) * DIA).toISOString()), agora);
+    const st = statusAssinatura(base(new Date(agora - DIA).toISOString()), agora);
     expect(st.ok).toBe(false);
     expect(st.tipo).toBe('vencido');
+  });
+
+  it('com teste liberado pela Aurum, entra', () => {
+    const agora = Date.now();
+    const st = statusAssinatura(comTeste(agora + 3 * DIA), agora);
+    expect(st.ok).toBe(true);
+    expect(st.tipo).toBe('teste');
+    expect(st.diasRestantes).toBe(3);
+  });
+
+  it('teste liberado que já venceu = vencido', () => {
+    const agora = Date.now();
+    const st = statusAssinatura(comTeste(agora - DIA), agora);
+    expect(st.ok).toBe(false);
+    expect(st.tipo).toBe('vencido');
+  });
+
+  it('a idade da conta não importa mais — só a data do teste', () => {
+    const agora = Date.now();
+    // conta de dois anos, com teste liberado hoje: entra.
+    const velha = { restauranteId: 'r1', restauranteCriadoEm: new Date(agora - 730 * DIA).toISOString(),
+                    testeAte: new Date(agora + DIA).toISOString() };
+    expect(statusAssinatura(velha, agora).tipo).toBe('teste');
   });
 
   // ⚠️ ESTE NÚMERO É ESCRITO EM DOIS LUGARES: aqui e no `interval '14 days'` de
@@ -663,7 +681,7 @@ describe('planos de pagamento (Pix)', () => {
   // isso valem os dois produtos, com as contas escritas por extenso.
   // Descontos: semestral -5%, anual -10% (baixados de 10/20% em 28/08/2026).
   // ⚠️ AS CONTAS SAEM DO PREÇO, não de números copiados. A versão anterior
-  // repetia 500 e 270 em doze lugares; quando o dono baixou para 399 e 249,
+  // repetia 500 e 270 em doze lugares; quando o dono mudou os preços (249→279,90),
   // doze testes quebraram de uma vez e nenhum deles dizia nada útil — só que o
   // preço tinha mudado, coisa que a gente já sabia. Assim o teste continua
   // guardando o que importa: a REGRA de desconto e o arredondamento.
@@ -703,10 +721,11 @@ describe('planos de pagamento (Pix)', () => {
   // desmascara um erro no cálculo que "bate" com uma fórmula igualmente
   // errada. Se o preço mudar de novo, ajuste estes três — eles são a âncora.
   it('nos preços de hoje, as contas fecham', () => {
-    expect(PRODUTOS.etiquetas.precoMes).toBe(249);
+    expect(PRODUTOS.etiquetas.precoMes).toBe(279.90);
     expect(PRODUTOS.completo.precoMes).toBe(399);
-    expect(precoPlano(plano('anual'), 'etiquetas')).toBe(2689.2);  // 249×12×0,9
-    expect(precoPlano(plano('semestral'), 'completo')).toBe(2274.3); // 399×6×0,95
+    expect(precoPlano(plano('anual'), 'etiquetas')).toBe(3022.92);   // 279,90×12×0,9
+    expect(precoPlano(plano('semestral'), 'etiquetas')).toBe(1595.43); // 279,90×6×0,95
+    expect(precoPlano(plano('semestral'), 'completo')).toBe(2274.3);  // 399×6×0,95
   });
 
   // Trava os percentuais em si: se alguém mexer nos descontos, quebra aqui e
@@ -3224,8 +3243,11 @@ describe('painel super-admin — a fila do dia e os números', () => {
   // teste durava 5 dias; quando passou para 14 (M40) os dois viraram "conta
   // novinha" e a fila deixou de trazer o que devia. Assim o dia muda sozinho
   // junto com a regra.
-  const testando  = { id: 't', nome: 'Testando', created_at: dias(-(TESTE_DIAS - 1)), produto: 'etiquetas' }; // resta 1
-  const novo      = { id: 'n', nome: 'Novo',     created_at: dias(-1), produto: 'etiquetas' };                // resta quase tudo
+  // ⚠️ O TESTE AGORA É UMA DATA QUE A AURUM DÁ (M41), não um presente do
+  // cadastro. Antes estes dois nasciam testando só por serem recentes; hoje
+  // uma conta sem `teste_ate` no futuro está VENCIDA, por mais nova que seja.
+  const testando  = { id: 't', nome: 'Testando', created_at: dias(-30), teste_ate: dias(1), produto: 'etiquetas' };   // resta 1
+  const novo      = { id: 'n', nome: 'Novo',     created_at: dias(-1),  teste_ate: dias(20), produto: 'etiquetas' };  // com folga
 
   describe('a fila', () => {
     it('quem avisou pagamento entra, com a hora do aviso', () => {
@@ -3528,5 +3550,50 @@ describe('a fila do painel inclui o feedback (G5)', () => {
     ]);
     expect(fila).toHaveLength(1);
     expect(fila[0].r.nome).toBe('Restaurante');
+  });
+});
+
+describe('plano emprestado pela Aurum (M41)', () => {
+  const DIA = 86400000;
+  const AGORA = new Date('2026-09-03T12:00:00Z').getTime();
+  const dias = (n) => new Date(AGORA + n * DIA).toISOString();
+  const paganteEtiquetas = { restauranteId: 'r1', produto: 'etiquetas' };
+
+  it('sem empréstimo, vale o que a conta comprou', () => {
+    expect(produtoAtivo(paganteEtiquetas, null, AGORA)).toBe('etiquetas');
+    expect(emprestimoAtivo(paganteEtiquetas, AGORA)).toBeNull();
+  });
+
+  // ⚠️ O CASO QUE O DONO PEDIU: quem paga etiquetas experimenta o completo.
+  it('com empréstimo valendo, a pessoa vê o plano emprestado', () => {
+    const s = { ...paganteEtiquetas, produtoTeste: 'completo', produtoTesteAte: dias(7) };
+    expect(produtoAtivo(s, null, AGORA)).toBe('completo');
+    expect(produtoTem(produtoAtivo(s, null, AGORA), 'estoque')).toBe(true);
+  });
+
+  // ⚠️ E ESTE É O QUE IMPORTA MAIS: quando o prazo acaba, a conta volta
+  // SOZINHA para o que ela paga — sem ninguém precisar lembrar de desfazer.
+  it('vencido o prazo, volta sozinho para o plano pago', () => {
+    const s = { ...paganteEtiquetas, produtoTeste: 'completo', produtoTesteAte: dias(-1) };
+    expect(produtoAtivo(s, null, AGORA)).toBe('etiquetas');
+    expect(emprestimoAtivo(s, AGORA)).toBeNull();
+    expect(produtoTem(produtoAtivo(s, null, AGORA), 'estoque')).toBe(false);
+  });
+
+  it('empréstimo sem data não vale — data faltando não é empréstimo eterno', () => {
+    const s = { ...paganteEtiquetas, produtoTeste: 'completo', produtoTesteAte: null };
+    expect(produtoAtivo(s, null, AGORA)).toBe('etiquetas');
+  });
+
+  it('produto emprestado que não existe é ignorado', () => {
+    const s = { ...paganteEtiquetas, produtoTeste: 'premium', produtoTesteAte: dias(7) };
+    expect(produtoAtivo(s, null, AGORA)).toBe('etiquetas');
+  });
+
+  // ⚠️ O modo suporte continua mandando em tudo: quem está vendo é o
+  // super-admin, e ele precisa ver o que o CLIENTE vê.
+  it('modo suporte ganha do empréstimo', () => {
+    const s = { ...paganteEtiquetas, produtoTeste: 'completo', produtoTesteAte: dias(7) };
+    expect(produtoAtivo(s, { produto: 'etiquetas' }, AGORA)).toBe('etiquetas');
   });
 });

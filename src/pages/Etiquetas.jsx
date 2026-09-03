@@ -234,7 +234,12 @@ export default function Etiquetas() {
                   ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
                 Todos
               </button>
-              {categorias.map(c => (
+              {/* ⚠️ SÓ AS QUE TÊM ITEM. A lista vinha inteira da biblioteca:
+                  numa conta nova a tela mostrava "você ainda não tem itens" e,
+                  logo acima, treze filtros que não levavam a lugar nenhum. A
+                  tela de Meus itens já fazia certo — o app se comportava de
+                  dois jeitos com o mesmo dado. */}
+              {categorias.filter(c => produtosAtivos.some(p => p.categoria === c)).map(c => (
                 <button key={c} onClick={() => setCatAtiva(c)}
                   className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
                     ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>

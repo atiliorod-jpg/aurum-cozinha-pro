@@ -176,7 +176,7 @@ export function AuthProvider({ children }) {
       // select completo → fallback progressivo p/ bancos sem as colunas novas
       let { data: rest, error: errRest } = await supabase
         .from('restaurantes')
-        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj')
+        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate')
         .eq('id', perfil.restaurante_id)
         .maybeSingle();
       if (errRest) {
@@ -231,6 +231,17 @@ export function AuthProvider({ children }) {
         // Assinatura/teste (migration7) + limite/bloqueio (migration9)
         restauranteCriadoEm: rest?.created_at || null,
         assinaturaAte:    rest?.assinatura_ate || null,
+        // ⚠️ O REGIME NUNCA CHEGAVA AQUI, e isso tornava a cortesia (M37) letra
+        // morta: `statusAssinatura` lia `sessao.regime`, que era sempre
+        // indefinido, então toda conta era tratada como pagante e uma conta de
+        // cortesia seria BLOQUEADA quando a data vencesse. O banco liberava a
+        // escrita e a tela barrava — o pior par possível.
+        regime:           rest?.regime || 'pagante',
+        cortesiaAte:      rest?.cortesia_ate || null,
+        // Teste escolhido pela Aurum e plano emprestado (M41).
+        testeAte:         rest?.teste_ate || null,
+        produtoTeste:     rest?.produto_teste || null,
+        produtoTesteAte:  rest?.produto_teste_ate || null,
         maxUsuarios:      rest?.max_usuarios || 3,
         bloqueado:        !!rest?.bloqueado,
         // Produto contratado (migração 27) — 'etiquetas' | 'completo'.

@@ -47,7 +47,12 @@ const NAV = [
 //    sem ele as Configurações ficariam sem porta nenhuma.
 const NAV_ETIQUETAS = [
   { to: '/',        icon: 'etiqueta', label: 'Imprimir' },
-  { to: '/itens',   icon: 'caixa',    label: 'Meus itens' },
+  // ⚠️ MESMA REGRA DO /ajustes, e ela faltava aqui. O cargo Cozinha não tem
+  // `gerenciarProdutos` por padrão: a rota redirecionava em silêncio e a
+  // pessoa tocava, a tela piscava e ela voltava sem entender. Pior, na conta
+  // nova o vazio da tela de imprimir manda "Cadastrar itens" e apontava para
+  // a mesma tela negada — um laço fechado.
+  { to: '/itens',   icon: 'caixa',    label: 'Meus itens', cap: 'gerenciarProdutos' },
   // ⚠️ Só a conta dona. Botão que leva a uma tela negada é pior que botão
   // ausente: a pessoa toca, é jogada de volta e não entende o porquê.
   // ⚠️ "Administração" e não "Configurações": ali dentro se controla quem tem
@@ -74,7 +79,14 @@ export default function NavBar({ soEtiquetas = false }) {
 
   // Sem badge de vencimento: este produto não acompanha validade (ver acima).
   if (soEtiquetas) {
-    return <BarraNav itens={NAV_ETIQUETAS.filter(n => !n.soDono || temPermissao('diretoria'))} />;
+    // ⚠️ Duas travas diferentes na mesma lista, de propósito: `soDono` é
+    // NÍVEL DE CARGO (só a diretoria abre a Administração) e `cap` é uma
+    // CAPACIDADE que o dono pode ligar para a cozinha na matriz de acessos.
+    // Usar cargo para as duas tiraria do dono a chance de liberar o cadastro
+    // de itens para quem ele quiser.
+    return <BarraNav itens={NAV_ETIQUETAS.filter(n =>
+      (!n.soDono || temPermissao('diretoria')) && (!n.cap || pode(sessao, permissoes, n.cap)),
+    )} />;
   }
 
   const itens = NAV.filter(n => {

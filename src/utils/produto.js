@@ -86,8 +86,27 @@ export const produtoTem = (produto, recurso) =>
  * sairia diagnosticando um problema que não existe. Mesmo padrão que o
  * AppContext já usa para resolver o `rid` do impersonado.
  */
-export function produtoAtivo(sessao, impersonando = null) {
-  return impersonando?.produto || sessao?.produto || PRODUTO_PADRAO;
+export function produtoAtivo(sessao, impersonando = null, agora = Date.now()) {
+  if (impersonando?.produto) return impersonando.produto;
+  // ⚠️ PLANO EMPRESTADO (M41). A Aurum pode deixar quem paga o Etiquetas
+  // experimentar o Completo por um tempo. Enquanto o prazo vale, é ELE que
+  // manda; quando vence, a conta volta SOZINHA para o que ela paga — sem
+  // ninguém precisar lembrar de desfazer.
+  //
+  // ⚠️ E os dados lançados durante o empréstimo NÃO somem: os dois produtos
+  // gravam nas mesmas chaves (ver o bloco no topo deste arquivo), então
+  // estoque e compras ficam guardados, invisíveis, e reaparecem inteiros se a
+  // pessoa assinar o completo depois. Só as TELAS mudam.
+  const emprestado = emprestimoAtivo(sessao, agora);
+  return emprestado || sessao?.produto || PRODUTO_PADRAO;
+}
+
+/** O plano emprestado, se houver um valendo agora. `null` quando não há. */
+export function emprestimoAtivo(sessao, agora = Date.now()) {
+  const p = sessao?.produtoTeste;
+  if (!p || !RECURSOS_PRODUTO[p]) return null;
+  const ate = sessao?.produtoTesteAte ? new Date(sessao.produtoTesteAte).getTime() : 0;
+  return ate > agora ? p : null;
 }
 
 /** Atalho de leitura para as telas: esta conta é do produto menor? */

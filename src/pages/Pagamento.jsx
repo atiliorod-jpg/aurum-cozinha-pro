@@ -40,7 +40,11 @@ const RECURSOS_POR_PRODUTO = {
     // ⚠️ Não entra "controle do que vence": a tela de Validades não existe
     // neste produto. A lista só pode prometer o que a conta realmente tem.
     '✅ Prazo por tipo de armazenamento (congelado, resfriado, refrigerado, ambiente)',
-    '✅ Etiquetas avulsas (ex.: "Leite aberto")',
+    // ⚠️ Aqui dizia "Etiquetas avulsas". Aquela aba foi removida em 31/08 —
+    // virou o campo de data de abertura dentro do próprio item. Prometer na
+    // TELA DE PAGAMENTO um recurso que não existe é o pior lugar possível
+    // para essa dívida ficar.
+    '✅ Itens abertos com data de abertura (ex.: leite, molho do dia)',
     '✅ Funciona offline e sincroniza na nuvem',
   ],
   completo: [

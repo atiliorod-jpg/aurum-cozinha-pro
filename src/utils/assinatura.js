@@ -13,11 +13,16 @@
 // verdadeira. Produto é o que a conta COMPROU (interface, ver utils/produto.js);
 // validade é se a conta PODE ESCREVER (acesso, espelhado no banco). Misturar os
 // dois aqui faria este comentário virar mentira.
-// ⚠️ ERAM 5, E 5 NÃO DAVA. O produto se vende com a impressora junto: o
-// cliente precisa cadastrar itens, ESPERAR O CORREIO trazer a MDK-022 e o
-// rolo, conectar por Bluetooth e imprimir. Com 5 dias o teste acabava antes
-// de a caixa chegar, e a pessoa julgava o produto sem nunca ter visto uma
-// etiqueta sair. 14 cobre o frete e ainda sobra semana de uso real.
+// ⚠️ ISTO NÃO CONCEDE NADA — é só a SUGESTÃO que o painel oferece quando a
+// Aurum vai liberar um teste. Até 03/09/2026 este número era a régua: quem se
+// cadastrasse ganhava o acesso sozinho, sem falar com ninguém. Hoje o acesso é
+// uma data escolhida conta a conta (`teste_ate`, M41) e cadastro novo nasce
+// SEM acesso.
+//
+// 14 continua sendo a sugestão porque o produto se vende com a impressora
+// junto: o cliente precisa cadastrar itens, ESPERAR O CORREIO trazer a MDK-022
+// e o rolo, conectar por Bluetooth e imprimir. Prazo menor acaba antes de a
+// caixa chegar, e a pessoa julga o produto sem nunca ter visto uma etiqueta.
 export const TESTE_DIAS = 14;
 
 // ⚠️ DOIS EIXOS INDEPENDENTES, e os nomes existem para não confundi-los:
@@ -29,7 +34,10 @@ export const PRODUTOS = {
   etiquetas: {
     id: 'etiquetas',
     label: 'Aurum Etiquetas',
-    precoMes: 249,
+    // ⚠️ 279,90 desde 03/09/2026 (era 249). O preço é a fonte da verdade: as
+    // telas e os planos semestral/anual saem daqui por cálculo, nunca de número
+    // digitado noutro lugar.
+    precoMes: 279.90,
     // ⚠️ NÃO prometer "acompanhar o que vence": a tela de Validades saiu deste
     // produto de propósito — ele imprime a data na etiqueta, não monitora
     // vencimento. Quem quer acompanhamento compra o completo. Prometer aqui é
@@ -109,10 +117,19 @@ export function statusAssinatura(sessao, agora = Date.now()) {
   }
   const assin = sessao.assinaturaAte ? new Date(sessao.assinaturaAte).getTime() : 0;
   if (assin > agora) return { ok: true, tipo: 'assinatura', ate: assin };
-  const criado = sessao.restauranteCriadoEm ? new Date(sessao.restauranteCriadoEm).getTime() : agora;
-  const fimTeste = criado + TESTE_DIAS * 86400000;
-  if (fimTeste > agora) {
-    return { ok: true, tipo: 'teste', ate: fimTeste, diasRestantes: Math.max(1, Math.ceil((fimTeste - agora) / 86400000)) };
+
+  // ⚠️ O TESTE DEIXOU DE SER AUTOMÁTICO (M41, 03/09/2026). Antes saía de
+  // `criado + TESTE_DIAS`: qualquer um que preenchesse o cadastro entrava por
+  // duas semanas sem falar com ninguém. Agora é uma DATA que a Aurum escolhe
+  // conta a conta, e cadastro novo nasce SEM acesso, esperando a liberação.
+  //
+  // ⚠️ E é uma data PRÓPRIA, não `assinaturaAte`: conta em teste não é receita.
+  // Dar o teste como assinatura a faria aparecer como "Ativo" no painel e
+  // entrar no cálculo de quanto entra por mês — o mesmo erro que o `regime`
+  // existe para evitar com as cortesias.
+  const teste = sessao.testeAte ? new Date(sessao.testeAte).getTime() : 0;
+  if (teste > agora) {
+    return { ok: true, tipo: 'teste', ate: teste, diasRestantes: Math.max(1, Math.ceil((teste - agora) / 86400000)) };
   }
   return { ok: false, tipo: 'vencido' };
 }
@@ -129,6 +146,9 @@ export function statusRestaurante(rest, agora = Date.now()) {
     bloqueado: !!rest?.bloqueado,
     regime: rest?.regime || 'pagante',
     cortesiaAte: rest?.cortesia_ate || null,
+    // ⚠️ Sem esta linha o painel mostraria como VENCIDA justamente a conta a
+    // quem a Aurum acabou de dar o teste — e ela entraria na fila de cobrança.
+    testeAte: rest?.teste_ate || null,
   }, agora);
 }
 

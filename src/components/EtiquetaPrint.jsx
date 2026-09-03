@@ -780,7 +780,16 @@ export default function EtiquetaPrint() {
                   do nome da casa — sem erro, sem aviso, direto no papel. A
                   medida vem do mesmo desenho que vai para a impressora
                   (medirEtiqueta), não de uma segunda conta. */}
-              {!medirEtiqueta(camposDe(itens[0], loteDaCopia(itens[0], 0)), config).cabe && (
+              {/* ⚠️ COM `estabelecimento`, senão a conta é de outra etiqueta.
+                  A impressão real usa `{ ...config, estabelecimento }` (o
+                  rodapé precisa dele) e esta medida usava `config` puro: o
+                  rodapé medido tinha só o nome da casa, o impresso tem até
+                  três linhas a mais. Media 12,9 mm de folga onde o papel
+                  tinha 2,4 — cega por mais do que a folga inteira.
+                  ⚠️ E mede TODOS os itens, não só o primeiro: quem estoura é
+                  sempre o de nome maior, que pode ser o terceiro da lista. */}
+              {itens.some(it => !medirEtiqueta(camposDe(it, loteDaCopia(it, 0)),
+                                               { ...config, estabelecimento }).cabe) && (
                 <p className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2 mb-2">
                   Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
                   Em Administração → Etiquetas, desligue um campo (marca ou validade original).

@@ -480,8 +480,9 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
             <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-2">
               <strong>Sem prazo, a etiqueta sai sem data de vencimento.</strong> Quase todo item
               precisa de um — inclusive os abertos. Deixe vazio só no que realmente não vence
-              depois de aberto (sal, açúcar, farinha): nesses, a validade é a do fabricante e sai
-              no campo “Val. original” da etiqueta.
+              depois de aberto (sal, açúcar, farinha): nesses a etiqueta sai <strong>sem
+              vencimento</strong>. Se quiser que ela mostre a validade da embalagem, ligue
+              “Validade original (fornecedor)” em Administração → Etiquetas.
             </p>
           )}
         </div>

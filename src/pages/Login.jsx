@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
-import { PRODUTOS, TESTE_DIAS } from '../utils/assinatura';
+import { PRODUTOS } from '../utils/assinatura';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos, UFS } from '../utils/documentos';
 import { traduzErroAuth as traduz } from '../utils/erros';
 import { TERMOS_VERSAO } from './Termos';
@@ -208,7 +208,7 @@ export default function Login() {
             <button onClick={() => trocar('esqueci')} className="w-full text-xs text-polo-navy/70 pt-1">Esqueci minha senha</button>
             <div className="border-t border-gray-100 pt-3 flex flex-col gap-1.5">
               
-              <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante — <strong className="text-green-700">{TESTE_DIAS} dias grátis</strong> →</button>
+              <button onClick={() => trocar('novo')} className="text-xs text-gray-500">Cadastrar meu restaurante →</button>
             </div>
             {/* ⚠️ A DEMO PASSA A PEDIR CONTATO. Antes era aberta e quem
                 olhava e ia embora não deixava rastro nenhum. Dois campos, sem
@@ -369,9 +369,13 @@ export default function Login() {
               })}
             </div>
 
-            {/* Sem "com tudo liberado" no plano menor: ali seria promessa falsa. */}
+            {/* ⚠️ NÃO PROMETE MAIS DIAS GRÁTIS. Até 03/09/2026 quem preenchia o
+                cadastro entrava sozinho por duas semanas; hoje o acesso é
+                liberado conta a conta pela Aurum (M41). Prometer aqui um teste
+                que não vem sozinho seria a pior das promessas falsas: a pessoa
+                termina o cadastro e encontra a porta fechada. */}
             <p className="text-xs font-semibold text-green-700">
-              {TESTE_DIAS} dias grátis{produto === 'completo' ? ' com tudo liberado' : ''} · depois R$ {PRODUTOS[produto].precoMes}/mês para continuar.
+              R$ {PRODUTOS[produto].precoMes.toFixed(2).replace('.', ',')}/mês · fale com a Aurum para liberar seu acesso.
             </p>
             <p className="text-[11px] text-gray-600 -mt-1">
               Dá para trocar de plano depois — é só falar com a equipe. Nada do que você cadastrar se perde.
