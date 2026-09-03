@@ -127,12 +127,18 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, onSair }) {
           Falar com a Aurum no WhatsApp
         </a>
       )}
+      {/* ⚠️ NÃO CITE CAMINHO DE TELA no ramo de baixo. Antes dizia "assinar em
+          Configurações → Assinatura", e esse caminho não existe em nenhum dos
+          dois produtos: a Assinatura é um cartão da Administração, que só a
+          conta dona abre — justamente quem NÃO está lendo esta frase. Mandar a
+          pessoa procurar um menu que ela não alcança faz ela concluir que o
+          app está quebrado. */}
       {aguardando ? null : podeAssinar ? (
         <Link to="/pagamento" className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
           💳 Ver plano e assinar
         </Link>
       ) : (
-        <p className="text-white/80 text-xs max-w-xs">Peça à diretoria/gerência do restaurante para assinar em Configurações → Assinatura.</p>
+        <p className="text-white/80 text-xs max-w-xs">Só a conta dona do restaurante consegue assinar. Avise a diretoria para liberar o acesso.</p>
       )}
       <div className="flex flex-col items-center gap-2.5 mt-2 pt-4 border-t border-white/15 w-full max-w-xs">
         <p className="text-white/70 text-[11px]">

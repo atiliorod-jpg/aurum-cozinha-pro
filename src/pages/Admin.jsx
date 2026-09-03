@@ -1014,7 +1014,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           <textarea rows={3} autoFocus value={respondendo.texto} maxLength={4000}
                             aria-label="Resposta ao cliente"
                             onChange={e => setRespondendo({ id: fb.id, texto: e.target.value })}
-                            placeholder="O cliente lê isto dentro do app, na aba Ajuda."
+                            placeholder="O cliente lê isto dentro do app, em Ajuda → Conversa."
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-900" />
                           <div className="flex gap-2">
                             <button onClick={() => responder(fb)}

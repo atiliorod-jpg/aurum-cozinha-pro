@@ -163,7 +163,10 @@ export default function BotaoFeedback() {
     const { error } = await supabase.rpc('enviar_feedback', { p_tipo: tipo, p_dados: dados, p_contexto: contexto });
     setEnviando(false);
     if (error) { toast('Não consegui enviar agora. Tente de novo em instantes.', 'erro'); return; }
-    toast('Enviado. A resposta aparece aqui mesmo, na aba Ajuda.', 'sucesso', { duracao: 6000 });
+    // ⚠️ "aba Ajuda" NÃO EXISTE. Ajuda é o botão do rodapé; as abas deste modal
+    // se chamam Escrever e Conversa, e é na Conversa que a resposta cai.
+    // Mandar procurar uma aba com outro nome faz a pessoa desistir de voltar.
+    toast('Enviado. A resposta chega na aba Conversa, aqui mesmo.', 'sucesso', { duracao: 6000 });
     limpar();
     carregarConversa();
     fecharAjuda();

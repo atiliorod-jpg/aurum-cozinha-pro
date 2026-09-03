@@ -44,11 +44,17 @@ export const CAPACIDADES = [
     etiquetas: true,
     labelEtiquetas: 'Cadastrar e editar itens',
     descEtiquetas: 'Criar, alterar e remover os itens que a casa etiqueta, com prazo e armazenamento.' },
+  // ⚠️ NÃO APARECE NO PLANO ETIQUETAS (sem `etiquetas: true`), e isso é
+  // proposital. Lá ela se chamava "Abrir a Administração" e era uma chave
+  // MORTA: a Administração daquele plano é a rota /ajustes, travada por CARGO
+  // (`soDono` na NavBar e <Restrito cargo="diretoria"> no App.jsx), nunca por
+  // esta capacidade. O dono ligava para a cozinha, nada mudava, e ele ficava
+  // procurando o que tinha feito de errado. Oferecer chave que não liga nada é
+  // o mesmo defeito do botão que leva a tela negada.
+  // No plano completo ela CONTINUA valendo (Administracao.jsx e Configuracoes.jsx
+  // leem `configurarSistema` de verdade).
   { id: 'configurarSistema', grupo: 'Gestão',   label: 'Configurar o sistema',
-    desc: 'Destinos de saída, etiquetas, mín/máx automático e demais ajustes.',
-    etiquetas: true,
-    labelEtiquetas: 'Abrir a Administração',
-    descEtiquetas: 'Mexer no armazenamento, nos campos da etiqueta, nos responsáveis e nos dados do estabelecimento.' },
+    desc: 'Destinos de saída, etiquetas, mín/máx automático e demais ajustes.' },
   { id: 'verFinanceiro',     grupo: 'Financeiro', label: 'Ver custos e preços',
     desc: 'Custo de insumo, valor do estoque e curva ABC.',
     duro: true },

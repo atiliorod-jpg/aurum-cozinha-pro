@@ -20,7 +20,7 @@ import { CHAVE_ULTIMO_ERRO } from '../utils/erros';
 //
 //  ⚠️ E NÃO ENGOLE O ERRO EM SILÊNCIO: joga no console, que é onde o suporte
 //  procura, e guarda o último no aparelho para a pessoa poder copiar e mandar
-//  pela aba Ajuda. Quando o Sentry entrar, é aqui que ele é chamado.
+//  pelo botão Ajuda. Quando o Sentry entrar, é aqui que ele é chamado.
 // =====================================================================
 
 export default class BarreiraDeErro extends Component {
@@ -65,8 +65,8 @@ export default class BarreiraDeErro extends Component {
           Abrir de novo
         </button>
         <p className="text-white/60 text-[11px] max-w-xs">
-          Se travar outra vez, mande um recado pela aba Ajuda contando o que você
-          estava fazendo — o app guardou o detalhe do erro.
+          Se travar outra vez, mande um recado pelo botão Ajuda, no rodapé, contando
+          o que você estava fazendo — o app guardou o detalhe do erro.
         </p>
       </div>
     );

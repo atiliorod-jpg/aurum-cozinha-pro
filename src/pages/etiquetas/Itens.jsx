@@ -354,13 +354,19 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
         </div>
 
         <div>
-          <label htmlFor="mi-cat" className="block text-xs font-semibold text-gray-600 mb-1">Onde fica</label>
+          {/* ⚠️ ERA "Onde fica", e isto é categoria, não lugar. Dois campos
+              abaixo a MESMA ficha pergunta de verdade onde o item é guardado
+              (congelado/resfriado, no bloco de prazos). Com os dois rótulos na
+              tela, a pessoa respondia "geladeira" aqui e criava um grupo com
+              nome de câmara. "Grupo" é a palavra que o próprio botão + Novo já
+              usa no campo de baixo. */}
+          <label htmlFor="mi-cat" className="block text-xs font-semibold text-gray-600 mb-1">Grupo</label>
           {criandoCat ? (
             <div className="flex items-center gap-2">
               <input type="text" value={novaCat} onChange={e => setNovaCat(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') confirmarCat(); }}
                 autoFocus placeholder="Nome do grupo (ex.: VEGANOS)"
-                aria-label="Nome da nova categoria" className={inputCls} />
+                aria-label="Nome do novo grupo" className={inputCls} />
               <Botao onClick={confirmarCat} tamanho="sm" largura="auto">OK</Botao>
               <button onClick={() => { setCriandoCat(false); setNovaCat(''); }}
                 className="text-xs text-gray-500 px-1">Cancelar</button>
