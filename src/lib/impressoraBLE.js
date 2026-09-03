@@ -115,8 +115,30 @@ async function ligar(dev) {
  * Escolher a impressora. PRECISA de um toque do usuário: o navegador só abre o
  * seletor de dispositivos a partir de um gesto real, nunca em código de fundo.
  */
+/**
+ * O Bluetooth deste aparelho está ligado e liberado para o app?
+ *
+ * ⚠️ "NÃO SEI" NÃO PODE VIRAR "ESTÁ DESLIGADO". `getAvailability()` não existe
+ * em todo navegador; onde faltar, responde `true` e deixa o seletor decidir —
+ * bloquear aqui tiraria o único caminho de quem tem tudo funcionando.
+ *
+ * Vale principalmente no Android: com o adaptador desligado, ou sem a permissão
+ * "Dispositivos por perto" concedida ao app, o seletor abre VAZIO e fica
+ * girando. Perguntar antes troca uma tela vazia por uma frase que diz o que
+ * fazer.
+ */
+export async function bluetoothLigado() {
+  if (!bleDisponivel()) return false;
+  if (typeof navigator.bluetooth.getAvailability !== 'function') return true;
+  try { return await navigator.bluetooth.getAvailability(); } catch { return true; }
+}
+
+export const ERRO_BLUETOOTH_DESLIGADO =
+  'O Bluetooth deste aparelho está desligado ou não foi liberado para o app. Ligue o Bluetooth e, nas permissões do app, autorize "Dispositivos por perto".';
+
 export async function escolherImpressora() {
   if (!bleDisponivel()) throw erroPT('Este navegador não fala Bluetooth. Use o Chrome do Android.');
+  if (!(await bluetoothLigado())) throw erroPT(ERRO_BLUETOOTH_DESLIGADO);
   const dev = await navigator.bluetooth.requestDevice({
     acceptAllDevices: true,
     optionalServices: SERVICOS_IMPRESSORA,

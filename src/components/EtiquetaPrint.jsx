@@ -281,7 +281,11 @@ export default function EtiquetaPrint() {
   const [responsavel, setResponsavel] = useState('');
   // Impressão direta (BLE + TSPL) — caminho a mais, nunca substituto
   const [enviando, setEnviando] = useState(false);
-  const [erroBLE, setErroBLE] = useState('');
+  // ⚠️ Guarda TOM junto do texto. "Nenhuma impressora escolhida" não é erro
+  // vermelho — pode ser só o dono tendo fechado o seletor —, mas precisa
+  // aparecer. Antes esse caso era engolido em SILÊNCIO (ver o catch abaixo).
+  const [erroBLE, setErroBLE] = useState(null); // { texto, tom } | null
+  const avisarBLE = (texto, tom = 'erro') => setErroBLE(texto ? { texto, tom } : null);
   // ⚠️ O contador de progresso JÁ EXISTIA no driver (`aoProgredir`) e nunca era
   // passado por ninguém — um lote de 40 etiquetas ficava em "Enviando…" sem
   // dizer onde estava. Agora o progresso é contado em ETIQUETAS, por item
@@ -607,7 +611,7 @@ export default function EtiquetaPrint() {
   // todos os problemas de impressão. O que o app manda é o que sai no papel.
   // Só no Chrome do Android/desktop: o Safari não implementa Web Bluetooth.
   const imprimirDireto = async () => {
-    setErroBLE(''); setEnviando(true);
+    avisarBLE(null); setEnviando(true);
     // ⚠️ UM ITEM POR ENVIO, e não o lote inteiro numa tacada. Antes tudo ia
     // numa chamada só: se a impressora desligasse ou saísse de alcance no meio,
     // não havia como saber o que já tinha saído no papel — o registro só
@@ -639,7 +643,17 @@ export default function EtiquetaPrint() {
     } catch (e) {
       setEnviando(false);
       setProgresso(null);
-      if (e?.name === 'NotFoundError') return; // fechou o seletor, não é erro
+      // ⚠️ ISTO ERA UM `return` MUDO, e foi o que apareceu no celular de um
+      // amigo: tocou em conectar, não achou impressora nenhuma e a tela não
+      // disse NADA — parecia que o botão não funcionava.
+      // O Web Bluetooth usa o MESMO `NotFoundError` para "fechei o seletor" e
+      // para "a lista veio vazia": não dá para separar os dois. Então o texto
+      // serve aos dois casos — constata o que houve e diz o que conferir, sem
+      // acusar a pessoa de ter cancelado nem gritar erro em vermelho.
+      if (e?.name === 'NotFoundError') {
+        avisarBLE('Nenhuma impressora foi escolhida. Se a lista apareceu vazia: ligue a impressora, deixe-a por perto e confira se o Bluetooth e a permissão "Dispositivos por perto" estão liberados para o app.', 'atencao');
+        return;
+      }
       // ⚠️ GRAVA O QUE JÁ SAIU antes de mostrar o erro. É o que permite mandar
       // só o resto em vez do lote inteiro.
       if (saiu.length) aoImprimir(saiu, false);
@@ -648,7 +662,7 @@ export default function EtiquetaPrint() {
       const parcial = feitas > 0 && feitas < total
         ? ` Saíram ${feitas} de ${total} etiquetas — o que já saiu ficou registrado, mande só o resto.`
         : '';
-      setErroBLE(erroEmPortugues(e) + parcial);
+      avisarBLE(erroEmPortugues(e) + parcial);
     }
   };
 
@@ -894,7 +908,7 @@ export default function EtiquetaPrint() {
                   de saber AGORA, não quando o leitor terminar a frase. Era o
                   aviso mais silencioso do app: aparecia sem som nenhum e ela
                   ficava tocando de novo. */}
-              {erroBLE && <Aviso tom="erro">{erroBLE}</Aviso>}
+              {erroBLE && <Aviso tom={erroBLE.tom}>{erroBLE.texto}</Aviso>}
             </div>
           )}
 
