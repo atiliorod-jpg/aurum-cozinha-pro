@@ -181,7 +181,134 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (02/09/2026) — A AUDITORIA APLICADA
+## Onde paramos (03/09/2026) — PREÇO NOVO, TESTE MANUAL E PLANO EMPRESTADO
+
+**Estado:** 421 testes, lint sem erros (3 avisos antigos), build ok,
+audit-check ok. Migrações até a **41**. Tudo commitado; o último commit
+(`51f8739`) **ainda não foi enviado** — ver "O que fazer primeiro" abaixo.
+
+### 1. Preço: R$ 249 → R$ 279,90
+
+Só em `utils/assinatura.js`. Semestral e anual saem por cálculo
+(R$ 1.595,43 e R$ 3.022,92). As âncoras dos testes foram refeitas.
+
+### 2. O teste grátis deixou de ser automático (M41)
+
+**Esta é a mudança de comportamento mais importante da semana.** Antes o
+acesso saía de `created_at + 14 dias`: quem preenchesse o cadastro entrava
+sozinho por duas semanas. Agora:
+
+- Coluna `restaurantes.teste_ate` — só a Aurum escreve, via RPC `definir_teste`
+- **Cadastro novo nasce SEM acesso nenhum**
+- O login parou de prometer "dias grátis"
+- No painel, cada restaurante tem botões de 7/14/30 dias e "encerrar"
+
+⚠️ `teste_ate` é coluna PRÓPRIA, não reaproveita `assinatura_ate`:
+comercialmente são opostos. Teste dado como assinatura apareceria como
+"Ativo" no painel e entraria na conta de receita — o mesmo erro que o
+`regime` existe para evitar com as cortesias.
+
+⚠️ `TESTE_DIAS` **não concede mais nada** — virou só a sugestão que o painel
+oferece. Se algum código voltar a assumir "teste por data de criação", é bug.
+
+### 3. Emprestar um plano (M41)
+
+A Aurum pode deixar quem paga o Etiquetas experimentar o Completo por um
+prazo. `produto_teste` + `produto_teste_ate`, separados de `produto` (que é a
+base da cobrança). `produtoAtivo()` checa o empréstimo antes de cair no
+produto comprado; quando a data passa, **volta sozinho**.
+
+⚠️ **CONFERIDO NO BANCO** (era a dúvida do dono): item, estoque e lançamentos
+feitos durante o empréstimo continuam intactos depois de vencer E depois de a
+conta assinar o completo. Não é sorte — os dois produtos gravam nas mesmas
+chaves desde a criação do Etiquetas.
+
+### 4. `aguardando`: quem nunca entrou não é quem foi embora
+
+`statusAssinatura` ganhou o estado `'aguardando'` (conta sem NENHUMA data
+registrada). Antes, quem acabava de se cadastrar via *"Seu período de teste
+terminou — continue de onde parou"*, logo depois de pagar. Agora vê "Falta
+liberarmos o seu acesso" com botão para o WhatsApp da Aurum — não para pagar
+de novo.
+
+### 5. Dois bugs graves achados e corrigidos no caminho
+
+- **O `regime` (cortesia) nunca chegava na sessão.** O SELECT em
+  `AuthContext.jsx` não trazia a coluna, então `sessao.regime` era sempre
+  indefinido e toda conta era tratada como pagante. Uma conta de cortesia
+  seria BLOQUEADA na tela enquanto o banco liberava a escrita — o pior par
+  possível. Corrigido junto com as colunas novas.
+- **A trava "não cabe no papel" media a etiqueta errada.** Ela usava `config`
+  puro; a impressão real usa `{ ...config, estabelecimento }`. Media 12,9 mm
+  de folga onde o papel tinha 2,4 — cega por mais do que a folga inteira.
+
+### 6. Da ultra auditoria, seis correções aplicadas
+
+A1 (boas-vindas com o nome do produto errado), A2 ("Meus itens" que a cozinha
+tocava e voltava), A3 (a trava acima), A4 (categorias vazias — eu havia dado
+por feito e não estava), A6 (aviso que prometia campo desligado), B4 (tela de
+pagamento vendendo "Etiquetas avulsas", removido em 31/08).
+
+---
+
+## O que fazer primeiro na próxima conversa
+
+1. **Enviar o commit `51f8739`** (`git push origin main`). É a tela de
+   "aguardando liberação", pronta e testada, mas ainda só na máquina dele.
+   ⚠️ A regra desta conta é PUBLICAR AO FIM DE CADA LOTE — ver a memória
+   `feedback_commitar_sempre`. Um push acumulado já causou confusão antes.
+
+2. **Aplicar o que sobrou da ultra auditoria** (18 achados, documento em
+   https://claude.ai/code/artifact/f934e032-b283-4adf-a8fe-20cafb33bd81):
+
+   **Impressão** — o coração do produto:
+   - Impressora que cai no meio do lote: erro em INGLÊS na tela
+     (`impressoraBLE.js:172` lê `canal.properties` com canal já nulo) e o que
+     já saiu não fica registrado — reimprimir duplica etiqueta em pote que já
+     tem uma. Existe um `aoProgredir` no código que nunca é passado.
+   - `PRINT 1,N` repete a MESMA etiqueta N vezes (mesmo loteId), mas
+     `registrarImpressao` grava N ids diferentes. Vira problema de verdade no
+     dia em que o QR entrar no TSPL.
+   - Pedaço de 100 bytes em `writeWithoutResponse` sem plano B: o mínimo do
+     ATT é 20 bytes de carga e o que passa é descartado em SILÊNCIO. Só
+     aparece no segundo cliente, com outro aparelho.
+
+   **Acessibilidade** — 3 graves + 7 menores:
+   - Os modais dizem `aria-modal="true"` mas nada move/prende/devolve o foco.
+     Não existe UM `.focus()` em todo o `src/`. São três diálogos com a mesma
+     marcação — vale extrair um componente único.
+   - Nenhum aviso do modal é anunciado (sem `role="alert"`/`aria-live`),
+     inclusive o erro de Bluetooth. Só há 2 anúncios em todo o projeto.
+   - "Manipulação × Abertura" (decide a palavra IMPRESSA no pote) marca o
+     escolhido só com borda dourada: 2,40:1, abaixo do mínimo de 3:1.
+
+   **Texto** — 4 caminhos citados na tela que não existem:
+   "Configurações → Assinatura", "aba Ajuda", a chave "Abrir a Administração"
+   (que não abre nada), e "Onde fica" como rótulo de CATEGORIA.
+
+3. **As 7 especialidades que nunca rodaram.** Segurança, integridade de
+   dados, performance, qualidade de código, banco, regras comerciais e
+   primeiro uso. Duas tentativas de rodar por agentes morreram no limite de
+   sessão. ⚠️ Dado que a semana inteira mexeu em acesso e cobrança, esta é a
+   lacuna mais cara de deixar aberta.
+
+---
+
+## Pendências do DONO (não são código)
+
+- **Ligar a verificação em duas etapas** na conta `atiliopinpolho@gmail.com`
+  do Supabase. Conferido no banco: **nenhuma das três contas tem MFA**. Essa
+  conta abre a de todos os clientes.
+- **A6 da auditoria**: conferir a CVS 3/2026 (vale a partir de 04/10) na
+  fonte oficial. Ele é de PE e a CVS é de SP — não o obriga; o que vale em
+  todo o Brasil é a RDC 216/2004 da ANVISA. Combinado de estruturar juntos.
+- **Plano Pro do Supabase (~US$25/mês)** destrava dois itens de segurança que
+  hoje respondem 402: senha vazada (HIBP) e expiração de sessão. Decisão
+  comercial dele.
+
+---
+
+## Antes disso (02/09/2026) — A AUDITORIA APLICADA
 
 Auditoria completa em 31/08 (41 achados, documento no artefato) e **24 já
 resolvidos e publicados**. O app está no ar em `app.aurumcozinha.com.br`, e
