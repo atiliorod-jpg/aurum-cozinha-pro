@@ -181,7 +181,87 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (03/09/2026) — PREÇO NOVO, TESTE MANUAL E PLANO EMPRESTADO
+## Onde paramos (03/09/2026, tarde) — A ULTRA AUDITORIA FECHADA
+
+**Os 18 achados que estavam abertos foram aplicados e publicados.** Quatro
+commits, um por lote, todos já no GitHub (`git push` feito a cada lote):
+
+```
+ecf241d  A5 e B2: o RESP. em branco no primeiro rolo, e o código que não existe
+9ac6e55  Lote B (B1 e B3): impressora que cai no meio, e o pedaço que era um chute
+161ab56  Lote C: os dez achados de acessibilidade, com um diálogo único
+67e55b4  Lote D: os quatro textos que mandavam a pessoa a lugar nenhum
+```
+
+**Estado:** 433 testes (eram 421), lint 0 erros (3 avisos antigos), build ok,
+audit-check ok. Migrações continuam na **41** — nada tocou o banco nesta rodada.
+
+### Duas peças novas que valem conhecer antes de mexer em qualquer tela
+
+**`components/Dialogo.jsx` é a casca de TODO modal.** Havia oito modais escritos
+à mão, todos dizendo `role="dialog" aria-modal="true"` — o que faz o leitor de
+tela ESCONDER o resto da página — e nenhum levava o foco para dentro. Não
+existia UM `.focus()` em todo o `src/`. Os oito foram convertidos. Modal novo
+usa o `Dialogo`; escrever mais um à mão recria o defeito.
+
+⚠️ **O `autoFocus` do React NÃO chega nesses modais** — medido no navegador, o
+atributo nem é renderizado. O comentário do modal de confirmar dizia que o
+"Cancelar" recebia foco sozinho; nunca recebeu. Hoje recebe, por ser o primeiro
+alcançável do painel. Se precisar de foco num campo específico, não confie no
+`autoFocus`: é preciso resolver dentro do `Dialogo`.
+
+⚠️ **Quem abriu o diálogo é lido no RENDER, não no efeito.** Foi bug de verdade
+nesta sessão: o commit do React aplica o foco antes de qualquer `useEffect`,
+então o efeito guardava um campo de DENTRO do modal como "quem abriu" e, ao
+fechar, devolvia o foco para um nó já arrancado da página.
+
+**`components/Aviso.jsx` é a caixinha que o leitor de tela anuncia.** `tom="erro"`
+vira `role="alert"` (assertivo — só para consequência de uma AÇÃO, como a
+impressora recusar); os demais viram `role="status"` (educado), porque aviso que
+nasce do preenchimento picotaria a leitura a cada tecla.
+
+### Impressão: o que mudou no driver
+
+⚠️ **O pedaço de 100 bytes era um chute.** O mínimo garantido pelo ATT é 20
+bytes de carga, e no modo sem confirmação o que passa disso é descartado EM
+SILÊNCIO. O Web Bluetooth **não expõe o MTU negociado** — então não se chuta:
+`planoDeEnvio` (função pura, com teste) escolhe escrita COM confirmação a 100
+bytes quando existe, e 20 bytes quando só há a sem confirmação.
+
+⚠️ **O envio é um ITEM POR VEZ.** Era o lote inteiro numa chamada, e o registro
+só acontecia depois de tudo — se a impressora caísse no meio, o que já tinha
+saído no papel não ficava gravado e o reenvio duplicava etiqueta. As cópias
+seguem nativas (`PRINT 1,N`) dentro de cada item.
+
+⚠️ **Só se grava código que EXISTE em papel** (decisão do dono, 03/09). O
+`PRINT 1,N` repete a mesma etiqueta com um código só: virou UMA linha de
+histórico com o campo `copias`, não N linhas com códigos fantasmas. No diálogo
+do navegador com QR ligado continuam N linhas — ali cada cópia tem o seu QR.
+
+⚠️ **Erro nosso carrega a marca `emPortugues`.** Sem ela o tradutor da tela
+embrulhava a frase dentro de "Não deu para imprimir… (a mesma frase)".
+
+### Primeiro uso
+
+`components/PrimeiroUso.jsx` pede o responsável e o endereço no caminho de
+entrada (tela Etiquetar). A decisão de aparecer mora em `utils/primeiroUso.js`
+(pura, 8 testes) — mesmo motivo do `marcaDeUpgrade`: **o projeto não tem jsdom**,
+então componente se verifica no navegador e regra pura se verifica no CI.
+
+⚠️ A gravação do endereço **mescla** com o que já existe: o CEP é gravado na
+mesma chave pela Administração, e sobrescrever o objeto apagaria o dele.
+
+### O que NÃO foi exercido ao vivo, e é honesto dizer
+
+- **"Saíram X de Y etiquetas"** só aparece em lote com mais de um item, que só
+  as telas de Entradas/Histórico do plano completo abrem. A lógica está lá e o
+  caminho de um item foi testado; a mensagem em si não foi vista na tela.
+- A queda da impressora foi simulada com uma **impressora falsa** no navegador
+  (o driver é módulo com estado próprio, não dá para injetar em teste puro).
+
+---
+
+## Antes disso (03/09/2026, manhã) — PREÇO NOVO, TESTE MANUAL E PLANO EMPRESTADO
 
 **Estado:** 421 testes, lint sem erros (3 avisos antigos), build ok,
 audit-check ok. Migrações até a **41**. Tudo commitado; o último commit
@@ -253,44 +333,22 @@ pagamento vendendo "Etiquetas avulsas", removido em 31/08).
 
 ## O que fazer primeiro na próxima conversa
 
-1. **Enviar o commit `51f8739`** (`git push origin main`). É a tela de
-   "aguardando liberação", pronta e testada, mas ainda só na máquina dele.
-   ⚠️ A regra desta conta é PUBLICAR AO FIM DE CADA LOTE — ver a memória
-   `feedback_commitar_sempre`. Um push acumulado já causou confusão antes.
+**As 7 especialidades que nunca rodaram** — segurança, integridade de dados,
+performance, qualidade de código, banco, regras comerciais e primeiro uso.
+Duas tentativas por agentes morreram no limite de sessão; a terceira deve ir
+UMA POR VEZ, não sete em paralelo.
 
-2. **Aplicar o que sobrou da ultra auditoria** (18 achados, documento em
-   https://claude.ai/code/artifact/f934e032-b283-4adf-a8fe-20cafb33bd81):
+⚠️ Esta é a lacuna mais cara que resta: a semana de 03/09 inteira mexeu em
+ACESSO e COBRANÇA (teste manual, empréstimo de plano, preço novo) e nada disso
+passou por uma lente de segurança ou de regra comercial.
 
-   **Impressão** — o coração do produto:
-   - Impressora que cai no meio do lote: erro em INGLÊS na tela
-     (`impressoraBLE.js:172` lê `canal.properties` com canal já nulo) e o que
-     já saiu não fica registrado — reimprimir duplica etiqueta em pote que já
-     tem uma. Existe um `aoProgredir` no código que nunca é passado.
-   - `PRINT 1,N` repete a MESMA etiqueta N vezes (mesmo loteId), mas
-     `registrarImpressao` grava N ids diferentes. Vira problema de verdade no
-     dia em que o QR entrar no TSPL.
-   - Pedaço de 100 bytes em `writeWithoutResponse` sem plano B: o mínimo do
-     ATT é 20 bytes de carga e o que passa é descartado em SILÊNCIO. Só
-     aparece no segundo cliente, com outro aparelho.
+Depois delas, o que ficou registrado e não é achado de auditoria continua na
+lista de "Achados registrados e NÃO corrigidos", lá embaixo.
 
-   **Acessibilidade** — 3 graves + 7 menores:
-   - Os modais dizem `aria-modal="true"` mas nada move/prende/devolve o foco.
-     Não existe UM `.focus()` em todo o `src/`. São três diálogos com a mesma
-     marcação — vale extrair um componente único.
-   - Nenhum aviso do modal é anunciado (sem `role="alert"`/`aria-live`),
-     inclusive o erro de Bluetooth. Só há 2 anúncios em todo o projeto.
-   - "Manipulação × Abertura" (decide a palavra IMPRESSA no pote) marca o
-     escolhido só com borda dourada: 2,40:1, abaixo do mínimo de 3:1.
-
-   **Texto** — 4 caminhos citados na tela que não existem:
-   "Configurações → Assinatura", "aba Ajuda", a chave "Abrir a Administração"
-   (que não abre nada), e "Onde fica" como rótulo de CATEGORIA.
-
-3. **As 7 especialidades que nunca rodaram.** Segurança, integridade de
-   dados, performance, qualidade de código, banco, regras comerciais e
-   primeiro uso. Duas tentativas de rodar por agentes morreram no limite de
-   sessão. ⚠️ Dado que a semana inteira mexeu em acesso e cobrança, esta é a
-   lacuna mais cara de deixar aberta.
+⚠️ Sobrou uma conta de teste viva: `caloteiro.teste@example.invalid`
+(restaurante `42f3c374-…`), criada em 03/09 para testar o teste manual. Ela
+não é `pentest.*`, então o `pentest-limpar.mjs` não a alcança — vale conferir
+no painel se ainda faz sentido existir.
 
 ---
 
