@@ -623,11 +623,12 @@ describe('statusAssinatura — o teste é dado pela Aurum, não ganho no cadastr
   // ⚠️ A REGRA MUDOU EM 03/09/2026 (M41). Antes o acesso saía de
   // `created_at + TESTE_DIAS`: quem preenchesse o cadastro entrava sozinho por
   // duas semanas. Agora só entra quem a Aurum liberou, por data.
-  it('cadastro novo NÃO ganha teste — nasce vencido', () => {
+  it('cadastro novo NÃO ganha teste — nasce sem acesso', () => {
     const agora = Date.now();
     const st = statusAssinatura(base(new Date(agora - DIA).toISOString()), agora);
     expect(st.ok).toBe(false);
-    expect(st.tipo).toBe('vencido');
+    // 'aguardando', não 'vencido': ele nunca teve acesso para perder.
+    expect(st.tipo).toBe('aguardando');
   });
 
   it('com teste liberado pela Aurum, entra', () => {
@@ -636,6 +637,31 @@ describe('statusAssinatura — o teste é dado pela Aurum, não ganho no cadastr
     expect(st.ok).toBe(true);
     expect(st.tipo).toBe('teste');
     expect(st.diasRestantes).toBe(3);
+  });
+
+  // ⚠️ QUEM NUNCA ENTROU NÃO É QUEM FOI EMBORA. Antes desta distinção, quem
+  // acabou de se cadastrar via "Seu período de teste terminou — continue de
+  // onde parou", logo depois de pagar.
+  it('conta nunca liberada fica AGUARDANDO, não vencida', () => {
+    const agora = Date.now();
+    const st = statusAssinatura({ restauranteId: 'r1',
+      restauranteCriadoEm: new Date(agora - 60000).toISOString() }, agora);
+    expect(st.tipo).toBe('aguardando');
+    expect(st.ok).toBe(false);
+  });
+
+  it('conta que JÁ teve teste e venceu é "vencido", não "aguardando"', () => {
+    const agora = Date.now();
+    const st = statusAssinatura({ restauranteId: 'r1',
+      testeAte: new Date(agora - 30 * DIA).toISOString() }, agora);
+    expect(st.tipo).toBe('vencido');
+  });
+
+  it('conta que já assinou e venceu também é "vencido"', () => {
+    const agora = Date.now();
+    const st = statusAssinatura({ restauranteId: 'r1',
+      assinaturaAte: new Date(agora - 10 * DIA).toISOString() }, agora);
+    expect(st.tipo).toBe('vencido');
   });
 
   it('teste liberado que já venceu = vencido', () => {

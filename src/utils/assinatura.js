@@ -93,6 +93,7 @@ export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
  *  { ok:true,  tipo:'assinatura', ate }            — assinatura ativa
  *  { ok:true,  tipo:'teste', diasRestantes, ate }  — dentro do teste (TESTE_DIAS)
  *  { ok:false, tipo:'vencido' }                    — teste e assinatura vencidos
+ *  { ok:false, tipo:'aguardando' }                 — nunca liberada (cadastro novo)
  *  { ok:false, tipo:'bloqueado' }                  — conta suspensa pelo administrador
  *  { ok:true,  tipo:'cortesia', regime, ate }     — não paga, por decisão da Aurum
  *  { ok:true,  tipo:'isento' }                     — super-admin/demo/sem restaurante
@@ -131,6 +132,18 @@ export function statusAssinatura(sessao, agora = Date.now()) {
   if (teste > agora) {
     return { ok: true, tipo: 'teste', ate: teste, diasRestantes: Math.max(1, Math.ceil((teste - agora) / 86400000)) };
   }
+
+  // ⚠️ QUEM NUNCA TEVE ACESSO NÃO É QUEM PERDEU O ACESSO, e antes desta linha
+  // os dois eram a mesma coisa: 'vencido'. Quem acabou de se cadastrar via
+  // "Seu período de teste terminou — continue de onde parou", uma frase que
+  // fala de um passado que ele não tem. Pior na hora exata em que ele acabou
+  // de pagar e está esperando a Aurum liberar.
+  //
+  // A régua é ter QUALQUER data já registrada: assinatura, teste ou cortesia.
+  // Sem nenhuma delas, esta conta nunca foi liberada por ninguém.
+  const jaTeveAlgumAcesso = !!(sessao.assinaturaAte || sessao.testeAte || sessao.cortesiaAte);
+  if (!jaTeveAlgumAcesso) return { ok: false, tipo: 'aguardando' };
+
   return { ok: false, tipo: 'vencido' };
 }
 

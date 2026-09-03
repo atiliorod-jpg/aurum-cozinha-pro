@@ -86,7 +86,7 @@ function BannerSuporte({ nome, podeMexer, onSair }) {
 
 // Tela cheia quando teste/assinatura venceram OU a conta foi suspensa —
 // só a página Assinatura fica acessível (dados sempre preservados)
-function BloqueioAssinatura({ podeAssinar, bloqueado, onSair }) {
+function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, onSair }) {
   // ⚠️ EXPORTAR PRECISA FUNCIONAR AQUI DENTRO. Os Termos prometem, em duas
   // cláusulas, que a conta exporta a íntegra dos dados "a qualquer momento" e
   // que, encerrada a relação, o cliente leva o que é dele. Só que o vencimento
@@ -99,14 +99,35 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, onSair }) {
   const { exportarBackup } = useApp();
   return (
     <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
-      <p className="text-4xl">{bloqueado ? '🔒' : '⏳'}</p>
-      <p className="text-polo-gold font-bold text-lg">{bloqueado ? 'Conta suspensa' : 'Seu período de teste terminou'}</p>
+      {/* ⚠️ TRÊS SITUAÇÕES DIFERENTES, e antes duas delas diziam a mesma coisa.
+          Desde a M41 a conta nasce SEM acesso, esperando a Aurum liberar — e
+          essa pessoa via "Seu período de teste terminou / continue de onde
+          parou", uma frase sobre um passado que ela não tem, logo depois de
+          pagar. Quem nunca entrou não é quem foi embora. */}
+      <p className="text-4xl">{bloqueado ? '🔒' : aguardando ? '👋' : '⏳'}</p>
+      <p className="text-polo-gold font-bold text-lg">
+        {bloqueado ? 'Conta suspensa'
+          : aguardando ? 'Falta liberarmos o seu acesso'
+          : 'Seu período de teste terminou'}
+      </p>
       <p className="text-white/80 text-sm max-w-xs">
         {bloqueado
           ? 'O acesso desta conta foi suspenso pela administração. Os seus dados estão guardados e seguros — fale com o suporte Aurum para reativar.'
-          : 'Os seus dados estão guardados e seguros. Assine o plano para continuar usando o sistema exatamente de onde parou.'}
+          : aguardando
+            ? 'Sua conta foi criada. Chame a Aurum no WhatsApp que liberamos na hora — normalmente em minutos, no horário comercial.'
+            : 'Os seus dados estão guardados e seguros. Assine o plano para continuar usando o sistema exatamente de onde parou.'}
       </p>
-      {podeAssinar ? (
+      {/* ⚠️ Quem está esperando precisa de um caminho, não de um botão de
+          pagar: ele já pagou, ou combinou de pagar. O caminho é o WhatsApp,
+          que é onde a venda acontece de verdade. */}
+      {aguardando && (
+        <a href="https://wa.me/5581998184489?text=Ol%C3%A1%21%20Criei%20minha%20conta%20no%20Aurum%20e%20preciso%20liberar%20o%20acesso."
+          target="_blank" rel="noopener noreferrer"
+          className="bg-polo-gold text-polo-navy font-bold px-6 py-3 rounded-xl min-h-11 flex items-center">
+          Falar com a Aurum no WhatsApp
+        </a>
+      )}
+      {aguardando ? null : podeAssinar ? (
         <Link to="/pagamento" className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
           💳 Ver plano e assinar
         </Link>
@@ -250,7 +271,7 @@ function Rotas() {
     return (
       <Routes>
         <Route path="/pagamento" element={temPermissao('gerencia') ? <Pagamento /> : <BloqueioAssinatura podeAssinar={false} onSair={logout} />} />
-        <Route path="*" element={<BloqueioAssinatura podeAssinar={temPermissao('gerencia')} onSair={logout} />} />
+        <Route path="*" element={<BloqueioAssinatura aguardando={plano.tipo === 'aguardando'} podeAssinar={temPermissao('gerencia')} onSair={logout} />} />
       </Routes>
     );
   }
