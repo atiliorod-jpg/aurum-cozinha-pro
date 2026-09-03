@@ -792,7 +792,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   <button key={`${tipo}-${feedback?.id || r.id}`}
                     onClick={() => (tipo === 'feedback' ? irAoFeedback() : irAoRestaurante(r.id))}
                     className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-3
-                               active:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+                               active:bg-gray-50">
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold text-polo-navy truncate">{r.nome}</span>
                       <span className="block text-[11px] text-gray-600">
@@ -946,7 +946,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         : id === 'respondidos' ? f.status !== 'resolvido' && !!f.resposta
                         : f.status !== 'resolvido' && !f.resposta)).length;
                     return (
-                      <button key={id} onClick={() => setAbaFb(id)}
+                      <button key={id} onClick={() => setAbaFb(id)} aria-pressed={abaFb === id}
                         className={`flex-1 text-[11px] font-semibold py-1.5 rounded-lg
                           ${abaFb === id ? 'bg-polo-navy text-polo-gold' : 'text-gray-600 bg-gray-50'}`}>
                         {l} ({n})

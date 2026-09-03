@@ -125,7 +125,7 @@ export default function Registrar() {
               {s.acoes.map(a => (
                 <Link key={a.to} to={a.to}
                   className="bg-white rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-transform border border-gray-100
-                             focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+                            ">
                   <span className="w-12 h-12 rounded-xl bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
                     <Icon name={a.icone} size={24} />
                   </span>

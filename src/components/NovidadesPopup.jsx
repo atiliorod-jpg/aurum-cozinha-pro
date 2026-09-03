@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+import Dialogo from './Dialogo';
 import { APP_VERSAO, NOVIDADES } from '../data/novidades';
 
 // Aviso "O que há de novo" — aparece UMA vez quando o cliente abre uma versão
@@ -40,15 +41,9 @@ export default function NovidadesPopup() {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-3 print:hidden"
-      onClick={fechar}>
-      <div role="dialog" aria-modal="true" aria-label="Novidades do app"
-        className="bg-white text-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5"
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="font-bold text-polo-navy">O que há de novo</h2>
-          <button onClick={fechar} aria-label="Fechar" className="text-gray-600 text-xl leading-none">✕</button>
-        </div>
+    <Dialogo aoFechar={fechar} titulo="O que há de novo"
+      forma="folha" largura="md" camada={60} respiro="p5">
+      <>
         <p className="text-[11px] text-gray-600 mb-3">{ultimoRelease.titulo} · {ultimoRelease.data}</p>
         <ul className="space-y-2">
           {ultimoRelease.itens.map((it, i) => (
@@ -68,7 +63,7 @@ export default function NovidadesPopup() {
             Entendi
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </Dialogo>
   );
 }

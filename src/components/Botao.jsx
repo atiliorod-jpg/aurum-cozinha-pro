@@ -41,7 +41,7 @@ export default function Botao({
         largura === 'cheia' ? 'w-full' : '',
         'font-bold transition-transform active:scale-[0.98]',
         'disabled:opacity-40 disabled:active:scale-100',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold',
+        '',
         VARIANTES[variante] || VARIANTES.primario,
         TAMANHOS[tamanho] || TAMANHOS.md,
         className,

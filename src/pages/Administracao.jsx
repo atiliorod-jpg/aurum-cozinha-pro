@@ -87,7 +87,7 @@ export default function Administracao() {
         {cartoes.map(c => (
           <Link key={c.to} to={c.to}
             className="bg-white rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-transform
-                       border border-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+                       border border-gray-100">
             <span className="w-12 h-12 rounded-xl bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
               <Icon name={c.icone} size={24} />
             </span>

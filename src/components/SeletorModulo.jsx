@@ -67,7 +67,7 @@ export default function SeletorModulo({ comoTela = false, aoEscolher }) {
         <Link to="/administracao" onClick={() => aoEscolher?.('administracao')}
           className="w-full text-left rounded-2xl p-4 border-2 border-dashed border-polo-navy/25 bg-white
                      flex items-start gap-3 active:scale-[0.99] transition-transform
-                     focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+                    ">
           <span className="w-11 h-11 rounded-xl bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
             <Icon name="config" size={24} />
           </span>

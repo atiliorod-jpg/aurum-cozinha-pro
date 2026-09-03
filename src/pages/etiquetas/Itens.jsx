@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import Botao from '../../components/Botao';
+import Dialogo from '../../components/Dialogo';
+import Aviso from '../../components/Aviso';
 import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
 import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../../data/bibliotecaEtiquetas';
@@ -171,9 +173,18 @@ export default function Itens() {
 
   return (
     <Layout title="Meus itens">
+      {/* ⚠️ `aria-pressed` diz QUAL ABA ESTÁ ABERTA. Sem ele o leitor de tela
+          anunciava as duas igual ("Meus itens, botão") e a pessoa não tinha
+          como saber onde estava — a cor era o único sinal. As seis barras de
+          aba do app seguem esta mesma marcação.
+          ⚠️ E é `aria-pressed`, não `role="tab"`: o padrão de abas da ARIA
+          exige foco itinerante (só UMA aba alcançável por Tab, as outras pelas
+          setas). Aqui elas são poucas e ficam todas no caminho do Tab, que num
+          tablet com teclado é melhor — trocar o modelo de teclado por causa de
+          um anúncio seria arriscar o que já funciona. */}
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {[['meus', `Meus itens (${meus.length})`], ['biblioteca', 'Adicionar prontos']].map(([v, l]) => (
-          <button key={v} onClick={() => setAba(v)}
+          <button key={v} onClick={() => setAba(v)} aria-pressed={aba === v}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
             {l}
@@ -329,16 +340,10 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto p-4 flex"
-      role="dialog" aria-modal="true" aria-labelledby="mi-titulo">
-      <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 id="mi-titulo" className="font-bold text-lg text-polo-navy">
-            {inicial.id ? 'Editar item' : daBiblioteca ? 'Conferir e adicionar' : 'Novo item'}
-          </h2>
-          <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-600 w-8 h-8">×</button>
-        </div>
-
+    <Dialogo aoFechar={onFechar} forma="ficha" largura="lg" camada={70} classeCaixa="space-y-4"
+      fecharNoFundo={false}
+      titulo={inicial.id ? 'Editar item' : daBiblioteca ? 'Conferir e adicionar' : 'Novo item'}>
+      <>
         {daBiblioteca && (
           <p className="text-[11px] text-gray-600 bg-polo-beige rounded-lg px-2.5 py-2">
             Já preenchemos o que dá. <strong>Confira o prazo de validade</strong> — ele muda
@@ -416,14 +421,27 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
             exatamente isso, em vez de sugerir uma diferença de cálculo que não
             existe. */}
         <div>
-          <p className="text-xs font-semibold text-gray-600 mb-1.5">O que aconteceu com o produto?</p>
-          <div className="grid grid-cols-2 gap-2">
+          {/* ⚠️ ESTA ESCOLHA DECIDE A PALAVRA QUE SAI IMPRESSA NO POTE, e era a
+              menos visível da tela: o cartão escolhido se distinguia SÓ por uma
+              borda dourada, que dá 2,40 de contraste contra o branco — abaixo
+              do mínimo de 3 e, num tablet com reflexo de cozinha, praticamente
+              invisível. Agora são três sinais que não dependem de enxergar cor:
+              a borda escura (navy), o fundo bege e um ✓.
+              ⚠️ E `radiogroup`/`radio` em vez de dois botões soltos: sem isso o
+              leitor de tela anunciava "Manipulação, botão" sem dizer qual das
+              duas estava marcada — a informação que mais importa aqui. */}
+          <p id="mi-tipodata" className="text-xs font-semibold text-gray-600 mb-1.5">O que aconteceu com o produto?</p>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="mi-tipodata">
             {[['fabricacao', 'Manipulação', 'você porcionou, cortou ou cozinhou'],
               ['abertura', 'Abertura', 'você abriu a embalagem do fabricante']].map(([v, l, d]) => (
               <button key={v} type="button" onClick={() => set('tipoData', v)}
+                role="radio" aria-checked={form.tipoData === v}
                 className={`text-left rounded-lg p-2.5 border-2 transition-colors
-                  ${form.tipoData === v ? 'border-polo-gold bg-polo-beige' : 'border-gray-200'}`}>
-                <span className="block text-sm font-bold text-polo-navy">{l}</span>
+                  ${form.tipoData === v ? 'border-polo-navy bg-polo-beige' : 'border-gray-200'}`}>
+                <span className="flex items-center gap-1 text-sm font-bold text-polo-navy">
+                  <span aria-hidden="true" className={form.tipoData === v ? 'opacity-100' : 'opacity-0'}>✓</span>
+                  {l}
+                </span>
                 <span className="block text-[11px] text-gray-600 leading-tight mt-0.5">{d}</span>
               </button>
             ))}
@@ -483,13 +501,13 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
               leu isso como "pode deixar vazio", o que está errado para quase
               tudo. Agora o padrão é PREENCHER, e o vazio é a exceção nomeada. */}
           {semPrazo && (
-            <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-2">
+            <Aviso tom="atencao" className="mt-2">
               <strong>Sem prazo, a etiqueta sai sem data de vencimento.</strong> Quase todo item
               precisa de um — inclusive os abertos. Deixe vazio só no que realmente não vence
               depois de aberto (sal, açúcar, farinha): nesses a etiqueta sai <strong>sem
               vencimento</strong>. Se quiser que ela mostre a validade da embalagem, ligue
               “Validade original (fornecedor)” em Administração → Etiquetas.
-            </p>
+            </Aviso>
           )}
         </div>
 
@@ -540,7 +558,7 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
             Remover item
           </button>
         )}
-      </div>
-    </div>
+      </>
+    </Dialogo>
   );
 }

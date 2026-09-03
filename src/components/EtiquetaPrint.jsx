@@ -7,6 +7,8 @@ import { useApp } from '../store/AppContext';
 import { estabelecimentoDe } from '../utils/instancias';
 import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
+import Dialogo from './Dialogo';
+import Aviso from './Aviso';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas,
          DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo,
          diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura,
@@ -587,21 +589,12 @@ export default function EtiquetaPrint() {
   return (
     <>
       {/* Modal on-screen (não imprime — print:hidden) */}
-      <div className="fixed inset-0 bg-black/50 z-[120] overflow-y-auto p-4 print:hidden"
-        onClick={e => { if (e.target === e.currentTarget) fecharEtiquetas(); }}>
-        <div role="dialog" aria-modal="true" aria-labelledby="etq-titulo"
-          className="bg-white rounded-2xl w-full max-w-md mx-auto my-8 p-5 space-y-4">
-          <div className="flex items-start justify-between">
-            <h2 id="etq-titulo" className="font-bold text-polo-navy text-lg">Imprimir etiquetas</h2>
-            <button onClick={fecharEtiquetas} aria-label="Fechar"
-              className="text-gray-600 text-2xl leading-none px-1 -mt-1">×</button>
-          </div>
-
+      <Dialogo aoFechar={fecharEtiquetas} titulo="Imprimir etiquetas"
+        forma="rolo" largura="md" camada={120} respiro="p5" classeCaixa="space-y-4">
+        <>
           <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
           {faltaResponsavel && (
-            <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
-              Escolha quem assina antes de imprimir.
-            </p>
+            <Aviso tom="atencao">Escolha quem assina antes de imprimir.</Aviso>
           )}
 
           <div className="space-y-3">
@@ -749,9 +742,9 @@ export default function EtiquetaPrint() {
                       que ultrapassa a validade do fabricante é erro grave e
                       ninguém confere de cabeça. */}
                   {campos.passaDoFornecedor && (
-                    <p className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
+                    <Aviso tom="erro">
                       Passa da validade do fornecedor ({campos.valOriginalFmt}). Reduza os dias.
-                    </p>
+                    </Aviso>
                   )}
                   <p className="text-[11px] text-gray-500">
                     {campos.validadeFmt
@@ -790,10 +783,10 @@ export default function EtiquetaPrint() {
                   sempre o de nome maior, que pode ser o terceiro da lista. */}
               {itens.some(it => !medirEtiqueta(camposDe(it, loteDaCopia(it, 0)),
                                                { ...config, estabelecimento }).cabe) && (
-                <p className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2 mb-2">
+                <Aviso tom="erro" className="mb-2">
                   Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
                   Em Administração → Etiquetas, desligue um campo (marca ou validade original).
-                </p>
+                </Aviso>
               )}
               <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
                 <div className="shadow-md flex-shrink-0">
@@ -829,11 +822,12 @@ export default function EtiquetaPrint() {
               <p className="text-[11px] text-gray-600 text-center">
                 Sai direto, no tamanho exato. Sem janela de impressão.
               </p>
-              {erroBLE && (
-                <p className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
-                  {erroBLE}
-                </p>
-              )}
+              {/* ⚠️ ASSERTIVO, e é o único do arquivo que precisa ser. A pessoa
+                  acabou de tocar em imprimir; se a impressora recusou, ela tem
+                  de saber AGORA, não quando o leitor terminar a frase. Era o
+                  aviso mais silencioso do app: aparecia sem som nenhum e ela
+                  ficava tocando de novo. */}
+              {erroBLE && <Aviso tom="erro">{erroBLE}</Aviso>}
             </div>
           )}
 
@@ -860,8 +854,8 @@ export default function EtiquetaPrint() {
               </button>
             )}
           </div>
-        </div>
-      </div>
+        </>
+      </Dialogo>
 
       {/* Tamanho físico da página de impressão (vem das prefs — Tailwind não expressa @page).
           ⚠️ Girar via CSS (24/08) foi testado e revertido — o rolo físico

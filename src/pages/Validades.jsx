@@ -136,7 +136,7 @@ export default function Validades() {
         {abas.length > 1 && (
         <div className="flex bg-white rounded-xl p-1 gap-1">
           {abas.map(([v, l]) => (
-            <button key={v} onClick={() => setAba(v)}
+            <button key={v} onClick={() => setAba(v)} aria-pressed={abaAtual === v}
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors
                 ${abaAtual === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
               {l}

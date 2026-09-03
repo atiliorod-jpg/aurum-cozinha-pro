@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
+import Dialogo from '../components/Dialogo';
 import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useAuth, CARGOS, nivelDoCargo } from '../store/AuthContext';
@@ -75,7 +76,13 @@ function CartaoCatalogoChips({ titulo, descricao, placeholder, valor, onValor, o
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
       <div>
-        <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">{titulo}</p>
+        {/* ⚠️ <h2>, NÃO <p> em negrito — mesma regra dos cartões de
+            CartoesConfig.jsx. A correção anterior pegou só os compartilhados e
+            deixou os escritos direto neste arquivo: quem usa leitor de tela
+            pula de título em título para achar a seção, e um parágrafo em
+            negrito não entra nessa lista. A classe é a mesma, então nada muda
+            na tela. */}
+        <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">{titulo}</h2>
         <p className="text-xs text-gray-500 mt-1">{descricao}</p>
       </div>
       <div className="flex gap-2">
@@ -402,13 +409,9 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
   useEscClose(onFechar);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto overscroll-contain p-4 flex"
-      role="dialog" aria-modal="true" aria-labelledby="modal-produto-titulo">
-      <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 id="modal-produto-titulo" className="font-bold text-lg text-polo-navy">{produto ? 'Editar Produto' : 'Novo Produto'}</h2>
-          <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-600 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
-        </div>
+    <Dialogo aoFechar={onFechar} titulo={produto ? 'Editar Produto' : 'Novo Produto'}
+      forma="ficha" largura="lg" camada={70} fecharNoFundo={false} classeCaixa="space-y-4">
+      <>
 
         <div>
           <label htmlFor="mp-nome" className="block text-xs font-semibold text-gray-600 mb-1">Nome do produto</label>
@@ -564,7 +567,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
 
         {/* Cocção — afeta só a lista de compras de itens que entram JÁ cozidos */}
         <div className="border border-gray-100 rounded-xl p-3 space-y-3">
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🔥 Cocção (lista de compras)</p>
+          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">🔥 Cocção (lista de compras)</h2>
           <div className="flex items-center gap-3 bg-orange-50 rounded-lg p-2.5">
             <div className="flex-1">
               <p className="text-xs font-semibold text-gray-700">Entra no estoque já cozido?</p>
@@ -641,8 +644,8 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
             Salvar
           </button>
         </div>
-      </div>
-    </div>
+      </>
+    </Dialogo>
   );
 }
 
@@ -676,13 +679,9 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
   });
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto overscroll-contain p-4 flex"
-      role="dialog" aria-modal="true" aria-labelledby="modal-producao-titulo">
-      <div className="bg-white w-full max-w-lg m-auto rounded-2xl p-6 space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 id="modal-producao-titulo" className="font-bold text-lg text-polo-navy">{receita ? 'Editar Receita' : 'Nova Receita de Produção'}</h2>
-          <button onClick={onFechar} aria-label="Fechar" className="text-2xl text-gray-600 hover:text-gray-700 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">×</button>
-        </div>
+    <Dialogo aoFechar={onFechar} titulo={receita ? 'Editar Receita' : 'Nova Receita de Produção'}
+      forma="ficha" largura="lg" camada={70} fecharNoFundo={false} classeCaixa="space-y-4">
+      <>
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Nome da receita</label>
           <input type="text" value={form.nome} onChange={e => set('nome', e.target.value)}
@@ -761,7 +760,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id={`abate-${i}`} checked={ing.abate || false} onChange={e => setIng(i, 'abate', e.target.checked)}
-                    className="w-4 h-4 cursor-pointer" />
+                    className="w-6 h-6 cursor-pointer flex-shrink-0" />
                   <label htmlFor={`abate-${i}`} className="text-xs text-gray-600 cursor-pointer">
                     Controlado no estoque (dá baixa ao produzir)
                   </label>
@@ -775,8 +774,8 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
           <button onClick={salvar} disabled={!valido}
             className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">Salvar</button>
         </div>
-      </div>
-    </div>
+      </>
+    </Dialogo>
   );
 }
 
@@ -1194,7 +1193,7 @@ export default function Configuracoes() {
       {/* Seções — abas conforme as permissões da função */}
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {abasVisiveis.map(([v, l]) => (
-          <button key={v} onClick={() => setSecao(v)}
+          <button key={v} onClick={() => setSecao(v)} aria-pressed={secaoAtiva === v}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors
               ${secaoAtiva === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
             {l}
@@ -1284,7 +1283,7 @@ export default function Configuracoes() {
       {/* Gerenciar categorias */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Categorias</p>
+          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">Categorias</h2>
           <p className="text-xs text-gray-500 mt-1">Organizam os produtos em todas as telas. Só é possível remover categorias sem produtos.</p>
         </div>
         <div className="flex gap-2">
@@ -1578,7 +1577,7 @@ export default function Configuracoes() {
       {/* Equipe */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Equipe / Responsáveis</p>
+          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">Equipe / Responsáveis</h2>
           <p className="text-xs text-gray-500 mt-1">Quem aparece para selecionar ao registrar entradas, saídas, aparas e perdas.</p>
         </div>
         <div className="flex gap-2">
@@ -1607,7 +1606,7 @@ export default function Configuracoes() {
       {/* Usuários e acessos */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Usuários e Acessos</p>
+          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">Usuários e Acessos</h2>
           <p className="text-xs text-gray-500 mt-1">
             Você cria a conta e entrega o acesso. Pode ser uma pessoa ou um posto — “chef”, “cozinha”,
             “noite”. Depois dá para trocar a senha, bloquear ou apagar a qualquer momento.
@@ -1706,7 +1705,7 @@ export default function Configuracoes() {
       {eDiretoria && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
           <div>
-            <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🔑 O que cada função pode fazer</p>
+            <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">🔑 O que cada função pode fazer</h2>
             <p className="text-xs text-gray-500 mt-1">
               A <strong>diretoria</strong> tem acesso total, sempre. Aqui você escolhe o que <strong>cozinha</strong> e{' '}
               <strong>gerência</strong> podem fazer — é o que aparece no app para cada pessoa.
@@ -1733,7 +1732,7 @@ export default function Configuracoes() {
                         <input type="checkbox" checked={!!permMatriz[cargo][cap.id]}
                           aria-label={`${cap.label} — ${cargo === 'cozinha' ? 'Cozinha' : 'Gerência'}`}
                           onChange={e => togglePermissao(cargo, cap.id, e.target.checked)}
-                          className="w-4 h-4 accent-polo-navy" />
+                          className="w-6 h-6 accent-polo-navy" />
                       </td>
                     ))}
                   </tr>
@@ -1793,7 +1792,7 @@ export default function Configuracoes() {
       {/* Planilha de produtos — cadastro padronizado em massa */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Planilha de produtos</p>
+          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">Planilha de produtos</h2>
           <p className="text-xs text-gray-500 mt-1">
             Forma rápida de montar um restaurante novo: baixe a planilha modelo (já vem com produtos de exemplo),
             ajuste no Excel/Google Sheets e importe. Produtos com o mesmo nome são atualizados; os novos, criados.
@@ -1815,7 +1814,7 @@ export default function Configuracoes() {
       {/* Cópia de segurança — recuperação de desastre (apagar tudo, clonar restaurante) */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">🛟 Cópia de segurança</p>
+          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">🛟 Cópia de segurança</h2>
           <p className="text-xs text-gray-500 mt-1">
             Baixe uma cópia dos dados para poder restaurar depois.
           </p>

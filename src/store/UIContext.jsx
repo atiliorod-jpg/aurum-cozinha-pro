@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import Dialogo from '../components/Dialogo';
 
 const UIContext = createContext(null);
 
@@ -153,10 +154,17 @@ export function UIProvider({ children }) {
 
       {/* Confirm modal */}
       {confirmState && (
-        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-6"
-          onClick={e => { if (e.target === e.currentTarget && !confirmState.perigo) fecharConfirm(false); }}>
-          <div role="dialog" aria-modal="true" aria-label={confirmState.titulo}
-            className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+        // ⚠️ SEM CABEÇALHO PADRÃO, e é o único assim: o título muda de cor
+        // quando a ação destrói algo, e um × ao lado de "Cancelar/Confirmar"
+        // seria uma terceira saída para a mesma pergunta. Escape e o clique no
+        // fundo (menos no caso perigoso) já cancelam.
+        // ⚠️ O `autoFocus` do Cancelar continua e o Dialogo o RESPEITA: numa
+        // pergunta destrutiva o foco tem de nascer na saída segura.
+        <Dialogo aoFechar={() => fecharConfirm(false)} rotulo={confirmState.titulo}
+          forma="caixa" largura="sm" camada={110} respiro="p6"
+          cabecalho={false} fecharNoFundo={!confirmState.perigo}
+          classeCaixa="space-y-4">
+          <>
             <h2 className={`font-bold text-lg ${confirmState.perigo ? 'text-red-600' : 'text-polo-navy'}`}>
               {confirmState.titulo}
             </h2>
@@ -171,8 +179,8 @@ export function UIProvider({ children }) {
                 {confirmState.confirmar}
               </button>
             </div>
-          </div>
-        </div>
+          </>
+        </Dialogo>
       )}
     </UIContext.Provider>
   );

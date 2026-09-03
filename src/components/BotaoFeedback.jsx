@@ -3,6 +3,7 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import Icon from './Icons';
+import Dialogo from './Dialogo';
 
 // Canal de feedback do cliente (bug ou sugestão) direto pelo app.
 // Guia o cliente a descrever direito e envia para a aba do super-admin (RPC
@@ -73,12 +74,9 @@ export default function BotaoFeedback() {
 
   const naoLidas = conversa.filter(f => f.resposta && !f.resposta_lida).length;
 
-  useEffect(() => {
-    if (!aberto) return;
-    const onEsc = (e) => { if (e.key === 'Escape') fecharAjuda(); };
-    window.addEventListener('keydown', onEsc);
-    return () => window.removeEventListener('keydown', onEsc);
-  }, [aberto, fecharAjuda]);
+  // ⚠️ O ouvinte de Escape saiu daqui: quem fecha agora é o <Dialogo>, e ele
+  // corta a propagação. Com os dois vivos, um Escape na Ajuda aberta por cima
+  // de outro modal fechava os dois de uma vez.
 
   // Abriu com resposta pendente? Cai direto na conversa — quem tem resposta
   // esperando não quer o formulário em branco na frente.
@@ -192,16 +190,9 @@ export default function BotaoFeedback() {
       </button>
 
       {aberto && (
-        <div className="fixed inset-0 z-[60] bg-black/40 flex items-end sm:items-center justify-center p-3 print:hidden"
-          onClick={fecharAjuda}>
-          <div role="dialog" aria-modal="true" aria-label="Relatar problema ou sugestão"
-            className="bg-white text-gray-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-bold text-polo-navy">Falar com a equipe Aurum</h2>
-              <button onClick={fecharAjuda} aria-label="Fechar" className="text-gray-600 text-xl leading-none">✕</button>
-            </div>
-
+        <Dialogo aoFechar={fecharAjuda} titulo="Falar com a equipe Aurum"
+          forma="folha" largura="md" camada={60} respiro="p5">
+          <>
             {sessao?.demo && (
               <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <p className="text-xs font-bold text-amber-800">Você está na demonstração</p>
@@ -217,7 +208,7 @@ export default function BotaoFeedback() {
                 Com resposta pendente o modal já abre nesta aba. */}
             <div className="flex gap-2 mb-3 border-b border-gray-100 pb-3">
               {[['novo', 'Escrever'], ['conversa', `Conversa${conversa.length ? ` (${conversa.length})` : ''}`]].map(([v, l]) => (
-                <button key={v} onClick={() => setAba(v)}
+                <button key={v} onClick={() => setAba(v)} aria-pressed={aba === v}
                   className={`flex-1 py-2 rounded-lg text-sm font-semibold
                     ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
                   {l}
@@ -402,8 +393,8 @@ export default function BotaoFeedback() {
             </p>
             </>
             )}
-          </div>
-        </div>
+          </>
+        </Dialogo>
       )}
     </>
   );

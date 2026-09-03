@@ -450,7 +450,7 @@ export default function Login() {
               <label className="flex items-start gap-2 text-xs text-gray-600">
                 <input type="checkbox" checked={aceitouTermos}
                   onChange={e => setAceitouTermos(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 accent-[#1B2A41] flex-shrink-0" />
+                  className="w-6 h-6 mt-0.5 accent-[#1B2A41] flex-shrink-0" />
                 <span>
                   {/* ⚠️ ABRE EM OUTRA ABA, e não é preferência: com <Link> o
                       React Router troca de rota, esta tela é DESMONTADA e todo

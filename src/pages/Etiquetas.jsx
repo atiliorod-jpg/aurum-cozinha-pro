@@ -72,7 +72,7 @@ function GuiaImpressora() {
         </p>
       </div>
       <div className="flex items-center justify-between gap-2 print:hidden">
-        <p className="text-xs text-gray-500">Escolha a sua situação para ver o passo a passo.</p>
+        <p className="text-xs text-gray-600">Escolha a sua situação para ver o passo a passo.</p>
         <button onClick={() => window.print()}
           className="bg-gray-100 text-gray-600 font-semibold text-xs px-3 py-2 rounded-lg whitespace-nowrap">
           📄 Salvar guia em PDF
@@ -209,7 +209,7 @@ export default function Etiquetas() {
             tela, onde se cadastra. Duas coisas com o mesmo nome na mesma tela é
             onde a pessoa se perde. */}
         {[['catalogo', 'Etiquetar'], ['impressora', 'Impressora']].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)}
+          <button key={v} onClick={() => setTab(v)} aria-pressed={tab === v}
             className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
             {l}
@@ -221,7 +221,12 @@ export default function Etiquetas() {
         <GuiaImpressora />
       ) : (
         <div className="space-y-4">
-          <p className="text-xs text-gray-500 px-1">
+          {/* ⚠️ gray-600, NÃO gray-500. Esta frase fica direto no fundo bege da
+              página (#F3EFE6), e ali o gray-500 dá 4,21 de contraste — abaixo
+              do mínimo de 4,5 para texto normal. Dentro dos cartões brancos o
+              gray-500 passa (4,83) e por isso continua lá; o que reprova é
+              justamente ESTA, a única instrução da tela principal. */}
+          <p className="text-xs text-gray-600 px-1">
             Toque em Imprimir no item. A validade sai calculada pelo prazo que você cadastrou em Meus itens.
           </p>
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}

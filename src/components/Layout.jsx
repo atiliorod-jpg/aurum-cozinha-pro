@@ -5,6 +5,7 @@ import BotaoFeedback from './BotaoFeedback';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import SeletorModulo from './SeletorModulo';
+import Dialogo from './Dialogo';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import Icon from './Icons';
 import { useUI } from '../store/UIContext';
@@ -175,16 +176,11 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
         <img src={LOGO} alt="" className="w-72 h-72 opacity-[0.05] rounded-full" />
       </div>
       {trocandoModulo && (
-        <div className="fixed inset-0 bg-black/50 z-[130] flex items-center justify-center p-4 print:hidden"
-          onClick={e => { if (e.target === e.currentTarget) setTrocandoModulo(false); }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="troca-mod" className="bg-white rounded-2xl w-full max-w-sm p-5 space-y-4">
-            <div className="flex items-start justify-between">
-              {/* "Trocar de estoque" era o nome errado: a lista tem as cozinhas
-                  E a Administração, que não é estoque. */}
-              <h2 id="troca-mod" className="font-bold text-polo-navy">Ir para</h2>
-              <button onClick={() => setTrocandoModulo(false)} aria-label="Fechar"
-                className="text-gray-600 text-2xl leading-none px-1 -mt-1 min-w-11 min-h-11">×</button>
-            </div>
+        // "Trocar de estoque" era o nome errado: a lista tem as cozinhas E a
+        // Administração, que não é estoque.
+        <Dialogo aoFechar={() => setTrocandoModulo(false)} titulo="Ir para"
+          forma="caixa" largura="sm" camada={130} respiro="p5" classeCaixa="space-y-4">
+          <>
             <SeletorModulo aoEscolher={(id) => {
               setTrocandoModulo(false);
               // Na Administração, escolher uma cozinha precisa LEVAR até ela:
@@ -193,8 +189,8 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
               if (emAdmin && id !== 'administracao') navigate('/');
             }} />
             <p className="text-[11px] text-gray-600">A escolha fica guardada neste aparelho.</p>
-          </div>
-        </div>
+          </>
+        </Dialogo>
       )}
       <main className="flex-1 p-4 max-w-2xl lg:max-w-4xl mx-auto w-full relative">
         {/* O guia saiu daqui e passou a ser chamado só pelo Dashboard: ele é o

@@ -33,9 +33,19 @@ button { -webkit-tap-highlight-color: transparent; }
    (o viewport não usa mais user-scalable=no — WCAG 1.4.4). */
 button, a, input, select, textarea, label { touch-action: manipulation; }
 
-/* Foco visível por teclado em todos os controles (acessibilidade WCAG 2.4.7) */
+/* Foco visível por teclado em todos os controles (acessibilidade WCAG 2.4.7)
+   ⚠️ ERA DOURADO (#C9A24B) E SUMIA. Contra o branco dos cartões e o bege do
+   fundo o dourado dá 2,40 de contraste — abaixo do mínimo de 3 da WCAG 1.4.11
+   — e é justamente no corpo do app que estão quase todos os controles. Ele só
+   funcionava no cabeçalho navy, que é onde ninguém repara.
+   Agora o padrão é o navy (12:1 sobre branco e sobre bege) e o dourado
+   sobrevive SÓ onde o fundo é navy: cabeçalho, barra de baixo e botão de
+   Ajuda, que carregam a classe `outline-polo-gold` explícita.
+   ⚠️ O `outline-offset` é o que faz isso funcionar para botão navy também: o
+   anel é desenhado FORA do controle, encostado no fundo da página, então quem
+   decide a cor certa é o fundo — não o botão. */
 :focus-visible {
-  outline: 2px solid #C9A24B;
+  outline: 2px solid #14243A;
   outline-offset: 2px;
   border-radius: 4px;
 }

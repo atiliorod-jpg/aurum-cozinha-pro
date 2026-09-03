@@ -251,12 +251,17 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
       </div>
       </>}
       <div className="border-t border-gray-100 pt-3">
+        {/* ⚠️ AS CAIXINHAS TINHAM 16px, abaixo do mínimo de 24 da WCAG 2.5.8 —
+            e são justamente os controles que decidem o que sai IMPRESSO no
+            pote, tocados com o dedo numa bancada de cozinha. Passaram para 24,
+            e a linha inteira virou alvo de 44px (`min-h-11`): o <label> já
+            envolve o input, então tocar no texto marca a caixa. */}
         <p className="text-xs font-semibold text-gray-600 mb-2">Campos que aparecem na etiqueta</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           {CAMPOS.map(([k, label]) => (
-            <label key={k} className="flex items-center gap-2 text-xs text-gray-700">
+            <label key={k} className="flex items-center gap-2 text-xs text-gray-700 min-h-11 cursor-pointer">
               <input type="checkbox" checked={cfg.campos[k] !== false} onChange={() => toggleCampo(k)}
-                className="w-4 h-4 accent-[#1B2A41]" />
+                className="w-6 h-6 accent-[#1B2A41] flex-shrink-0" />
               {label}
             </label>
           ))}
@@ -271,7 +276,7 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
         <label className="flex items-start gap-2 text-xs text-gray-700 mt-3 pt-3 border-t border-gray-100">
           <input type="checkbox" checked={cfg.exigirResponsavel === true}
             onChange={() => setPref('etiquetaConfig', { ...cfg, exigirResponsavel: cfg.exigirResponsavel !== true })}
-            className="w-4 h-4 accent-[#1B2A41] mt-0.5 flex-shrink-0" />
+            className="w-6 h-6 accent-[#1B2A41] mt-0.5 flex-shrink-0" />
           <span>
             <span className="font-semibold">Exigir o responsável para imprimir</span>
             <span className="block text-[11px] text-gray-600">
