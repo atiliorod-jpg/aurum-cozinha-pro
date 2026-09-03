@@ -101,7 +101,7 @@ async function acharCanal(server) {
 async function ligar(dev) {
   const server = await dev.gatt.connect();
   const c = await acharCanal(server);
-  if (!c) throw new Error('Conectou, mas não achei por onde enviar os comandos.');
+  if (!c) throw erroPT('Conectou, mas não achei por onde enviar os comandos.');
   dispositivo = dev;
   canal = c;
   // Se a impressora desligar ou sair de alcance, o estado tem que refletir —
@@ -116,7 +116,7 @@ async function ligar(dev) {
  * seletor de dispositivos a partir de um gesto real, nunca em código de fundo.
  */
 export async function escolherImpressora() {
-  if (!bleDisponivel()) throw new Error('Este navegador não fala Bluetooth. Use o Chrome do Android.');
+  if (!bleDisponivel()) throw erroPT('Este navegador não fala Bluetooth. Use o Chrome do Android.');
   const dev = await navigator.bluetooth.requestDevice({
     acceptAllDevices: true,
     optionalServices: SERVICOS_IMPRESSORA,
@@ -152,29 +152,92 @@ export function desconectar() {
   canal = null;
 }
 
+// ⚠️ ERRO NOSSO, JÁ EM PORTUGUÊS — e a marca importa. O tradutor de mensagens
+// da tela (`erroEmPortugues`) só reconhece os textos que o NAVEGADOR produz;
+// um erro nosso caía no fim da lista e era embrulhado em "Não deu para
+// imprimir… (texto)", repetindo a explicação dentro de parênteses. Com a
+// marca, a tela mostra a frase como ela foi escrita.
+function erroPT(mensagem) {
+  const e = new Error(mensagem);
+  e.emPortugues = true;
+  return e;
+}
+
+export const ERRO_CONEXAO_PERDIDA = 'Perdeu a conexão com a impressora no meio do envio. Confira se ela está ligada e por perto, e mande de novo.';
+
+/**
+ * Como falar com ESTA característica: modo de escrita, tamanho do pedaço e
+ * respiro entre eles.
+ *
+ * ⚠️ O PEDAÇO DE 100 BYTES ERA UM CHUTE, e o comentário antigo afirmava que
+ * "cabe em qualquer MTU". Não cabe: o mínimo garantido pelo ATT é 23 bytes de
+ * MTU, ou seja **20 bytes de carga**. E no modo sem confirmação
+ * (`writeValueWithoutResponse`) o que passa do limite é descartado EM
+ * SILÊNCIO — nenhum erro, nenhuma exceção, a etiqueta sai pela metade ou não
+ * sai. Na MDK-022 funciona porque o Android negocia um MTU grande; num tablet
+ * onde essa negociação não subir, quebra. Só apareceria no segundo cliente,
+ * com outro aparelho.
+ *
+ * ⚠️ E NÃO DÁ PARA "LER O LIMITE NEGOCIADO": o Web Bluetooth não expõe o MTU.
+ * Como não dá para saber, não se chuta — escolhe-se o modo que é correto em
+ * QUALQUER MTU:
+ *
+ *   • com confirmação (`writeValue`) → o ATT parte o valor sozinho (long
+ *     write) e confirma cada pedaço. Seguro em qualquer tamanho, e a própria
+ *     confirmação já segura o ritmo: não precisa de respiro artificial.
+ *   • só sem confirmação → 20 bytes, o único tamanho que cabe garantido, e o
+ *     respiro volta porque aqui não há confirmação nenhuma segurando a fila.
+ *
+ * Função PURA para poder ser testada sem impressora.
+ */
+export function planoDeEnvio(propriedades) {
+  const p = propriedades || {};
+  if (p.write) return { modo: 'comConfirmacao', pedaco: 100, respiroMs: 0 };
+  if (p.writeWithoutResponse) return { modo: 'semConfirmacao', pedaco: 20, respiroMs: 30 };
+  return null;
+}
+
 /**
  * Envia os comandos TSPL.
  *
- * ⚠️ EM PEDAÇOS, e isto não é otimização — é o que faz funcionar. O BLE tem
- * MTU pequeno (20 a 512 bytes conforme o aparelho) e mandar tudo de uma vez
- * estoura em silêncio: a impressora recebe metade do comando e não imprime
- * nada, o que parece "não funcionou" sem ser. 100 bytes cabe em qualquer MTU.
+ * ⚠️ EM PEDAÇOS, e isto não é otimização — é o que faz funcionar. Mandar tudo
+ * de uma vez estoura em silêncio: a impressora recebe metade do comando e não
+ * imprime nada, o que parece "não funcionou" sem ser. O tamanho de cada pedaço
+ * sai de `planoDeEnvio`, não de um número cravado.
+ *
+ * ⚠️ A CONEXÃO É CONFERIDA A CADA PEDAÇO, e isto conserta um erro em INGLÊS na
+ * cara do cozinheiro. `gattserverdisconnected` zera `canal`; se a impressora
+ * desligasse ou saísse de alcance no meio do laço, a linha seguinte lia
+ * `canal.properties` com `canal` já nulo e o que chegava na tela era
+ * "Cannot read properties of null" — inglês de programador no meio do serviço,
+ * e nem o tradutor de mensagens reconhecia. Agora o erro nasce em português.
+ *
+ * `aoProgredir(bytesEnviados, bytesTotal)` é opcional.
  */
 export async function enviarTSPL(comandos, aoProgredir) {
   if (!impressoraConectada()) {
     const voltou = await reconectarSePuder();
-    if (!voltou || !canal) throw new Error('Impressora não está conectada.');
+    if (!voltou || !canal) throw erroPT('Impressora não está conectada.');
   }
+  const plano = planoDeEnvio(canal.properties);
+  if (!plano) throw erroPT('Conectou, mas não achei por onde enviar os comandos.');
+
   const bytes = paraBytesLatin1(comandos);
-  const pedaco = 100;
-  for (let i = 0; i < bytes.length; i += pedaco) {
-    const parte = bytes.slice(i, i + pedaco);
-    if (canal.properties.writeWithoutResponse) await canal.writeValueWithoutResponse(parte);
-    else await canal.writeValue(parte);
-    // Respiro entre pedaços: sem ele a fila do firmware satura e ele começa a
-    // descartar pacote, o que sai como etiqueta cortada pela metade.
-    await new Promise(r => setTimeout(r, 30));
-    aoProgredir?.(Math.min(i + pedaco, bytes.length), bytes.length);
+  for (let i = 0; i < bytes.length; i += plano.pedaco) {
+    // ⚠️ Relê `canal` a cada volta: o ouvinte de desconexão pode tê-lo zerado
+    // desde o pedaço anterior.
+    const c = canal;
+    if (!c || !dispositivo?.gatt?.connected) throw erroPT(ERRO_CONEXAO_PERDIDA);
+
+    const parte = bytes.slice(i, i + plano.pedaco);
+    if (plano.modo === 'comConfirmacao') await c.writeValue(parte);
+    else await c.writeValueWithoutResponse(parte);
+
+    // Respiro entre pedaços só onde não há confirmação: sem ele a fila do
+    // firmware satura e começa a descartar pacote, o que sai como etiqueta
+    // cortada pela metade.
+    if (plano.respiroMs) await new Promise(r => setTimeout(r, plano.respiroMs));
+    aoProgredir?.(Math.min(i + plano.pedaco, bytes.length), bytes.length);
   }
   return bytes.length;
 }

@@ -46,6 +46,11 @@ const tamanhoQRmm = (modulosTotais, alturaMm) => {
 const MAX_COPIAS = 200;
 const limitarCopias = (n) => Math.min(Math.max(0, parseInt(n) || 0), MAX_COPIAS);
 
+// Quantas etiquetas de papel uma lista de itens representa. É a unidade que a
+// pessoa conta na bancada — não "itens", que é como o código enxerga.
+const contarEtiquetas = (lista) =>
+  (lista || []).reduce((soma, it) => soma + limitarCopias(it.quantidade), 0);
+
 // "!" tocável. Texto curto fica no rótulo; o resto vem só se a pessoa pedir —
 // parágrafo de apoio embaixo de cada campo empurra o formulário para baixo e
 // ninguém lê.
@@ -57,6 +62,10 @@ const limitarCopias = (n) => Math.min(Math.max(0, parseInt(n) || 0), MAX_COPIAS)
 function erroEmPortugues(e) {
   const cru = e?.message || String(e || '');
   const nome = e?.name || '';
+  // ⚠️ Erro nosso passa direto. A lista abaixo reconhece o que o NAVEGADOR
+  // fala; sem esta linha, uma frase já escrita em português caía no fim e
+  // saía embrulhada em "Não deu para imprimir… (a mesma frase)".
+  if (e?.emPortugues) return cru;
   if (nome === 'NotAllowedError') return 'O navegador bloqueou o acesso ao Bluetooth. Toque no cadeado ao lado do endereço e libere.';
   if (nome === 'SecurityError') return 'Abra o app pelo endereço https:// — o Bluetooth não funciona fora dele.';
   if (/GATT|disconnect|NetworkError/i.test(cru) || nome === 'NetworkError') {
@@ -273,6 +282,11 @@ export default function EtiquetaPrint() {
   // Impressão direta (BLE + TSPL) — caminho a mais, nunca substituto
   const [enviando, setEnviando] = useState(false);
   const [erroBLE, setErroBLE] = useState('');
+  // ⚠️ O contador de progresso JÁ EXISTIA no driver (`aoProgredir`) e nunca era
+  // passado por ninguém — um lote de 40 etiquetas ficava em "Enviando…" sem
+  // dizer onde estava. Agora o progresso é contado em ETIQUETAS, por item
+  // confirmado, que é o que a pessoa vê sair do rolo.
+  const [progresso, setProgresso] = useState(null); // { feitos, total } | null
   // A regra de qual caminho aparece vive em impressoraBLE, com teste.
   const { direto: mostrarDireto, dialogo: mostrarDialogo, semBluetooth } = caminhosDeImpressao();
 
@@ -494,11 +508,17 @@ export default function EtiquetaPrint() {
   // que já enxergasse.
   const guardaHistorico = produtoTem(produtoAtivo(sessao, impersonando), 'historicoEtiquetas');
 
-  const registrarImpressao = () => {
+  // ⚠️ RECEBE QUAIS ITENS SAÍRAM DE VERDADE. Antes registrava sempre a lista
+  // inteira, e isso só era verdade quando o envio ia até o fim. Se a impressora
+  // caísse no meio de um lote, o que já tinha saído no papel NÃO ficava
+  // gravado: mandar de novo reimprimia tudo, gastando rolo e colando etiqueta
+  // duplicada em pote que já tinha uma. Sem argumento continua registrando
+  // tudo — é o caminho do diálogo do navegador, que é atômico.
+  const registrarImpressao = (soEstes) => {
     if (!guardaHistorico) return;
     const hojeISO = hoje();
     const novas = [];
-    itens.forEach(item => {
+    (soEstes || itens).forEach(item => {
       const n = limitarCopias(item.quantidade);
       if (!n) return;
       const c = camposDe(item);
@@ -528,8 +548,8 @@ export default function EtiquetaPrint() {
   // memória do armazenamento NÃO podia ir dentro de `registrarImpressao`: ela
   // só roda quando a conta guarda histórico, e o plano Etiquetas não guarda —
   // então a memória nunca funcionaria justo no produto que vai ser vendido.
-  const aoImprimir = () => {
-    registrarImpressao();
+  const aoImprimir = (soEstes) => {
+    registrarImpressao(soEstes);
     // ⚠️ `setPrefs` (plural) para gravar as duas de uma vez. Dois `setPref`
     // seguidos leriam as prefs pelo ref, que só é atualizado no efeito
     // seguinte — o segundo apagaria o primeiro.
@@ -565,24 +585,46 @@ export default function EtiquetaPrint() {
   // Só no Chrome do Android/desktop: o Safari não implementa Web Bluetooth.
   const imprimirDireto = async () => {
     setErroBLE(''); setEnviando(true);
+    // ⚠️ UM ITEM POR ENVIO, e não o lote inteiro numa tacada. Antes tudo ia
+    // numa chamada só: se a impressora desligasse ou saísse de alcance no meio,
+    // não havia como saber o que já tinha saído no papel — o registro só
+    // acontecia DEPOIS de todo o envio. A pessoa mandava de novo e reimprimia o
+    // lote inteiro: rolo gasto e etiqueta duplicada em pote que já tinha uma.
+    // Enviando item a item sabemos exatamente onde parou.
+    // ⚠️ As CÓPIAS continuam nativas (`PRINT 1,N`) dentro de cada item: mandar
+    // N vezes seria N vezes o tráfego, e o `PRINT` não oscila no meio.
+    const aEnviar = itens.filter(it => limitarCopias(it.quantidade) > 0);
+    const saiu = [];
     try {
       if (!impressoraConectada()) {
         const voltou = await reconectarSePuder();
         if (!voltou) await escolherImpressora();
       }
-      const lote = itens
-        .map(it => ({ campos: camposDe(it, loteDaCopia(it, 0)), copias: limitarCopias(it.quantidade) }))
-        .filter(x => x.copias > 0);
-      // O estabelecimento não vive em `config`, mas o rodapé do papel precisa
-      // dele para ficar igual à prévia da tela.
-      await enviarTSPL(loteTSPL(lote, { ...config, estabelecimento }));
-      aoImprimir();
+      for (const it of aEnviar) {
+        const bloco = [{ campos: camposDe(it, loteDaCopia(it, 0)), copias: limitarCopias(it.quantidade) }];
+        // O estabelecimento não vive em `config`, mas o rodapé do papel precisa
+        // dele para ficar igual à prévia da tela.
+        await enviarTSPL(loteTSPL(bloco, { ...config, estabelecimento }));
+        saiu.push(it);
+        setProgresso({ feitos: contarEtiquetas(saiu), total: contarEtiquetas(aEnviar) });
+      }
+      aoImprimir(saiu);
       setEnviando(false);
+      setProgresso(null);
       fecharEtiquetas();
     } catch (e) {
       setEnviando(false);
+      setProgresso(null);
       if (e?.name === 'NotFoundError') return; // fechou o seletor, não é erro
-      setErroBLE(erroEmPortugues(e));
+      // ⚠️ GRAVA O QUE JÁ SAIU antes de mostrar o erro. É o que permite mandar
+      // só o resto em vez do lote inteiro.
+      if (saiu.length) aoImprimir(saiu);
+      const feitas = contarEtiquetas(saiu);
+      const total = contarEtiquetas(aEnviar);
+      const parcial = feitas > 0 && feitas < total
+        ? ` Saíram ${feitas} de ${total} etiquetas — o que já saiu ficou registrado, mande só o resto.`
+        : '';
+      setErroBLE(erroEmPortugues(e) + parcial);
     }
   };
 
@@ -815,7 +857,8 @@ export default function EtiquetaPrint() {
           {mostrarDireto && (
             <div className="space-y-2">
               <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel}>
-                {enviando ? 'Enviando…'
+                {enviando
+                  ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
                   : impressoraConectada() ? 'Imprimir na impressora'
                   : 'Conectar impressora e imprimir'}
               </Botao>

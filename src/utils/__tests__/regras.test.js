@@ -17,6 +17,7 @@ import { custoUnitario, valorDoEstoque, curvaABC, custoDosRegistros, precoDaComp
 import { listarEstoques, estoquesAtivos, acharEstoque, estabelecimentoDe, salvarEstoque, moduloUtilizavel } from '../instancias';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque } from '../visaoEstoque';
 import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
+import { planoDeEnvio } from '../../lib/impressoraBLE';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
 import { isoLocal } from '../formatters';
 import { outboxUid } from '../../lib/cache';
@@ -3621,5 +3622,46 @@ describe('plano emprestado pela Aurum (M41)', () => {
   it('modo suporte ganha do empréstimo', () => {
     const s = { ...paganteEtiquetas, produtoTeste: 'completo', produtoTesteAte: dias(7) };
     expect(produtoAtivo(s, { produto: 'etiquetas' }, AGORA)).toBe('etiquetas');
+  });
+});
+
+// =====================================================================
+//  Bluetooth: o tamanho do pedaço enviado à impressora
+//
+//  O código mandava 100 bytes por vez com um comentário afirmando que "cabe em
+//  qualquer MTU". Não cabe: o mínimo garantido pelo ATT é 20 bytes de carga, e
+//  no modo SEM confirmação o que passa disso é descartado em silêncio — a
+//  etiqueta sai pela metade sem erro nenhum. Na MDK-022 funciona porque o
+//  Android negocia um MTU grande; só quebraria no segundo cliente.
+//
+//  O Web Bluetooth não expõe o MTU negociado, então não dá para "ler o limite".
+//  A regra passou a ser escolher o modo correto em QUALQUER MTU.
+// =====================================================================
+describe('planoDeEnvio — como falar com a impressora sem chutar o MTU', () => {
+  it('havendo confirmação, usa ela: o ATT parte o valor sozinho e confirma', () => {
+    const p = planoDeEnvio({ write: true, writeWithoutResponse: true });
+    expect(p.modo).toBe('comConfirmacao');
+    expect(p.pedaco).toBe(100);
+    // a própria confirmação segura o ritmo — respiro artificial só atrasaria
+    expect(p.respiroMs).toBe(0);
+  });
+
+  it('só sem confirmação: cai para 20 bytes, o único tamanho garantido', () => {
+    const p = planoDeEnvio({ writeWithoutResponse: true });
+    expect(p.modo).toBe('semConfirmacao');
+    expect(p.pedaco).toBe(20);
+    // sem confirmação não há nada segurando a fila do firmware
+    expect(p.respiroMs).toBeGreaterThan(0);
+  });
+
+  it('nunca passa de 20 bytes sem confirmação — era o defeito silencioso', () => {
+    expect(planoDeEnvio({ writeWithoutResponse: true }).pedaco).toBeLessThanOrEqual(20);
+  });
+
+  it('característica que não aceita escrita nenhuma não vira plano', () => {
+    expect(planoDeEnvio({ read: true, notify: true })).toBe(null);
+    expect(planoDeEnvio({})).toBe(null);
+    expect(planoDeEnvio(null)).toBe(null);
+    expect(planoDeEnvio(undefined)).toBe(null);
   });
 });
