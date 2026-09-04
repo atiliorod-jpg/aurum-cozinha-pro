@@ -214,9 +214,15 @@ e o app parecia travado. Foi para a camada de cima (140).
 ### O que mudou a pedido dele
 
 - **Aba de imprimir agrupada por categoria** (era a única lista corrida do app).
-- **Conferência do armazenamento** antes de imprimir: o primeiro toque mostra a
-  palavra como ela sai no pote, o segundo manda. ⚠️ INLINE, não `confirm()`: o
+- **Armazenamento em destaque** no modal de impressão: linha inteira, moldura
+  navy, fundo bege, valor em corpo grande. ⚠️ Uma confirmação em DOIS TOQUES
+  foi construída e o dono mandou tirar — ele quis destaque, não atrito. Se a
+  ideia voltar algum dia: ela precisa ser INLINE, nunca `confirm()`, porque o
   seletor de Bluetooth exige GESTO do usuário e um diálogo no meio o consome.
+- **A memória do aparelho sobrevive ao logout** (`_prefs_device`): responsável,
+  último armazenamento, turno e destino. ⚠️ `limparCacheLocal` levava tudo, e
+  o dono perdia o responsável a cada relogin. A isenção é nomeada em
+  `lib/cache.js` — se entrar algo sensível em `PREFS_APARELHO`, revisar junto.
 - **M42** — contador de etiquetas por conta (o painel mostrava 0 para todo
   cliente do plano Etiquetas, porque aquele plano não guarda histórico) e
   `definir_assinatura`, que grava a data exata (o painel só sabia somar dias).
