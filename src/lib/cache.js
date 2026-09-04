@@ -87,6 +87,22 @@ export function pendenciasNaoSincronizadas() {
   return total;
 }
 
+// ⚠️ SOBREVIVE AO LOGOUT, e isto foi um defeito relatado pelo dono: ele saía da
+// conta e, ao voltar, o RESPONSÁVEL da etiqueta tinha sumido — e com ele o
+// último armazenamento usado, o turno e o destino. Os quatro moram nesta chave
+// (`PREFS_APARELHO` em store/AppContext.jsx) e a limpeza levava tudo junto.
+//
+// Por que preservar não fura a regra do tablet compartilhado: a limpeza existe
+// para o próximo usuário não alcançar PRODUTOS, CUSTOS e HISTÓRICO da conta
+// anterior. Isto aqui é a memória de um punhado de campos de formulário —
+// primeiro nome de quem assina, estado de conservação, turno —, guardada sob o
+// id daquele restaurante, que a conta seguinte nem lê. O que sai da mesa é
+// dado do negócio; o que fica é conveniência de preenchimento.
+//
+// ⚠️ Se um dia entrar algo sensível em PREFS_APARELHO, esta isenção precisa ser
+// revista JUNTO — é por isso que a lista mora num lugar só e é nomeada aqui.
+const CHAVE_PREFS_APARELHO = '_prefs_device';
+
 /**
  * Apaga o cache local de TODAS as contas neste aparelho.
  *
@@ -104,6 +120,7 @@ export function limparCacheLocal({ preservarOutbox = true } = {}) {
       const p = k.split('::');
       const chave = p.slice(2).join('::');
       if (preservarOutbox && chave === '_outbox' && contarVivos(cacheGet(p[1], '_outbox', [])) > 0) return;
+      if (chave === CHAVE_PREFS_APARELHO) return;
       localStorage.removeItem(k);
       removidas++;
     });

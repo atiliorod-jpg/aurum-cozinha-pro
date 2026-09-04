@@ -1869,6 +1869,31 @@ describe('limparCacheLocal — logout não pode deixar dado no aparelho', () => 
     expect(store['pe::rest_a::_outbox']).toBeUndefined();
   });
 
+  // ⚠️ Defeito relatado pelo dono: ele saía da conta e, ao voltar, o
+  // RESPONSÁVEL da etiqueta tinha sumido — junto com o último armazenamento
+  // usado, o turno e o destino. Os quatro vivem em `_prefs_device`
+  // (PREFS_APARELHO, em store/AppContext.jsx) e a limpeza levava tudo.
+  it('preserva a memória de preenchimento do aparelho (responsável, armazenamento)', () => {
+    semir('pe::rest_a::_prefs_device', { responsavel: 'Maria', ultimoArmazenamento: { p1: 'resfriado' }, turno: 'noite' });
+    semir('pe::rest_a::produtos', [{ id: 'x' }]);
+    semir('pe::rest_a::auditoria', [{ acao: 'x' }]);
+    limparCacheLocal();
+    expect(JSON.parse(store['pe::rest_a::_prefs_device']).responsavel).toBe('Maria');
+    expect(JSON.parse(store['pe::rest_a::_prefs_device']).ultimoArmazenamento).toEqual({ p1: 'resfriado' });
+    // e o dado do negócio continua saindo — a regra do tablet compartilhado vale
+    expect(store['pe::rest_a::produtos']).toBeUndefined();
+    expect(store['pe::rest_a::auditoria']).toBeUndefined();
+  });
+
+  it('a memória de preenchimento não vaza entre contas — é por restaurante', () => {
+    semir('pe::rest_a::_prefs_device', { responsavel: 'Maria' });
+    semir('pe::rest_b::_prefs_device', { responsavel: 'João' });
+    limparCacheLocal();
+    // cada uma sob o id do seu restaurante; a conta seguinte lê só a dela
+    expect(JSON.parse(store['pe::rest_a::_prefs_device']).responsavel).toBe('Maria');
+    expect(JSON.parse(store['pe::rest_b::_prefs_device']).responsavel).toBe('João');
+  });
+
   it('pendenciasNaoSincronizadas conta os vivos de todas as contas', () => {
     semir('pe::rest_a::_outbox', [{ _uid: '1' }, { _uid: '2', _morto: true }]);
     semir('pe::rest_b::_outbox', [{ _uid: '3' }]);

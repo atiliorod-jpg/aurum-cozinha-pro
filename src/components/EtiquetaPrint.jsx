@@ -293,21 +293,6 @@ export default function EtiquetaPrint() {
   // confirmado, que é o que a pessoa vê sair do rolo.
   const [progresso, setProgresso] = useState(null); // { feitos, total } | null
 
-  // ⚠️ CONFIRMAÇÃO DO ARMAZENAMENTO, pedida pelo dono: ele imprimiu um lote
-  // inteiro como RESFRIADO num item que era CONGELADO, por falta de atenção. A
-  // memória do último estado usado (já existente) reduz a troca, mas não
-  // impede o engano — a palavra sai impressa no pote e vai para a prateleira.
-  //
-  // ⚠️ INLINE, e não um `confirm()` por cima. O seletor de Bluetooth só abre a
-  // partir de um GESTO do usuário; um diálogo no meio do caminho consome esse
-  // gesto e o navegador passa a recusar a conexão. Aqui o segundo toque é o
-  // gesto, e o caminho até a impressora fica igual ao de hoje.
-  // ⚠️ Guarda PARA QUAL abertura a conferência vale, e não só o alvo. O
-  // componente NÃO desmonta ao fechar (devolve null e continua vivo), então um
-  // booleano solto faria a próxima impressão abrir já com o painel do lote
-  // anterior. Comparar com `etiquetaState` resolve sem setState em efeito, que
-  // é a cascata de renderização que este arquivo já evita em outros pontos.
-  const [confirmando, setConfirmando] = useState(null); // { alvo, para } | null
   // A regra de qual caminho aparece vive em impressoraBLE, com teste.
   const { direto: mostrarDireto, dialogo: mostrarDialogo, semBluetooth } = caminhosDeImpressao();
 
@@ -486,9 +471,6 @@ export default function EtiquetaPrint() {
 
   if (!etiquetaState) return null;
 
-  // Conferência pendente DESTA abertura (ver o comentário do estado).
-  const conferindo = confirmando?.para === etiquetaState ? confirmando.alvo : null;
-
   // Mantém um id por cópia: crescer a quantidade cria ids novos; diminuir
   // corta os do fim, sem mexer nos que já estavam (o QR deles não muda).
   const comLotes = (it) => {
@@ -500,11 +482,7 @@ export default function EtiquetaPrint() {
     return { ...it, _lotes: novos };
   };
 
-  // Mexeu em qualquer item? A conferência anterior não vale mais.
-  const setItem = (idx, patch) => {
-    setConfirmando(null);
-    setItens(prev => prev.map((it, i) => i === idx ? comLotes({ ...it, ...patch }) : it));
-  };
+  const setItem = (idx, patch) => setItens(prev => prev.map((it, i) => i === idx ? comLotes({ ...it, ...patch }) : it));
   // Stepper com update funcional: toques rápidos seguidos não podem ler closure velha
   const mudarQtd = (idx, delta) => setItens(prev => prev.map((it, i) =>
     i === idx ? comLotes({ ...it, quantidade: limitarCopias((parseInt(it.quantidade) || 0) + delta) }) : it));
@@ -706,17 +684,6 @@ export default function EtiquetaPrint() {
     }
   };
 
-  // ⚠️ SÓ PERGUNTA QUANDO A PALAVRA SAI IMPRESSA. Se o campo de armazenamento
-  // está desligado na etiqueta, ou se o estoque não usa temperatura (despensa),
-  // a conferência não protege de nada e vira um toque a mais no meio do serviço.
-  const precisaConferir = config.campos?.armazenamento !== false
-    && itens.some(it => limitarCopias(it.quantidade) > 0 && camposDe(it).armazenamentoLabel);
-
-  const pedirConfirmacao = (alvo) => {
-    if (!precisaConferir) { if (alvo === 'direto') imprimirDireto(); else imprimir(); return; }
-    setConfirmando({ alvo, para: etiquetaState });
-  };
-
   return (
     <>
       {/* Modal on-screen (não imprime — print:hidden) */}
@@ -748,6 +715,50 @@ export default function EtiquetaPrint() {
                         className="w-9 h-9 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center">+</button>
                     </div>
                   </div>
+                  {/* ⚠️ O ARMAZENAMENTO SAIU DO MEIO DA GRADE E VIROU o campo
+                      principal do item, a pedido do dono: ele imprimiu um lote
+                      inteiro como RESFRIADO num item que era CONGELADO, por
+                      falta de atenção. Era um <select> pequeno, do mesmo
+                      tamanho e cor de outros cinco campos — e é o único deles
+                      cuja escolha vai IMPRESSA no pote e decide a validade.
+                      Agora ocupa a linha inteira, com moldura navy, fundo bege
+                      e a palavra em corpo grande: dá para conferir de relance,
+                      sem parar para ler.
+                      ⚠️ Destaque, NÃO um toque a mais: a confirmação em dois
+                      toques foi tentada e o dono pediu para tirar. */}
+                  {comArmazenamento && item.armazenamento !== null && (
+                    <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
+                      <label htmlFor={`ep-armaz-${idx}`}
+                        className="block text-[11px] font-bold text-polo-navy uppercase tracking-wide mb-1">
+                        Armazenamento — sai impresso na etiqueta
+                      </label>
+                      {/* ⚠️ Trocar o estado RESEMEIA os dias com o prazo
+                          daquele estado. Antes só esvaziava — e o campo
+                          ficava em branco, dando a impressão de que não havia
+                          prazo cadastrado. Deixar o número do estado anterior
+                          grudado seria pior ainda: data errada, sem aviso. */}
+                      <select id={`ep-armaz-${idx}`} value={item.armazenamento || 'congelado'}
+                        onChange={e => setItem(idx, {
+                          armazenamento: e.target.value,
+                          diasOverride: String(diasDoCadastro({ ...item, armazenamento: e.target.value }) || ''),
+                        })}
+                        className="w-full bg-white border-2 border-polo-navy/40 rounded-lg px-3 py-2.5
+                                   text-base font-bold text-polo-navy min-h-11">
+                        {/* ⚠️ Mostra o PRAZO de cada estado. Sem isto não dá
+                            para comparar congelado x refrigerado na hora de
+                            escolher, e a pessoa só descobre o número depois
+                            de trocar. */}
+                        {armazenamentos.map(a => {
+                          const d = diasDoCadastro({ ...item, armazenamento: a.id });
+                          return (
+                            <option key={a.id} value={a.id}>
+                              {a.nome}{a.faixa ? ` · ${a.faixa}` : ''} · {d > 0 ? `${d} dias` : 'sem prazo'}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label htmlFor={`ep-data-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">
@@ -756,50 +767,13 @@ export default function EtiquetaPrint() {
                       <input id={`ep-data-${idx}`} type="date" value={item.dataFabricacao} max={hoje()}
                         onChange={e => setItem(idx, { dataFabricacao: e.target.value })} className={inputCls} />
                     </div>
-                    {comArmazenamento && item.armazenamento !== null ? (
-                      <div>
-                        <label htmlFor={`ep-armaz-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Armazenamento</label>
-                        {/* ⚠️ Trocar o estado RESEMEIA os dias com o prazo
-                            daquele estado. Antes só esvaziava — e o campo
-                            ficava em branco, dando a impressão de que não havia
-                            prazo cadastrado. Deixar o número do estado anterior
-                            grudado seria pior ainda: data errada, sem aviso. */}
-                        <select id={`ep-armaz-${idx}`} value={item.armazenamento || 'congelado'}
-                          onChange={e => setItem(idx, {
-                            armazenamento: e.target.value,
-                            diasOverride: String(diasDoCadastro({ ...item, armazenamento: e.target.value }) || ''),
-                          })}
-                          className={`${inputCls} bg-white`}>
-                          {/* ⚠️ Mostra o PRAZO de cada estado. Sem isto não dá
-                              para comparar congelado x refrigerado na hora de
-                              escolher, e a pessoa só descobre o número depois
-                              de trocar. */}
-                          {armazenamentos.map(a => {
-                            const d = diasDoCadastro({ ...item, armazenamento: a.id });
-                            return (
-                              <option key={a.id} value={a.id}>
-                                {a.nome}{a.faixa ? ` · ${a.faixa}` : ''} · {d > 0 ? `${d} dias` : 'sem prazo'}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    ) : (
-                      <div>
-                        <label htmlFor={`ep-medida-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
-                        <input id={`ep-medida-${idx}`} type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
-                          onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
-                      </div>
-                    )}
+                    <div>
+                      <label htmlFor={`ep-medida-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
+                      <input id={`ep-medida-${idx}`} type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
+                        onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {comArmazenamento && item.armazenamento !== null && (
-                      <div>
-                        <label htmlFor={`ep-medida-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
-                        <input id={`ep-medida-${idx}`} type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
-                          onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
-                      </div>
-                    )}
                     <div>
                       {/* ⚠️ A Dica fica FORA do <label>: botão dentro de label
                           herda o clique dele e, além de abrir a explicação,
@@ -943,45 +917,9 @@ export default function EtiquetaPrint() {
               Sobra um caso: celular SEM Bluetooth no navegador (iPhone, ou o
               app aberto dentro do WhatsApp). Aí o diálogo volta, porque é a
               única saída que resta — mas com uma linha dizendo por quê. */}
-          {/* ⚠️ A CONFERÊNCIA DO QUE VAI IMPRESSO NO POTE. Aparece no primeiro
-              toque em imprimir e o segundo toque é que manda. Mostra a palavra
-              exatamente como ela sai na etiqueta, em corpo grande — não o nome
-              do campo, não um resumo: a palavra. */}
-          {conferindo && (
-            <div className="border-2 border-polo-navy rounded-xl p-3 space-y-2 bg-polo-beige">
-              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">
-                Confira antes de gastar rolo
-              </p>
-              <ul className="space-y-1.5">
-                {itens.filter(it => limitarCopias(it.quantidade) > 0).map((it, i) => {
-                  const c = camposDe(it);
-                  return (
-                    <li key={i} className="flex items-baseline justify-between gap-3 border-b border-polo-navy/10 pb-1.5 last:border-0">
-                      <span className="text-xs text-gray-700 min-w-0 truncate">{c.nome}</span>
-                      <span className="text-sm font-black text-polo-navy whitespace-nowrap">
-                        {c.armazenamentoLabel || 'sem armazenamento'}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="flex gap-2 pt-0.5">
-                <button onClick={() => setConfirmando(null)}
-                  className="flex-1 border border-polo-navy/30 text-polo-navy font-semibold py-2.5 rounded-xl text-sm min-h-11">
-                  Voltar e ajustar
-                </button>
-                <button
-                  onClick={() => { setConfirmando(null); if (conferindo === 'direto') imprimirDireto(); else imprimir(); }}
-                  className="flex-1 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm min-h-11">
-                  Está certo, imprimir
-                </button>
-              </div>
-            </div>
-          )}
-
-          {mostrarDireto && !conferindo && (
+          {mostrarDireto && (
             <div className="space-y-2">
-              <Botao onClick={() => pedirConfirmacao('direto')} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel}>
+              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel}>
                 {enviando
                   ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
                   : impressoraConectada() ? 'Imprimir na impressora'
@@ -1011,8 +949,8 @@ export default function EtiquetaPrint() {
               className={`${mostrarDialogo ? 'flex-1' : 'w-full'} border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl`}>
               {mostrarDialogo ? 'Agora não' : 'Fechar'}
             </button>
-            {mostrarDialogo && !conferindo && (
-              <button onClick={() => pedirConfirmacao('dialogo')} disabled={totalEtiquetas === 0 || qrPendente || faltaResponsavel}
+            {mostrarDialogo && (
+              <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente || faltaResponsavel}
                 className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
                 {qrPendente
                   ? 'Gerando QR…'
