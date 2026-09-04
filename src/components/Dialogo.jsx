@@ -34,6 +34,12 @@ const CAMADA = {
   110: 'z-[110]',
   120: 'z-[120]',
   130: 'z-[130]',
+  // ⚠️ A CONFIRMAÇÃO É SEMPRE A DE CIMA. Ela estava na 110, abaixo do modal de
+  // impressão (120) e do seletor de área (130): um `confirm()` aberto de
+  // dentro de um deles renderizava ATRÁS, invisível, e o app parecia travado
+  // esperando uma resposta que ninguém conseguia ver. Perguntar é, por
+  // natureza, a última coisa na pilha.
+  140: 'z-[140]',
 };
 
 const LARGURA = {

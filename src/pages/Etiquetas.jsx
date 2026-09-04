@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import PrimeiroUso from '../components/PrimeiroUso';
 import { useApp } from '../store/AppContext';
+import { agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
@@ -161,6 +162,26 @@ export default function Etiquetas() {
       ? produtosAtivos
       : produtosAtivos.filter(p => p.categoria === catAtiva);
 
+  // ⚠️ AGRUPADO POR CATEGORIA, IGUAL A "MEUS ITENS". Esta tela era a única
+  // lista corrida do app: os itens saíam na ordem em que foram cadastrados, e
+  // as categorias serviam só de filtro. Numa casa com 60 itens vira caça ao
+  // nome no meio do serviço — e as duas telas se comportavam de jeitos
+  // diferentes com o mesmo dado, que é o defeito que a gente já corrigiu
+  // três vezes neste app.
+  // A ordem das categorias é a da biblioteca (pensada: proteínas juntas),
+  // com as que o restaurante criou no fim, em ordem alfabética. Dentro de
+  // cada uma, alfabética — nome é o que a pessoa procura.
+  const ordemCategorias = useMemo(() => {
+    const extras = categorias.filter(c => !CATEGORIAS_BIBLIOTECA.includes(c));
+    return [...CATEGORIAS_BIBLIOTECA, ...extras];
+  }, [categorias]);
+
+  const gruposVisiveis = useMemo(() => {
+    const ordenados = [...produtosVisiveis].sort((a, b) =>
+      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }));
+    return agruparPorCategoria(ordenados, ordemCategorias);
+  }, [produtosVisiveis, ordemCategorias]);
+
   const imprimirProduto = (p) => abrirEtiquetas([{
     produtoId: p.id,
     nome: p.nome,
@@ -276,7 +297,17 @@ export default function Etiquetas() {
                 )}
               </div>
             )}
-            {produtosVisiveis.map((p, i, arr) => (
+            {gruposVisiveis.map(([categoria, itensDaCategoria]) => (
+              <div key={categoria}>
+                {/* ⚠️ `sticky`: numa categoria com 20 itens, o cabeçalho sai da
+                    tela e a pessoa perde de vista em que ala está. Ele fica
+                    colado no topo da lista enquanto aquele grupo passa. */}
+                <h2 className="sticky top-0 z-10 bg-polo-beige/95 backdrop-blur px-4 py-1.5
+                               text-[11px] font-bold text-polo-navy uppercase tracking-wide
+                               border-b border-gray-200">
+                  {categoria}
+                </h2>
+            {itensDaCategoria.map((p, i, arr) => (
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
@@ -301,6 +332,8 @@ export default function Etiquetas() {
                   className="bg-polo-navy text-polo-gold font-bold text-xs px-3.5 py-2.5 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
                   🏷️ Imprimir
                 </button>
+              </div>
+            ))}
               </div>
             ))}
           </div>

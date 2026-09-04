@@ -161,7 +161,7 @@ export function UIProvider({ children }) {
         // ⚠️ O `autoFocus` do Cancelar continua e o Dialogo o RESPEITA: numa
         // pergunta destrutiva o foco tem de nascer na saída segura.
         <Dialogo aoFechar={() => fecharConfirm(false)} rotulo={confirmState.titulo}
-          forma="caixa" largura="sm" camada={110} respiro="p6"
+          forma="caixa" largura="sm" camada={140} respiro="p6"
           cabecalho={false} fecharNoFundo={!confirmState.perigo}
           classeCaixa="space-y-4">
           <>
