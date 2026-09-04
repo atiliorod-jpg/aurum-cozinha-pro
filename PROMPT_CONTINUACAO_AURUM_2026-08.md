@@ -181,6 +181,68 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (03/09/2026, noite) — O QUE O USO REAL MOSTROU
+
+O dono levou o app para a rua (celular de um amigo, impressão pelo computador)
+e voltou com defeitos e pedidos. Tudo abaixo já está aplicado e publicado.
+
+**Estado:** 441 testes, lint 0 erros, build ok. Migrações até a **42**.
+
+### Os defeitos, e o que eles ensinam
+
+⚠️ **CONSULTA QUE FALHA NÃO PODE TIRAR ACESSO.** O dono via "Falta liberarmos o
+seu acesso" ir e voltar no meio do uso, com assinatura em dia. Quando a leitura
+da linha do restaurante falha (sem internet, RLS oscilando), a cascata de
+fallback do `AuthContext` termina com `rest` nulo e a sessão nasce com TODAS as
+datas nulas — e `statusAssinatura` lia isso como "nunca foi liberada". Agora a
+sessão carrega `assinaturaLida` e a régua devolve `'indeterminado'` (ok).
+**Ausência de dado não é dado.** Quem barra de verdade é o banco.
+
+⚠️ **O SUPER-ADMIN SÓ TINHA A ROTA "/" DESVIADA** para o painel. Qualquer outro
+caminho abria uma cozinha vazia com as abas do cliente. Agora todo caminho fora
+do painel volta para lá.
+
+⚠️ **O `NotFoundError` DO BLUETOOTH ERA ENGOLIDO.** Tocar em conectar sem achar
+impressora não dizia NADA. O Web Bluetooth usa o mesmo erro para "cancelei" e
+para "lista vazia" — o texto agora serve aos dois, e antes de abrir o seletor
+`bluetoothLigado()` pergunta se o adaptador existe.
+
+⚠️ **O `confirm()` ESTAVA NA CAMADA 110**, abaixo do modal de impressão (120) e
+do seletor de área (130): aberto de dentro deles, renderizava atrás, invisível,
+e o app parecia travado. Foi para a camada de cima (140).
+
+### O que mudou a pedido dele
+
+- **Aba de imprimir agrupada por categoria** (era a única lista corrida do app).
+- **Conferência do armazenamento** antes de imprimir: o primeiro toque mostra a
+  palavra como ela sai no pote, o segundo manda. ⚠️ INLINE, não `confirm()`: o
+  seletor de Bluetooth exige GESTO do usuário e um diálogo no meio o consome.
+- **M42** — contador de etiquetas por conta (o painel mostrava 0 para todo
+  cliente do plano Etiquetas, porque aquele plano não guarda histórico) e
+  `definir_assinatura`, que grava a data exata (o painel só sabia somar dias).
+  Sondado com `scripts/pentest-m42.mjs` (8/8).
+- **Administração delegável**: a porta passou de cargo para a capacidade
+  `configurarSistema`. Assinatura, contas, matriz de acessos e suporte remoto
+  seguem só do dono. ⚠️ A gerência ganha a chave por padrão de fábrica — o
+  dono desliga na matriz se não quiser.
+
+### Aberto
+
+- **Impressão pelo computador**: ele relatou tudo descendo para o rodapé da
+  etiqueta, e depois disse que voltou a funcionar. Não reproduzi: o desenho da
+  etiqueta, o `tspl.js` e o CSS de impressão não foram tocados (só a cor do
+  anel de foco). Se voltar, pedir foto + se a prévia "Como vai sair" mostra o
+  mesmo — isso separa dado/desenho de CSS de impressão.
+- **APK**: o aviso "versão mais antiga de Android" é do pacote TWA, não do app;
+  resolve regerando no PWABuilder com o MESMO Package ID e a MESMA keystore. O
+  "inseguro" é normal de APK fora da Play Store. **Não confirmado** se o Web
+  Bluetooth funciona dentro da TWA — o teste que decide é abrir o site no
+  Chrome do mesmo aparelho e tentar conectar.
+- **Atualização automática do APK**: o conteúdo atualiza sozinho (a TWA carrega
+  o site), mas a CASCA não. Sem Play Store não há auto-update.
+
+---
+
 ## Onde paramos (03/09/2026, tarde) — A ULTRA AUDITORIA FECHADA
 
 **Os 18 achados que estavam abertos foram aplicados e publicados.** Quatro
