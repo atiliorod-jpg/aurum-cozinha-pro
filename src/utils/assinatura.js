@@ -94,6 +94,7 @@ export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
  *  { ok:true,  tipo:'teste', diasRestantes, ate }  — dentro do teste (TESTE_DIAS)
  *  { ok:false, tipo:'vencido' }                    — teste e assinatura vencidos
  *  { ok:false, tipo:'aguardando' }                 — nunca liberada (cadastro novo)
+ *  { ok:true,  tipo:'indeterminado' }              — não deu para ler o cadastro (rede/RLS)
  *  { ok:false, tipo:'bloqueado' }                  — conta suspensa pelo administrador
  *  { ok:true,  tipo:'cortesia', regime, ate }     — não paga, por decisão da Aurum
  *  { ok:true,  tipo:'isento' }                     — super-admin/demo/sem restaurante
@@ -102,6 +103,20 @@ export function statusAssinatura(sessao, agora = Date.now()) {
   if (!sessao?.restauranteId || sessao.eSuperAdmin || sessao.demo) return { ok: true, tipo: 'isento' };
   // bloqueio comercial (migração 9) passa por cima até de assinatura ativa
   if (sessao.bloqueado) return { ok: false, tipo: 'bloqueado' };
+  // ⚠️ NÃO SE TIRA ACESSO POR CONSULTA QUE FALHOU. Quando a linha do
+  // restaurante não pôde ser lida (sem internet, RLS oscilando, banco fora do
+  // ar), a sessão chega com TODAS as datas nulas — e a régua abaixo leria isso
+  // como "nunca foi liberada", tapando o app com "Falta liberarmos o seu
+  // acesso". Foi o que aconteceu com a conta do dono, que tem assinatura em
+  // dia: o aviso ia e voltava conforme a rede, no meio do serviço.
+  //
+  // Ausência de dado não é dado. E deixar entrar não abre brecha: quem barra
+  // de verdade é o banco (`restaurante_pode_escrever`, M37) — a tela é
+  // conveniência, não fechadura.
+  //
+  // `=== false` de propósito: sessão antiga, demo e o painel não têm o campo,
+  // e `undefined` tem de continuar significando "li normalmente".
+  if (sessao.assinaturaLida === false) return { ok: true, tipo: 'indeterminado' };
   // ⚠️ CORTESIA VEM ANTES DA ASSINATURA, e a ordem é a regra: uma conta de
   // cortesia que por acaso tenha data de assinatura em dia continua sendo
   // cortesia. Se a assinatura ganhasse, a conta apareceria como pagante no

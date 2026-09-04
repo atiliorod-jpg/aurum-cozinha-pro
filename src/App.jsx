@@ -302,6 +302,19 @@ function Rotas() {
     return <SeletorModulo comoTela aoEscolher={() => setEscolheuModulo(true)} />;
   }
 
+  // ⚠️ SÓ A ROTA "/" ERA DESVIADA PARA O PAINEL, e o resto ficou aberto: o
+  // super-admin que caísse em /registrar, /validades ou /etiquetas via uma
+  // COZINHA VAZIA, com a barra de abas do cliente — abas que não são dele, num
+  // restaurante que não existe. Aconteceu com o dono ao trocar de conta: o
+  // caminho em que ele estava continuava valendo depois do login novo.
+  //
+  // As telas de cozinha continuam existindo para ele no MODO SUPORTE, dentro
+  // da conta do cliente, que é o único lugar onde elas dizem alguma coisa.
+  // Fora dali, o painel é a casa dele.
+  if (superAdminSemCliente && !/\/(admin|novidades)$/.test(pathname)) {
+    return <Navigate to="/admin" replace />;
+  }
+
   return (
     <>
       {impersonando && <BannerSuporte nome={impersonando.restauranteNome} podeMexer={impersonando.podeMexer} onSair={sairImpersonacao} />}

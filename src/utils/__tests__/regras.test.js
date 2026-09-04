@@ -3716,3 +3716,42 @@ describe('faltasDoPrimeiroUso — o cartão que pede o RESP. e o endereço', () 
     expect(faltasDoPrimeiroUso({ ehDiretoria: true }).mostrar).toBe(true);
   });
 });
+
+// =====================================================================
+//  Consulta que falha não pode tirar o acesso de quem paga
+//
+//  O dono viu "Falta liberarmos o seu acesso" aparecer e sumir no meio do uso,
+//  com a assinatura em dia no banco. A causa: quando a linha do restaurante
+//  não pode ser lida (sem internet, RLS oscilando), a sessão chega com todas
+//  as datas nulas — e a régua lia isso como "nunca foi liberada".
+//
+//  Ausência de dado não é dado.
+// =====================================================================
+describe('statusAssinatura — leitura que falhou não bloqueia', () => {
+  const agora = Date.UTC(2026, 8, 3);
+
+  it('sem conseguir ler o cadastro, o app NÃO diz que a conta nunca foi liberada', () => {
+    const st = statusAssinatura({ restauranteId: 'r1', assinaturaLida: false }, agora);
+    expect(st.ok).toBe(true);
+    expect(st.tipo).toBe('indeterminado');
+  });
+
+  it('lida de verdade e sem nenhuma data → aguardando, como antes', () => {
+    const st = statusAssinatura({ restauranteId: 'r1', assinaturaLida: true }, agora);
+    expect(st).toEqual({ ok: false, tipo: 'aguardando' });
+  });
+
+  // ⚠️ Sessão antiga, demo e o painel não carregam o campo. `undefined` tem de
+  // continuar significando "li normalmente", senão ninguém mais é bloqueado.
+  it('sem o campo (sessão antiga) a régua antiga continua valendo', () => {
+    const st = statusAssinatura({ restauranteId: 'r1' }, agora);
+    expect(st).toEqual({ ok: false, tipo: 'aguardando' });
+  });
+
+  // ⚠️ Bloqueio comercial é decisão registrada, não ausência de dado — ele
+  // continua valendo mesmo sem ter lido o resto.
+  it('conta suspensa continua suspensa', () => {
+    const st = statusAssinatura({ restauranteId: 'r1', bloqueado: true, assinaturaLida: false }, agora);
+    expect(st).toEqual({ ok: false, tipo: 'bloqueado' });
+  });
+});

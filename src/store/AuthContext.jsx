@@ -228,6 +228,15 @@ export function AuthProvider({ children }) {
         // próprio restaurante editava — e CNPJ digitado errado numa etiqueta
         // que viaja com o alimento é problema de fiscalização, não de tela.
         cnpj:             rest?.cnpj || '',
+        // ⚠️ A LINHA DO RESTAURANTE FOI MESMO LIDA? Sem isto, uma consulta que
+        // falha (sem internet, RLS oscilando, banco fora do ar) produzia uma
+        // sessão com TODAS as datas nulas — e `statusAssinatura` lia isso como
+        // "esta conta nunca foi liberada", tapando o app inteiro com "Falta
+        // liberarmos o seu acesso". Aconteceu com a conta do dono, que tem
+        // assinatura em dia: o aviso ia e voltava conforme a rede.
+        // É a mesma defesa que o `produto` logo abaixo já fazia: na dúvida,
+        // NÃO tirar acesso de quem paga. Quem barra de verdade é o banco.
+        assinaturaLida:   !!rest,
         // Assinatura/teste (migration7) + limite/bloqueio (migration9)
         restauranteCriadoEm: rest?.created_at || null,
         assinaturaAte:    rest?.assinatura_ate || null,
