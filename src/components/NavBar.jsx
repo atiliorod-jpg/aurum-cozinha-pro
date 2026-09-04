@@ -53,12 +53,15 @@ const NAV_ETIQUETAS = [
   // nova o vazio da tela de imprimir manda "Cadastrar itens" e apontava para
   // a mesma tela negada — um laço fechado.
   { to: '/itens',   icon: 'caixa',    label: 'Meus itens', cap: 'gerenciarProdutos' },
-  // ⚠️ Só a conta dona. Botão que leva a uma tela negada é pior que botão
-  // ausente: a pessoa toca, é jogada de volta e não entende o porquê.
+  // ⚠️ ERA `soDono` (só a diretoria) e virou CAPACIDADE, a pedido do dono: ele
+  // quis poder liberar a Administração para outros cargos. O que é contrato e
+  // chave da casa — assinatura, contas da equipe, matriz de acessos e suporte
+  // remoto — continua aparecendo só para a conta dona, decidido lá dentro
+  // (etiquetas/Ajustes.jsx), não aqui na porta.
   // ⚠️ "Administração" e não "Configurações": ali dentro se controla quem tem
   // acesso, a assinatura e o suporte remoto. Chamar de configuração sugere
   // ajuste fino de tela, e a pessoa não procura conta de funcionário ali.
-  { to: '/ajustes', icon: 'config',   label: 'Administração', soDono: true },
+  { to: '/ajustes', icon: 'config',   label: 'Administração', cap: 'configurarSistema' },
 ];
 
 export default function NavBar({ soEtiquetas = false }) {

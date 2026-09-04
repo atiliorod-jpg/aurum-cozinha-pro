@@ -28,8 +28,15 @@ import { fmtData, isoLocal } from '../../utils/formatters';
 export default function Ajustes() {
   const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa,
           permissoes, setPermissoes, exportarBackup, importarBackup } = useApp();
+  // ⚠️ A ADMINISTRAÇÃO ABRE PARA QUEM O DONO LIBERAR (capacidade
+  // `configurarSistema`), mas nem tudo aqui dentro é delegável. Assinatura,
+  // contas da equipe, matriz de acessos e suporte remoto continuam SÓ da conta
+  // dona: são o contrato e a chave da casa. A matriz em especial — quem
+  // pudesse editá-la se daria qualquer outra permissão, e a restrição não
+  // valeria nada.
   const { sessao, logout, usuarios, criarConta, trocarSenhaDe, removerConta,
-          desativarUsuario, reativarUsuario, definirApelido } = useAuth();
+          desativarUsuario, reativarUsuario, definirApelido, temPermissao } = useAuth();
+  const ehDono = temPermissao('diretoria');
   const { toast, confirm, abrirAjuda } = useUI();
   const [novaPessoa, setNovaPessoa] = useState('');
 
@@ -93,7 +100,8 @@ export default function Ajustes() {
         </div>
       </div>
 
-      {/* Conta e plano */}
+      {/* Conta e plano — contrato, só a conta dona */}
+      {ehDono && (<>
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
         <div>
           <p className="text-sm font-bold text-polo-navy">Sua conta</p>
@@ -146,20 +154,29 @@ export default function Ajustes() {
         </div>
       )}
 
+      </>)}
+
       {/* ⚠️ O plano Etiquetas não tinha COMO colocar ninguém para dentro: a
           tela de acessos morava só no plano completo, e a conta dona era a
           única que conseguia entrar. Quem etiqueta no dia a dia não é quem
           assina o contrato. */}
+      {ehDono && (
       <CartaoContas sessao={sessao} usuarios={usuarios} cargos={CARGOS}
         criarConta={criarConta} trocarSenhaDe={trocarSenhaDe} removerConta={removerConta}
         desativarUsuario={desativarUsuario} reativarUsuario={reativarUsuario}
         definirApelido={definirApelido} toast={toast} confirm={confirm} />
+      )}
 
       {/* ⚠️ Vem logo depois das contas de propósito: criar o acesso e decidir o
           que ele alcança são a mesma tarefa, e separá-las fazia o dono criar
           uma conta e sair da tela sem nunca ver as permissões. */}
+      {/* ⚠️ A MATRIZ DE ACESSOS NUNCA É DELEGADA. Quem pudesse editá-la se
+          daria qualquer outra permissão — inclusive as que ficaram de fora —
+          e a restrição inteira não valeria nada. */}
+      {ehDono && (
       <CartaoCargos permissoes={permissoes} setPermissoes={setPermissoes}
         usuarios={usuarios} soEtiquetas toast={toast} confirm={confirm} />
+      )}
 
       {/* ⚠️ ANTES do suporte remoto e depois da conta: é assunto do dono, não
           da operação do dia. Os Termos prometem esta exportação (cláusula 15) e
@@ -167,7 +184,9 @@ export default function Ajustes() {
       <CartaoMeusDados exportarBackup={exportarBackup} importarBackup={importarBackup}
         toast={toast} confirm={confirm} />
 
-      <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />
+      {/* ⚠️ Autorizar a Aurum a ver os dados da casa é decisão de quem assina o
+          contrato, não de quem opera. */}
+      {ehDono && <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />}
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <Botao variante="secundario" onClick={async () => {

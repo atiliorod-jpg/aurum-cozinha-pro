@@ -373,7 +373,10 @@ function Rotas() {
               assinatura. No app completo a tela equivalente é protegida; aqui
               tinha passado. `Restrito` é o mesmo helper de /pagamento, e
               temPermissao deixa o super-admin entrar (o suporte precisa). */}
-          <Route path="/ajustes"    element={<Restrito cargo="diretoria"><EtiquetasAjustes /></Restrito>} />
+          {/* ⚠️ Por CAPACIDADE, não por cargo — o dono passou a poder delegar a
+              Administração. A trava por URL direta continua existindo: quem
+              não tem a chave é mandado de volta, como sempre. */}
+          <Route path="/ajustes"    element={can('configurarSistema') ? <EtiquetasAjustes /> : <Navigate to="/" replace />} />
           <Route path="/pagamento"  element={<Restrito><Pagamento /></Restrito>} />
           {/* ⚠️ O PAINEL PRECISA EXISTIR AQUI TAMBÉM. Esta tabela de rotas
               manda `*` para `/`, então sem esta linha o /admin simplesmente

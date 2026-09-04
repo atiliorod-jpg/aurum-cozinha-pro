@@ -9,7 +9,7 @@ import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem, nomesCasam } from '../analise';
 import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
 import { ETIQUETA_CONFIG_PADRAO, montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, lerLoteIdDoQR, statusEtiqueta, podarEtiquetas, MAX_ETIQUETAS_GUARDADAS } from '../etiquetas';
-import { pode, permissoesEfetivas, PERMISSOES_PADRAO } from '../permissoes';
+import { pode, permissoesEfetivas, PERMISSOES_PADRAO, capacidadesDoProduto } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
 import { conciliarAuditoria } from '../auditoria';
@@ -3753,5 +3753,45 @@ describe('statusAssinatura — leitura que falhou não bloqueia', () => {
   it('conta suspensa continua suspensa', () => {
     const st = statusAssinatura({ restauranteId: 'r1', bloqueado: true, assinaturaLida: false }, agora);
     expect(st).toEqual({ ok: false, tipo: 'bloqueado' });
+  });
+});
+
+// =====================================================================
+//  Delegar a Administração (pedido do dono, 03/09/2026)
+//
+//  A porta da Administração era travada por CARGO (só a diretoria). Passou a
+//  ser travada pela capacidade `configurarSistema`, para o dono poder liberar
+//  quem ele quiser — mas assinatura, contas, matriz de acessos e suporte
+//  remoto continuam só dele, decididos DENTRO da tela.
+// =====================================================================
+describe('configurarSistema — a chave da Administração', () => {
+  it('aparece na matriz do plano Etiquetas, com o texto daquele plano', () => {
+    const caps = capacidadesDoProduto(true);
+    const cap = caps.find(c => c.id === 'configurarSistema');
+    expect(cap).toBeDefined();
+    expect(cap.label).toBe('Abrir a Administração');
+    // o texto precisa dizer o que ela NÃO dá, senão o dono acha que delegou tudo
+    expect(cap.desc).toMatch(/NÃO dá acesso/);
+  });
+
+  it('a diretoria sempre pode, sem depender da matriz', () => {
+    expect(pode({ cargo: 'diretoria', usuarioId: 'u1' }, {}, 'configurarSistema')).toBe(true);
+  });
+
+  // ⚠️ ISTO É UMA MUDANÇA DE COMPORTAMENTO VISÍVEL: no plano Etiquetas a
+  // gerência NÃO abria a Administração (a trava era por cargo) e agora abre,
+  // porque o padrão de fábrica da gerência já dizia `true`. O dono pode
+  // desligar na matriz — o teste existe para que isso seja uma decisão
+  // registrada, e não uma surpresa descoberta pelo cliente.
+  it('a gerência recebe por padrão de fábrica', () => {
+    expect(PERMISSOES_PADRAO.gerencia.configurarSistema).toBe(true);
+    expect(pode({ cargo: 'gerencia', usuarioId: 'u2' }, {}, 'configurarSistema')).toBe(true);
+  });
+
+  it('a cozinha não recebe, e o dono pode ligar item a item', () => {
+    expect(PERMISSOES_PADRAO.cozinha.configurarSistema).toBe(false);
+    expect(pode({ cargo: 'cozinha', usuarioId: 'u3' }, {}, 'configurarSistema')).toBe(false);
+    const liberada = { porConta: { u3: { configurarSistema: true } } };
+    expect(pode({ cargo: 'cozinha', usuarioId: 'u3' }, liberada, 'configurarSistema')).toBe(true);
   });
 });
