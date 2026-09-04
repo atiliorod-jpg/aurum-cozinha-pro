@@ -97,6 +97,7 @@ export default function Admin() {
   const [enviandoSenha, setEnviandoSenha] = useState('');
   // Abrir conta de cliente pelo painel. `null` = formulário fechado.
   const [situacao, setSituacao] = useState('todos'); // todos|pagantes|teste|vencidos|bloqueados|cortesia|etiquetas|completo
+  const [vencCustom, setVencCustom] = useState({}); // { [rid]: 'aaaa-mm-dd' } — data exata do vencimento
   const [cobrando, setCobrando] = useState(null);   // { id, valor, dias, plano, extras, valorExtras, obs } | null
   const [regimeEdit, setRegimeEdit] = useState(null); // { id, regime, motivo, ate } | null
   const [pagamentos, setPagamentos] = useState(null); // { id, itens, carregando, erro } | null
@@ -238,6 +239,36 @@ export default function Admin() {
     // ativar_assinatura (migração 13) também limpa o aviso de pagamento
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, assinatura_ate: data, aviso_pagamento_em: null, aviso_pagamento_plano: null } : x));
     toast(`✅ ${r.nome}: acesso liberado até ${dataBR(data)}.`, 'sucesso');
+  };
+
+  // ⚠️ DEFINE A DATA EXATA, e é o que faltava. `ativar_assinatura` só sabe
+  // SOMAR dias a partir do vencimento atual: perfeito para renovar, incapaz de
+  // CORRIGIR. Dia lançado a mais por engano, acordo de data cheia ("vence todo
+  // dia 10"), cancelamento que precisa antecipar o fim — nada disso tinha
+  // caminho, e o dono acabava mexendo no banco à mão.
+  // Aceita data no passado (encerra) e vazio (tira a assinatura).
+  const definirVencimento = async (r, valor) => {
+    // `datetime-local` vazio = tirar a assinatura; senão, fim do dia escolhido,
+    // porque "vence dia 10" significa que o dia 10 ainda vale.
+    const ate = valor ? new Date(`${valor}T23:59:59`).toISOString() : null;
+    const ok = await confirm({
+      titulo: ate ? 'Alterar o vencimento' : 'Tirar a assinatura',
+      mensagem: ate
+        ? `A assinatura de "${r.nome}" passa a valer até ${dataBR(ate)}.
+
+Isto SUBSTITUI a data atual (${r.assinatura_ate ? dataBR(r.assinatura_ate) : 'sem data'}) — não soma dias.`
+        : `"${r.nome}" fica SEM data de assinatura.
+
+Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
+      confirmar: ate ? 'Alterar' : 'Tirar assinatura',
+      perigo: !ate,
+    });
+    if (!ok) return;
+    const { data, error } = await supabase.rpc('definir_assinatura', { p_restaurante: r.id, p_ate: ate });
+    if (error) { toast('Erro ao alterar: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, assinatura_ate: data } : x));
+    setVencCustom(p => ({ ...p, [r.id]: '' }));
+    toast(data ? `✅ ${r.nome}: vence em ${dataBR(data)}.` : `${r.nome}: assinatura removida.`, data ? 'sucesso' : 'aviso');
   };
 
   const marcarFeedback = async (fb, status) => {
@@ -1746,6 +1777,29 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         }}
                         className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1.5">
                         Liberar
+                      </button>
+                    </div>
+
+                    {/* ⚠️ SUBSTITUI, não soma — e o rótulo diz isso, porque os
+                        dois controles ficam um embaixo do outro e a diferença
+                        entre "+30d" e "vence em" é exatamente onde se erra.
+                        Deixar vazio e salvar TIRA a assinatura. */}
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mt-3 mb-1.5">
+                      Vencimento exato (substitui a data)
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <input type="date"
+                        aria-label={`Data de vencimento de ${r.nome}`}
+                        value={vencCustom[r.id] ?? (r.assinatura_ate ? String(r.assinatura_ate).slice(0, 10) : '')}
+                        onChange={e => setVencCustom(p => ({ ...p, [r.id]: e.target.value }))}
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]" />
+                      <button onClick={() => definirVencimento(r, vencCustom[r.id] ?? (r.assinatura_ate ? String(r.assinatura_ate).slice(0, 10) : ''))}
+                        className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1.5">
+                        Gravar data
+                      </button>
+                      <button onClick={() => definirVencimento(r, '')}
+                        className="text-[11px] font-bold text-red-700 border border-red-300 rounded-lg px-2.5 py-1.5">
+                        Tirar assinatura
                       </button>
                     </div>
                   </div>

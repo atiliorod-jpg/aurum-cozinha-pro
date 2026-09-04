@@ -5,6 +5,7 @@ import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import { estabelecimentoDe } from '../utils/instancias';
+import { supabase } from '../lib/supabase';
 import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
@@ -597,6 +598,22 @@ export default function EtiquetaPrint() {
   // então a memória nunca funcionaria justo no produto que vai ser vendido.
   const aoImprimir = (soEstes, umCodigoPorCopia = true) => {
     registrarImpressao(soEstes, umCodigoPorCopia);
+    // ⚠️ CONTADOR DE USO (M42), e é o ÚNICO caminho que existe para o plano
+    // Etiquetas: ele não guarda histórico de etiquetas (decisão de 30/08), e
+    // por isso o painel mostrava "0 etiquetas impressas" para toda conta
+    // daquele plano. O contador é um número por conta — a Aurum vê quanto a
+    // casa usa e continua sem ver O QUE ela etiqueta.
+    //
+    // ⚠️ Solto e sem `await`: impressão não pode esperar rede, e falhar aqui
+    // não pode atrapalhar quem está com o pote na mão. Sem internet a
+    // contagem daquele lote se perde, de propósito — pôr estatística na fila
+    // offline sairia caro no lugar errado (ver o comentário da M42).
+    const quantas = contarEtiquetas(soEstes || itens);
+    if (quantas > 0 && !sessao?.demo) {
+      supabase.rpc('contar_etiquetas_impressas', { p_quantas: quantas })
+        .then(({ error }) => { if (error) console.warn('[etiquetas] contador não somou:', error.message); })
+        .catch(() => { /* offline — ver acima */ });
+    }
     // ⚠️ `setPrefs` (plural) para gravar as duas de uma vez. Dois `setPref`
     // seguidos leriam as prefs pelo ref, que só é atualizado no efeito
     // seguinte — o segundo apagaria o primeiro.
