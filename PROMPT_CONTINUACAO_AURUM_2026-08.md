@@ -181,6 +181,71 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (09/09/2026) — A IMPRESSORA QUE TRAVAVA ANTES DE PROCURAR
+
+Teste em três Android: **dois imprimiram, um não**. No terceiro, tocar em
+imprimir deixava a tela carregando e o seletor de dispositivos **nem chegava a
+abrir**. Commit `57701fb`, publicado. 451 testes, lint 0 erros, build ok.
+
+### A causa, e por que ela só aparecia em alguns aparelhos
+
+`gatt.connect()` **não tem tempo limite, e isso é de propósito na
+plataforma**: se o aparelho não está por perto, a chamada espera até ele
+aparecer. Não resolve, não rejeita, não lança — `try/catch` não pega e o
+`await` nunca volta.
+
+O reconectar silencioso rodava **dentro do clique** de imprimir. Em celular que
+já tinha permissão salva, `getDevices()` devolvia a impressora, o código
+pendurava no connect e o seletor nunca abria. Nos celulares sem permissão a
+lista vinha vazia, o reconectar desistia na hora e tudo funcionava.
+
+⚠️ **O defeito nascia na SEGUNDA tentativa.** Passava na demonstração e chegaria
+ao cliente depois da primeira semana. Vale como padrão: qualquer coisa que
+dependa de permissão persistida do navegador tem esse formato.
+
+### O que mudou (`lib/impressoraBLE.js` e `components/EtiquetaPrint.jsx`)
+
+- **Tempo limite em tudo** (`comLimite`). Abortar um connect pendente não tem
+  API própria: quem corta é `disconnect()` no mesmo dispositivo. `Promise.race`
+  sozinho não cancela nada — a promessa perdedora continua pendurada.
+- **Reconectar saiu do clique** e virou `useEffect` na abertura do modal.
+- ⚠️ **`requestDevice` não pode ter NENHUM `await` na frente.** A "ativação
+  transitória" do toque dura ~5s e cada espera gasta esse orçamento; estourando,
+  o Chrome recusa o seletor com `NotAllowedError` e a tela acusava bloqueio de
+  permissão que não existia. A checagem de rádio ligado passou para DEPOIS da
+  falha, só para escolher a mensagem.
+- **Botão Cancelar** enquanto envia — antes não havia saída da tela travada.
+- `escolherConhecido` no lugar de `conhecidos[0]` às cegas (a permissão é por
+  site e se acumula; o primeiro pode não ser impressora).
+- Busca de serviço **na ordem declarada** em `SERVICOS_IMPRESSORA`, mais
+  **Nordic UART** (`6e400001-…`), que faltava. `getPrimaryServices()` não promete
+  ordem, e o que não está declarado em `optionalServices` não é entregue.
+- ⚠️ **Pedaço de 20 bytes TAMBÉM com confirmação.** Os 100 bytes viravam *long
+  write* (prepare+execute) acima do MTU negociado, e o firmware das térmicas
+  baratas costuma não implementar esse par. Onde o celular negocia MTU grande
+  cabia num pacote e funcionava — outro defeito que só aparecia em alguns
+  aparelhos. Como o Web Bluetooth não expõe o MTU, não dá para detectar.
+- **iPhone deixou de receber "abra no Chrome"**, que lá é falso: todo navegador
+  do iOS é obrigado a usar WebKit e nenhum implementa Web Bluetooth.
+
+### Falta confirmar
+
+O diagnóstico é firme na leitura do código e bate com o sintoma, mas **só está
+provado quando o celular daquele colega imprimir**. Se ainda falhar, o próximo
+passo combinado é uma **tela de diagnóstico** que despeje navegador, versão,
+`getAvailability`, e os serviços/características encontrados ao conectar — hoje
+a falha é muda e se investiga por adivinhação.
+
+### iPhone — decisão pendente do dono
+
+Web Bluetooth não existe no iOS e não há como contornar por código. Opções
+levantadas: **Bluefy** (navegador de terceiro, grátis, o app funciona sem mudar
+nada), extensão tipo beacio, ou **app nativo** (Capacitor + plugin BLE, US$ 99/ano
+de Apple Developer + revisão da App Store). Recomendação dada: Bluefy agora,
+nativo só quando um cliente pagante exigir iPhone.
+
+---
+
 ## Onde paramos (03/09/2026, noite) — O QUE O USO REAL MOSTROU
 
 O dono levou o app para a rua (celular de um amigo, impressão pelo computador)
