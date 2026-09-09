@@ -16,6 +16,13 @@ import { paraBytesLatin1 } from '../utils/tspl';
 // Serviços que impressoras térmicas costumam expor. O Web Bluetooth só entrega
 // um serviço DECLARADO aqui — descobrir depois de conectar não funciona, e o
 // serviço certo ficaria de fora em silêncio. Mais barato pedir demais.
+// ⚠️ A ORDEM IMPORTA. `getPrimaryServices()` devolve os serviços na ordem que o
+// Bluetooth do aparelho quiser — não há ordem definida. Uma impressora que
+// exponha DOIS serviços graváveis (o de impressão e um de configuração/OTA,
+// combinação comum) pode entregar um em cada celular, e o app escolhia o
+// primeiro que aparecesse. Quando cai no errado, ele conecta, envia, e NADA
+// sai — sem erro nenhum. Por isso a busca agora percorre esta lista NA ORDEM
+// (ver `acharCanal`), e a varredura livre virou último recurso.
 export const SERVICOS_IMPRESSORA = [
   '000018f0-0000-1000-8000-00805f9b34fb',
   '0000ff00-0000-1000-8000-00805f9b34fb',
@@ -23,6 +30,22 @@ export const SERVICOS_IMPRESSORA = [
   '0000ff80-0000-1000-8000-00805f9b34fb',
   '0000fee7-0000-1000-8000-00805f9b34fb',
   '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+  // Nordic UART — o serviço mais comum nos módulos BLE genéricos que as
+  // fábricas de impressora térmica compram prontos. Faltava na lista, e o que
+  // não está declarado aqui o Web Bluetooth NÃO entrega depois de conectar:
+  // ficaria de fora em silêncio.
+  '6e400001-b5a3-f393-e0a9-e50e24dcca9e',
+];
+
+// Dentro de um serviço pode haver mais de uma característica gravável — e de
+// novo a ordem não é definida. Estas são as de ESCRITA conhecidas de cada
+// serviço acima; quando uma delas aparece, ela ganha de qualquer outra.
+const CARACTERISTICAS_PREFERIDAS = [
+  '00002af1-0000-1000-8000-00805f9b34fb', // 18f0
+  '0000ff02-0000-1000-8000-00805f9b34fb', // ff00
+  '0000ffe1-0000-1000-8000-00805f9b34fb', // ffe0
+  '49535343-8841-43f4-a8d4-ecbe34729bb3', // Microchip/ISSC
+  '6e400002-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART RX
 ];
 
 export const bleDisponivel = () => typeof navigator !== 'undefined' && !!navigator.bluetooth;
@@ -46,6 +69,22 @@ export function ehCelular() {
   const ua = navigator.userAgent || '';
   if (/Android|iPhone|iPod|Windows Phone/i.test(ua)) return true;
   if (/iPad/i.test(ua)) return true;
+  return /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1; // iPadOS fingindo ser Mac
+}
+
+/**
+ * É iPhone/iPad?
+ *
+ * ⚠️ Serve só para ESCOLHER O TEXTO do aviso, e existe porque o conselho
+ * errado é pior que nenhum. No iOS **todo** navegador é obrigado a usar o
+ * WebKit — inclusive o Chrome —, e o WebKit não implementa Web Bluetooth.
+ * Mandar um dono de iPhone "abrir no Chrome" o faz baixar um app que dá
+ * exatamente no mesmo, e procurar defeito no aparelho dele.
+ */
+export function ehIOS() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
   return /Macintosh/i.test(ua) && navigator.maxTouchPoints > 1; // iPadOS fingindo ser Mac
 }
 
@@ -87,21 +126,80 @@ let canal = null;
 export const impressoraConectada = () => !!(dispositivo?.gatt?.connected && canal);
 export const nomeImpressora = () => dispositivo?.name || '';
 
-/** Acha a primeira característica que aceita escrita — é o canal de comandos. */
+// ── Nada pode travar a tela ────────────────────────────────────
+//
+// ⚠️ `gatt.connect()` NÃO TEM TEMPO LIMITE, e isso é de propósito na
+// plataforma: se o aparelho não está por perto, a chamada espera até ele
+// aparecer. Não resolve, não rejeita, não lança — então `try/catch` não pega e
+// o `await` nunca volta.
+//
+// Foi exatamente esse o defeito relatado: no celular que JÁ TINHA permissão
+// salva, tocar em imprimir entrava no reconectar silencioso, pendurava no
+// connect de uma impressora desligada, e o seletor de dispositivos nunca
+// chegava a abrir — a tela ficava carregando para sempre. Nos celulares sem
+// permissão salva a lista vinha vazia, o reconectar desistia na hora e tudo
+// funcionava. Ou seja: o bug só aparecia DEPOIS da primeira tentativa, o que
+// o esconderia da demonstração e o entregaria ao cliente.
+//
+// Abortar um connect pendente não tem API própria: o que funciona é chamar
+// `disconnect()` no mesmo dispositivo.
+export const LIMITE_CONEXAO_MS = 4000;
+export const LIMITE_CANAL_MS = 5000;
+
+export const ERRO_CONEXAO_DEMOROU =
+  'A impressora não respondeu. Confira se ela está ligada, por perto, e se não ficou presa em outro celular.';
+
+function comLimite(promessa, ms, aoEstourar, mensagem) {
+  let id;
+  const limite = new Promise((_, rejeitar) => {
+    id = setTimeout(() => {
+      // Melhor esforço: se abortar falhar, o tempo limite vale do mesmo jeito.
+      try { aoEstourar?.(); } catch { /* já caiu */ }
+      rejeitar(erroPT(mensagem));
+    }, ms);
+  });
+  // ⚠️ `Promise.race` não cancela a perdedora — ela continua pendurada. Quem
+  // corta de verdade é o `aoEstourar` acima; o race só devolve a tela.
+  return Promise.race([promessa, limite]).finally(() => clearTimeout(id));
+}
+
+/**
+ * A característica de escrita de um serviço.
+ *
+ * PURA de propósito (recebe a lista pronta), para ter teste sem impressora.
+ * Preferida primeiro; qualquer gravável depois.
+ */
+export function escolherCaracteristica(chars) {
+  const lista = (chars || []).filter(c => c?.properties?.write || c?.properties?.writeWithoutResponse);
+  if (!lista.length) return null;
+  const preferida = lista.find(c => CARACTERISTICAS_PREFERIDAS.includes(String(c.uuid || '').toLowerCase()));
+  return preferida || lista[0];
+}
+
+/** Acha o canal de comandos: primeiro na ordem conhecida, depois varrendo. */
 async function acharCanal(server) {
-  const servicos = await server.getPrimaryServices();
+  for (const uuid of SERVICOS_IMPRESSORA) {
+    const s = await server.getPrimaryService(uuid).catch(() => null);
+    if (!s) continue;
+    const c = escolherCaracteristica(await s.getCharacteristics().catch(() => []));
+    if (c) return c;
+  }
+  // Último recurso: a impressora expõe um serviço que não está na lista.
+  const servicos = await server.getPrimaryServices().catch(() => []);
   for (const s of servicos) {
-    const chars = await s.getCharacteristics().catch(() => []);
-    const c = chars.find(x => x.properties.write || x.properties.writeWithoutResponse);
+    const c = escolherCaracteristica(await s.getCharacteristics().catch(() => []));
     if (c) return c;
   }
   return null;
 }
 
 async function ligar(dev) {
-  const server = await dev.gatt.connect();
-  const c = await acharCanal(server);
-  if (!c) throw erroPT('Conectou, mas não achei por onde enviar os comandos.');
+  const cortar = () => { try { dev.gatt.disconnect(); } catch { /* já caiu */ } };
+  const server = await comLimite(dev.gatt.connect(), LIMITE_CONEXAO_MS, cortar, ERRO_CONEXAO_DEMOROU);
+  // ⚠️ O mesmo tratamento vale aqui: `getPrimaryService` também pendura sem
+  // resolver quando a conexão fica pela metade.
+  const c = await comLimite(acharCanal(server), LIMITE_CANAL_MS, cortar, ERRO_CONEXAO_DEMOROU);
+  if (!c) { cortar(); throw erroPT('Conectou, mas não achei por onde enviar os comandos.'); }
   dispositivo = dev;
   canal = c;
   // Se a impressora desligar ou sair de alcance, o estado tem que refletir —
@@ -138,11 +236,28 @@ export const ERRO_BLUETOOTH_DESLIGADO =
 
 export async function escolherImpressora() {
   if (!bleDisponivel()) throw erroPT('Este navegador não fala Bluetooth. Use o Chrome do Android.');
-  if (!(await bluetoothLigado())) throw erroPT(ERRO_BLUETOOTH_DESLIGADO);
-  const dev = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: SERVICOS_IMPRESSORA,
-  });
+  let dev;
+  try {
+    // ⚠️ `requestDevice` PRIMEIRO, sem nenhum `await` antes dele. Abrir o
+    // seletor exige "ativação transitória" — a marca de que o usuário acabou
+    // de tocar na tela — e ela dura só uns 5 segundos. Cada espera antes daqui
+    // gasta esse orçamento: com a checagem de rádio na frente, uma resposta
+    // lenta fazia o Chrome RECUSAR o seletor com NotAllowedError, e a tela
+    // dizia "o navegador bloqueou, toque no cadeado" — mandando a pessoa
+    // mexer onde não era o problema.
+    dev = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: SERVICOS_IMPRESSORA,
+    });
+  } catch (e) {
+    // Agora sim dá para perguntar pelo rádio: a ativação já cumpriu o papel.
+    // O seletor usa o MESMO NotFoundError para "fechei a lista" e para "a
+    // lista veio vazia"; com o rádio desligado, a segunda é a explicação certa.
+    if (e?.name === 'NotFoundError' && !(await bluetoothLigado())) {
+      throw erroPT(ERRO_BLUETOOTH_DESLIGADO);
+    }
+    throw e;
+  }
   return ligar(dev);
 }
 
@@ -154,14 +269,37 @@ export async function escolherImpressora() {
  * daí o try/catch mudo. Falhar aqui não é erro: só significa que o usuário vai
  * precisar escolher a impressora uma vez.
  */
+/**
+ * Qual dos aparelhos já autorizados tentar.
+ *
+ * ⚠️ Era `conhecidos[0]` às cegas. A permissão do Web Bluetooth é por SITE e
+ * se acumula: se a pessoa já tocou em qualquer outro aparelho na lista alguma
+ * vez, o primeiro pode não ser impressora nenhuma — e a tentativa gastava o
+ * tempo limite inteiro antes de desistir.
+ *
+ * PURA para ter teste sem impressora.
+ */
+export const pareceImpressora = (nome) =>
+  /print|impres|mdk|tspl|pos-?\d|label|etiq|thermal|térmic|termic/i.test(String(nome || ''));
+
+export function escolherConhecido(conhecidos, idAtual) {
+  const lista = (conhecidos || []).filter(Boolean);
+  if (!lista.length) return null;
+  // Esta aba já falou com uma: é ela ou nenhuma.
+  if (idAtual) return lista.find(d => d.id === idAtual) || null;
+  return lista.find(d => pareceImpressora(d.name)) || lista[0];
+}
+
 export async function reconectarSePuder() {
   if (impressoraConectada()) return dispositivo;
   if (!bleDisponivel() || !navigator.bluetooth.getDevices) return null;
   try {
     const conhecidos = await navigator.bluetooth.getDevices();
-    if (!conhecidos?.length) return null;
-    const alvo = dispositivo ? conhecidos.find(d => d.id === dispositivo.id) : conhecidos[0];
+    const alvo = escolherConhecido(conhecidos, dispositivo?.id);
     if (!alvo) return null;
+    // ⚠️ `ligar` agora tem tempo limite. Falhar aqui NÃO é erro: significa só
+    // que a pessoa vai escolher a impressora na mão. Por isso o catch mudo
+    // continua — o que mudou é que ele passou a ser alcançável.
     return await ligar(alvo);
   } catch {
     return null;
@@ -204,18 +342,31 @@ export const ERRO_CONEXAO_PERDIDA = 'Perdeu a conexão com a impressora no meio 
  * Como não dá para saber, não se chuta — escolhe-se o modo que é correto em
  * QUALQUER MTU:
  *
- *   • com confirmação (`writeValue`) → o ATT parte o valor sozinho (long
- *     write) e confirma cada pedaço. Seguro em qualquer tamanho, e a própria
+ *   • com confirmação (`writeValue`) → o ATT confirma cada pedaço, e a própria
  *     confirmação já segura o ritmo: não precisa de respiro artificial.
- *   • só sem confirmação → 20 bytes, o único tamanho que cabe garantido, e o
- *     respiro volta porque aqui não há confirmação nenhuma segurando a fila.
+ *   • só sem confirmação → o respiro volta, porque aqui não há confirmação
+ *     nenhuma segurando a fila do firmware.
+ *
+ * ⚠️ 20 BYTES NOS DOIS MODOS, e o pedaço de 100 com confirmação foi REMOVIDO.
+ * A versão anterior apostava que o ATT parte sozinho o que passa do MTU (long
+ * write) — parte mesmo, é spec. O problema é o outro lado: long write é
+ * `prepare write` + `execute write`, e o firmware das térmicas baratas
+ * frequentemente NÃO implementa esse par. Onde o celular negocia MTU grande,
+ * os 100 bytes cabem num pacote só e nada disso acontece — funciona. Onde a
+ * negociação não sobe, o mesmo código vira long write e a impressora recusa
+ * ou descarta. Era um defeito que só aparecia em ALGUNS aparelhos, e como o
+ * Web Bluetooth não expõe o MTU, não há como detectar e escolher em tempo de
+ * execução. 20 bytes é o único tamanho que cabe garantido em qualquer MTU e
+ * nunca vira long write. Custa mais chamadas; compra funcionar em todo lugar.
  *
  * Função PURA para poder ser testada sem impressora.
  */
+export const PEDACO_SEGURO = 20;
+
 export function planoDeEnvio(propriedades) {
   const p = propriedades || {};
-  if (p.write) return { modo: 'comConfirmacao', pedaco: 100, respiroMs: 0 };
-  if (p.writeWithoutResponse) return { modo: 'semConfirmacao', pedaco: 20, respiroMs: 30 };
+  if (p.write) return { modo: 'comConfirmacao', pedaco: PEDACO_SEGURO, respiroMs: 0 };
+  if (p.writeWithoutResponse) return { modo: 'semConfirmacao', pedaco: PEDACO_SEGURO, respiroMs: 30 };
   return null;
 }
 

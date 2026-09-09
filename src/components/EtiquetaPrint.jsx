@@ -16,7 +16,7 @@ import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, pod
          lembrarArmazenamentos } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL, medirEtiqueta } from '../utils/tspl';
-import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL } from '../lib/impressoraBLE';
+import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 import { produtoAtivo, produtoTem } from '../utils/produto';
@@ -292,9 +292,33 @@ export default function EtiquetaPrint() {
   // dizer onde estava. Agora o progresso é contado em ETIQUETAS, por item
   // confirmado, que é o que a pessoa vê sair do rolo.
   const [progresso, setProgresso] = useState(null); // { feitos, total } | null
+  // ⚠️ Estado de verdade, não leitura direta de `impressoraConectada()` no
+  // render: a conexão vive num módulo, fora do React, e mudá-la não repinta
+  // nada. O rótulo do botão dependia dessa leitura e só acertava por acaso.
+  const [conectada, setConectada] = useState(false);
 
   // A regra de qual caminho aparece vive em impressoraBLE, com teste.
   const { direto: mostrarDireto, dialogo: mostrarDialogo, semBluetooth } = caminhosDeImpressao();
+
+  // ⚠️ O RECONECTAR SILENCIOSO SAIU DE DENTRO DO CLIQUE, e isto é a correção
+  // do defeito que travava a tela. Antes ele rodava dentro de `imprimirDireto`:
+  // tocar em imprimir ligava o "Enviando…" e ficava esperando um `gatt.connect()`
+  // que, com a impressora desligada, NUNCA volta (a plataforma espera o
+  // aparelho aparecer, de propósito) — e o seletor de dispositivos nem chegava
+  // a abrir. Só acontecia em celular que JÁ tinha permissão salva, ou seja, a
+  // partir da segunda tentativa.
+  //
+  // Aqui ele roda ao ABRIR o modal: não precisa de gesto do usuário, não
+  // bloqueia botão nenhum, e se demorar não atrapalha — quando a pessoa tocar
+  // em imprimir, ou já está conectada, ou o seletor abre na hora.
+  useEffect(() => {
+    if (!mostrarDireto) return undefined;
+    let vivo = true;
+    reconectarSePuder()
+      .then(() => { if (vivo) setConectada(impressoraConectada()); })
+      .catch(() => { /* falhar aqui só significa escolher na mão */ });
+    return () => { vivo = false; };
+  }, [mostrarDireto]);
 
   // Espelha o estado externo numa cópia local editável — setState síncrono intencional.
   useEffect(() => {
@@ -642,9 +666,16 @@ export default function EtiquetaPrint() {
     const saiu = [];
     try {
       if (!impressoraConectada()) {
-        const voltou = await reconectarSePuder();
-        if (!voltou) await escolherImpressora();
+        // ⚠️ NENHUMA ESPERA ANTES DAQUI. O seletor de dispositivos só abre
+        // enquanto vale a "ativação transitória" do toque, que dura uns 5
+        // segundos. O reconectar silencioso, que antes vinha nesta linha,
+        // gastava esse orçamento — e quando estourava, o Chrome recusava o
+        // seletor e a tela acusava bloqueio de permissão que não existia.
+        // Agora o reconectar acontece ao abrir o modal (ver o efeito lá em
+        // cima) e aqui só sobra o que precisa do gesto.
+        await escolherImpressora();
       }
+      setConectada(true);
       for (const it of aEnviar) {
         const bloco = [{ campos: camposDe(it, loteDaCopia(it, 0)), copias: limitarCopias(it.quantidade) }];
         // O estabelecimento não vive em `config`, mas o rodapé do papel precisa
@@ -661,6 +692,8 @@ export default function EtiquetaPrint() {
     } catch (e) {
       setEnviando(false);
       setProgresso(null);
+      // A conexão pode ter caído no meio; o rótulo do botão tem de refletir.
+      setConectada(impressoraConectada());
       // ⚠️ ISTO ERA UM `return` MUDO, e foi o que apareceu no celular de um
       // amigo: tocou em conectar, não achou impressora nenhuma e a tela não
       // disse NADA — parecia que o botão não funcionava.
@@ -682,6 +715,19 @@ export default function EtiquetaPrint() {
         : '';
       avisarBLE(erroEmPortugues(e) + parcial);
     }
+  };
+
+  // ⚠️ SAÍDA DE EMERGÊNCIA. Com `enviando` ligado o botão de imprimir fica
+  // desabilitado, e antes não havia como sair: se algo pendurasse, a tela
+  // ficava em "Enviando…" até fechar o app. Agora há sempre um caminho de
+  // volta — e ele DESCONECTA, porque é o `disconnect()` que aborta uma
+  // conexão pendente (não existe cancelamento próprio no Web Bluetooth).
+  const cancelarEnvio = () => {
+    desconectar();
+    setEnviando(false);
+    setProgresso(null);
+    setConectada(false);
+    avisarBLE('Envio cancelado. Confira se a impressora está ligada e por perto, e mande de novo.', 'atencao');
   };
 
   return (
@@ -922,9 +968,15 @@ export default function EtiquetaPrint() {
               <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel}>
                 {enviando
                   ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
-                  : impressoraConectada() ? 'Imprimir na impressora'
+                  : conectada ? 'Imprimir na impressora'
                   : 'Conectar impressora e imprimir'}
               </Botao>
+              {enviando && (
+                <button type="button" onClick={cancelarEnvio}
+                  className="w-full border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">
+                  Cancelar
+                </button>
+              )}
               <p className="text-[11px] text-gray-600 text-center">
                 Sai direto, no tamanho exato. Sem janela de impressão.
               </p>
@@ -937,10 +989,19 @@ export default function EtiquetaPrint() {
             </div>
           )}
 
+          {/* ⚠️ NO IPHONE O CONSELHO É OUTRO, e o texto único que havia aqui
+              era falso lá: dizia para abrir no Chrome, mas no iOS todo
+              navegador é WebKit por imposição da Apple — o Chrome do iPhone
+              não fala Bluetooth também. A pessoa baixava o Chrome, dava no
+              mesmo, e ia procurar defeito no aparelho. */}
           {semBluetooth && (
             <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
-              Este navegador não conecta na impressora. No <strong>Chrome</strong> a etiqueta sai
-              direto, sem esta janela.
+              {ehIOS()
+                ? <>No iPhone e no iPad nenhum navegador conecta na impressora — é limitação
+                    do sistema da Apple, e trocar de navegador não resolve. Use esta janela de
+                    impressão, ou um <strong>Android</strong> para a etiqueta sair direto.</>
+                : <>Este navegador não conecta na impressora. No <strong>Chrome</strong> a
+                    etiqueta sai direto, sem esta janela.</>}
             </p>
           )}
 

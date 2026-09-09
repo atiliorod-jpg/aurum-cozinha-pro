@@ -17,7 +17,7 @@ import { custoUnitario, valorDoEstoque, curvaABC, custoDosRegistros, precoDaComp
 import { listarEstoques, estoquesAtivos, acharEstoque, estabelecimentoDe, salvarEstoque, moduloUtilizavel } from '../instancias';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque } from '../visaoEstoque';
 import { limparCacheLocal, pendenciasNaoSincronizadas } from '../../lib/cache';
-import { planoDeEnvio } from '../../lib/impressoraBLE';
+import { planoDeEnvio, escolherCaracteristica, escolherConhecido, pareceImpressora } from '../../lib/impressoraBLE';
 import { faltasDoPrimeiroUso } from '../primeiroUso';
 import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
 import { isoLocal } from '../formatters';
@@ -3664,15 +3664,15 @@ describe('plano emprestado pela Aurum (M41)', () => {
 //  A regra passou a ser escolher o modo correto em QUALQUER MTU.
 // =====================================================================
 describe('planoDeEnvio — como falar com a impressora sem chutar o MTU', () => {
-  it('havendo confirmação, usa ela: o ATT parte o valor sozinho e confirma', () => {
+  it('havendo confirmação, usa ela: o ATT confirma cada pedaço', () => {
     const p = planoDeEnvio({ write: true, writeWithoutResponse: true });
     expect(p.modo).toBe('comConfirmacao');
-    expect(p.pedaco).toBe(100);
+    expect(p.pedaco).toBe(20);
     // a própria confirmação segura o ritmo — respiro artificial só atrasaria
     expect(p.respiroMs).toBe(0);
   });
 
-  it('só sem confirmação: cai para 20 bytes, o único tamanho garantido', () => {
+  it('só sem confirmação: 20 bytes, o único tamanho garantido', () => {
     const p = planoDeEnvio({ writeWithoutResponse: true });
     expect(p.modo).toBe('semConfirmacao');
     expect(p.pedaco).toBe(20);
@@ -3680,8 +3680,14 @@ describe('planoDeEnvio — como falar com a impressora sem chutar o MTU', () => 
     expect(p.respiroMs).toBeGreaterThan(0);
   });
 
-  it('nunca passa de 20 bytes sem confirmação — era o defeito silencioso', () => {
+  // ⚠️ O pedaço de 100 com confirmação era um defeito que só aparecia em
+  // ALGUNS aparelhos: acima do MTU negociado ele vira long write (prepare +
+  // execute), que o firmware das térmicas baratas costuma não implementar.
+  // Onde o celular negocia MTU grande, cabia num pacote e funcionava.
+  it('NENHUM modo passa de 20 bytes — acima disso vira long write', () => {
+    expect(planoDeEnvio({ write: true }).pedaco).toBeLessThanOrEqual(20);
     expect(planoDeEnvio({ writeWithoutResponse: true }).pedaco).toBeLessThanOrEqual(20);
+    expect(planoDeEnvio({ write: true, writeWithoutResponse: true }).pedaco).toBeLessThanOrEqual(20);
   });
 
   it('característica que não aceita escrita nenhuma não vira plano', () => {
@@ -3689,6 +3695,83 @@ describe('planoDeEnvio — como falar com a impressora sem chutar o MTU', () => 
     expect(planoDeEnvio({})).toBe(null);
     expect(planoDeEnvio(null)).toBe(null);
     expect(planoDeEnvio(undefined)).toBe(null);
+  });
+});
+
+// =====================================================================
+//  Escolher o canal certo, num aparelho que devolve as coisas fora de ordem
+//
+//  Nem `getPrimaryServices()` nem `getCharacteristics()` prometem ordem. O
+//  app pegava "a primeira gravável que aparecer" — e numa impressora com dois
+//  serviços graváveis isso vira sorteio por aparelho. Quando sai o errado,
+//  conecta, envia e NADA sai no papel, sem erro nenhum.
+// =====================================================================
+describe('escolherCaracteristica — a conhecida ganha de qualquer gravável', () => {
+  const c = (uuid, props) => ({ uuid, properties: props });
+
+  it('prefere a característica conhecida mesmo vindo depois na lista', () => {
+    const escolhida = escolherCaracteristica([
+      c('0000abcd-0000-1000-8000-00805f9b34fb', { write: true }),
+      c('0000ff02-0000-1000-8000-00805f9b34fb', { writeWithoutResponse: true }),
+    ]);
+    expect(escolhida.uuid).toBe('0000ff02-0000-1000-8000-00805f9b34fb');
+  });
+
+  it('não havendo conhecida, fica a primeira que aceita escrita', () => {
+    const escolhida = escolherCaracteristica([
+      c('0000aaaa-0000-1000-8000-00805f9b34fb', { read: true }),
+      c('0000bbbb-0000-1000-8000-00805f9b34fb', { writeWithoutResponse: true }),
+    ]);
+    expect(escolhida.uuid).toBe('0000bbbb-0000-1000-8000-00805f9b34fb');
+  });
+
+  it('lista sem nenhuma gravável não vira canal', () => {
+    expect(escolherCaracteristica([c('x', { read: true, notify: true })])).toBe(null);
+    expect(escolherCaracteristica([])).toBe(null);
+    expect(escolherCaracteristica(null)).toBe(null);
+  });
+});
+
+// =====================================================================
+//  Qual aparelho já autorizado tentar reconectar
+//
+//  A permissão do Web Bluetooth é por SITE e se acumula. Pegar `conhecidos[0]`
+//  às cegas podia tentar um aparelho que não é impressora e gastar o tempo
+//  limite inteiro antes de desistir.
+// =====================================================================
+describe('escolherConhecido — não tenta às cegas', () => {
+  const d = (id, name) => ({ id, name });
+
+  it('havendo memória desta aba, é aquela impressora ou nenhuma', () => {
+    const lista = [d('1', 'Fone'), d('2', 'MDK-022')];
+    expect(escolherConhecido(lista, '2').id).toBe('2');
+    // a de antes sumiu da lista de permissões: não serve trocar por outra
+    expect(escolherConhecido([d('1', 'Fone')], '2')).toBe(null);
+  });
+
+  it('sem memória, prefere a que parece impressora', () => {
+    expect(escolherConhecido([d('1', 'Galaxy Buds'), d('2', 'MDK-022')], null).id).toBe('2');
+    expect(escolherConhecido([d('1', 'Relogio'), d('2', 'POS-80 Printer')], null).id).toBe('2');
+  });
+
+  it('nenhuma parecendo impressora, tenta a primeira mesmo assim', () => {
+    // o nome pode vir vazio no Android; desistir aqui tiraria o reconectar de
+    // quem tem tudo funcionando
+    expect(escolherConhecido([d('1', ''), d('2', 'Fone')], null).id).toBe('1');
+  });
+
+  it('lista vazia não vira alvo', () => {
+    expect(escolherConhecido([], null)).toBe(null);
+    expect(escolherConhecido(null, null)).toBe(null);
+  });
+
+  it('pareceImpressora reconhece os nomes que aparecem de verdade', () => {
+    expect(pareceImpressora('MDK-022')).toBe(true);
+    expect(pareceImpressora('BlueTooth Printer')).toBe(true);
+    expect(pareceImpressora('Impressora Térmica')).toBe(true);
+    expect(pareceImpressora('Galaxy Buds')).toBe(false);
+    expect(pareceImpressora('')).toBe(false);
+    expect(pareceImpressora(null)).toBe(false);
   });
 });
 
