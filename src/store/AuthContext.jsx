@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { emailDeLogin } from '../utils/contas';
 import { limparCacheLocal } from '../lib/cache';
@@ -775,8 +775,12 @@ export function AuthProvider({ children }) {
     return nivelDoCargo(sessao.cargo) >= nivelDoCargo(cargoMinimo);
   }, [sessao]);
 
-  return (
-    <AuthContext.Provider value={{
+  // ⚠️ MEMOIZADO pelo mesmo motivo do AppContext: este provider fica DENTRO do
+  // UIProvider, que guarda os toasts. Cada toast o re-renderizava e, sem o
+  // memo, entregava um `value` novo a quem chama useAuth() — cascata de
+  // re-render sem nenhuma mudança de sessão. Toda chave vai nas dependências;
+  // o eslint confere.
+  const valor = useMemo(() => ({
       sessao, carregando, usuarios, recuperando, erroDoLink: erroNaURL,
       convites, carregarConvites, revogarConvite,
       login, logout, entrarDemo, esqueceuSenha, atualizarSenha,
@@ -787,7 +791,21 @@ export function AuthProvider({ children }) {
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,
-    }}>
+    }), [
+    // `erroNaURL` fica de fora de propósito: é constante de MÓDULO, lida uma
+    // vez do endereço quando o arquivo carrega. Pôr uma variável de fora do
+    // componente na lista não faz o memo recalcular — só engana quem lê.
+    sessao, carregando, usuarios, recuperando,
+    convites, carregarConvites, revogarConvite, login, logout,
+    entrarDemo, esqueceuSenha, atualizarSenha, criarPrimeiroAdmin, reenviarConfirmacao,
+    cadastroPendenteErro, criarConvite, usarConvite, alterarCargo, desativarUsuario,
+    reativarUsuario, avisarPagamento, criarConta, trocarSenhaDe, removerConta,
+    definirApelido, temPermissao, impersonando, verComoRestaurante, sairImpersonacao,
+    derrubado, limparDerrubado,
+  ]);
+
+  return (
+    <AuthContext.Provider value={valor}>
       {children}
     </AuthContext.Provider>
   );

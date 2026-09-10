@@ -1379,8 +1379,19 @@ export function AppProvider({ children }) {
     logAudit('restaurou backup', `${(dados.entradas || []).length + (dados.saidas || []).length + (dados.compras || []).length} registros`);
   }, [persistCatalogo, logAudit]);
 
-  return (
-    <AppContext.Provider value={{
+  // ⚠️ MEMOIZADO, e isto não é micro-otimização — era um desperdício medido.
+  // A ordem dos providers é UIProvider > AuthProvider > AppProvider, e o
+  // UIContext guarda os TOASTS. Sem este useMemo, cada toast re-renderizava o
+  // AppProvider, que criava um objeto NOVO em `value`, e com isso os 34
+  // arquivos que chamam useApp() re-renderizavam junto — sem um único dado do
+  // app ter mudado. Numa cozinha, toast é o que mais acontece.
+  //
+  // ⚠️ TODA chave precisa estar nas dependências. Esquecer uma devolve dado
+  // velho para a tela, que é pior que o desperdício que isto conserta — por
+  // isso a lista é literal e o eslint (react-hooks/exhaustive-deps) confere.
+  // Todos os valores aqui já são estado, primitivo ou useCallback/useMemo, o
+  // que é o que faz a memoização valer de verdade.
+  const valor = useMemo(() => ({
       produtos, setProdutos,
       compras, addCompra, removeCompra,
       entradas, addEntrada, removeEntrada,
@@ -1414,7 +1425,23 @@ export function AppProvider({ children }) {
       rid,
       pendencias, online,
       mortos, retentarMortos, descartarMortos,
-    }}>
+    }), [
+    produtos, setProdutos, compras, addCompra, removeCompra, entradas,
+    addEntrada, removeEntrada, saidas, addSaida, removeSaida, aparas,
+    addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, ajustes,
+    addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, fichas,
+    setFichas, producoes, setProducoes, locais, setLocais, listaManual,
+    setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, setEtiquetasImpressas, permissoes,
+    setPermissoes, precos, setPrecos, estoques, estoqueAtual, estoquesDoc,
+    setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
+    setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,
+    prefs, setPref, setPrefs, moduloEfetivo, setModulo, recebimentos,
+    estoque, limparTudo, resetarProdutos, exportarBackup, importarBackup, soLeitura,
+    rid, pendencias, online, mortos, retentarMortos, descartarMortos,
+  ]);
+
+  return (
+    <AppContext.Provider value={valor}>
       {children}
     </AppContext.Provider>
   );
