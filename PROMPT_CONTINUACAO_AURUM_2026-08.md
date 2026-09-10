@@ -181,6 +181,65 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (10/09/2026, tarde) — A RODADA DE TESTES DO BITMAP
+
+Pedido: testar as últimas atualizações. O workflow de 10 agentes MORREU no
+limite semanal de uso sem entregar nada; dois deixaram probes órfãs na raiz
+(`_probe_*.test.js`) — a do bitmap estava completa e foi rodada à mão antes de
+ser apagada. Resultado: 492 testes (eram 481), lint 0 erros, build ok.
+
+### ⚠️ Sete defeitos no caminho "letra do computador", todos corrigidos
+
+A opção nasce DESLIGADA, então nenhum chegou a cliente — mas o primeiro
+apareceria na primeira etiqueta cheia de quem ligasse para testar.
+
+1. **Etiqueta cheia + nome longo estourava o rodapé** (folga 1,1 → -1,9 mm). A
+   escalada tinha perdido o degrau "nome volta a uma linha": com UM bitmap, a
+   altura vinha dele e não de `linhasNome`. Agora vão DOIS desenhos
+   (`nomeBitmaps = {1, 2}`, de `bitmapsDoNome`) e `bitmapDoNivel` escolhe por
+   nível. Medido depois, com canvas real: cabe, com 2,4 mm.
+2. **A letra encolhia até 1,5 mm** em palavra única comprida. Piso de 2,4 mm
+   (`PISO_PX`, o mínimo que o próprio app já mediu no papel); abaixo disso
+   corta com ".", como a fonte interna sempre fez.
+3. **Palavra maior que a caixa era desenhada além da borda** (561 pontos numa
+   caixa de 440), sem ".". Agora TODA linha que não cabe é encurtada.
+4. **Espaço duplo, TAB ou espaço inquebrável ganhavam um "." espúrio**
+   ("FILE  MIGNON."). O espaço é normalizado antes de tudo.
+5. **A prévia lia os DADOS do BITMAP como texto.** Pixels cujos bytes formavam
+   uma quebra de linha seguida de "BAR ..." desenhavam uma tarja fantasma; com
+   "PRINT", a prévia ficava vazia. `interpretarTSPL` agora pula os dados pelo
+   tamanho declarado — exatamente como a impressora faz.
+6. **Bitmap com tamanho que não bate com os dados** (ou altura ausente, que
+   virava NaN nas coordenadas) era aceito. ⚠️ No papel isso é grave: o firmware
+   lê bytesPorLinha × altura bytes e comeria os comandos seguintes como pixel.
+   `bitmapValido` recusa, e o nome volta à fonte interna.
+7. **Um teste passava por acidente.** "O resto fica na mesma posição" usava um
+   bitmap FALSO de 32 pontos — a altura da fonte interna. O real mede 39, e
+   tudo abaixo do nome desce 7 pontos, de propósito. O teste agora prova que
+   desce EXATAMENTE a diferença; o comentário de `montarEtiqueta` que dizia
+   "nada abaixo se desloca" também mentia e foi corrigido.
+
+⚠️ A tela passou a MEDIR com os bitmaps (`desenhos` em EtiquetaPrint.jsx).
+Antes media sem, e avisaria "cabe" sobre etiqueta que o papel entregava
+estourada.
+
+### O que foi conferido e estava certo
+- Divisão da suíte em quatro: 0 testes perdidos, 0 duplicados (diff de
+  títulos contra o arquivo antigo, recuperado do git).
+- Ordem dos hooks em EtiquetaPrint: todos antes do `return null` de render; o
+  componente é montado incondicionalmente em App.jsx, então isso importa.
+- Memo dos contextos: AppContext 72 chaves = 72 dependências; AuthContext só
+  tem `erroNaURL` fora, que é constante de módulo.
+- `totaisImpressos` e `podarEtiquetas` certos em UTC-3 e UTC, com virada de mês
+  e de ano. ⚠️ O Node no Windows ignora `TZ=` com nome de fuso — só `UTC` pegou.
+
+### Técnica que vale guardar
+Canvas SIMULADO no vitest (`globalThis.document = { createElement }` com um
+`measureText` previsível) testa a lógica do `nomeEmBitmap` sem jsdom. Ver o
+último `describe` de `etiquetas.test.js`.
+
+---
+
 ## Onde paramos (10/09/2026, madrugada) — O PAPEL, DEPOIS DO USO REAL
 
 Commits `e4f3d3e` e `b623744`. 481 testes, lint 0 erros, build ok.
