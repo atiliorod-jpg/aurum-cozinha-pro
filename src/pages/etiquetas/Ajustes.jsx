@@ -7,6 +7,7 @@ import { useAuth, CARGOS } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos,
          CartaoMeusDados } from '../../components/config/CartoesConfig';
+import CartaoMinhaSenha from '../../components/config/CartaoMinhaSenha';
 import { statusAssinatura, produtoDe, PRODUTOS } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
@@ -117,6 +118,10 @@ export default function Ajustes() {
           </p>
         </div>
       </div>
+
+      {/* ⚠️ Logo abaixo da conta: a conta entregue pela Aurum chega com a senha
+          que a Aurum sorteou, e trocar é a primeira coisa que o dono faz. */}
+      <CartaoMinhaSenha toast={toast} />
 
       {/* Upgrade — some quando a conta já é completa.
           ⚠️ DUAS TELAS DIZIAM COISAS DIFERENTES SOBRE O MESMO PLANO: o cadastro

@@ -214,11 +214,22 @@ por semana e por dia". **Feito e no ar**, migração 43 aplicada e conferida.
   517 testes, lint 0 erros, build ok. Tela NÃO vista no navegador: a
   demonstração pede nome/contato antes de abrir e a conta real pede senha.
 
-**Pergunta do dono respondida:** conta criada pelo painel do super-admin
-NÃO tem senha que alguém conheça — nasce com senha aleatória descartável
-(`supabase/functions/restaurante`), e o painel manda na hora o link de
-"escolher senha" para o e-mail do dono. Para a Aurum olhar a conta, o
-caminho é o MODO SUPORTE, não a senha do cliente.
+**Senha da conta aberta pelo painel — MUDOU no mesmo dia, a pedido do dono.**
+Antes: senha aleatória que ninguém via + link de "escolher senha" por e-mail.
+Agora (função `restaurante` versão 4, publicada em 10/09): a senha continua
+SORTEADA (12 caracteres sem letra ambígua, `senhaInicial()`), mas volta na
+resposta e o painel mostra UMA vez, com "Copiar acesso"; **nenhum e-mail sai**.
+O dono entra na conta, deixa pronta e entrega. O cliente troca a senha em
+**Administração → Trocar minha senha** (`components/config/CartaoMinhaSenha.jsx`,
+novo, só para a conta dona; também em Configurações no plano completo) — antes
+não existia troca de senha dentro do app, só pelo link de recuperação.
+Se o painel ainda estiver com a função antiga (sem `senha` na resposta), ele
+cai no link por e-mail, como era. O botão "nova senha" do cartão do
+restaurante continua mandando link por e-mail (não foi mexido — perguntar
+antes de trocar por "sortear senha nova", porque isso dá à Aurum o poder de
+entrar em qualquer conta de cliente sem ele saber).
+Perda aceita: o link provava que o e-mail existia; agora conferir o e-mail
+com o cliente na entrega.
 
 **Sentry: o dono adiou em 10/09 ("é pago") — não lembrar até ele voltar ao assunto.**
 

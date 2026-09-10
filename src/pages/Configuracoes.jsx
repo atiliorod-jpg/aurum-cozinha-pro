@@ -14,6 +14,7 @@ import { fatorCorrecaoProduto } from '../utils/analise';
 import { pode, CAPACIDADES, permissoesEfetivas } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
 import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas, CartaoContas } from '../components/config/CartoesConfig';
+import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../utils/armazenamento';
 
@@ -1407,6 +1408,9 @@ export default function Configuracoes() {
 
       {/* Instalar app no tablet */}
       <CartaoInstalarApp />
+
+      {/* Senha da conta dona — o próprio cartão some para as demais contas */}
+      <CartaoMinhaSenha toast={toast} />
 
       {/* Suporte remoto */}
       <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />

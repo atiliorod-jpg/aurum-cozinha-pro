@@ -103,6 +103,8 @@ export default function Admin() {
   const [pagamentos, setPagamentos] = useState(null); // { id, itens, carregando, erro } | null
   const [novaConta, setNovaConta] = useState(null);
   const [criandoConta, setCriandoConta] = useState(false);
+  // { nomeRestaurante, email, senha } — a conta recém-aberta, mostrada UMA vez
+  const [contaCriada, setContaCriada] = useState(null);
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
   // viram uma parede de rolagem e o painel deixa de ser consultável.
   const [aberto, setAberto] = useState('');
@@ -545,17 +547,41 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     }
     if (resp?.erro) { setCriandoConta(false); toast(resp.erro, 'erro'); return; }
 
-    // O link é o que entrega a conta. Falhar aqui NÃO desfaz o restaurante: ele
-    // existe e está certo — só reenviar pelo botão "nova senha" da lista.
-    const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
-    const { error: eLink } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo });
     setCriandoConta(false);
     setNovaConta(null);
+    // ⚠️ A SENHA APARECE AQUI, UMA VEZ, e nenhum e-mail sai (pedido do dono,
+    // 10/09/2026): ele entra na conta, deixa pronta e entrega; o cliente troca
+    // a senha depois, em Administração. Ela não é guardada em lugar nenhum —
+    // fechou o cartão sem anotar, o caminho é o "nova senha" do restaurante.
+    if (resp?.senha) {
+      setContaCriada({ nomeRestaurante: f.nomeRestaurante, email: f.email, senha: resp.senha });
+    } else {
+      // Função antiga ainda publicada (não devolve senha): cai no link, como era.
+      const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
+      const { error: eLink } = await supabase.auth.resetPasswordForEmail(f.email, { redirectTo });
+      toast(eLink
+        ? `"${f.nomeRestaurante}" criado, mas o link de senha não saiu (${eLink.message}). Reenvie por "nova senha".`
+        : `"${f.nomeRestaurante}" criado. O link de senha foi para ${f.email}.`,
+        eLink ? 'aviso' : 'sucesso', { duracao: 9000 });
+    }
     await carregar();
-    toast(eLink
-      ? `"${f.nomeRestaurante}" criado, mas o link de senha não saiu (${eLink.message}). Reenvie por "nova senha".`
-      : `"${f.nomeRestaurante}" criado. O link de senha foi para ${f.email}.`,
-      eLink ? 'aviso' : 'sucesso', { duracao: 9000 });
+  };
+
+  const copiarAcesso = async () => {
+    if (!contaCriada) return;
+    const texto = [
+      `Aurum — acesso de ${contaCriada.nomeRestaurante}`,
+      `Endereço: ${window.location.origin}${import.meta.env.BASE_URL}`,
+      `E-mail: ${contaCriada.email}`,
+      `Senha: ${contaCriada.senha}`,
+      'Troque a senha em Administração → Trocar minha senha.',
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast('Acesso copiado.', 'sucesso');
+    } catch {
+      toast('Não consegui copiar — selecione a senha e copie à mão.', 'aviso');
+    }
   };
 
   // ⚠️ O PAINEL RESPONDIA "o que há com ESTE cliente" e nada de "o que eu
@@ -1131,6 +1157,35 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
             </div>
 
             {/* ── Abrir conta de cliente ────────────────────────────── */}
+            {contaCriada && (
+              <div className="bg-white rounded-xl p-3 space-y-2 border-2 border-polo-gold" role="status">
+                <p className="text-xs font-bold text-polo-navy">Conta aberta: {contaCriada.nomeRestaurante}</p>
+                <div className="bg-polo-beige rounded-lg p-2.5 space-y-1">
+                  <p className="text-sm">
+                    <span className="text-[11px] text-gray-600">E-mail </span>
+                    <span className="font-semibold break-all">{contaCriada.email}</span>
+                  </p>
+                  <p className="text-sm">
+                    <span className="text-[11px] text-gray-600">Senha </span>
+                    <span className="font-mono font-bold text-base tracking-wide select-all">{contaCriada.senha}</span>
+                  </p>
+                </div>
+                <p className="text-[11px] text-gray-600">
+                  Copie ou anote AGORA: esta senha não aparece de novo. Falta liberar o teste no cartão
+                  da conta. Na entrega, peça ao dono para trocar a senha em Administração → Trocar minha senha.
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={copiarAcesso}
+                    className="flex-1 bg-polo-navy text-polo-gold font-bold text-xs py-2.5 rounded-lg">
+                    Copiar acesso
+                  </button>
+                  <button onClick={() => setContaCriada(null)}
+                    className="flex-1 border border-gray-200 text-gray-600 font-semibold text-xs py-2.5 rounded-lg">
+                    Já anotei
+                  </button>
+                </div>
+              </div>
+            )}
             {!novaConta ? (
               <button onClick={() => setNovaConta({
                 nomeRestaurante: '', nomeDono: '', email: '',
@@ -1144,8 +1199,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 <p className="text-xs font-bold text-polo-navy">Abrir conta de cliente</p>
                 <p className="text-[11px] text-gray-600">
                   A conta nasce SEM acesso — libere o teste no cartão dela depois de criar.
-                  O dono recebe por e-mail o link
-                  para escolher a senha dele — você não vê nem escolhe senha nenhuma.
+                  A senha é sorteada e aparece aqui uma vez; nenhum e-mail é enviado.
+                  O dono troca a senha dele depois, em Administração.
                 </p>
 
                 {[['nomeRestaurante', 'Nome do restaurante'], ['nomeDono', 'Nome do responsável'], ['email', 'E-mail do responsável']].map(([k, l]) => (

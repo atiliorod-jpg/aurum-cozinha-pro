@@ -16,13 +16,19 @@
 //  função (CNPJ válido, CNPJ único com mensagem em português) estão repetidas
 //  abaixo de propósito, com o comentário dizendo de onde vieram.
 //
-//  ⚠️ SENHA: A FUNÇÃO NÃO ACEITA UMA. Nasce aleatória e ninguém a conhece —
-//  nem o cliente, nem a Aurum. Quem entrega a conta é o link de "escolher
-//  senha", que o painel dispara logo em seguida para o e-mail do dono. Senha
-//  ditada por telefone é senha que vaza, e "senha padrão" é a que fica.
-//  De quebra, o link prova que o e-mail existe: ele é o ÚNICO caminho de
-//  recuperação do dono, e descobrir que estava errado seis meses depois é
-//  descobrir tarde.
+//  ⚠️ SENHA: NASCE SORTEADA E VOLTA PARA O PAINEL (decisão do dono, 10/09/2026).
+//  Até aqui ela nascia aleatória e NINGUÉM a via — o painel mandava um link de
+//  "escolher senha" para o e-mail do cliente. O dono pediu o contrário: ele
+//  monta a conta, entra nela, deixa pronta e só então entrega; o cliente troca
+//  a senha quando quiser (Administração → Trocar minha senha). Sem e-mail.
+//
+//  O que continua valendo da regra antiga:
+//    • nunca uma "senha padrão" — cada conta nasce com a sua, sorteada aqui;
+//    • ela volta SÓ para quem passou pela trava do super-admin (item 2 abaixo)
+//      e aparece UMA vez na tela; o texto não é guardado em lugar nenhum.
+//  O que se perdeu, e ficou aceito: o link provava que o e-mail existia. Agora
+//  um e-mail digitado errado só aparece no dia em que o dono precisar recuperar
+//  a senha — vale conferir o e-mail com o cliente na entrega.
 //
 //  O QUE ESTA FUNÇÃO CONFERE, uma por uma:
 //    1. quem chama tem sessão válida
@@ -82,11 +88,22 @@ function cnpjValido(c: string) {
   return c.slice(12) === d1 + d2;
 }
 
-// Senha que ninguém escolheu e ninguém guarda: existe só para a conta nascer
-// válida até o dono usar o link.
-const senhaDescartavel = () =>
-  Array.from(crypto.getRandomValues(new Uint8Array(24)))
-    .map((b) => b.toString(16).padStart(2, '0')).join('');
+// ⚠️ SEM 0/O E SEM 1/l/I: esta senha é LIDA na tela e DIGITADA à mão no
+// aparelho do cliente. Letra ambígua vira "senha errada" na frente dele, na
+// hora da entrega. 31 símbolos × 12 posições ≈ 59 bits — sorteio de verdade
+// (crypto), não Math.random.
+const ALFABETO = 'abcdefghjkmnpqrstuvwxyz23456789';
+const senhaInicial = () => {
+  const s: string[] = [];
+  while (s.length < 12) {
+    for (const b of crypto.getRandomValues(new Uint8Array(16))) {
+      // 248 = 31 × 8: descartar o resto evita que as primeiras letras saiam
+      // mais do que as outras
+      if (b < 248 && s.length < 12) s.push(ALFABETO[b % 31]);
+    }
+  }
+  return `${s.slice(0, 4).join('')}-${s.slice(4, 8).join('')}-${s.slice(8).join('')}`;
+};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -169,11 +186,11 @@ Deno.serve(async (req) => {
 
   try {
     // ── 3. a conta do dono ─────────────────────────────────────
+    const senha = senhaInicial();
     const { data: novo, error: eUser } = await admin.auth.admin.createUser({
       email,
-      password: senhaDescartavel(),
+      password: senha,
       // Já nasce confirmada: quem confirma é a Aurum, que falou com a pessoa.
-      // O link de senha logo em seguida é o que prova o e-mail na prática.
       email_confirm: true,
       user_metadata: { nome: nomeDono },
     });
@@ -209,7 +226,8 @@ Deno.serve(async (req) => {
       return json({ erro: ePerfil.message }, 400);
     }
 
-    return json({ ok: true, id: casa.id, usuarioId: novo.user.id });
+    // A senha só sai daqui, nesta resposta, para o super-admin que pediu.
+    return json({ ok: true, id: casa.id, usuarioId: novo.user.id, senha });
   } catch (e) {
     return json({ erro: (e as Error)?.message || 'Falha inesperada.' }, 500);
   }
