@@ -13,9 +13,9 @@
 //  desenhado. Campo novo no gerador aparece na prévia sem ninguém tocar na
 //  tela; texto que o gerador cortar aparece cortado.
 //
-//  ⚠️ ISTO NÃO GERA NADA E NÃO MUDA NADA DO QUE É IMPRESSO. Só lê. O gerador
-//  (`utils/tspl.js`) está intocado, e o caminho do diálogo do navegador
-//  continua imprimindo o MESMO HTML de sempre — ver EtiquetaPrint.jsx.
+//  ⚠️ ISTO NÃO GERA NADA E NÃO MUDA NADA DO QUE É IMPRESSO. Só lê. O caminho do
+//  diálogo do navegador continua imprimindo o MESMO HTML de sempre — ver
+//  EtiquetaPrint.jsx.
 //
 //  ⚠️ Limite honesto: a fonte da tela nunca vai ser a fonte interna da
 //  impressora, então o desenho da LETRA continua sendo aproximação. O que passa
@@ -28,19 +28,49 @@ import { LARGURA_FONTE, ALTURA_FONTE, PONTOS_POR_MM } from './tspl';
 /**
  * TSPL → o que desenhar, em PONTOS da impressora (203 DPI, 8 pontos/mm).
  *
- * Lê só o que marca tinta: `TEXT` e `BAR`. `CLS`, `GAP`, `DIRECTION` e
+ * Lê o que marca tinta: `TEXT`, `BAR` e `BITMAP`. `CLS`, `GAP`, `DIRECTION` e
  * `CODEPAGE` são preparo da impressora e não desenham nada.
  *
  * ⚠️ PARA NO PRIMEIRO `PRINT`. Um lote (`loteTSPL`) emenda várias etiquetas no
  * mesmo texto; a prévia mostra UMA. Sem esta parada, a segunda etiqueta seria
  * desenhada por cima da primeira, nas mesmas coordenadas.
+ *
+ * ⚠️ O TEXTO NÃO É CORTADO EM LINHAS DE UMA VEZ, e isso conserta um defeito
+ * provado. A versão anterior fazia `split(/\r?\n/)` no texto inteiro — só que
+ * os dados de um `BITMAP` são BINÁRIOS e podem conter qualquer byte, inclusive
+ * 0x0A. Uma linha de pixels do nome cujos bytes formassem "\nBAR 0,0,440,300"
+ * fazia a prévia desenhar uma tarja preta que o papel não tem; "\nPRINT"
+ * deixava a prévia VAZIA. A impressora nunca teve esse problema: ela lê
+ * exatamente `bytesPorLinha * altura` bytes depois da vírgula, contando, sem
+ * procurar fim de linha. Aqui passa a ser igual — o cursor pula os dados pelo
+ * tamanho declarado.
  */
 export function interpretarTSPL(texto) {
+  const s = String(texto ?? '');
   let larguraMm = 60;
   let alturaMm = 50;
   const desenho = [];
+  let pos = 0;
 
-  for (const bruta of String(texto ?? '').split(/\r?\n/)) {
+  while (pos < s.length) {
+    let fim = s.indexOf('\n', pos);
+    if (fim === -1) fim = s.length;
+    const bruta = s.slice(pos, fim);
+
+    // O cabeçalho do BITMAP nunca tem quebra de linha — só os dados podem ter.
+    const cab = bruta.match(/^\s*BITMAP\s+(-?\d+)\s*,\s*(-?\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,/i);
+    if (cab) {
+      const bytesPorLinha = +cab[3];
+      const altura = +cab[4];
+      desenho.push({ tipo: 'bitmap', x: +cab[1], y: +cab[2], bytesPorLinha, altura });
+      pos += cab[0].length + bytesPorLinha * altura;
+      // o CRLF que fecha o comando
+      if (s[pos] === '\r') pos += 1;
+      if (s[pos] === '\n') pos += 1;
+      continue;
+    }
+    pos = fim + 1;
+
     const linha = bruta.trim();
     if (!linha) continue;
 

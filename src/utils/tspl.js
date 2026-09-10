@@ -151,6 +151,35 @@ function linhaParDeValores(y, rotulo, valor, larguraUtil, margem, fonte = 2, sub
 }
 
 /**
+ * O bitmap do nome que vale PARA ESTE NÍVEL de desenho — ou nenhum.
+ *
+ * ⚠️ UM BITMAP POR NÚMERO DE LINHAS, e isto conserta um estouro medido. A
+ * primeira versão recebia UM bitmap pronto, gerado para o nível que a tela
+ * escolheu SEM ele. Como a letra da tela pede caixa mais alta, etiqueta cheia
+ * com nome longo deixava de caber — e o degrau que resolveria ("nome volta a
+ * uma linha") tinha virado enfeite: a altura vinha do bitmap fixo, não de
+ * `linhasNome`. Folga de 1,1 mm virava -1,9 mm, corpo por cima do rodapé.
+ * Com um bitmap por número de linhas, cada nível desenha o SEU.
+ *
+ * ⚠️ E SÓ VALE SE O TAMANHO DECLARADO BATER COM OS DADOS. O firmware lê
+ * exatamente `bytesPorLinha * altura` bytes depois da vírgula; se vier menos,
+ * ele come os comandos seguintes como se fossem pixel e a etiqueta sai
+ * quebrada. Altura ausente virava `NaN` nas coordenadas de tudo abaixo.
+ * Bitmap inconsistente é ignorado e o nome volta à fonte interna.
+ */
+const bitmapValido = (b) => !!b
+  && Number.isInteger(b.altura) && b.altura > 0
+  && Number.isInteger(b.bytesPorLinha) && b.bytesPorLinha > 0
+  && typeof b.dados === 'string' && b.dados.length === b.bytesPorLinha * b.altura;
+
+function bitmapDoNivel(opcoes) {
+  const mapa = opcoes?.nomeBitmaps;
+  if (!mapa) return null;
+  const b = mapa[opcoes.linhasNome ?? 1] || mapa[1] || null;
+  return bitmapValido(b) ? b : null;
+}
+
+/**
  * Comandos TSPL de UMA etiqueta.
  *
  * `campos` é o mesmo objeto que `montarCamposEtiqueta` devolve — a fonte da
@@ -197,14 +226,17 @@ function montarEtiqueta(campos, config, opcoes = {}) {
   // para saber aqui, porque o espaço que sobra depende dos campos de baixo.
   const linhasNome = quebrarEmLinhas(nome, fonteNome, 1, espacoNome, opcoes.linhasNome ?? 1);
   const ENTRELINHA = 2;
-  // ⚠️ MESMA CAIXA, DESENHADA DE OUTRO JEITO. Com `nomeBitmap`, o nome vem
-  // pronto em pixels (a letra do computador, ver utils/tsplBitmap.js) em vez
-  // da fonte interna da impressora. A GEOMETRIA não muda: o bitmap é gerado
-  // com exatamente a largura e a altura que este bloco ocuparia em texto
-  // (`medidasDoNome` devolve as duas), então nada abaixo se desloca e as
-  // medições de `melhorDesenho` continuam valendo.
-  if (opcoes.nomeBitmap) {
-    linhas.push(comandoBITMAP(margem, y, opcoes.nomeBitmap));
+  // ⚠️ O NOME PODE VIR PRONTO EM PIXEL (`nomeBitmaps`: a letra do computador,
+  // ver utils/tsplBitmap.js) em vez da fonte interna. A LARGURA é a mesma; a
+  // ALTURA não — a letra da tela gasta mais vertical no mesmo corpo, e tudo
+  // abaixo do nome desce (7 pontos numa linha, medido). O comentário que
+  // estava aqui dizia "nada abaixo se desloca", e o teste que o sustentava só
+  // passava por usar um bitmap falso com a altura da fonte interna. É seguro
+  // porque `alturaNome` lê a altura do próprio bitmap e `melhorDesenho` mede o
+  // resultado de verdade.
+  const bmpNome = bitmapDoNivel(opcoes);
+  if (bmpNome) {
+    linhas.push(comandoBITMAP(margem, y, bmpNome));
   } else {
     linhasNome.forEach((ln, i) => {
       linhas.push(...texto(margem, y + i * (ALTURA_FONTE[fonteNome] + ENTRELINHA), fonteNome, 1, ln));
@@ -219,8 +251,8 @@ function montarEtiqueta(campos, config, opcoes = {}) {
   // precisa de mais espaço vertical no mesmo corpo (acento sobe, cedilha
   // desce). Ler a altura daqui é o que faz tudo abaixo do nome se acomodar
   // sozinho, e o que permite `melhorDesenho` medir a etiqueta de verdade.
-  const alturaNome = opcoes.nomeBitmap
-    ? opcoes.nomeBitmap.altura
+  const alturaNome = bmpNome
+    ? bmpNome.altura
     : linhasNome.length * ALTURA_FONTE[fonteNome] + Math.max(0, linhasNome.length - 1) * ENTRELINHA;
   y += alturaNome + mm(1);
 
@@ -468,12 +500,12 @@ export function medirEtiqueta(campos, config, opcoes = {}) {
 /**
  * Vários itens numa tacada: cada bloco é uma etiqueta completa.
  *
- * `nomeBitmap` é POR BLOCO porque cada item tem o seu nome desenhado — um
+ * `nomeBitmaps` é POR BLOCO porque cada item tem o seu nome desenhado — um
  * bitmap só serviria para o primeiro. Ausente, o nome sai na fonte interna.
  */
 export const loteTSPL = (etiquetas, config) =>
   etiquetas
-    .map(({ campos, copias, nomeBitmap }) => etiquetaTSPL(campos, config, { copias, nomeBitmap }))
+    .map(({ campos, copias, nomeBitmaps }) => etiquetaTSPL(campos, config, { copias, nomeBitmaps }))
     .join('');
 
 /**

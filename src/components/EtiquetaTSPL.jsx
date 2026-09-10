@@ -27,14 +27,16 @@ export default function EtiquetaTSPL({ tspl, nomeImagem = null }) {
       style={{ display: 'block', background: '#fff' }}>
       {/* ⚠️ O NOME EM IMAGEM ENTRA AQUI, e não é uma recriação dele: é o MESMO
           pixel que vai para a impressora (o canvas que gerou o BITMAP do TSPL,
-          exportado em PNG). Sem isto o nome sumiria da prévia — o
-          interpretador ignora o comando BITMAP, que é binário. */}
+          exportado em PNG). O interpretador lê o cabeçalho do BITMAP e PULA os
+          dados, que são binários — quem desenha o nome é esta imagem. */}
       {nomeImagem && (
         <image href={nomeImagem.imagem}
           x={nomeImagem.caixa.x} y={nomeImagem.caixa.y}
           width={nomeImagem.caixa.largura} height={nomeImagem.caixa.altura} />
       )}
       {desenho.map((d, i) => {
+        // Já desenhado pela imagem acima; os dados dele não passam por aqui.
+        if (d.tipo === 'bitmap') return null;
         if (d.tipo === 'barra') {
           return <rect key={i} x={d.x} y={d.y} width={d.largura} height={d.altura} fill="#000" />;
         }

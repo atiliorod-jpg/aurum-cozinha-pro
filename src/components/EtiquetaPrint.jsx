@@ -17,7 +17,7 @@ import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, pod
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL, medirEtiqueta, nivelDeDesenho } from '../utils/tspl';
 import EtiquetaTSPL from './EtiquetaTSPL';
-import { nomeEmBitmap } from '../lib/nomeEmBitmap';
+import { bitmapsDoNome } from '../lib/nomeEmBitmap';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
@@ -492,47 +492,60 @@ export default function EtiquetaPrint() {
   // Payload do QR de cada item — é também a chave do cache de QR
   const payloadDe = (item, loteId) => montarPayloadQR(camposDe(item, loteId));
 
-  // ⚠️ UMA CONTA SÓ, PARA AS DUAS PERGUNTAS, e memoizada. "Cabe no papel?" e
-  // "quantas linhas o nome ganha?" são a MESMA conta: o nível escolhido é
-  // justamente o que coube. E ela é cara — desenha a etiqueta inteira em TSPL,
-  // até quatro vezes (uma por nível). Rodar isso solto no corpo do render, uma
-  // vez por item e outra por CÓPIA na área de impressão, era refazer o mesmo
-  // desenho dezenas de vezes a cada tecla digitada no modal.
-  const desenhos = useMemo(
-    () => itens.map(it => {
-      const campos = camposDe(it, loteDaCopia(it, 0));
-      const alvo = { ...config, estabelecimento };
-      return { nivel: nivelDeDesenho(campos, alvo), cabe: medirEtiqueta(campos, alvo).cabe };
-    }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe/loteDaCopia leem só itens, responsavel e props estáveis (mesmo padrão do efeito de QR acima)
-    [itens, config, estabelecimento, responsavel],
-  );
-  const nivelDoItem = (idx) => desenhos[idx]?.nivel ?? NIVEL_PADRAO;
-
   // ⚠️ O NOME COM A LETRA DA TELA, quando o dono liga em Administração.
   // Pelo Bluetooth quem desenha é a fonte INTERNA da impressora, quadrada e
   // magra; pelo computador é a fonte da tela, rasterizada — e o dono comparou
   // as duas no papel e preferiu a segunda, principalmente no nome do item.
   // Mandar a MESMA letra pelo Bluetooth só é possível mandando PIXEL.
   //
-  // ⚠️ SÓ O NOME. A etiqueta inteira em pixel são 24.000 bytes, e o BLE aqui
-  // manda 20 por escrita — daria mais de meio minuto por etiqueta. Ver o
-  // orçamento em utils/tsplBitmap.js.
+  // ⚠️ SÓ NO CAMINHO DO BLUETOOTH. No computador quem imprime é o HTML, que já
+  // tem essa letra; gerar bitmap lá seria trabalho jogado fora.
   //
-  // ⚠️ DESLIGADO por padrão: depende de o firmware da impressora aceitar o
-  // comando BITMAP, e isso só se descobre imprimindo. Falhando a geração
-  // (navegador sem canvas, contexto bloqueado), `nomeEmBitmap` devolve null e
+  // ⚠️ DOIS BITMAPS POR ITEM, um para cada número de linhas. Com um só, gerado
+  // para o nível que a tela tinha escolhido SEM ele, a escalada perdia o
+  // degrau "nome volta a uma linha" e etiqueta cheia com nome longo estourava
+  // o rodapé (folga 1,1 mm virava -1,9 mm, medido). Ver `bitmapDoNivel` em
+  // utils/tspl.js.
+  //
+  // ⚠️ DESLIGADO por padrão: depende de o firmware aceitar o comando BITMAP, e
+  // isso só se descobre imprimindo. Sem canvas, `bitmapsDoNome` devolve null e
   // tudo volta para a fonte interna sozinho.
   const letraDoComputador = config.letraDoComputador === true;
-  const nomeImagem = useMemo(
-    () => (letraDoComputador && itens.length
-      ? nomeEmBitmap(camposDe(itens[0], loteDaCopia(itens[0], 0)),
-                     { ...config, estabelecimento },
-                     desenhos[0]?.nivel?.linhasNome ?? 1)
-      : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mesmas dependências reais de `desenhos`
-    [letraDoComputador, itens, config, estabelecimento, responsavel, desenhos],
+  const usaBitmap = letraDoComputador && mostrarDireto;
+  const bitmapsPorItem = useMemo(
+    () => itens.map(it => (usaBitmap
+      ? bitmapsDoNome(camposDe(it, loteDaCopia(it, 0)), { ...config, estabelecimento })
+      : null)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe/loteDaCopia leem só itens, responsavel e props estáveis (mesmo padrão do efeito de QR acima)
+    [usaBitmap, itens, config, estabelecimento, responsavel],
   );
+
+  // ⚠️ UMA CONTA SÓ, PARA AS DUAS PERGUNTAS, e memoizada. "Cabe no papel?" e
+  // "quantas linhas o nome ganha?" são a MESMA conta: o nível escolhido é
+  // justamente o que coube. E ela é cara — desenha a etiqueta inteira em TSPL,
+  // até quatro vezes (uma por nível). Rodar isso solto no corpo do render, uma
+  // vez por item e outra por CÓPIA na área de impressão, era refazer o mesmo
+  // desenho dezenas de vezes a cada tecla digitada no modal.
+  //
+  // ⚠️ MEDE COM OS BITMAPS quando eles vão ser usados. Medindo sem, a tela
+  // dizia "cabe" sobre uma etiqueta que o papel entregava estourada.
+  const desenhos = useMemo(
+    () => itens.map((it, idx) => {
+      const campos = camposDe(it, loteDaCopia(it, 0));
+      const alvo = { ...config, estabelecimento };
+      const op = bitmapsPorItem[idx] ? { nomeBitmaps: bitmapsPorItem[idx].bitmaps } : {};
+      return { nivel: nivelDeDesenho(campos, alvo, op), cabe: medirEtiqueta(campos, alvo, op).cabe };
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe/loteDaCopia leem só itens, responsavel e props estáveis (mesmo padrão do efeito de QR acima)
+    [itens, config, estabelecimento, responsavel, bitmapsPorItem],
+  );
+  const nivelDoItem = (idx) => desenhos[idx]?.nivel ?? NIVEL_PADRAO;
+
+  // A imagem do nome na prévia é a do NÍVEL que o papel vai usar — o mesmo
+  // pixel que vai no BITMAP do TSPL, não uma recriação dele.
+  const nomeImagem = bitmapsPorItem[0]
+    ? (bitmapsPorItem[0].imagens[nivelDoItem(0).linhasNome] || bitmapsPorItem[0].imagens[1])
+    : null;
 
   // O MESMO texto que vai pelo Bluetooth, para a prévia desenhar em vez de
   // adivinhar. Uma etiqueta só (a primeira), sem cópias: o interpretador para
@@ -540,11 +553,11 @@ export default function EtiquetaPrint() {
   const tsplDaPrevia = useMemo(
     () => (itens.length
       ? loteTSPL([{ campos: camposDe(itens[0], loteDaCopia(itens[0], 0)), copias: 1,
-                    nomeBitmap: nomeImagem?.bitmap }],
+                    nomeBitmaps: bitmapsPorItem[0]?.bitmaps }],
                  { ...config, estabelecimento })
       : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mesmas dependências reais de `desenhos` acima
-    [itens, config, estabelecimento, responsavel, nomeImagem],
+    [itens, config, estabelecimento, responsavel, bitmapsPorItem],
   );
 
   // Gera os QR codes quando ligado (async — toDataURL é Promise).
@@ -786,13 +799,11 @@ export default function EtiquetaPrint() {
       setConectada(true);
       for (const it of aEnviar) {
         const campos = camposDe(it, loteDaCopia(it, 0));
-        // ⚠️ UM BITMAP POR ITEM: cada nome é um desenho diferente. Reaproveitar
-        // o da prévia mandaria o nome do PRIMEIRO item em todas as etiquetas.
-        const bmp = letraDoComputador
-          ? nomeEmBitmap(campos, { ...config, estabelecimento },
-                         nivelDoItem(itens.indexOf(it)).linhasNome)
-          : null;
-        const bloco = [{ campos, copias: limitarCopias(it.quantidade), nomeBitmap: bmp?.bitmap }];
+        // ⚠️ OS BITMAPS DESTE ITEM, não os da prévia: cada nome é um desenho
+        // diferente, e reaproveitar o do primeiro mandaria o mesmo nome em
+        // todas as etiquetas. Vão os dois tamanhos — quem escolhe é a escalada.
+        const bloco = [{ campos, copias: limitarCopias(it.quantidade),
+                         nomeBitmaps: bitmapsPorItem[itens.indexOf(it)]?.bitmaps }];
         // O estabelecimento não vive em `config`, mas o rodapé do papel precisa
         // dele para ficar igual à prévia da tela.
         await enviarTSPL(loteTSPL(bloco, { ...config, estabelecimento }));

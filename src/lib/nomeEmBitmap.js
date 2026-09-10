@@ -1,12 +1,22 @@
 import { bitmapTSPL } from '../utils/tsplBitmap';
 import { medidasDoNome, corpoDoNomeMm, PONTOS_POR_MM } from '../utils/tspl';
 
+const FAMILIA = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
+
+// ⚠️ PISO DE 2,4 mm, e é o número que este próprio app já mediu no papel:
+// numa térmica, letra menor que isso perde o traço (ver o rodapé em
+// `EtiquetaLabel`, components/EtiquetaPrint.jsx). O laço de encolher descia
+// até 8 px — 1 mm —, e um nome de palavra única comprida saía com 1,5 mm,
+// ilegível, onde a fonte interna simplesmente cortava com ".". Abaixo do piso
+// não se encolhe mais: corta-se, como a fonte interna sempre fez.
+const PISO_PX = Math.round(2.4 * PONTOS_POR_MM);
+
 /**
  * O nome do produto desenhado com a LETRA DA TELA, pronto para o TSPL.
  *
  * ⚠️ Vive em `lib/` e não em `utils/` porque precisa de `canvas` — é código de
  * navegador, e `utils/` é onde mora o que roda também no teste (este projeto
- * não tem jsdom).
+ * não tem jsdom; os testes daqui simulam o canvas).
  *
  * ⚠️ A QUEBRA DE LINHA AQUI É PELA LARGURA REAL DA FONTE, medida no canvas —
  * não pela métrica da impressora. É metade do ganho: a fonte interna é de
@@ -20,10 +30,15 @@ import { medidasDoNome, corpoDoNomeMm, PONTOS_POR_MM } from '../utils/tspl';
  */
 export function nomeEmBitmap(campos, config, linhasDeNome = 1) {
   if (typeof document === 'undefined') return null;
-  const nome = (campos?.nome || '').toUpperCase().trim();
+  // ⚠️ ESPAÇO NORMALIZADO ANTES DE TUDO. "File  Mignon" (dois espaços, um TAB,
+  // um espaço inquebrável colado de mensagem) ganhava um "." no fim: a
+  // conferência "coube tudo?" comparava o nome remontado com UM espaço contra
+  // o original com dois. Saía "FILE  MIGNON." — cara de nome cortado num nome
+  // que cabia inteiro.
+  const nome = String(campos?.nome || '').replace(/\s+/g, ' ').trim().toUpperCase();
   if (!nome) return null;
 
-  const caixa = medidasDoNome(campos, config, linhasDeNome, true);
+  const caixa = medidasDoNome({ ...campos, nome }, config, linhasDeNome, true);
   if (!caixa.largura || !caixa.altura) return null;
 
   let cv;
@@ -42,32 +57,28 @@ export function nomeEmBitmap(campos, config, linhasDeNome = 1) {
   // só, e a segunda linha sairia por baixo do corte.
   const maxLinhas = Math.max(1, caixa.linhas.length);
   const alturaLinha = caixa.altura / maxLinhas;
-  const familia = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif';
 
   // ⚠️ O TAMANHO É O MESMO QUE A ETIQUETA DO COMPUTADOR USA, e isso é o pedido
   // inteiro: o dono comparou os dois papéis e preferiu a letra do computador.
-  // Copiar a regra dele (3,9 mm, caindo para 3,2 mm em nome comprido — ver
-  // `EtiquetaLabel` em components/EtiquetaPrint.jsx) é o que faz as duas
-  // impressões saírem iguais. Perseguir "preencher a caixa" daria OUTRA letra,
-  // maior que a do computador, que é justamente o que não foi pedido.
+  // `corpoDoNomeMm` é a regra dele, num lugar só. Perseguir "preencher a
+  // caixa" daria OUTRA letra, maior que a do computador.
   //
   // ⚠️ Duas tentativas anteriores erraram por medir a régua errada: "86% da
   // altura da linha" saiu pequeno (a maiúscula é ~2/3 do corpo), e medir 'MÁQ'
-  // deixou o ACENTO mandar no tamanho — o Á sozinho tirava 3 pontos de corpo
-  // de todo nome, mesmo dos que não têm acento nenhum. Agora a régua é o
-  // PRÓPRIO NOME.
-  let tamanho = Math.max(8, Math.round(corpoDoNomeMm(nome) * PONTOS_POR_MM));
-
+  // deixou o ACENTO mandar no tamanho de todo nome, até dos sem acento. A
+  // régua é o PRÓPRIO NOME.
+  let tamanho = Math.max(PISO_PX, Math.round(corpoDoNomeMm(nome) * PONTOS_POR_MM));
+  const usarFonte = () => { ctx.font = `800 ${tamanho}px ${FAMILIA}`; };
   const cabe = () => {
-    ctx.font = `800 ${tamanho}px ${familia}`;
+    usarFonte();
     const m = ctx.measureText(nome);
     const alto = (m.actualBoundingBoxAscent || tamanho * 0.72) + (m.actualBoundingBoxDescent || 0);
     // largura vale para o total: com duas linhas, o nome se reparte entre elas
     return alto <= alturaLinha && m.width <= caixa.largura * maxLinhas;
   };
-  // Encolhe só se não couber — nome comprido perde corpo antes de perder letra.
-  while (tamanho > 8 && !cabe()) tamanho -= 1;
-  ctx.font = `800 ${tamanho}px ${familia}`;
+  // Encolhe só se não couber, e só até o piso — dali para baixo, corta.
+  while (tamanho > PISO_PX && !cabe()) tamanho -= 1;
+  usarFonte();
 
   // ⚠️ Linha de base pela subida MEDIDA, não pelo topo da caixa: com
   // `textBaseline: 'top'` o navegador usa a métrica do corpo (que reserva
@@ -77,42 +88,36 @@ export function nomeEmBitmap(campos, config, linhasDeNome = 1) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#000';
 
-  // Quebra pelas palavras, medindo de verdade.
-  const palavras = nome.split(/\s+/);
-  const linhas = [];
+  const cabeNaLinha = (t) => ctx.measureText(t).width <= caixa.largura;
+  const encurtar = (t) => {
+    let r = t;
+    while (r.length > 1 && !cabeNaLinha(`${r}.`)) r = r.slice(0, -1);
+    return `${r}.`;
+  };
+
+  // Quebra pelas palavras, medindo de verdade. Palavra que sozinha já não cabe
+  // fica numa linha só dela — e é cortada abaixo.
+  const todas = [];
   let atual = '';
-  for (const p of palavras) {
+  for (const p of nome.split(' ')) {
     const tentativa = atual ? `${atual} ${p}` : p;
-    if (ctx.measureText(tentativa).width <= caixa.largura || !atual) {
-      atual = tentativa;
-    } else {
-      linhas.push(atual);
-      atual = p;
-      if (linhas.length === maxLinhas) break;
-    }
+    if (atual && !cabeNaLinha(tentativa)) { todas.push(atual); atual = p; } else { atual = tentativa; }
   }
-  if (linhas.length < maxLinhas && atual) linhas.push(atual);
+  if (atual) todas.push(atual);
 
-  // Sobrou texto que não coube nas linhas disponíveis: corta a última com o
-  // mesmo "." que a fonte interna usa, para o papel não mentir que acabou ali.
-  const usadas = linhas.slice(0, maxLinhas);
-  if (usadas.length && usadas.join(' ') !== nome) {
-    // Não coube nas linhas disponíveis. A última passa a mostrar TUDO que
-    // sobrou, encurtado até caber, com o mesmo "." que a fonte interna usa —
-    // o papel não pode dar a entender que o nome acabou ali.
-    const anteriores = usadas.slice(0, -1).join(' ');
-    let resto = nome.slice(anteriores.length).trim();
-    while (resto.length > 1 && ctx.measureText(`${resto}.`).width > caixa.largura) {
-      resto = resto.slice(0, -1);
-    }
-    usadas[usadas.length - 1] = `${resto}.`;
-  }
+  // Sobrou linha além das que a caixa tem: a última recebe TODO o resto.
+  const usadas = todas.length > maxLinhas
+    ? [...todas.slice(0, maxLinhas - 1), todas.slice(maxLinhas - 1).join(' ')]
+    : todas;
 
-  // ⚠️ Desenha pela LINHA DE BASE, deslocada pela subida medida — não pelo
-  // topo da caixa. Com `textBaseline: 'top'` o navegador usa a métrica do
-  // corpo (que inclui espaço para acento e descida), e a maiúscula ficava
-  // flutuando com uma folga que não existe numa etiqueta de 50 mm.
-  usadas.forEach((l, i) => ctx.fillText(l, 0, Math.round(i * alturaLinha + subida)));
+  // ⚠️ TODA LINHA QUE NÃO CABE É CORTADA COM ".", não só a última. A versão
+  // anterior só olhava "sobrou texto?" — e uma palavra única maior que a caixa
+  // não sobra: ela entra inteira na linha e é desenhada além da borda. Medido:
+  // 561 pontos de texto numa caixa de 440, cortado no meio de uma letra, sem
+  // o ponto que avisa que o nome continuava.
+  const linhas = usadas.map((l) => (cabeNaLinha(l) ? l : encurtar(l)));
+
+  linhas.forEach((l, i) => ctx.fillText(l, 0, Math.round(i * alturaLinha + subida)));
 
   let pixels;
   try {
@@ -127,5 +132,27 @@ export function nomeEmBitmap(campos, config, linhasDeNome = 1) {
     // que vai para a impressora.
     imagem: cv.toDataURL('image/png'),
     caixa,
+    linhas,
+    tamanho,
+  };
+}
+
+/**
+ * Os DOIS desenhos do nome — em uma linha e em duas.
+ *
+ * ⚠️ É o que devolve à escalada de níveis (`melhorDesenho`, utils/tspl.js) o
+ * degrau "nome volta a uma linha". Com um desenho só, a altura do nome ficava
+ * cravada e a etiqueta cheia com nome longo estourava o rodapé. Quem escolhe
+ * qual dos dois vai para o papel é a escalada, via `nomeBitmaps`.
+ *
+ * Para nome curto os dois são iguais (a caixa de duas linhas reserva uma só).
+ */
+export function bitmapsDoNome(campos, config) {
+  const um = nomeEmBitmap(campos, config, 1);
+  if (!um) return null;
+  const dois = nomeEmBitmap(campos, config, 2) || um;
+  return {
+    bitmaps: { 1: um.bitmap, 2: dois.bitmap },
+    imagens: { 1: um, 2: dois },
   };
 }

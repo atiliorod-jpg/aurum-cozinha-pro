@@ -1570,15 +1570,21 @@ describe('medidasDoNome — a caixa que o canvas tem de respeitar', () => {
   });
 });
 
-describe('nomeBitmap no gerador — troca o desenho, não a geometria', () => {
+describe('nomeBitmaps no gerador — um desenho do nome por número de linhas', () => {
   const SEP = String.fromCharCode(13) + String.fromCharCode(10);
   const cfg = { larguraMm: 60, alturaMm: 50, campos: {} };
   const campos = { nome: 'Picanha', rotuloData: 'MANIPULACAO', dataFabricacaoFmt: '09/09/2026' };
-  const bmpFalso = { bytesPorLinha: 55, altura: 32, dados: 'x'.repeat(55 * 32) };
+  // Bitmap branco no tamanho REAL da caixa que o app gera — nunca um número
+  // inventado (ver o teste de deslocamento abaixo, que já mentiu por isso).
+  const bmpDaCaixa = (cp, cf, linhas) => {
+    const c = medidasDoNome(cp, cf, linhas, true);
+    return bitmapTSPL(new Uint8ClampedArray(c.largura * c.altura * 4).fill(255), c.largura, c.altura);
+  };
+  const doisTamanhos = (cp, cf) => ({ 1: bmpDaCaixa(cp, cf, 1), 2: bmpDaCaixa(cp, cf, 2) });
 
   it('com bitmap, o nome sai como BITMAP e não como TEXT', () => {
-    const t = etiquetaTSPL(campos, cfg, { nomeBitmap: bmpFalso });
-    expect(t).toContain('BITMAP 20,16,55,32,0,');
+    const t = etiquetaTSPL(campos, cfg, { nomeBitmaps: doisTamanhos(campos, cfg) });
+    expect(t).toContain('BITMAP 20,16,55,39,0,');
     expect(t).not.toContain('"PICANHA"');
   });
 
@@ -1586,11 +1592,159 @@ describe('nomeBitmap no gerador — troca o desenho, não a geometria', () => {
     expect(etiquetaTSPL(campos, cfg)).toContain('"PICANHA"');
   });
 
-  // ⚠️ A geometria tem de ficar IDÊNTICA: o bitmap ocupa a mesma caixa que o
-  // texto ocuparia, senão tudo abaixo dele desce e o rodapé é atropelado.
-  it('o resto da etiqueta fica na mesma posição', () => {
-    const semBmp = etiquetaTSPL(campos, cfg).split(SEP).filter(l => l.includes('MANIPULACAO'));
-    const comBmp = etiquetaTSPL(campos, cfg, { nomeBitmap: bmpFalso }).split(SEP).filter(l => l.includes('MANIPULACAO'));
-    expect(comBmp).toEqual(semBmp);
+  // ⚠️ ESTE TESTE JÁ MENTIU. Ele se chamava "o resto da etiqueta fica na mesma
+  // posição" e passava — porque usava um bitmap FALSO de 32 pontos, exatamente
+  // a altura da fonte interna. O bitmap real mede 39, e tudo abaixo do nome
+  // desce 7 pontos. O deslocamento é INTENCIONAL (a letra da tela pede mais
+  // vertical no mesmo corpo); o que precisa ser verdade é que ele é EXATAMENTE
+  // a diferença de altura da caixa — nem mais, nem menos.
+  it('o resto da etiqueta desce exatamente a diferença de altura da caixa', () => {
+    const bmps = doisTamanhos(campos, cfg);
+    const dif = bmps[1].altura - medidasDoNome(campos, cfg, 1, false).altura;
+    expect(dif).toBeGreaterThan(0);
+    const yDe = (t) => Number(t.split(SEP).find(l => l.includes('MANIPULACAO')).split(',')[1]);
+    expect(yDe(etiquetaTSPL(campos, cfg, { nomeBitmaps: bmps })) - yDe(etiquetaTSPL(campos, cfg))).toBe(dif);
+  });
+
+  // ⚠️ O DEFEITO QUE A PROVA ACHOU. Com UM bitmap, gerado para o nível que a
+  // tela escolheu SEM ele, a etiqueta cheia com nome longo deixava de caber
+  // (folga 1,1 mm -> -1,9 mm) e a escalada não conseguia ceder o nome, porque a
+  // altura vinha do bitmap fixo e não de `linhasNome`.
+  it('etiqueta cheia com nome longo continua cabendo com a letra do computador', () => {
+    const cheia = {
+      nome: 'Bacalhau dessalgado desfiado para bolinho da casa', medida: '1,5 kg',
+      rotuloData: 'MANIPULACAO', dataFabricacaoFmt: '10/09/2026 - 10:00',
+      validadeFmt: '09/03/2027 - 10:00', valOriginalFmt: '01/12/2026',
+      marca: 'Riberalves / Distribuidora', sif: 'SIF 1234', lote: 'L-2026-0912-AB',
+      sifLoteRotulo: 'SIF / LOTE:', sifLoteValor: 'SIF 1234 - L-2026-0912-AB',
+      responsavel: 'Maria das Gracas Silva', armazenamentoLabel: 'CONGELADO',
+      armazenamentoFaixa: '-18C a -12C', restauranteNome: 'Restaurante Exemplo da Cozinha',
+    };
+    const alvo = { ...cfg, estabelecimento: { cnpj: '12.345.678/0001-90',
+      endereco: 'Av. Conselheiro Aguiar, 1234 - Boa Viagem', cidade: 'Recife/PE', cep: '51020-000' } };
+    expect(medirEtiqueta(cheia, alvo).cabe).toBe(true);           // sem bitmap já cabia
+    const op = { nomeBitmaps: doisTamanhos(cheia, alvo) };
+    expect(medirEtiqueta(cheia, alvo, op).cabe).toBe(true);       // e com bitmap continua
+    expect(nivelDeDesenho(cheia, alvo, op).linhasNome).toBe(1);   // cedendo o nome
+  });
+
+  // ⚠️ O firmware lê exatamente bytesPorLinha*altura bytes depois da vírgula;
+  // se o bitmap declarar um tamanho e trouxer outro, ele come os comandos
+  // seguintes como se fossem pixel. E altura ausente virava NaN nas
+  // coordenadas de tudo abaixo do nome.
+  it('bitmap cujo tamanho não bate com os dados é ignorado', () => {
+    const torto = { bytesPorLinha: 55, altura: 39, dados: 'x'.repeat(10) };
+    const t = etiquetaTSPL(campos, cfg, { nomeBitmaps: { 1: torto, 2: torto } });
+    expect(t).not.toContain('BITMAP');
+    expect(t).toContain('"PICANHA"');
+    for (const altura of [0, -5, 2.5, undefined]) {
+      const b = { bytesPorLinha: 55, altura, dados: '' };
+      expect(etiquetaTSPL(campos, cfg, { nomeBitmaps: { 1: b, 2: b } })).not.toMatch(/NaN|BITMAP/);
+    }
+  });
+});
+
+describe('interpretarTSPL pula os DADOS do BITMAP em vez de lê-los como texto', () => {
+  const cfg = { larguraMm: 60, alturaMm: 50, campos: {} };
+  const campos = { nome: 'Picanha', rotuloData: 'MANIPULACAO', dataFabricacaoFmt: '09/09/2026',
+                   validadeFmt: '12/09/2026 - 10:00', responsavel: 'ANA' };
+  // pixels que produzem exatamente os bytes de `txt` (bit 1 = branco)
+  const bitmapComBytes = (txt) => {
+    const d = [];
+    for (const ch of txt) {
+      const v = ch.charCodeAt(0);
+      for (let b = 0; b < 8; b++) { const c = (v >> (7 - b)) & 1 ? 255 : 0; d.push(c, c, c, 255); }
+    }
+    return bitmapTSPL(d, 8, txt.length);
+  };
+  const semOBitmap = (desenho) => desenho.filter(d => d.tipo !== 'bitmap');
+
+  // ⚠️ A prova achou os dois primeiros: pixels cujos bytes formam "\nBAR ..."
+  // faziam a prévia desenhar uma tarja preta que o papel não tem, e "\nPRINT"
+  // deixava a prévia VAZIA. O parser cortava o texto em toda quebra de linha,
+  // inclusive dentro da imagem — que é binário, não texto.
+  for (const veneno of ['\nBAR 0,0,440,300', '\nPRINT 1,1', '\r\nTEXT 0,0,"4",0,1,1,"FANTASMA"']) {
+    it(`pixels com ${JSON.stringify(veneno.trim().slice(0, 12))} não viram comando na prévia`, () => {
+      const bmp = bitmapComBytes(veneno);
+      const limpo = bitmapComBytes(' '.repeat(veneno.length));
+      const lido = interpretarTSPL(etiquetaTSPL(campos, cfg, { nomeBitmaps: { 1: bmp, 2: bmp } }));
+      const base = interpretarTSPL(etiquetaTSPL(campos, cfg, { nomeBitmaps: { 1: limpo, 2: limpo } }));
+      expect(semOBitmap(lido.desenho)).toEqual(semOBitmap(base.desenho));
+      expect(lido.desenho.filter(d => d.tipo === 'bitmap')).toHaveLength(1);
+      expect(semOBitmap(lido.desenho).length).toBeGreaterThan(0);
+    });
+  }
+});
+
+describe('nomeEmBitmap — a letra do computador, com canvas simulado', () => {
+  const cfg = { larguraMm: 60, alturaMm: 50, campos: {} };
+  // Canvas de mentira com métrica previsível: largura = letras × corpo × 0,6.
+  // O projeto não tem jsdom; o que se prova aqui é a LÓGICA (quebra, corte,
+  // piso), não o desenho da letra — esse só se vê no navegador e no papel.
+  const comCanvasFalso = async (fn) => {
+    let corpo = 10;
+    const ctx = {
+      set font(v) { corpo = parseInt(String(v).match(/(\d+)px/)[1], 10); },
+      get font() { return `800 ${corpo}px x`; },
+      measureText: (t) => ({ width: String(t).length * corpo * 0.6,
+        actualBoundingBoxAscent: corpo * 0.72, actualBoundingBoxDescent: corpo * 0.2 }),
+      fillRect() {}, fillText() {},
+      getImageData: (x, y, w, h) => ({ data: new Uint8ClampedArray(w * h * 4).fill(255) }),
+    };
+    const cv = { width: 0, height: 0, getContext: () => ctx, toDataURL: () => 'data:image/png;base64,' };
+    const anterior = globalThis.document;
+    globalThis.document = { createElement: () => cv };
+    try {
+      const m = await import('../../lib/nomeEmBitmap');
+      return fn(m, (t, px) => String(t).length * px * 0.6);
+    } finally {
+      if (anterior === undefined) delete globalThis.document; else globalThis.document = anterior;
+    }
+  };
+
+  // ⚠️ Dois espaços, TAB ou espaço inquebrável colado de mensagem ganhavam um
+  // "." no fim: a conferência comparava o nome remontado com UM espaço contra o
+  // original. Nome inteiro com cara de nome cortado.
+  it('espaço duplo, TAB e nbsp não inventam o ponto de corte', () => comCanvasFalso(({ nomeEmBitmap }) => {
+    for (const nome of ['File  Mignon', 'File\tMignon', 'File Mignon', '  File Mignon  ']) {
+      expect(nomeEmBitmap({ nome }, cfg, 1).linhas).toEqual(['FILE MIGNON']);
+    }
+  }));
+
+  // ⚠️ O laço de encolher descia até 8 px (1 mm). Nome de palavra única
+  // comprida saía com 1,5 mm — ilegível numa térmica —, onde a fonte interna
+  // simplesmente cortava com ".".
+  it('nunca encolhe abaixo de 2,4 mm: corta com "." em vez de sumir', () => comCanvasFalso(({ nomeEmBitmap }, larg) => {
+    const r = nomeEmBitmap({ nome: 'X'.repeat(60) }, cfg, 1);
+    expect(r.tamanho).toBeGreaterThanOrEqual(Math.round(2.4 * 8));
+    expect(r.linhas).toHaveLength(1);
+    expect(r.linhas[0].endsWith('.')).toBe(true);
+    expect(larg(r.linhas[0], r.tamanho)).toBeLessThanOrEqual(r.caixa.largura);
+  }));
+
+  // ⚠️ Palavra única maior que a caixa não "sobrava" — entrava inteira e era
+  // desenhada além da borda: 561 pontos numa caixa de 440, sem o ponto.
+  it('palavra maior que a linha é cortada com "." em vez de estourar a borda', () => comCanvasFalso(({ nomeEmBitmap }, larg) => {
+    const r = nomeEmBitmap({ nome: 'AB CDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKL' }, cfg, 2);
+    for (const l of r.linhas) expect(larg(l, r.tamanho)).toBeLessThanOrEqual(r.caixa.largura);
+    expect(r.linhas[r.linhas.length - 1].endsWith('.')).toBe(true);
+  }));
+
+  it('nome comprido que cabe em duas linhas sai inteiro, sem ponto', () => comCanvasFalso(({ nomeEmBitmap }) => {
+    const nome = 'Bacalhau dessalgado desfiado para bolinho da casa';
+    const r = nomeEmBitmap({ nome }, cfg, 2);
+    expect(r.linhas.join(' ')).toBe(nome.toUpperCase());
+    expect(r.linhas.some(l => l.endsWith('.'))).toBe(false);
+  }));
+
+  it('bitmapsDoNome devolve os dois tamanhos, e null quando não há o que desenhar', () => comCanvasFalso(({ bitmapsDoNome }) => {
+    const r = bitmapsDoNome({ nome: 'Bacalhau dessalgado desfiado para bolinho da casa' }, cfg);
+    expect(r.bitmaps[2].altura).toBeGreaterThan(r.bitmaps[1].altura);
+    expect(bitmapsDoNome({ nome: '   ' }, cfg)).toBe(null);
+  }));
+
+  it('sem canvas (fora do navegador) cai na fonte interna', async () => {
+    const { nomeEmBitmap } = await import('../../lib/nomeEmBitmap');
+    expect(nomeEmBitmap({ nome: 'Picanha' }, cfg, 1)).toBe(null);
   });
 });
