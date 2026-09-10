@@ -186,9 +186,9 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 Pedido: testar as últimas atualizações. O workflow de 10 agentes MORREU no
 limite semanal de uso sem entregar nada; dois deixaram probes órfãs na raiz
 (`_probe_*.test.js`) — a do bitmap estava completa e foi rodada à mão antes de
-ser apagada. Resultado: 492 testes (eram 481), lint 0 erros, build ok.
+ser apagada. Resultado: 493 testes (eram 481), lint 0 erros, build ok.
 
-### ⚠️ Sete defeitos no caminho "letra do computador", todos corrigidos
+### ⚠️ Oito defeitos no caminho "letra do computador", todos corrigidos
 
 A opção nasce DESLIGADA, então nenhum chegou a cliente — mas o primeiro
 apareceria na primeira etiqueta cheia de quem ligasse para testar.
@@ -218,6 +218,16 @@ apareceria na primeira etiqueta cheia de quem ligasse para testar.
    tudo abaixo do nome desce 7 pontos, de propósito. O teste agora prova que
    desce EXATAMENTE a diferença; o comentário de `montarEtiqueta` que dizia
    "nada abaixo se desloca" também mentia e foi corrigido.
+
+8. **O nome perdia o fim mesmo cabendo.** Já estava na primeira versão do nome
+   em imagem; apareceu na captura de tela desta rodada. "Cabe?" comparava a
+   largura do nome numa linha só com "largura × linhas", esquecendo a sobra
+   que a quebra por palavra deixa no fim de cada linha: saía "BACALHAU
+   DESSALGADO / DESFIADO PARA BOLINHO DA C.", enquanto a fonte interna (opção
+   desligada) mostrava o nome inteiro. Agora "cabe" é o nome JÁ QUEBRADO:
+   encolhe até caber inteiro e só corta no piso. O mesmo nome sai inteiro a
+   3,0 mm. ⚠️ Com medida ao lado (caixa de 316 pontos), nome longo corta nos
+   DOIS modos — o bitmap ainda mostra um pouco mais que a fonte interna.
 
 ⚠️ A tela passou a MEDIR com os bitmaps (`desenhos` em EtiquetaPrint.jsx).
 Antes media sem, e avisaria "cabe" sobre etiqueta que o papel entregava
