@@ -30,7 +30,7 @@ import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX,
          lembrarArmazenamentos, armazenamentoInicial } from '../etiquetas';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
-import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM, medirEtiqueta } from '../tspl';
+import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM, medirEtiqueta, quebrarEmLinhas, nivelDeDesenho } from '../tspl';
 import { caminhosDeImpressao, ehCelular } from '../../lib/impressoraBLE';
 import { traduzErroAuth } from '../erros';
 import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
@@ -1014,11 +1014,15 @@ describe('produto contratado (utils/produto.js)', () => {
     expect(produtoTem('etiquetas', 'administracao')).toBe(false);
   });
 
-  // ⚠️ Cada etiqueta impressa virava uma linha gravada e enviada ao servidor.
-  // Quem le essas linhas sao a contagem por camera do Inventario e a tela de
-  // Validades — as duas FORA deste produto. Era escrita para ninguem.
-  it('etiquetas não guarda registro do que foi impresso', () => {
-    expect(produtoTem('etiquetas', 'historicoEtiquetas')).toBe(false);
+  // ⚠️ ESTA REGRA FOI INVERTIDA EM 09/09/2026. Ficou `false` de 30/08 a 09/09
+  // porque as linhas gravadas só eram lidas pela contagem por câmera do
+  // Inventário e pela tela de Validades — as duas FORA deste produto: era
+  // escrita para ninguém. Agora existe leitor dentro do próprio produto, a
+  // tela `/impressas`, que repete uma etiqueta rasgada com as datas
+  // ORIGINAIS. Sem o registro, reimprimir recalcularia a validade a partir de
+  // hoje e devolveria um pote mentindo sobre a idade.
+  it('os dois produtos guardam registro do que foi impresso', () => {
+    expect(produtoTem('etiquetas', 'historicoEtiquetas')).toBe(true);
     expect(produtoTem('completo', 'historicoEtiquetas')).toBe(true);
   });
 
@@ -3069,12 +3073,88 @@ describe('TSPL — a etiqueta na linguagem da impressora', () => {
     expect(t).toContain(`,${35 * 8},2`);
   });
 
-  it('nome comprido é cortado em vez de estourar a etiqueta', () => {
-    const t = etiquetaTSPL({ ...campos, nome: 'FILE MIGNON PORCIONADO ARGENTINO PREMIUM 180G' }, config);
-    const linha = t.split(SEP).find(l => l.includes('FILE MIGNON'));
-    const conteudo = linha.match(/"([^"]*)"$/)[1];
-    expect(conteudo.length).toBeLessThan(45);
-    expect(conteudo.endsWith('.')).toBe(true);
+  // ⚠️ O nome deixou de ser CORTADO e passou a QUEBRAR em duas linhas quando há
+  // papel — a prévia da tela sempre mostrou duas e o papel entregava uma só,
+  // cortada. O corte continua existindo como último recurso (etiqueta cheia,
+  // sem espaço para a segunda linha), e é o que o teste seguinte trava.
+  it('nome comprido ganha a segunda linha em vez de perder o fim', () => {
+    const nome = 'FILE MIGNON PORCIONADO ARGENTINO PREMIUM 180G';
+    const t = etiquetaTSPL({ ...campos, nome }, config);
+    const conteudos = t.split(SEP)
+      .filter(l => l.startsWith('TEXT') && /MIGNON|PREMIUM|ARGENTINO/.test(l))
+      .map(l => l.match(/"([^"]*)"$/)[1]);
+    // duas linhas distintas (cada uma sai duplicada pela dupla batida do negrito)
+    const distintas = [...new Set(conteudos)];
+    expect(distintas.length).toBe(2);
+    // juntas, entregam o nome inteiro — nada de "." de corte
+    expect(distintas.join(' ')).toBe(nome);
+    expect(distintas.some(c => c.endsWith('.'))).toBe(false);
+  });
+
+  // ⚠️ A ORDEM DAS CONCESSÕES é o coração de `melhorDesenho`: as três folgas
+  // (nome em duas linhas, SIF/LOTE separados, endereço em duas) competem pelo
+  // MESMO papel. Numa etiqueta cheia o endereço volta a uma linha e o lote se
+  // junta ao SIF ANTES de o nome perder a segunda — porque o nome é o que se
+  // lê de longe na geladeira.
+  const cheia = {
+    ...campos,
+    nome: 'Bacalhau dessalgado desfiado para bolinho da casa',
+    medida: '1,5 kg', marca: 'Riberalves / Distribuidora',
+    valOriginalFmt: '01/12/2026',
+    sif: 'SIF 1234', lote: 'L-2026-0912-AB',
+    sifLoteRotulo: 'SIF / LOTE:', sifLoteValor: 'SIF 1234 - L-2026-0912-AB',
+    responsavel: 'Maria das Gracas Silva',
+    armazenamentoLabel: 'CONGELADO', armazenamentoFaixa: '-18C a -12C',
+    restauranteNome: 'Restaurante Exemplo da Cozinha',
+  };
+  const comRodape = {
+    ...config,
+    estabelecimento: {
+      cnpj: '12.345.678/0001-90', endereco: 'Av. Conselheiro Aguiar, 1234 - Boa Viagem',
+      cidade: 'Recife/PE', cep: '51020-000',
+    },
+  };
+
+  it('etiqueta cheia cede o endereço e o lote, mas segura a segunda linha do nome', () => {
+    const nivel = nivelDeDesenho(cheia, comRodape);
+    expect(nivel.linhasNome).toBe(2);
+    expect(nivel.sifLoteSeparado).toBe(false);
+    expect(nivel.linhasEndereco).toBe(1);
+    expect(medirEtiqueta(cheia, comRodape).cabe).toBe(true);
+  });
+
+  it('sem papel nem para isso, o nome volta a uma linha e o aviso dispara', () => {
+    const apertada = { ...comRodape, alturaMm: 45 };
+    expect(nivelDeDesenho(cheia, apertada).linhasNome).toBe(1);
+    // o aviso "não cabe no papel" volta a ser alcançável — é a rede de segurança
+    expect(medirEtiqueta(cheia, apertada).cabe).toBe(false);
+    const conteudos = etiquetaTSPL(cheia, apertada).split(SEP)
+      .filter(l => l.startsWith('TEXT') && /BACALHAU/.test(l))
+      .map(l => l.match(/"([^"]*)"$/)[1]);
+    expect([...new Set(conteudos)].length).toBe(1);
+    expect(conteudos[0].endsWith('.')).toBe(true);
+  });
+
+  it('sobrando papel, SIF e LOTE saem em linhas próprias — lote cortado não serve para recall', () => {
+    const soOsDois = { ...campos, sif: 'SIF 1234', lote: 'L-2026-0912-AB',
+                       sifLoteRotulo: 'SIF / LOTE:', sifLoteValor: 'SIF 1234 · L-2026-0912-AB' };
+    const t = etiquetaTSPL(soOsDois, config);
+    expect(t).toContain('"LOTE:"');
+    expect(t).toContain('"L-2026-0912-AB"');   // inteiro, sem o ponto de corte
+  });
+
+  it('quebrarEmLinhas parte entre palavras e só corta na última linha', () => {
+    // fonte 2 = 12 pontos por caractere; 120 pontos = 10 caracteres por linha
+    expect(quebrarEmLinhas('BACALHAU DESSALGADO', 2, 1, 120, 2)).toEqual(['BACALHAU', 'DESSALGADO']);
+    // cabe inteiro: uma linha só, sem inventar a segunda
+    expect(quebrarEmLinhas('PICANHA', 2, 1, 120, 2)).toEqual(['PICANHA']);
+    // não cabe nem em duas: a última corta, com o ponto de sempre
+    const r = quebrarEmLinhas('BACALHAU DESSALGADO DESFIADO PARA BOLINHO', 2, 1, 120, 2);
+    expect(r.length).toBe(2);
+    expect(r[1].endsWith('.')).toBe(true);
+    // palavra única maior que a linha parte no meio em vez de sumir
+    expect(quebrarEmLinhas('ABCDEFGHIJKLMNOPQRST', 2, 1, 120, 2)[0]).toBe('ABCDEFGHIJ');
+    expect(quebrarEmLinhas('', 2, 1, 120, 2)).toEqual([]);
   });
 
   it('lote manda um bloco completo por item', () => {
@@ -3530,7 +3610,9 @@ describe('plano Etiquetas não abre tela do plano completo', () => {
 
   it('só monta as rotas que este produto comprou', () => {
     expect(rotasDoRamo.sort()).toEqual(
-      ['*', '/', '/admin', '/ajustes', '/etiquetas', '/itens', '/novidades', '/pagamento'].sort(),
+      // `/impressas` entrou em 09/09/2026: repetir uma etiqueta rasgada com as
+      // datas ORIGINAIS, sem remontar o item (ver pages/etiquetas/Impressas.jsx).
+      ['*', '/', '/admin', '/ajustes', '/etiquetas', '/impressas', '/itens', '/novidades', '/pagamento'].sort(),
     );
   });
 

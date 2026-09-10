@@ -53,6 +53,11 @@ const NAV_ETIQUETAS = [
   // nova o vazio da tela de imprimir manda "Cadastrar itens" e apontava para
   // a mesma tela negada — um laço fechado.
   { to: '/itens',   icon: 'caixa',    label: 'Meus itens', cap: 'gerenciarProdutos' },
+  // ⚠️ SEM `cap`, e é de propósito: a etiqueta rasga na mão de quem está de
+  // plantão, não na do dono. Exigir capacidade aqui devolveria o problema que
+  // esta tela existe para resolver — remontar a etiqueta do zero, com o pote
+  // na mão, e ainda com a validade recalculada errada.
+  { to: '/impressas', icon: 'historico', label: 'Impressas' },
   // ⚠️ ERA `soDono` (só a diretoria) e virou CAPACIDADE, a pedido do dono: ele
   // quis poder liberar a Administração para outros cargos. O que é contrato e
   // chave da casa — assinatura, contas da equipe, matriz de acessos e suporte

@@ -38,17 +38,26 @@ export const RECURSOS_PRODUTO = {
     etiquetas: true,          // imprimir etiqueta (catálogo + avulsas)
     itens: true,              // cadastro próprio de itens
     biblioteca: true,         // itens prontos para adicionar com um toque
-    // ⚠️ NÃO GUARDA O QUE FOI IMPRESSO. Cada etiqueta impressa virava uma linha
-    // gravada e enviada ao servidor — e quem lê essas linhas são a contagem por
-    // câmera do Inventário e a tela de Validades, DUAS TELAS QUE ESTE PRODUTO
-    // NÃO TEM. Cinquenta etiquetas num dia eram cinquenta registros para
-    // ninguém. Aqui se imprime e pronto.
+    // ⚠️ VOLTOU A GUARDAR EM 09/09/2026, e a inversão tem motivo — não é
+    // esquecimento. Isto era `false` desde 30/08 por uma razão correta na
+    // época: as linhas gravadas só eram lidas pela contagem por câmera do
+    // Inventário e pela tela de Validades, DUAS TELAS QUE ESTE PRODUTO NÃO
+    // TEM. Cinquenta etiquetas num dia eram cinquenta registros para ninguém.
+    //
+    // Agora existe leitor: a tela `/impressas` deste produto, que repete uma
+    // etiqueta rasgada COM AS DATAS ORIGINAIS. Sem o registro, reimprimir
+    // obriga a remontar tudo — e remontar recalcula a validade a partir de
+    // hoje, ou seja, devolve um pote mentindo sobre a própria idade.
+    //
+    // O custo continua existindo (uma linha por lote, sincronizada com o
+    // servidor) e agora é pago por algo que o cliente vê. `podarEtiquetas`
+    // segue limitando o crescimento.
     //
     // ⚠️ Esta chave já se chamou `validadesEtiqueta: true` e era MENTIRA: nada
     // no app a consultava, e o produto tinha perdido a tela de validades. Flag
     // que ninguém lê não fica só inútil — ela fica errada em silêncio e alguém
     // toma decisão em cima dela depois.
-    historicoEtiquetas: false,
+    historicoEtiquetas: true,
     configEtiqueta: true,     // tamanho, campos, QR, armazenamentos
     equipe: true,             // responsáveis pela etiqueta
     // o que este produto NÃO comprou

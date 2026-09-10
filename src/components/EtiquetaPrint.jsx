@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import { useUI } from '../store/UIContext';
@@ -15,7 +15,7 @@ import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, pod
          diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura,
          lembrarArmazenamentos } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
-import { loteTSPL, medirEtiqueta } from '../utils/tspl';
+import { loteTSPL, medirEtiqueta, nivelDeDesenho } from '../utils/tspl';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
@@ -128,12 +128,22 @@ function Linha({ rotulo, valor, forte = false, corpo = '3mm' }) {
   );
 }
 
+// Etiqueta simples: uma linha de nome, SIF e LOTE juntos, endereço numa linha.
+// É o que o TSPL entrega quando não sobra papel, e serve de queda para quem
+// desenhar uma etiqueta sem perguntar o nível.
+const NIVEL_PADRAO = { linhasNome: 1, sifLoteSeparado: false, linhasEndereco: 1 };
+
 // Um bloco de etiqueta física (repetido N vezes conforme a quantidade de cópias).
-function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
+function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADRAO }) {
   const c = config.campos;
   const comQR = config.incluirQR && qr?.svg;
   const est = estabelecimento || {};
   const qrMm = comQR ? tamanhoQRmm(qr.modulos, config.alturaMm) : 0;
+  // ⚠️ SIF e LOTE se separam em duas linhas quando não cabem juntos — a mesma
+  // decisão que o TSPL toma, tomada no MESMO lugar (`nivelDeDesenho`). O papel
+  // cortava "L-2026-0912-AB" pela metade, e lote pela metade não responde a
+  // recall nenhum.
+  const sifLoteSeparado = nivel.sifLoteSeparado && campos.sif && campos.lote;
 
   // ⚠️ ETIQUETA CHEIA ENCOLHIA A LETRA SOZINHA — cortando linha, em silêncio.
   // A etiqueta tem altura FIXA com corte no que passar, e o rodapé é ancorado
@@ -153,9 +163,9 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
     c.marca !== false && campos.marca,
     (c.sif !== false || c.lote !== false) && campos.sifLoteValor,
     c.responsavel !== false && campos.responsavel,
-  ].filter(Boolean).length;
+  ].filter(Boolean).length + (sifLoteSeparado ? 1 : 0);
   const linhasDeRodape = (c.restaurante !== false && campos.restauranteNome ? 1 : 0)
-    + (c.estabelecimento === false ? 0 : [est.cnpj || est.cep, est.endereco, est.cidade].filter(Boolean).length);
+    + (c.estabelecimento === false ? 0 : [est.cnpj, est.endereco, est.cidade || est.cep].filter(Boolean).length);
   const apertado = linhasDeDados + linhasDeRodape >= 8;
   // ⚠️ A validade NÃO muda de tamanho — o destaque dela é o sublinhado, por
   // decisão do dono: valores de tamanhos diferentes quebram o alinhamento à
@@ -181,8 +191,13 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
           // onde o -webkit-box vale, e o maxHeight garante o corte mesmo onde
           // ele não vale (medi no navegador: o display computou flow-root, e aí
           // o clamp sozinho não corta nada).
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-          maxHeight: '9.5mm', overflow: 'hidden', wordBreak: 'break-word',
+          // ⚠️ QUANTAS LINHAS QUEM DECIDE É O TSPL (`nivelDeDesenho`), não esta
+          // tela. Aqui eram sempre duas, e no papel era sempre uma: o nome
+          // aparecia inteiro na prévia e saía cortado no rolo — quem conferia
+          // antes de gastar etiqueta não tinha como saber. Agora as duas pontas
+          // perguntam a mesma coisa para a mesma função.
+          display: '-webkit-box', WebkitLineClamp: nivel.linhasNome, WebkitBoxOrient: 'vertical',
+          maxHeight: nivel.linhasNome > 1 ? '9.5mm' : '4.8mm', overflow: 'hidden', wordBreak: 'break-word',
         }}>{campos.nome}</div>
         {campos.medida && <div style={{ fontSize: '3.4mm', fontWeight: 800, whiteSpace: 'nowrap' }}>{campos.medida}</div>}
       </div>
@@ -211,9 +226,14 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
         {c.marca !== false && <Linha rotulo="MARCA" valor={campos.marca} corpo={corpo} />}
         {/* ⚠️ SIF e LOTE dividem a linha — ver o porquê em utils/tspl.js.
             A prévia tem que bater com o papel, senão vira duas verdades. */}
-        {(c.sif !== false || c.lote !== false) && (
+        {(c.sif !== false || c.lote !== false) && (sifLoteSeparado ? (
+          <>
+            <Linha rotulo="SIF" valor={campos.sif} corpo={corpo} />
+            <Linha rotulo="LOTE" valor={campos.lote} corpo={corpo} />
+          </>
+        ) : (
           <Linha rotulo={(campos.sifLoteRotulo || '').replace(':', '')} valor={campos.sifLoteValor} corpo={corpo} />
-        )}
+        ))}
         {c.responsavel !== false && <Linha rotulo="RESP." valor={campos.responsavel} corpo={corpo} />}
       </div>
       {/* Rodapé: estabelecimento + ID + QR */}
@@ -227,9 +247,19 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento }) {
           )}
           {c.estabelecimento !== false && (
             <>
-              {(est.cnpj || est.cep) && <div>{est.cnpj ? `CNPJ: ${est.cnpj}` : ''}{est.cnpj && est.cep ? '  ' : ''}{est.cep ? `CEP: ${est.cep}` : ''}</div>}
-              {est.endereco && <div className="truncate">{est.endereco}</div>}
-              {est.cidade && <div>{est.cidade}</div>}
+              {/* ⚠️ AGRUPADO COMO NO PAPEL, e a tela é que estava errada. Aqui
+                  era "CNPJ + CEP" numa linha e a cidade sozinha na outra; no
+                  TSPL é o CNPJ sozinho e "cidade + CEP" juntos — e lá não tem
+                  escolha, porque CNPJ e CEP na mesma linha passam dos ~36
+                  caracteres da fonte 2 e cortam justo o número que identifica a
+                  cozinha. Quem tinha de ceder era a prévia. */}
+              {est.cnpj && <div>CNPJ: {est.cnpj}</div>}
+              {est.endereco && (
+                <div className={nivel.linhasEndereco > 1 ? '' : 'truncate'}>{est.endereco}</div>
+              )}
+              {(est.cidade || est.cep) && (
+                <div>{[est.cidade, est.cep].filter(Boolean).join('  ')}</div>
+              )}
             </>
           )}
         </div>
@@ -441,7 +471,12 @@ export default function EtiquetaPrint() {
       marca: item.marca,
       sif: item.sif,
       lote: item.lote,
-      hora: horaImpressao,
+      // ⚠️ A REIMPRESSÃO TRAZ A HORA ORIGINAL. Sem isto a etiqueta de reposição
+      // saía com a hora de AGORA — e num item de 3 dias de validade a hora é
+      // metade da informação: o pote passaria a alegar algumas horas a mais de
+      // vida do que realmente tem. Impressão normal continua com a hora
+      // congelada na abertura do modal.
+      hora: item.horaOriginal || horaImpressao,
       loteId,
     });
   };
@@ -454,6 +489,23 @@ export default function EtiquetaPrint() {
 
   // Payload do QR de cada item — é também a chave do cache de QR
   const payloadDe = (item, loteId) => montarPayloadQR(camposDe(item, loteId));
+
+  // ⚠️ UMA CONTA SÓ, PARA AS DUAS PERGUNTAS, e memoizada. "Cabe no papel?" e
+  // "quantas linhas o nome ganha?" são a MESMA conta: o nível escolhido é
+  // justamente o que coube. E ela é cara — desenha a etiqueta inteira em TSPL,
+  // até quatro vezes (uma por nível). Rodar isso solto no corpo do render, uma
+  // vez por item e outra por CÓPIA na área de impressão, era refazer o mesmo
+  // desenho dezenas de vezes a cada tecla digitada no modal.
+  const desenhos = useMemo(
+    () => itens.map(it => {
+      const campos = camposDe(it, loteDaCopia(it, 0));
+      const alvo = { ...config, estabelecimento };
+      return { nivel: nivelDeDesenho(campos, alvo), cabe: medirEtiqueta(campos, alvo).cabe };
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe/loteDaCopia leem só itens, responsavel e props estáveis (mesmo padrão do efeito de QR acima)
+    [itens, config, estabelecimento, responsavel],
+  );
+  const nivelDoItem = (idx) => desenhos[idx]?.nivel ?? NIVEL_PADRAO;
 
   // Gera os QR codes quando ligado (async — toDataURL é Promise).
   // Só gera o que ainda não está em cache: editar um item de um lote não
@@ -521,6 +573,7 @@ export default function EtiquetaPrint() {
     for (let c = 0; c < n; c++) if (!qrs[payloadDe(it, loteDaCopia(it, c))]) return true;
     return false;
   });
+
   const inputCls = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs';
 
   // Ao imprimir, cada cópia vira uma ETIQUETA FÍSICA registrada: é o que
@@ -580,6 +633,14 @@ export default function EtiquetaPrint() {
           medida: c.medida || '',
           validade: c.validade || null,
           fabricacao: c.dataFabricacao || null,
+          // ⚠️ GUARDA O ARMAZENAMENTO, e não é enfeite: a reimpressão
+          // (/impressas) promete devolver a MESMA etiqueta, e sem isto ela
+          // saía sem a linha "CONGELADO · -18°C" que estava no papel original.
+          // Vai o id, não o rótulo — o nome e a faixa de temperatura são
+          // configuráveis e a etiqueta nova deve sair com o texto de hoje.
+          armazenamento: c.armazenamento || null,
+          tipoData: c.tipoData || 'fabricacao',
+          hora: c.hora || '',
           responsavel: c.responsavel || '',
           impressoEm: hojeISO,
           status: 'valida',
@@ -932,8 +993,7 @@ export default function EtiquetaPrint() {
                   tinha 2,4 — cega por mais do que a folga inteira.
                   ⚠️ E mede TODOS os itens, não só o primeiro: quem estoura é
                   sempre o de nome maior, que pode ser o terceiro da lista. */}
-              {itens.some(it => !medirEtiqueta(camposDe(it, loteDaCopia(it, 0)),
-                                               { ...config, estabelecimento }).cabe) && (
+              {desenhos.some(d => !d.cabe) && (
                 <Aviso tom="erro" className="mb-2">
                   Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
                   Em Administração → Etiquetas, desligue um campo (marca ou validade original).
@@ -945,7 +1005,8 @@ export default function EtiquetaPrint() {
                     campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}
                     config={config}
                     qr={qrs[payloadDe(itens[0], loteDaCopia(itens[0], 0))]}
-                    estabelecimento={estabelecimento} />
+                    estabelecimento={estabelecimento}
+                    nivel={nivelDoItem(0)} />
                 </div>
               </div>
               {itens.length > 1 && (
@@ -1052,7 +1113,8 @@ export default function EtiquetaPrint() {
                 <div key={`${idx}_${c}`} className="etiqueta-pagina"
                   style={{ width: `${config.larguraMm}mm`, height: `${config.alturaMm}mm` }}>
                   <EtiquetaLabel campos={camposDe(item, lote)} config={config}
-                    qr={qrs[payloadDe(item, lote)]} estabelecimento={estabelecimento} />
+                    qr={qrs[payloadDe(item, lote)]} estabelecimento={estabelecimento}
+                    nivel={nivelDoItem(idx)} />
                 </div>
               );
             })

@@ -21,6 +21,7 @@ import Novidades from './pages/Novidades';
 import Termos from './pages/Termos';
 import Itens from './pages/etiquetas/Itens';
 import EtiquetasAjustes from './pages/etiquetas/Ajustes';
+import EtiquetasImpressas from './pages/etiquetas/Impressas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 // ⚠️ AS TELAS DO PLANO COMPLETO SÓ BAIXAM QUANDO ALGUÉM ABRE UMA DELAS.
@@ -367,6 +368,11 @@ function Rotas() {
           <Route path="/"           element={<Etiquetas />} />
           <Route path="/etiquetas"  element={<Navigate to="/" replace />} />
           <Route path="/itens"      element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
+          {/* ⚠️ Sem trava de cargo: repetir uma etiqueta que rasgou é tarefa de
+              quem está de plantão, não decisão de dono. A tela não cria nem
+              apaga nada — só manda imprimir de novo o que já saiu no papel,
+              com as MESMAS datas. */}
+          <Route path="/impressas"  element={<EtiquetasImpressas />} />
           {/* ⚠️ Estava SEM TRAVA: qualquer pessoa logada — inclusive o
               cozinheiro que entrou por convite — mudava temperatura, tamanho
               de etiqueta, dados do estabelecimento, suporte remoto e

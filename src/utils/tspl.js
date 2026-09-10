@@ -35,6 +35,37 @@ export function cortarParaLargura(txt, fonte, mul, pontosDisponiveis) {
   return cabe > 1 ? `${t.slice(0, cabe - 1)}.` : t.slice(0, cabe);
 }
 
+/**
+ * Quebra o texto em até `maxLinhas`, preferindo cortar entre palavras.
+ *
+ * ⚠️ EXISTE PORQUE A PRÉVIA MENTIA. A tela desenha o nome do produto em DUAS
+ * linhas (line-clamp 2) e o TSPL desenhava em UMA, cortando o resto: "BACALHAU
+ * DESSALGADO DESFIADO PARA BOLINHO" aparecia inteiro na tela e saía no papel
+ * como "BACALHAU DESSALGADO DESFIADO PARA B.". Quem conferia a prévia antes de
+ * gastar rolo não tinha como saber.
+ *
+ * A última linha ainda corta — em algum ponto o papel acaba —, mas só depois
+ * de usar o espaço que existe. Palavra única maior que a linha parte no meio:
+ * é feio, e ainda assim melhor que sumir com metade do nome.
+ */
+export function quebrarEmLinhas(txt, fonte, mul, pontosDisponiveis, maxLinhas = 2) {
+  const t = String(txt ?? '').trim();
+  if (!t) return [];
+  const porChar = (LARGURA_FONTE[fonte] || 12) * mul;
+  const cabe = Math.max(1, Math.floor(pontosDisponiveis / porChar));
+  const linhas = [];
+  let resto = t;
+  for (let i = 0; i < maxLinhas; i++) {
+    if (resto.length <= cabe) { linhas.push(resto); return linhas; }
+    if (i === maxLinhas - 1) { linhas.push(cortarParaLargura(resto, fonte, mul, pontosDisponiveis)); return linhas; }
+    let corte = resto.lastIndexOf(' ', cabe);
+    if (corte <= 0) corte = cabe; // palavra única gigante: parte no meio
+    linhas.push(resto.slice(0, corte).trim());
+    resto = resto.slice(corte).trim();
+  }
+  return linhas;
+}
+
 // ⚠️ TUDO VIRA ASCII, e isto veio da PROVA IMPRESSA, não da documentação.
 // Mandamos CODEPAGE 1252 no cabeçalho — que é o correto pelo manual do TSPL —
 // e a MDK-022 IGNOROU: "MANIPULAÇÃO" saiu "MANIPULA高0", "0°C" saiu "0贊" e
@@ -156,12 +187,22 @@ function montarEtiqueta(campos, config, opcoes = {}) {
   // Contar letra ignora o tamanho da letra. Aqui vai da maior para a menor e
   // fica na primeira que couber; cortar é o último recurso.
   const fonteNome = [4, 3, 2].find(f => larguraTexto(nome, f, 1) <= espacoNome) || 2;
-  linhas.push(...texto(margem, y, fonteNome, 1, cortarParaLargura(nome, fonteNome, 1, espacoNome)));
+  // ⚠️ SEGUNDA LINHA SÓ QUANDO SOBRA PAPEL. Quem decide é `melhorDesenho`, que
+  // desenha a etiqueta inteira e confere se o corpo bateu no rodapé — não dá
+  // para saber aqui, porque o espaço que sobra depende dos campos de baixo.
+  const linhasNome = quebrarEmLinhas(nome, fonteNome, 1, espacoNome, opcoes.linhasNome ?? 1);
+  const ENTRELINHA = 2;
+  linhasNome.forEach((ln, i) => {
+    linhas.push(...texto(margem, y + i * (ALTURA_FONTE[fonteNome] + ENTRELINHA), fonteNome, 1, ln));
+  });
+  // A medida acompanha a PRIMEIRA linha do nome — é onde o olho procura.
   if (campos.medida) {
     const m = cortarParaLargura(campos.medida, 3, 1, util * 0.26);
     linhas.push(...texto(margem + util - larguraTexto(m, 3, 1), y, 3, 1, m));
   }
-  y += ALTURA_FONTE[fonteNome] + mm(1);
+  const alturaNome = linhasNome.length * ALTURA_FONTE[fonteNome]
+    + Math.max(0, linhasNome.length - 1) * ENTRELINHA;
+  y += alturaNome + mm(1);
 
   linhas.push(`BAR ${margem},${y},${util},2`);
   y += mm(1.5);
@@ -206,8 +247,23 @@ function montarEtiqueta(campos, config, opcoes = {}) {
   // rodapé por 0,6 mm e o RESP. imprimia por cima do nome da casa. Juntos
   // sobram 2,4 mm. O rótulo se ajusta ao que existe (`sifLoteRotulo`), então
   // quem preenche só o SIF continua vendo "SIF:" como sempre viu.
+  // ⚠️ LOTE CORTADO NÃO SERVE PARA NADA. Juntos numa linha só,
+  // "SIF 1234 · L-2026-0912-AB" saía como "SIF 1234 - L-2026-0912-." — e o
+  // lote do fabricante existe justamente para responder a um recall: um número
+  // truncado não casa com aviso nenhum, então a economia de espaço custava a
+  // única função do campo. Quando os dois existem e não cabem juntos, cada um
+  // ganha a sua linha — se houver papel, o que `melhorDesenho` decide.
   if (c.sif !== false || c.lote !== false) {
-    linha(campos.sifLoteRotulo, campos.sifLoteValor);
+    const temOsDois = campos.sif && campos.lote;
+    const rotuloJunto = campos.sifLoteRotulo;
+    const larguraDisponivel = util - larguraTexto(rotuloJunto, 2, 1) - mm(1.5);
+    const coubeJunto = larguraTexto(campos.sifLoteValor, 2, 1) <= larguraDisponivel;
+    if (opcoes.sifLoteSeparado && temOsDois && !coubeJunto) {
+      linha('SIF:', campos.sif);
+      linha('LOTE:', campos.lote);
+    } else {
+      linha(rotuloJunto, campos.sifLoteValor);
+    }
   }
   if (c.responsavel !== false) linha('RESP.:', campos.responsavel);
 
@@ -224,7 +280,12 @@ function montarEtiqueta(campos, config, opcoes = {}) {
   }
   if (c.estabelecimento !== false) {
     if (est.cnpj) rodape.push(`CNPJ: ${est.cnpj}`);
-    if (est.endereco) rodape.push(est.endereco);
+    // ⚠️ O ENDEREÇO CABE ~36 CARACTERES na fonte 2, e "Av. Conselheiro Aguiar,
+    // 1234 - Boa Viagem" saía como "Av. Conselheiro Aguiar, 1234 - Boa ." — o
+    // bairro sumia. É o endereço de quem manipulou, que a fiscalização procura
+    // quando a etiqueta viaja com o alimento (RDC 216). Ganha uma segunda
+    // linha quando há papel; quem decide é `melhorDesenho`.
+    if (est.endereco) rodape.push(...quebrarEmLinhas(est.endereco, 2, 1, util, opcoes.linhasEndereco ?? 1));
     // CEP e cidade juntos: são a mesma informação para quem lê, e uma linha a
     // menos no rodapé é uma linha a mais para o produto.
     const local = [est.cidade, est.cep].filter(Boolean).join('  ');
@@ -258,9 +319,60 @@ function montarEtiqueta(campos, config, opcoes = {}) {
   return { texto: linhas.join('\r\n') + '\r\n', fimDoCorpo: y, topoDoRodape };
 }
 
+// ── Quanto da etiqueta cabe neste papel ───────────────────────
+//
+// ⚠️ NÃO DÁ PARA DECIDIR CAMPO A CAMPO. Dar uma segunda linha ao nome, separar
+// SIF de LOTE e abrir o endereço em duas linhas são três folgas que competem
+// pelo MESMO papel: cada uma cabe sozinha e as três juntas não cabem sempre. E
+// o quanto sobra depende de quais campos o restaurante ligou, do tamanho do
+// rodapé e até do comprimento do nome — não há conta fechada.
+//
+// Então em vez de estimar, DESENHA e confere. Os níveis vão do mais generoso
+// ao mais apertado, e vale o primeiro que couber. A ordem das concessões é a
+// ordem inversa da importância na cozinha: o endereço volta a uma linha antes
+// do lote se juntar ao SIF, e o nome só perde a segunda linha por último —
+// porque é o nome que a pessoa lê de longe na geladeira.
+const NIVEIS_DE_DESENHO = [
+  { linhasNome: 2, sifLoteSeparado: true,  linhasEndereco: 2 },
+  { linhasNome: 2, sifLoteSeparado: true,  linhasEndereco: 1 },
+  { linhasNome: 2, sifLoteSeparado: false, linhasEndereco: 1 },
+  { linhasNome: 1, sifLoteSeparado: false, linhasEndereco: 1 },
+];
+
+function folgaDe(desenho, config) {
+  // Sem rodapé, o limite é a borda de baixo do papel.
+  const limite = desenho.topoDoRodape ?? Math.round(((config?.alturaMm ?? 50) - 2) * PONTOS_POR_MM);
+  return limite - desenho.fimDoCorpo;
+}
+
+/** O desenho mais generoso que ainda cabe — ou o mais apertado, se nenhum couber. */
+function melhorDesenho(campos, config, opcoes = {}) {
+  let ultimo = null;
+  let ultimoNivel = NIVEIS_DE_DESENHO[NIVEIS_DE_DESENHO.length - 1];
+  for (const nivel of NIVEIS_DE_DESENHO) {
+    ultimo = montarEtiqueta(campos, config, { ...opcoes, ...nivel });
+    ultimoNivel = nivel;
+    const folga = folgaDe(ultimo, config);
+    if (folga >= 0) return { ...ultimo, folga, nivel };
+  }
+  return { ...ultimo, folga: folgaDe(ultimo, config), nivel: ultimoNivel };
+}
+
+/**
+ * Que nível de desenho ESTA etiqueta vai receber no papel.
+ *
+ * ⚠️ EXISTE PARA A PRÉVIA NÃO MENTIR. A tela desenha em HTML e a impressora em
+ * TSPL — dois desenhos diferentes do mesmo dado, e é daí que nasceu a classe
+ * inteira de "na tela aparece, no papel não". Enquanto os dois existirem, pelo
+ * menos as DECISÕES são tomadas num lugar só: a tela pergunta aqui quantas
+ * linhas o nome vai ganhar, em vez de supor duas e ser desmentida pelo rolo.
+ */
+export const nivelDeDesenho = (campos, config, opcoes = {}) =>
+  melhorDesenho(campos, config, opcoes).nivel;
+
 /** O que vai para a impressora. */
 export function etiquetaTSPL(campos, config, opcoes = {}) {
-  return montarEtiqueta(campos, config, opcoes).texto;
+  return melhorDesenho(campos, config, opcoes).texto;
 }
 
 /**
@@ -274,10 +386,9 @@ export function etiquetaTSPL(campos, config, opcoes = {}) {
  * isso passa pelo MESMO `montarEtiqueta` que a impressora recebe.
  */
 export function medirEtiqueta(campos, config, opcoes = {}) {
-  const { fimDoCorpo, topoDoRodape } = montarEtiqueta(campos, config, opcoes);
-  // Sem rodapé, o limite é a borda de baixo do papel.
-  const limite = topoDoRodape ?? Math.round(((config?.alturaMm ?? 50) - 2) * PONTOS_POR_MM);
-  const folga = limite - fimDoCorpo;
+  // ⚠️ MEDE O MESMO DESENHO QUE VAI SAIR, com a mesma escolha de nível — senão
+  // a tela avisaria sobre uma etiqueta que a impressora nem receberia.
+  const { folga } = melhorDesenho(campos, config, opcoes);
   return { cabe: folga >= 0, folgaMm: Math.round((folga / PONTOS_POR_MM) * 10) / 10 };
 }
 
