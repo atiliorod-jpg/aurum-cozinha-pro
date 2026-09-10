@@ -6,6 +6,7 @@ import { useApp } from '../../store/AppContext';
 import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { pode } from '../../utils/permissoes';
+import { supabase } from '../../lib/supabase';
 import { hoje, fmtData } from '../../utils/formatters';
 import { statusEtiqueta, STATUS_ETIQUETA, medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
 import { prazosDoProduto } from '../../utils/armazenamento';
@@ -26,10 +27,16 @@ import { prazosDoProduto } from '../../utils/armazenamento';
  * impedir.
  */
 export default function Impressas() {
-  const { etiquetasImpressas, produtos, permissoes } = useApp();
+  const { etiquetasImpressas, setEtiquetasImpressas, produtos, permissoes, rid } = useApp();
   const { sessao } = useAuth();
-  const { abrirEtiquetas } = useUI();
+  const { abrirEtiquetas, confirm, toast } = useUI();
   const verRelatorio = pode(sessao, permissoes, 'verRelatorioEtiquetas');
+  // ⚠️ APAGAR É SÓ DA CONTA DONA, a pedido dele — e não é capacidade da
+  // matriz, é CARGO: o relatório é o número com que ele cobra a equipe, e
+  // quem pudesse apagar etiqueta mexeria nele. O banco confere de novo
+  // (M44). O super-admin fica de fora: no modo suporte o banco o recusaria.
+  const podeApagar = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin;
+  const [apagando, setApagando] = useState('');
   const [busca, setBusca] = useState('');
 
   const hj = hoje();
@@ -89,6 +96,44 @@ export default function Impressas() {
       // não se misturar com a produção do dia.
       reimpressao: true,
     }]);
+  };
+
+  // ⚠️ APAGA DOS DOIS LUGARES, NESTA ORDEM: primeiro o relatório (banco),
+  // depois esta lista. Ao contrário, uma falha de rede deixaria a etiqueta
+  // fora da lista e ainda contada no relatório — sem mais nenhum botão para
+  // tirar de lá.
+  const apagar = async (e) => {
+    const ok = await confirm({
+      titulo: `Apagar a etiqueta de ${e.nome}?`,
+      mensagem: 'Ela sai desta lista e do relatório de etiquetas. Use quando a etiqueta foi contada mas não chegou a sair no papel.',
+      perigo: true, confirmar: 'Apagar',
+    });
+    if (!ok) return;
+    setApagando(e.id);
+    if (rid && rid !== 'demo') {
+      let erro;
+      try {
+        const { error } = await supabase.rpc('apagar_impressao', {
+          p_id: e.impressaoId || null,
+          p_lote: e.id || null,
+          p_dia: e.impressoEm || null,
+          p_hora: e.impressoEmHora || null,
+          p_item: e.nome || '',
+          p_copias: parseInt(e.copias) || 1,
+        });
+        erro = error?.message || '';
+      } catch (err) { erro = err?.message || 'erro'; }
+      if (erro) {
+        setApagando('');
+        toast(/fetch|network|conex/i.test(erro)
+          ? 'Precisa de internet para apagar: a etiqueta também sai do relatório.'
+          : `Não apaguei: ${erro}`, 'erro');
+        return;
+      }
+    }
+    setEtiquetasImpressas((etiquetasImpressas || []).filter(x => x.id !== e.id));
+    setApagando('');
+    toast('Etiqueta apagada da lista e do relatório.', 'sucesso');
   };
 
   const vazio = !(etiquetasImpressas || []).length;
@@ -183,12 +228,22 @@ export default function Impressas() {
                         {/* ⚠️ Alvo de 44px: é tocado com o dedo numa bancada, e
                             os controles menores que isso já foram achado de
                             acessibilidade neste app. */}
-                        <button
-                          onClick={() => reimprimir(e)}
-                          aria-label={`Reimprimir etiqueta de ${e.nome}`}
-                          className="flex-shrink-0 min-h-11 px-3 rounded-xl bg-polo-navy text-polo-gold text-xs font-bold">
-                          Reimprimir
-                        </button>
+                        <div className="flex flex-col gap-1.5 flex-shrink-0">
+                          <button
+                            onClick={() => reimprimir(e)}
+                            aria-label={`Reimprimir etiqueta de ${e.nome}`}
+                            className="min-h-11 px-3 rounded-xl bg-polo-navy text-polo-gold text-xs font-bold">
+                            Reimprimir
+                          </button>
+                          {podeApagar && (
+                            <button
+                              onClick={() => apagar(e)} disabled={apagando === e.id}
+                              aria-label={`Apagar etiqueta de ${e.nome}`}
+                              className="min-h-11 px-3 rounded-xl border border-red-200 text-red-700 text-xs font-bold disabled:opacity-50">
+                              {apagando === e.id ? 'Apagando…' : 'Apagar'}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </li>
                   );

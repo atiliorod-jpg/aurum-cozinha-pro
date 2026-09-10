@@ -250,6 +250,28 @@ Conferido em 10/09 procurando os textos novos DENTRO do bundle no ar. Funções
 do servidor vão por `node scripts/publicar-funcao.mjs <nome>`; migrações por
 `rodar-migracao.mjs` — as duas direto no Supabase, sem passar pelo git.
 
+**DEFEITO: o computador contava etiqueta que não saiu (10/09, achado pelo dono).**
+"Imprimir pelo computador" chamava `aoImprimir` ANTES de `window.print()` —
+fechar a janela sem imprimir já contava. O navegador não diz se a pessoa
+imprimiu ou cancelou (`print()` e `afterprint` são iguais nos dois casos),
+então agora o app PERGUNTA "A etiqueta saiu no papel?" (só nesse caminho; o
+Bluetooth não pergunta). "Saiu" conta E fecha a janela (é o toque em Fechar de
+antes — ele pediu cuidado para não virar passo a mais); "Não saiu" deixa
+aberto; fechar sem responder não conta. A pergunta guarda o `etiquetaState`
+que a gerou (`perguntaPara`), então some sozinha no próximo pedido.
+⚠️ O `useState` dela mora ANTES do `if (!etiquetaState) return null` — o lint
+pegou a primeira versão depois do retorno.
+**M44 `apagar_impressao`** — só `meu_cargo() = 'diretoria'` (conferido NO
+BANCO; gerência testada e recusada). Acha a linha por `impressaoId` (novo
+campo gravado em cada item da lista de Impressas, o MESMO id da linha do
+relatório), ou pelo lote (linhas recuperadas pela M43 = md5), ou por
+dia+hora+item (o que foi impresso entre a M43 e esta correção). Tira CÓPIAS
+(pelo navegador com QR, 5 itens da lista = 1 linha de 5), e o contador da M42
+desce junto. Botão "Apagar" na aba Impressas só para a conta dona; apaga do
+banco PRIMEIRO e da lista depois. O relatório diz onde fica o botão.
+Conferido como dono numa transação desfeita: 1 → 2 → sem vínculo 1 →
+contador 23→27→23. 522 testes.
+
 **Sentry: o dono adiou em 10/09 ("é pago") — não lembrar até ele voltar ao assunto.**
 
 ---

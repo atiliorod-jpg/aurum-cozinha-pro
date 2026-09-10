@@ -600,6 +600,11 @@ export default function EtiquetaPrint() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens/responsavel (já na lista); qrs é lido só como cache
   }, [itens, config.incluirQR, responsavel]);
 
+  // Pergunta "saiu no papel?" do caminho do computador — ver `responderPapel`.
+  // Guarda o PEDIDO de etiquetas que a gerou, não um sim/não: fechou e abriu
+  // outro, a pergunta some sozinha.
+  const [perguntaPara, setPerguntaPara] = useState(null);
+
   if (!etiquetaState) return null;
 
   // Mantém um id por cópia: crescer a quantidade cria ids novos; diminuir
@@ -669,7 +674,7 @@ export default function EtiquetaPrint() {
   // histórico conta LOTES e não potes. Três potes iguais aparecem como uma
   // linha — por isso `copias` vai gravado junto, para a tela poder dizer
   // quantos foram sem precisar inventar identidade para cada um.
-  const registrarImpressao = (soEstes, umCodigoPorCopia = true) => {
+  const registrarImpressao = (soEstes, umCodigoPorCopia = true, idDe = null) => {
     if (!guardaHistorico) return;
     const hojeISO = hoje();
     const novas = [];
@@ -705,6 +710,9 @@ export default function EtiquetaPrint() {
           impressoEmHora: fmtHora(),
           responsavel: c.responsavel || '',
           impressoEm: hojeISO,
+          // ⚠️ O MESMO id da linha do relatório (M43/M44): é o que deixa a
+          // conta dona apagar a etiqueta dos dois lugares de uma vez.
+          impressaoId: idDe?.get(item) || null,
           status: 'valida',
           // quantas etiquetas de papel esta linha representa
           copias: umCodigoPorCopia ? 1 : n,
@@ -722,7 +730,11 @@ export default function EtiquetaPrint() {
   // só roda quando a conta guarda histórico, e o plano Etiquetas não guarda —
   // então a memória nunca funcionaria justo no produto que vai ser vendido.
   const aoImprimir = (soEstes, umCodigoPorCopia = true) => {
-    registrarImpressao(soEstes, umCodigoPorCopia);
+    const lista = soEstes || itens;
+    // Um id por item, gerado ANTES das duas gravações: o mesmo vai para a
+    // lista de Impressas e para a linha do relatório.
+    const idDe = new Map(lista.map(item => [item, idDeImpressao()]));
+    registrarImpressao(lista, umCodigoPorCopia, idDe);
     // ⚠️ CADA IMPRESSÃO VIRA UMA LINHA NO BANCO (M43): é o que alimenta o
     // relatório do dono por dia, semana e mês. Isto SUBSTITUI a chamada ao
     // contador da M42 — `registrar_impressoes` soma no mesmo contador do
@@ -738,12 +750,12 @@ export default function EtiquetaPrint() {
       const dia = hoje();
       const hora = fmtHora();
       const eventos = [];
-      (soEstes || itens).forEach(item => {
+      lista.forEach(item => {
         const copias = limitarCopias(item.quantidade);
         if (!copias) return;
         const c = camposDe(item);
         eventos.push({
-          id: idDeImpressao(), dia, hora,
+          id: idDe.get(item), dia, hora,
           item: c.nome || '', responsavel: c.responsavel || '',
           copias,
           // marcada pela aba Impressas ao pedir a repetição (ver `reimprimir`)
@@ -776,12 +788,44 @@ export default function EtiquetaPrint() {
   // cozinha usa, passaria por baixo da regra que o dono ligou.
   const faltaResponsavel = config.exigirResponsavel === true && !responsavel.trim();
 
-  const imprimir = () => {
+  // ⚠️ "SAIU NO PAPEL?" — SÓ NO CAMINHO DO COMPUTADOR. Defeito achado pelo
+  // dono em 10/09/2026: tocar em "Imprimir pelo computador" abre a janela de
+  // impressão do navegador, e a etiqueta já era CONTADA ali — mesmo que ele
+  // fechasse a janela sem imprimir. Entrou no relatório uma etiqueta que
+  // nunca existiu.
+  //
+  // ⚠️ E NÃO HÁ COMO O APP SABER SOZINHO. O navegador não conta se a pessoa
+  // imprimiu ou cancelou: `window.print()` volta igual nos dois casos, e o
+  // evento `afterprint` também dispara nos dois. Perguntar é o único jeito
+  // certo. O Bluetooth não pergunta nada — lá o app sabe o que a impressora
+  // recebeu.
+  //
+  // ⚠️ PARA NÃO VIRAR UM PASSO A MAIS (preocupação dele): "Saiu" conta E
+  // FECHA a janela — é o toque em "Fechar" que ele já dava depois de
+  // imprimir, agora com resposta. "Não saiu" deixa tudo aberto para tentar de
+  // novo. Fechar sem responder não conta: na dúvida, o relatório fica sem a
+  // etiqueta, não com uma que não existe.
+  //
+  // A pergunta fica PRESA ao pedido de etiquetas que a gerou: fechou e abriu
+  // outro, ela some sozinha — não há estado para esquecer de limpar.
+  // (o `useState` desta pergunta mora antes do `return null` lá em cima — hook
+  // depois de retorno antecipado quebra o React ao abrir e fechar o modal)
+  const perguntaPapel = !!etiquetaState && perguntaPara === etiquetaState;
+  const responderPapel = (saiu) => {
+    setPerguntaPara(null);
+    if (!saiu) return;
     // Aqui cada cópia é uma etiqueta desenhada por conta própria: com o QR
     // ligado, cada uma leva o SEU código impresso — então são N linhas. Com o
     // QR desligado não há código no papel, e o lote vira uma linha só.
     aoImprimir(itens, config.incluirQR === true);
+    fecharEtiquetas();
+  };
+
+  const imprimir = () => {
     window.print();
+    // No Chrome do computador `print()` só volta quando a janela fecha, então
+    // a pergunta aparece DEPOIS de a pessoa imprimir ou cancelar.
+    setPerguntaPara(etiquetaState);
   };
 
   // ── Caminho 2: direto na impressora, em TSPL ────────────────
@@ -1162,6 +1206,22 @@ export default function EtiquetaPrint() {
             </p>
           )}
 
+          {perguntaPapel ? (
+            <div className="border-2 border-polo-navy rounded-xl bg-polo-beige p-3 space-y-2" aria-live="polite">
+              <p className="text-sm font-bold text-polo-navy">A etiqueta saiu no papel?</p>
+              <p className="text-[11px] text-gray-600">Só entra no relatório o que saiu de verdade.</p>
+              <div className="flex gap-3">
+                <button onClick={() => responderPapel(false)}
+                  className="flex-1 border border-gray-300 bg-white text-gray-700 font-semibold py-3 rounded-xl">
+                  Não saiu
+                </button>
+                <button onClick={() => responderPapel(true)}
+                  className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl">
+                  Saiu
+                </button>
+              </div>
+            </div>
+          ) : (
           <div className="flex gap-3">
             <button onClick={fecharEtiquetas}
               className={`${mostrarDialogo ? 'flex-1' : 'w-full'} border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl`}>
@@ -1178,6 +1238,7 @@ export default function EtiquetaPrint() {
               </button>
             )}
           </div>
+          )}
         </>
       </Dialogo>
 

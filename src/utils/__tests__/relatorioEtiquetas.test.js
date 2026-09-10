@@ -190,3 +190,38 @@ describe('relatório de etiquetas — as travas que não podem voltar atrás', (
     expect(ctx).toMatch(/item\.kind === 'impressao' && item\.op === 'rpc'/);
   });
 });
+
+// ⚠️ Defeito achado pelo dono em 10/09/2026: no computador, "Imprimir" abre a
+// janela do navegador e a etiqueta já era contada ali — mesmo fechando a
+// janela sem imprimir. E não havia como apagar o que entrou errado.
+describe('etiqueta contada que não saiu no papel', () => {
+  const tela = ler('../../components/EtiquetaPrint.jsx');
+  const imprimir = tela.slice(tela.indexOf('const imprimir = () =>'), tela.indexOf('// ── Caminho 2'));
+
+  it('pelo navegador, tocar em Imprimir NÃO conta — só a resposta "saiu"', () => {
+    expect(imprimir).toMatch(/window\.print\(\)/);
+    expect(imprimir).not.toMatch(/aoImprimir\(/);
+    expect(tela).toMatch(/const responderPapel = \(saiu\) =>/);
+  });
+
+  it('cada item da lista de Impressas guarda o id da linha do relatório', () => {
+    expect(tela).toMatch(/impressaoId: /);
+  });
+
+  const sql = ler('../../lib/migration44_apagar_impressao.sql');
+
+  it('só a conta dona apaga, e quem confere é o BANCO', () => {
+    expect(sql).toMatch(/if coalesce\(meu_cargo\(\), ''\) <> 'diretoria' then/);
+    expect(sql).toMatch(/revoke all on function apagar_impressao\([^)]*\) from public, anon/);
+  });
+
+  it('o contador do painel desce junto, sem ficar negativo', () => {
+    expect(sql).toMatch(/greatest\(coalesce\(etiquetas_impressas, 0\) - tirar, 0\)/);
+  });
+
+  it('a aba Impressas só mostra "Apagar" para a conta dona', () => {
+    const pag = ler('../../pages/etiquetas/Impressas.jsx');
+    expect(pag).toMatch(/const podeApagar = sessao\?\.cargo === 'diretoria' && !sessao\?\.eSuperAdmin/);
+    expect(pag).toMatch(/\{podeApagar && \(/);
+  });
+});
