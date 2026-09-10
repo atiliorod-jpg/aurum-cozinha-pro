@@ -57,6 +57,8 @@ const NOMES_DOC = {
   etiquetasAvulsas: 'etiquetas avulsas', permissoes: 'permissões',
   precos: 'preços', estoques: 'estoques', metas: 'mínimos e máximos',
   prefs: 'configurações',
+  // troca de e-mail da conta dona — registrada à mão pela função `restaurante`
+  'auth.users': 'conta de acesso',
 };
 const nomeDoc = (chave) => {
   const partes = String(chave || '').split('::');
@@ -105,6 +107,9 @@ export default function Admin() {
   const [criandoConta, setCriandoConta] = useState(false);
   // { nomeRestaurante, email, senha } — a conta recém-aberta, mostrada UMA vez
   const [contaCriada, setContaCriada] = useState(null);
+  // Trocar o e-mail da conta dona: { id, email, repetir } — uma conta por vez
+  const [trocaEmail, setTrocaEmail] = useState(null);
+  const [salvandoEmail, setSalvandoEmail] = useState(false);
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
   // viram uma parede de rolagem e o painel deixa de ser consultável.
   const [aberto, setAberto] = useState('');
@@ -436,11 +441,10 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
   // "agora entra no site e preenche" é perder a pessoa na porta. Aqui a conta
   // sai pronta, com plano e dias de teste já no lugar.
   //
-  // ⚠️ NINGUÉM ESCOLHE SENHA AQUI, nem eu. A conta nasce com uma senha
-  // aleatória que ninguém conhece e o dono recebe o link para escolher a dele.
-  // Senha ditada por telefone é senha que vaza — e o link ainda prova, na
-  // hora, que o e-mail digitado existe: ele é o único caminho de recuperação
-  // do dono, e descobrir o erro seis meses depois é descobrir tarde.
+  // ⚠️ NINGUÉM ESCOLHE SENHA AQUI, mas desde 10/09/2026 a Aurum VÊ a sorteada:
+  // o dono monta a conta, entra, deixa pronta e entrega; o cliente troca em
+  // Administração → Trocar minha senha. Sem e-mail — o porquê, e o que se
+  // perdeu com isso, estão no cabeçalho de supabase/functions/restaurante.
   // Fala com a edge function `restaurante`. A função relê no banco quem está
   // chamando e não confia em nada daqui — tela não é trava.
   const chamarRestaurante = async (corpo) => {
@@ -459,6 +463,40 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     } catch {
       return { erro: 'Sem conexão. Tente de novo quando a internet voltar.' };
     }
+  };
+
+  // ⚠️ TROCAR O E-MAIL DA CONTA DONA, a pedido do cliente. O login e a
+  // recuperação de senha leem o e-mail da conta de acesso na hora, então mudam
+  // junto sem mais nada — ver o cabeçalho da ação 'email' na função
+  // `restaurante`, onde moram as travas de verdade.
+  //
+  // ⚠️ DIGITADO DUAS VEZES, porque não sai link de confirmação: um e-mail
+  // errado aqui só apareceria no dia em que o dono precisasse recuperar a
+  // senha — e aí ele não teria como.
+  const trocarEmail = async (r, u) => {
+    const novo = (trocaEmail?.email || '').trim().toLowerCase();
+    const rep = (trocaEmail?.repetir || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(novo)) { toast('E-mail inválido.', 'aviso'); return; }
+    if (novo !== rep) { toast('Os dois e-mails não são iguais.', 'aviso'); return; }
+    const ok = await confirm({
+      titulo: 'Trocar o e-mail da conta',
+      mensagem: `De: ${u.email}
+Para: ${novo}
+
+O login e a recuperação de senha passam a usar o e-mail novo. A senha continua a mesma, e nenhum e-mail é enviado.`,
+      confirmar: 'Trocar e-mail',
+    });
+    if (!ok) return;
+    setSalvandoEmail(true);
+    const resp = await chamarRestaurante({ acao: 'email', usuarioId: u.id, email: novo });
+    setSalvandoEmail(false);
+    if (resp?.erro) { toast(resp.erro, 'erro'); return; }
+    const final = resp.email || novo;
+    setTrocaEmail(null);
+    setRestaurantes(prev => prev.map(x => (x.id !== r.id ? x : {
+      ...x, usuarios: (x.usuarios || []).map(y => (y.id === u.id ? { ...y, email: final } : y)),
+    })));
+    toast(`E-mail de "${r.nome}" trocado para ${final}.`, 'sucesso', { duracao: 8000 });
   };
 
   // ⚠️ APAGAR DE VERDADE, e é isto que os Termos prometem em até 4 dias úteis
@@ -1425,9 +1463,19 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     ) : (
                       <div className="space-y-1">
                         {r.usuarios.map(u => (
-                          <div key={u.id} className="flex items-center justify-between text-xs gap-2">
+                          <div key={u.id} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs gap-2">
                             <span className="text-gray-700 truncate">{u.nome || '(sem nome)'}{u.email ? <span className="text-gray-600"> · {u.email}</span> : null}</span>
                             <span className="flex items-center gap-1.5 flex-shrink-0">
+                              {/* ⚠️ SÓ A CONTA DONA, e nunca a da Aurum — a
+                                  função recusa as duas de novo; aqui só não
+                                  mostra um botão que daria erro. */}
+                              {u.cargo === 'diretoria' && u.email && u.email !== SUPER_ADMIN_EMAIL && trocaEmail?.id !== u.id && (
+                                <button onClick={() => setTrocaEmail({ id: u.id, email: '', repetir: '' })}
+                                  className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">
+                                  trocar e-mail
+                                </button>
+                              )}
                               {/* ⚠️ SÓ PARA QUEM TEM CAIXA DE ENTRADA. As contas de
                                   equipe são `maria.polobeer@contas.aurum.app`,
                                   endereço interno que não recebe nada — o botão ali
@@ -1441,6 +1489,32 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                               )}
                               <span className="text-[11px] text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full">{u.cargo}</span>
                             </span>
+                          </div>
+                          {trocaEmail?.id === u.id && (
+                            <div className="bg-polo-beige rounded-lg p-2.5 space-y-2">
+                              <p className="text-[11px] text-gray-700">
+                                O cliente passa a entrar e a recuperar a senha pelo e-mail novo. A senha não muda.
+                              </p>
+                              <input type="email" value={trocaEmail.email} autoComplete="off"
+                                onChange={e => setTrocaEmail(v => ({ ...v, email: e.target.value }))}
+                                placeholder="E-mail novo" aria-label="E-mail novo"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" />
+                              <input type="email" value={trocaEmail.repetir} autoComplete="off"
+                                onChange={e => setTrocaEmail(v => ({ ...v, repetir: e.target.value }))}
+                                placeholder="Repita o e-mail novo" aria-label="Repita o e-mail novo"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white" />
+                              <div className="flex gap-2">
+                                <button onClick={() => setTrocaEmail(null)} disabled={salvandoEmail}
+                                  className="flex-1 border border-gray-200 bg-white text-gray-600 font-semibold text-xs py-2.5 rounded-lg">
+                                  Cancelar
+                                </button>
+                                <button onClick={() => trocarEmail(r, u)} disabled={salvandoEmail}
+                                  className="flex-1 bg-polo-navy text-polo-gold font-bold text-xs py-2.5 rounded-lg disabled:opacity-60">
+                                  {salvandoEmail ? 'Trocando…' : 'Trocar e-mail'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           </div>
                         ))}
                       </div>

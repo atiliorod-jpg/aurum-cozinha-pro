@@ -162,6 +162,76 @@ Deno.serve(async (req) => {
     return json({ ok: true, usuariosApagados: ids.length - sobraram.length, sobraram });
   }
 
+  // ── TROCAR O E-MAIL DA CONTA DONA ─────────────────────────────
+  //  Pedido do dono (10/09/2026): o cliente pede para trocar o e-mail da conta
+  //  principal, e a Aurum troca pelo painel.
+  //
+  //  ⚠️ POR QUE AQUI E NÃO EM SQL: o e-mail mora em `auth.users`, esquema do
+  //  Supabase — mesmo motivo da senha (ver functions/contas). A API de
+  //  administração troca com contrato estável.
+  //
+  //  ⚠️ O QUE MUDA JUNTO, SEM MAIS NADA: o login, a recuperação de senha
+  //  (`recuperacao_permitida`, M35) e a lista do painel
+  //  (`usuarios_do_restaurante`, M9) leem o e-mail de `auth.users` NA HORA.
+  //  A única CÓPIA que existe é `onboarding.contato_email`, atualizada abaixo.
+  //
+  //  Travas:
+  //    • só a conta DONA (diretoria) — as de equipe são `@contas.aurum.app`,
+  //      login interno, e quem troca o acesso delas é o dono do restaurante;
+  //    • NUNCA a conta da Aurum: a trava deste arquivo compara o E-MAIL
+  //      (SUPER_ADMIN, acima) — trocá-lo por aqui trancaria o painel inteiro;
+  //    • domínio interno recusado, e e-mail já usado também.
+  //  Sem link de confirmação, como na criação: quem confirma é a Aurum, que
+  //  falou com o cliente. É por isso que o painel pede o e-mail duas vezes.
+  if (acao === 'email') {
+    const alvo = limpo(corpo.usuarioId);
+    const novo = limpo(corpo.email).toLowerCase();
+    if (!alvo) return json({ erro: 'Falta a conta.' }, 400);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(novo)) return json({ erro: 'E-mail inválido.' }, 400);
+    if (novo.endsWith('@contas.aurum.app')) {
+      return json({ erro: 'Esse domínio é das contas de equipe. Use um e-mail de verdade.' }, 400);
+    }
+    if (novo === SUPER_ADMIN) return json({ erro: 'Esse é o e-mail da Aurum.' }, 400);
+
+    const { data: perfil } = await admin.from('perfis')
+      .select('id, restaurante_id, cargo').eq('id', alvo).maybeSingle();
+    if (!perfil) return json({ erro: 'Conta não encontrada.' }, 404);
+    if (perfil.cargo !== 'diretoria') {
+      return json({ erro: 'Só a conta dona do restaurante troca de e-mail por aqui.' }, 400);
+    }
+    const { data: atual, error: eAtual } = await admin.auth.admin.getUserById(alvo);
+    if (eAtual || !atual?.user) return json({ erro: 'Conta de acesso não encontrada.' }, 404);
+    const antigo = (atual.user.email || '').toLowerCase();
+    if (antigo === SUPER_ADMIN) {
+      return json({ erro: 'Esta é a conta da Aurum — trocar o e-mail dela trancaria o painel.' }, 400);
+    }
+    if (antigo === novo) return json({ erro: 'Esse já é o e-mail da conta.' }, 400);
+
+    const { error: eUpd } = await admin.auth.admin.updateUserById(alvo, { email: novo, email_confirm: true });
+    if (eUpd) {
+      const dup = /already|exists|registered/i.test(eUpd.message);
+      return json({ erro: dup ? 'Já existe uma conta com esse e-mail.' : eUpd.message }, 400);
+    }
+
+    // A cópia do contato (M3). Falhar aqui não desfaz a troca — é só o contato.
+    await admin.from('onboarding').update({ contato_email: novo }).eq('restaurante_id', perfil.restaurante_id);
+
+    // ⚠️ NO LIVRO DA M39 À MÃO: o gatilho de lá vigia tabelas do app, e o
+    // e-mail mora em `auth.users`, onde ele não alcança. Sem esta linha, a
+    // troca seria justamente a ação da Aurum que não deixa rastro — e é a que
+    // mais precisa ("quem mudou o e-mail da minha conta?").
+    const { data: casa } = await admin.from('restaurantes')
+      .select('nome').eq('id', perfil.restaurante_id).maybeSingle();
+    await admin.from('admin_log').insert({
+      restaurante_id: perfil.restaurante_id, restaurante: casa?.nome || null,
+      tabela: 'auth.users', acao: 'UPDATE',
+      mudancas: { email: { de: antigo, para: novo } },
+      feito_por: (quem.user.email || '').toLowerCase(),
+    });
+
+    return json({ ok: true, email: novo });
+  }
+
   const nomeRestaurante = limpo(corpo.nomeRestaurante);
   const nomeDono = limpo(corpo.nomeDono);
   const email = limpo(corpo.email).toLowerCase();

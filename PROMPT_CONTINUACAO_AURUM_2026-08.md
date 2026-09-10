@@ -231,6 +231,25 @@ entrar em qualquer conta de cliente sem ele saber).
 Perda aceita: o link provava que o e-mail existia; agora conferir o e-mail
 com o cliente na entrega.
 
+**Trocar o e-mail da conta dona pelo painel (10/09, função `restaurante` v5).**
+Botão "trocar e-mail" na linha da conta diretoria, no cartão do restaurante;
+e-mail digitado DUAS vezes + confirmação com "de/para"; nenhum e-mail sai.
+Ação `acao: 'email'` na função: só `cargo = diretoria`, nunca a conta da
+Aurum (a trava da função compara o E-MAIL — trocar o dela trancaria o
+painel), recusa `@contas.aurum.app` e e-mail já usado. Login, recuperação
+(`recuperacao_permitida`, M35) e a lista do painel (`usuarios_do_restaurante`,
+M9) leem `auth.users` na hora — mudam sozinhos. A única cópia,
+`onboarding.contato_email`, é atualizada junto. Fica no livro da M39 À MÃO
+(`tabela = 'auth.users'`, "Conta de acesso" no painel) — o gatilho de lá não
+alcança `auth.users`. Não testado ponta a ponta (mexeria numa conta real);
+conferido 401 sem login.
+
+**Publicação, para não haver dúvida:** `git push` na `main` dispara o
+"Deploy GitHub Pages", que publica em `app.aurumcozinha.com.br` (~1 a 2 min).
+Conferido em 10/09 procurando os textos novos DENTRO do bundle no ar. Funções
+do servidor vão por `node scripts/publicar-funcao.mjs <nome>`; migrações por
+`rodar-migracao.mjs` — as duas direto no Supabase, sem passar pelo git.
+
 **Sentry: o dono adiou em 10/09 ("é pago") — não lembrar até ele voltar ao assunto.**
 
 ---
