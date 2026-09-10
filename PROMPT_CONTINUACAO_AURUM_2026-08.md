@@ -221,6 +221,12 @@ A driver tem `OutputDensity` (LEVEL0–15, está em LEVEL8), mas com
 `PrinterSetting = ON` ("usar configuração da impressora") essa densidade é
 ignorada. Mexer nisso é configuração do Windows do dono — oferecido, não feito.
 
+⚠️ **REVERTIDO NO MESMO DIA.** O dono imprimiu e achou que ficou TUDO em
+negrito — pediu para voltar exatamente ao anterior (contorno de 0,06 mm, rodapé
+em peso normal). A margem de 1,5 mm, que acabou com o corte do rodapé, ficou.
+A nota em `index.css` registra a recusa: **não engrossar a letra do computador
+sem ele pedir**. Se voltar a incomodar, a alavanca é a densidade da driver.
+
 ---
 
 ## Onde paramos (10/09/2026, tarde) — A RODADA DE TESTES DO BITMAP
