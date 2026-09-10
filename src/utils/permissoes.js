@@ -64,6 +64,14 @@ export const CAPACIDADES = [
     etiquetas: true,
     labelEtiquetas: 'Abrir a Administração',
     descEtiquetas: 'Mexer no armazenamento, nos campos da etiqueta, nos responsáveis e nos dados do estabelecimento. NÃO dá acesso à assinatura, às contas da equipe nem a esta tela de acessos.' },
+  // ⚠️ REIMPRIMIR NÃO É EDITAR, e por isso nasce LIGADA para os dois cargos: a
+  // etiqueta rasga na mão de quem está de plantão, e a tela só repete o que já
+  // saiu no papel — não cria, não apaga, não altera data nenhuma. Ainda assim
+  // entra na matriz porque quem decide é o dono: a tela também mostra QUANTO a
+  // casa imprimiu por dia, semana e mês, e isso já é informação de gestão.
+  { id: 'verImpressas',      grupo: 'Operação', label: 'Ver e reimprimir etiquetas já impressas',
+    desc: 'Abrir a lista do que já saiu no rolo, com os totais do dia, da semana e do mês, e repetir uma etiqueta que rasgou — com as datas originais.',
+    etiquetas: true },
   { id: 'verFinanceiro',     grupo: 'Financeiro', label: 'Ver custos e preços',
     desc: 'Custo de insumo, valor do estoque e curva ABC.',
     duro: true },
@@ -91,6 +99,11 @@ export const PERMISSOES_PADRAO = {
     // pode liberar para a cozinha na matriz de permissões (Config → Acessos).
     removerRegistros: false, inventario: false, verRelatorio: false,
     verAuditoria: false, gerenciarProdutos: false, configurarSistema: false,
+    // ⚠️ LIGADA por padrão nos dois cargos: repetir uma etiqueta que rasgou é
+    // tarefa de quem está com o pote na mão. Sem isto, a cozinha teria de
+    // chamar o dono no meio do serviço — ou remontar a etiqueta do zero, que
+    // recalcula a validade e devolve um pote mentindo sobre a idade.
+    verImpressas: true,
     // quem opera o estoque não vê custo por padrão — decisão do dono
     verFinanceiro: false,
     // desligado por padrão, mas é o que a diretoria costuma querer ligar: ver o
@@ -100,6 +113,7 @@ export const PERMISSOES_PADRAO = {
   gerencia: {
     removerRegistros: true, inventario: true, verRelatorio: true,
     verAuditoria: true, gerenciarProdutos: true, configurarSistema: true,
+    verImpressas: true,
     // nem a gerência: financeiro é liberado item a item pela diretoria, porque
     // é o único dado aqui cuja exposição não tem volta (margem e fornecedor)
     verFinanceiro: false,

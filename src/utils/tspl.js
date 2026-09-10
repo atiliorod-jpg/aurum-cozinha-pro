@@ -20,8 +20,11 @@ const mm = (v) => Math.round(v * PONTOS_POR_MM);
 
 // Largura de caractere das fontes internas do TSPL, em pontos (multiplicador 1).
 // É o que permite alinhar à direita sem adivinhar — TSPL não tem alinhamento.
-const LARGURA_FONTE = { 1: 8, 2: 12, 3: 16, 4: 24, 5: 32 };
-const ALTURA_FONTE  = { 1: 12, 2: 20, 3: 24, 4: 32, 5: 48 };
+// Exportadas para a PRÉVIA desenhar com a mesma métrica da impressora
+// (utils/tsplPreview.js). Uma tabela só para os dois lados — é o que impede a
+// prévia de voltar a inventar um tamanho de letra próprio.
+export const LARGURA_FONTE = { 1: 8, 2: 12, 3: 16, 4: 24, 5: 32 };
+export const ALTURA_FONTE  = { 1: 12, 2: 20, 3: 24, 4: 32, 5: 48 };
 
 const larguraTexto = (txt, fonte, mul = 1) =>
   String(txt || '').length * (LARGURA_FONTE[fonte] || 12) * mul;

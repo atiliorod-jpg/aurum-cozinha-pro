@@ -53,11 +53,12 @@ const NAV_ETIQUETAS = [
   // nova o vazio da tela de imprimir manda "Cadastrar itens" e apontava para
   // a mesma tela negada — um laço fechado.
   { to: '/itens',   icon: 'caixa',    label: 'Meus itens', cap: 'gerenciarProdutos' },
-  // ⚠️ SEM `cap`, e é de propósito: a etiqueta rasga na mão de quem está de
-  // plantão, não na do dono. Exigir capacidade aqui devolveria o problema que
-  // esta tela existe para resolver — remontar a etiqueta do zero, com o pote
-  // na mão, e ainda com a validade recalculada errada.
-  { to: '/impressas', icon: 'historico', label: 'Impressas' },
+  // ⚠️ MESMA CHAVE DA ROTA. Aba que aparece e leva a um redirecionamento
+  // silencioso é o defeito que o /itens já teve aqui: a pessoa toca, a tela
+  // pisca e ela volta sem entender. A capacidade nasce ligada para os dois
+  // cargos (ver utils/permissoes.js), então na prática ela aparece — a menos
+  // que o dono feche.
+  { to: '/impressas', icon: 'historico', label: 'Impressas', cap: 'verImpressas' },
   // ⚠️ ERA `soDono` (só a diretoria) e virou CAPACIDADE, a pedido do dono: ele
   // quis poder liberar a Administração para outros cargos. O que é contrato e
   // chave da casa — assinatura, contas da equipe, matriz de acessos e suporte

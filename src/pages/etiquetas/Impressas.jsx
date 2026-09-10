@@ -4,7 +4,7 @@ import Aviso from '../../components/Aviso';
 import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
 import { hoje, fmtData } from '../../utils/formatters';
-import { statusEtiqueta, STATUS_ETIQUETA, medidaDoProduto } from '../../utils/etiquetas';
+import { statusEtiqueta, STATUS_ETIQUETA, medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
 import { prazosDoProduto } from '../../utils/armazenamento';
 
 /**
@@ -47,6 +47,9 @@ export default function Impressas() {
 
   const totalDoDia = (lista) => lista.reduce((s, e) => s + (e.copias || 1), 0);
 
+  // A conta vive em utils/etiquetas.js, com teste — ver o porquê lá.
+  const totais = useMemo(() => totaisImpressos(etiquetasImpressas, hj), [etiquetasImpressas, hj]);
+
   const reimprimir = (e) => {
     const p = e.produtoId ? produtos.find(x => x.id === e.produtoId) : null;
     abrirEtiquetas([{
@@ -83,6 +86,26 @@ export default function Impressas() {
         </Aviso>
       ) : (
         <div className="space-y-4">
+          {/* ⚠️ OS TOTAIS FICAM FORA DA BUSCA, de propósito: são o quanto a
+              casa imprimiu, não o quanto o filtro achou. Um número de controle
+              que muda quando se digita no campo de busca é um número em que
+              ninguém confia. */}
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              ['Hoje', totais.hoje],
+              ['7 dias', totais.semana],
+              ['Este mês', totais.mes],
+            ].map(([rotulo, valor]) => (
+              <div key={rotulo} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
+                <p className="text-xl font-bold text-polo-navy leading-none">{valor}</p>
+                <p className="text-[11px] text-gray-600 mt-1">{rotulo}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-600 -mt-2">
+            Etiquetas de papel, contando as cópias. “Este mês” é o mês do calendário.
+          </p>
+
           <input
             type="search" value={busca} onChange={ev => setBusca(ev.target.value)}
             placeholder="Procurar pelo nome do item" aria-label="Procurar etiqueta impressa"

@@ -200,6 +200,37 @@ export function podarEtiquetas(lista = [], hojeISO, diasHistorico = 120) {
     .slice(0, MAX_ETIQUETAS_GUARDADAS);
 }
 
+/**
+ * Quanto a casa imprimiu — hoje, nos últimos 7 dias e no mês do calendário.
+ *
+ * ⚠️ CONTA ETIQUETAS DE PAPEL, NÃO LINHAS. Uma linha pode valer N etiquetas: o
+ * envio por Bluetooth manda `PRINT 1,N` e as N cópias saem com o MESMO código,
+ * então viram uma linha com `copias: N` (decisão de 03/09 — só se grava código
+ * que existe em papel). Somar linhas contaria três potes iguais como um.
+ *
+ * ⚠️ "Mês" é o do CALENDÁRIO, não 30 dias: é assim que se compara um mês com o
+ * outro. A semana são os últimos 7 dias, que é a pergunta operacional.
+ *
+ * ⚠️ O número do mês pode ficar CURTO em conta antiga, porque
+ * `podarEtiquetas` descarta vencida com mais de 30 dias e encerrada com mais de
+ * 120. No mês corrente isso não morde — e é por isso que não existe "este ano"
+ * aqui: seria um número errado com cara de certo.
+ *
+ * Função PURA para ter teste (este projeto não tem jsdom: o que precisa de
+ * verificação sai do componente).
+ */
+export function totaisImpressos(lista = [], hojeISO) {
+  const menos = (dias) => new Date(new Date(hojeISO).getTime() - dias * 86400000).toISOString().slice(0, 10);
+  const somar = (de) => (lista || [])
+    .filter(e => (e?.impressoEm || '') >= de && (e?.impressoEm || '') <= hojeISO)
+    .reduce((s, e) => s + (parseInt(e.copias) || 1), 0);
+  return {
+    hoje: somar(hojeISO),
+    semana: somar(menos(6)),              // hoje + os 6 anteriores
+    mes: somar(`${hojeISO.slice(0, 7)}-01`),
+  };
+}
+
 // Acento vira 2 bytes no QR (UTF-8) e empurra a versão do código para cima.
 // Como o texto acentuado já está impresso em tamanho grande na etiqueta, o QR
 // usa a versão sem acento só para caber em menos módulos.

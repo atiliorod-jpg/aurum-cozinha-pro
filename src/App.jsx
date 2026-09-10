@@ -368,11 +368,13 @@ function Rotas() {
           <Route path="/"           element={<Etiquetas />} />
           <Route path="/etiquetas"  element={<Navigate to="/" replace />} />
           <Route path="/itens"      element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
-          {/* ⚠️ Sem trava de cargo: repetir uma etiqueta que rasgou é tarefa de
-              quem está de plantão, não decisão de dono. A tela não cria nem
-              apaga nada — só manda imprimir de novo o que já saiu no papel,
-              com as MESMAS datas. */}
-          <Route path="/impressas"  element={<EtiquetasImpressas />} />
+          {/* ⚠️ Por CAPACIDADE (`verImpressas`), como as demais telas: quem
+              decide é o dono, na matriz de acessos. Ela nasce LIGADA para
+              cozinha e gerência — a etiqueta rasga na mão de quem está de
+              plantão —, mas a tela também mostra quanto a casa imprimiu por
+              dia, semana e mês, e isso é informação de gestão que o dono pode
+              querer fechar. A trava por URL direta continua valendo. */}
+          <Route path="/impressas"  element={can('verImpressas') ? <EtiquetasImpressas /> : <Navigate to="/" replace />} />
           {/* ⚠️ Estava SEM TRAVA: qualquer pessoa logada — inclusive o
               cozinheiro que entrou por convite — mudava temperatura, tamanho
               de etiqueta, dados do estabelecimento, suporte remoto e

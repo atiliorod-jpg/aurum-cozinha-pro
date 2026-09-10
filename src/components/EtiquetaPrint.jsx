@@ -16,6 +16,7 @@ import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, pod
          lembrarArmazenamentos } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL, medirEtiqueta, nivelDeDesenho } from '../utils/tspl';
+import EtiquetaTSPL from './EtiquetaTSPL';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
@@ -506,6 +507,18 @@ export default function EtiquetaPrint() {
     [itens, config, estabelecimento, responsavel],
   );
   const nivelDoItem = (idx) => desenhos[idx]?.nivel ?? NIVEL_PADRAO;
+
+  // O MESMO texto que vai pelo Bluetooth, para a prévia desenhar em vez de
+  // adivinhar. Uma etiqueta só (a primeira), sem cópias: o interpretador para
+  // no primeiro `PRINT`.
+  const tsplDaPrevia = useMemo(
+    () => (itens.length
+      ? loteTSPL([{ campos: camposDe(itens[0], loteDaCopia(itens[0], 0)), copias: 1 }],
+                 { ...config, estabelecimento })
+      : ''),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mesmas dependências reais de `desenhos` acima
+    [itens, config, estabelecimento, responsavel],
+  );
 
   // Gera os QR codes quando ligado (async — toDataURL é Promise).
   // Só gera o que ainda não está em cache: editar um item de um lote não
@@ -999,14 +1012,30 @@ export default function EtiquetaPrint() {
                   Em Administração → Etiquetas, desligue um campo (marca ou validade original).
                 </Aviso>
               )}
+              {/* ⚠️ CADA APARELHO VÊ A PRÉVIA DO SEU PRÓPRIO PAPEL, e é isto
+                  que acaba com a família de defeitos "na tela aparece, no papel
+                  não". A etiqueta era desenhada duas vezes por códigos
+                  diferentes — HTML na tela, TSPL na impressora — e nada garantia
+                  que concordassem.
+
+                  No celular quem imprime é o TSPL: a prévia agora LÊ esse mesmo
+                  texto e o desenha (EtiquetaTSPL). No computador quem imprime é
+                  o diálogo do navegador, e o que sai no papel lá é exatamente o
+                  HTML abaixo — ali a prévia já era o próprio artefato impresso,
+                  e trocá-la por um SVG seria substituir uma prévia fiel por uma
+                  aproximação. Nada do que é IMPRESSO mudou nos dois casos. */}
               <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
                 <div className="shadow-md flex-shrink-0">
-                  <EtiquetaLabel
-                    campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}
-                    config={config}
-                    qr={qrs[payloadDe(itens[0], loteDaCopia(itens[0], 0))]}
-                    estabelecimento={estabelecimento}
-                    nivel={nivelDoItem(0)} />
+                  {mostrarDireto ? (
+                    <EtiquetaTSPL tspl={tsplDaPrevia} />
+                  ) : (
+                    <EtiquetaLabel
+                      campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}
+                      config={config}
+                      qr={qrs[payloadDe(itens[0], loteDaCopia(itens[0], 0))]}
+                      estabelecimento={estabelecimento}
+                      nivel={nivelDoItem(0)} />
+                  )}
                 </div>
               </div>
               {itens.length > 1 && (

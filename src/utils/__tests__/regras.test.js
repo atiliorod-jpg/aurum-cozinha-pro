@@ -8,7 +8,7 @@ import { calcSugestoesMinMax } from '../sugestoes';
 import { validarDataRegistro, addDias, diasAte } from '../datas';
 import { rendimentoPorFornecedor, fatorCorrecaoItem, fatorCorrecaoProduto, mediaDiariaSaidas, previsaoRuptura, listaDeCompras, agruparListaPorMateriaPrima, preparacoesPorMateriaPrima, preparacoesDoItem, nomesCasam } from '../analise';
 import { ingredientesParaProduzir, planejarProducao, producoesIncompletas } from '../producao';
-import { ETIQUETA_CONFIG_PADRAO, montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, lerLoteIdDoQR, statusEtiqueta, podarEtiquetas, MAX_ETIQUETAS_GUARDADAS } from '../etiquetas';
+import { ETIQUETA_CONFIG_PADRAO, montarCamposEtiqueta, montarPayloadQR, QR_MAX_CARACTERES, gerarLoteId, lerLoteIdDoQR, statusEtiqueta, podarEtiquetas, MAX_ETIQUETAS_GUARDADAS, totaisImpressos } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO, capacidadesDoProduto } from '../permissoes';
 import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
 import { statusEstoque } from '../calculos';
@@ -31,6 +31,7 @@ import { limitarDias, avisoDePrazo, DIAS_VALIDADE_MAX,
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
 import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM, medirEtiqueta, quebrarEmLinhas, nivelDeDesenho } from '../tspl';
+import { interpretarTSPL, larguraDoTexto, alturaDoTexto } from '../tsplPreview';
 import { caminhosDeImpressao, ehCelular } from '../../lib/impressoraBLE';
 import { traduzErroAuth } from '../erros';
 import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
@@ -3854,6 +3855,112 @@ describe('escolherConhecido — não tenta às cegas', () => {
     expect(pareceImpressora('Galaxy Buds')).toBe(false);
     expect(pareceImpressora('')).toBe(false);
     expect(pareceImpressora(null)).toBe(false);
+  });
+});
+
+// =====================================================================
+//  A prévia LÊ o TSPL em vez de redesenhar a etiqueta por conta própria
+//
+//  A mesma etiqueta era desenhada duas vezes, por códigos diferentes: HTML na
+//  tela e TSPL na impressora. Nada garantia que concordassem — e não
+//  concordavam (nome cortado só no papel, endereço perdendo o bairro só no
+//  rolo, rodapé agrupado diferente). O interpretador acaba com a segunda
+//  versão: a prévia passa a ser uma LEITURA do que vai ser impresso.
+// =====================================================================
+describe('interpretarTSPL — ler de volta o que foi gerado', () => {
+  const CRLF = String.fromCharCode(13) + String.fromCharCode(10);
+
+  it('lê o tamanho do papel, os textos e as barras', () => {
+    const t = [
+      'SIZE 60 mm,50 mm', 'GAP 2 mm,0 mm', 'DIRECTION 1', 'CLS', 'CODEPAGE 1252',
+      'TEXT 20,16,"4",0,1,1,"PICANHA"',
+      'BAR 20,44,440,2',
+      'PRINT 1,1',
+    ].join(CRLF);
+    const r = interpretarTSPL(t);
+    expect(r.larguraMm).toBe(60);
+    expect(r.alturaMm).toBe(50);
+    // CLS/GAP/DIRECTION/CODEPAGE preparam a impressora e não marcam tinta
+    expect(r.desenho).toHaveLength(2);
+    expect(r.desenho[0]).toMatchObject({ tipo: 'texto', x: 20, y: 16, fonte: '4', conteudo: 'PICANHA' });
+    expect(r.desenho[1]).toMatchObject({ tipo: 'barra', x: 20, y: 44, largura: 440, altura: 2 });
+  });
+
+  // ⚠️ O conteúdo pode ter vírgula ("Av. Aguiar, 1234"), e um casamento
+  // preguiçoso cortaria ali — o endereço apareceria pela metade na prévia.
+  it('conteúdo com vírgula não é cortado', () => {
+    const r = interpretarTSPL('TEXT 20,272,"2",0,1,1,"Av. Conselheiro Aguiar, 1234 - Boa Viagem"');
+    expect(r.desenho[0].conteudo).toBe('Av. Conselheiro Aguiar, 1234 - Boa Viagem');
+  });
+
+  // ⚠️ Um lote emenda várias etiquetas no mesmo texto. Sem parar no PRINT, a
+  // segunda seria desenhada por cima da primeira, nas mesmas coordenadas.
+  it('para na primeira etiqueta do lote', () => {
+    const t = [
+      'SIZE 60 mm,50 mm', 'TEXT 20,16,"4",0,1,1,"PRIMEIRA"', 'PRINT 1,1',
+      'SIZE 60 mm,50 mm', 'TEXT 20,16,"4",0,1,1,"SEGUNDA"', 'PRINT 1,1',
+    ].join(CRLF);
+    const r = interpretarTSPL(t);
+    expect(r.desenho).toHaveLength(1);
+    expect(r.desenho[0].conteudo).toBe('PRIMEIRA');
+  });
+
+  it('a métrica da prévia é a MESMA tabela da impressora', () => {
+    const d = { conteudo: 'ABCDE', fonte: '2', mulX: 1, mulY: 1 };
+    expect(larguraDoTexto(d)).toBe(5 * 12);   // 5 caracteres x 12 pontos
+    expect(alturaDoTexto(d)).toBe(20);
+    expect(larguraDoTexto({ ...d, mulX: 2 })).toBe(5 * 12 * 2);
+  });
+
+  // A prova de que a prévia não inventa nada: o que o gerador CORTOU aparece
+  // cortado, e o que ele QUEBROU aparece em duas linhas.
+  it('a prévia recebe exatamente o que o gerador decidiu', () => {
+    const nome = 'Bacalhau dessalgado desfiado para bolinho da casa';
+    const r = interpretarTSPL(etiquetaTSPL(
+      { nome, rotuloData: 'MANIPULACAO', dataFabricacaoFmt: '09/09/2026', validadeFmt: '09/03/2027' },
+      { larguraMm: 60, alturaMm: 50, campos: {} },
+    ));
+    const textos = [...new Set(r.desenho.filter(d => d.tipo === 'texto').map(d => d.conteudo))];
+    const doNome = textos.filter(t => /BACALHAU|BOLINHO|DESSALGADO/.test(t));
+    expect(doNome.length).toBe(2);
+    expect(doNome.join(' ')).toBe(nome.toUpperCase());
+  });
+
+  it('texto vazio não vira desenho', () => {
+    expect(interpretarTSPL('TEXT 20,16,"2",0,1,1,""').desenho).toHaveLength(0);
+    expect(interpretarTSPL('').desenho).toHaveLength(0);
+    expect(interpretarTSPL(null).desenho).toHaveLength(0);
+  });
+});
+
+// =====================================================================
+//  Quanto a casa imprimiu — o controle da tela /impressas
+// =====================================================================
+describe('totaisImpressos — conta etiqueta de papel, não linha', () => {
+  const hj = '2026-09-09';
+  const linha = (dia, copias) => ({ impressoEm: dia, copias });
+
+  it('uma linha pode valer N etiquetas (PRINT 1,N por Bluetooth)', () => {
+    expect(totaisImpressos([linha(hj, 3)], hj).hoje).toBe(3);
+    // sem `copias` (caminho do diálogo, uma linha por cópia) vale 1
+    expect(totaisImpressos([{ impressoEm: hj }], hj).hoje).toBe(1);
+  });
+
+  it('semana são os últimos 7 dias, incluindo hoje', () => {
+    const lista = [linha('2026-09-09', 1), linha('2026-09-04', 1), linha('2026-09-03', 1), linha('2026-09-02', 1)];
+    // 09, 04 e 03 entram (09/09 menos 6 dias = 03/09); 02 fica de fora
+    expect(totaisImpressos(lista, hj).semana).toBe(3);
+  });
+
+  it('mês é o do calendário, não 30 dias', () => {
+    const lista = [linha('2026-09-01', 1), linha('2026-08-31', 5), linha('2026-08-15', 9)];
+    expect(totaisImpressos(lista, hj).mes).toBe(1);
+  });
+
+  it('data futura não conta, e lista vazia dá zero', () => {
+    expect(totaisImpressos([linha('2026-12-01', 4)], hj).mes).toBe(0);
+    expect(totaisImpressos([], hj)).toEqual({ hoje: 0, semana: 0, mes: 0 });
+    expect(totaisImpressos(null, hj)).toEqual({ hoje: 0, semana: 0, mes: 0 });
   });
 });
 
