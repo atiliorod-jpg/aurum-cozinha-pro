@@ -1723,11 +1723,27 @@ describe('nomeEmBitmap — a letra do computador, com canvas simulado', () => {
   }));
 
   // ⚠️ Palavra única maior que a caixa não "sobrava" — entrava inteira e era
-  // desenhada além da borda: 561 pontos numa caixa de 440, sem o ponto.
-  it('palavra maior que a linha é cortada com "." em vez de estourar a borda', () => comCanvasFalso(({ nomeEmBitmap }, larg) => {
-    const r = nomeEmBitmap({ nome: 'AB CDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKL' }, cfg, 2);
+  // desenhada além da borda: 561 pontos numa caixa de 440, sem o ponto. A
+  // palavra aqui é longa o bastante para não caber NEM NO PISO: é só nesse
+  // caso que o corte deve acontecer — acima do piso, encolher vence cortar.
+  it('palavra que não cabe nem no piso é cortada com "." em vez de estourar a borda', () => comCanvasFalso(({ nomeEmBitmap }, larg) => {
+    const r = nomeEmBitmap({ nome: `AB ${'C'.repeat(45)}` }, cfg, 2);
+    expect(r.tamanho).toBe(Math.round(2.4 * 8));
     for (const l of r.linhas) expect(larg(l, r.tamanho)).toBeLessThanOrEqual(r.caixa.largura);
     expect(r.linhas[r.linhas.length - 1].endsWith('.')).toBe(true);
+  }));
+
+  // ⚠️ O DEFEITO QUE A CAPTURA DE TELA MOSTROU. "Cabe?" comparava a largura do
+  // nome numa linha com largura × linhas, e esquecia a sobra que a quebra por
+  // palavra deixa no fim de cada linha. O nome ficava no corpo cheio e perdia o
+  // fim ("...BOLINHO DA C."), quando um ponto a menos o mostrava inteiro.
+  it('encolhe um pouco antes de cortar: nome que cabe em duas linhas sai inteiro', () => comCanvasFalso(({ nomeEmBitmap }) => {
+    const nome = Array(12).fill('AAAA').join(' ');
+    const r = nomeEmBitmap({ nome }, cfg, 2);
+    expect(r.linhas).toHaveLength(2);
+    expect(r.linhas.join(' ')).toBe(nome);
+    expect(r.linhas.some(l => l.endsWith('.'))).toBe(false);
+    expect(r.tamanho).toBeLessThan(Math.round(3.2 * 8));
   }));
 
   it('nome comprido que cabe em duas linhas sai inteiro, sem ponto', () => comCanvasFalso(({ nomeEmBitmap }) => {

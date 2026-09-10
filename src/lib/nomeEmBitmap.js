@@ -69,14 +69,41 @@ export function nomeEmBitmap(campos, config, linhasDeNome = 1) {
   // régua é o PRÓPRIO NOME.
   let tamanho = Math.max(PISO_PX, Math.round(corpoDoNomeMm(nome) * PONTOS_POR_MM));
   const usarFonte = () => { ctx.font = `800 ${tamanho}px ${FAMILIA}`; };
+  const cabeNaLinha = (t) => ctx.measureText(t).width <= caixa.largura;
+  const encurtar = (t) => {
+    let r = t;
+    while (r.length > 1 && !cabeNaLinha(`${r}.`)) r = r.slice(0, -1);
+    return `${r}.`;
+  };
+  // Quebra pelas palavras, medindo de verdade no corpo que estiver valendo.
+  // Palavra que sozinha já não cabe fica numa linha só dela.
+  const quebrar = () => {
+    const quebradas = [];
+    let atual = '';
+    for (const p of nome.split(' ')) {
+      const tentativa = atual ? `${atual} ${p}` : p;
+      if (atual && !cabeNaLinha(tentativa)) { quebradas.push(atual); atual = p; } else { atual = tentativa; }
+    }
+    if (atual) quebradas.push(atual);
+    return quebradas;
+  };
+
+  // ⚠️ "CABE" É O NOME INTEIRO JÁ QUEBRADO EM LINHAS, não a largura somada. A
+  // versão anterior comparava a largura do nome numa linha só com "largura ×
+  // número de linhas" — só que a quebra por palavra desperdiça o fim de cada
+  // linha, e essa sobra não entrava na conta. Visto na prévia: "BACALHAU
+  // DESSALGADO / DESFIADO PARA BOLINHO DA C." — o corpo ficava cheio e o nome
+  // perdia o fim, quando um ponto a menos o mostrava inteiro. Pior: com a
+  // opção desligada, a fonte interna mostrava o nome todo. Nome comprido perde
+  // CORPO antes de perder LETRA, até o piso — só dali para baixo se corta.
   const cabe = () => {
     usarFonte();
     const m = ctx.measureText(nome);
     const alto = (m.actualBoundingBoxAscent || tamanho * 0.72) + (m.actualBoundingBoxDescent || 0);
-    // largura vale para o total: com duas linhas, o nome se reparte entre elas
-    return alto <= alturaLinha && m.width <= caixa.largura * maxLinhas;
+    if (alto > alturaLinha) return false;
+    const q = quebrar();
+    return q.length <= maxLinhas && q.every(cabeNaLinha);
   };
-  // Encolhe só se não couber, e só até o piso — dali para baixo, corta.
   while (tamanho > PISO_PX && !cabe()) tamanho -= 1;
   usarFonte();
 
@@ -88,22 +115,7 @@ export function nomeEmBitmap(campos, config, linhasDeNome = 1) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#000';
 
-  const cabeNaLinha = (t) => ctx.measureText(t).width <= caixa.largura;
-  const encurtar = (t) => {
-    let r = t;
-    while (r.length > 1 && !cabeNaLinha(`${r}.`)) r = r.slice(0, -1);
-    return `${r}.`;
-  };
-
-  // Quebra pelas palavras, medindo de verdade. Palavra que sozinha já não cabe
-  // fica numa linha só dela — e é cortada abaixo.
-  const todas = [];
-  let atual = '';
-  for (const p of nome.split(' ')) {
-    const tentativa = atual ? `${atual} ${p}` : p;
-    if (atual && !cabeNaLinha(tentativa)) { todas.push(atual); atual = p; } else { atual = tentativa; }
-  }
-  if (atual) todas.push(atual);
+  const todas = quebrar();
 
   // Sobrou linha além das que a caixa tem: a última recebe TODO o resto.
   const usadas = todas.length > maxLinhas
