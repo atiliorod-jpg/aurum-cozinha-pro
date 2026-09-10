@@ -232,12 +232,36 @@ linhas só eram lidas pelo Inventário e pelo Validades, telas que este produto
 não tem. Agora há leitor dentro do próprio produto. O custo (uma linha por
 lote, sincronizada) voltou, e agora é pago por algo que o cliente vê.
 
-### Melhoria estrutural ainda EM ABERTO (explicada ao dono, não feita)
+### A prévia passou a LER o TSPL (commit `f574d95`)
 
-Desenhar a prévia **a partir do próprio TSPL**, interpretando os comandos num
-canvas, em vez de recriar a etiqueta em HTML. Hoje existem dois desenhos
-mantidos iguais na mão, e os quatro achados acima foram exatamente essa
-divergência aparecendo. `nivelDeDesenho` reduziu a superfície; não a eliminou.
+`utils/tsplPreview.js` interpreta o TSPL; `components/EtiquetaTSPL.jsx` desenha
+em SVG. **No celular** a prévia é esse desenho — o mesmo texto que vai pelo
+Bluetooth. Campo novo no gerador aparece sozinho.
+
+⚠️ **NADA DO QUE É IMPRESSO MUDOU.** `utils/tspl.js` está intocado (só ganhou o
+export das tabelas de fonte). A `etiqueta-print-area` do diálogo do navegador
+continua sendo o MESMO HTML, e **no computador a prévia também segue HTML** —
+ali ela já É o artefato impresso; trocá-la por SVG seria piorar.
+
+⚠️ Efeito visível: a prévia do celular mostra o texto **sem acento**, que é o
+que a impressora imprime de verdade. Quem estava mentindo era a prévia.
+
+Limite honesto: a fonte da tela não é a da impressora, então a LETRA continua
+aproximada. Exata passa a ser a GEOMETRIA.
+
+### `/impressas`: totais e matriz de acessos
+
+Totais de **hoje, 7 dias e mês do calendário**, contando etiquetas de PAPEL
+(uma linha pode valer N cópias). A conta é `totaisImpressos` em
+`utils/etiquetas.js`, com teste — regra do projeto: o que precisa de
+verificação sai do componente, porque **não há jsdom aqui**.
+
+Os totais ficam FORA da busca, de propósito: número de controle que muda ao
+digitar no filtro é número em que ninguém confia.
+
+Capacidade nova **`verImpressas`** na matriz de acessos. Nasce LIGADA para
+cozinha e gerência; o dono fecha se quiser. Rota e aba usam a MESMA chave — aba
+que aparece e leva a redirecionamento silencioso já foi defeito aqui (o /itens).
 
 ### Também em aberto
 
