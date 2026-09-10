@@ -118,4 +118,33 @@ main .bg-white.rounded-xl {
     page-break-after: always; break-after: page; overflow: hidden;
   }
   body.imprimindo-etiqueta .etiqueta-pagina:last-child { page-break-after: avoid; break-after: avoid; }
+
+  /* ⚠️ TRAÇO MAIS CHEIO, senão a etiqueta sai LAVADA. O navegador desenha a
+     letra com antialiasing — pixels CINZA nas bordas —, e a térmica é de 1 bit:
+     ela não tem cinza, então converte aquilo em ponto esparso ou em nada. O
+     resultado no papel é uma letra fina e clara, exatamente o que o dono
+     apontou. O TSPL resolve isso imprimindo o texto DUAS VEZES deslocado um
+     ponto (ver utils/tspl.js); aqui o equivalente é engrossar o próprio traço.
+     0,06 mm ≈ meio ponto a 203 DPI: engorda sem fechar o buraco do "a".
+     `print-color-adjust: exact` impede o navegador de "economizar tinta",
+     que é a outra metade do clareamento. */
+  body.imprimindo-etiqueta .etiqueta-label {
+    -webkit-text-stroke: 0.06mm currentColor;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ⚠️ MARGEM DE SEGURANÇA EMBAIXO. A etiqueta era desenhada com a altura
+     CHEIA do papel e o rodapé ancorado na borda de baixo — sem folga nenhuma.
+     Qualquer diferença entre o que o Chrome manda e o que a driver imprime
+     (área não-imprimível, arredondamento do @page, avanço do rolo) comia a
+     última linha, e a última linha é o ENDEREÇO da cozinha. Foi o que o dono
+     viu: "CNPJ, endereço e cidade cortando, às vezes vai muito embaixo".
+     "Às vezes" é a assinatura desse tipo de defeito — depende do que a driver
+     arredondou naquela impressão.
+     1,5 mm de folga é ~12 pontos: some do olho e nunca mais encosta na borda.
+     O TSPL já reservava 2 mm (`A - mm(2)`); só a tela é que não reservava. */
+  body.imprimindo-etiqueta .etiqueta-label {
+    height: calc(100% - 1.5mm) !important;
+  }
 }

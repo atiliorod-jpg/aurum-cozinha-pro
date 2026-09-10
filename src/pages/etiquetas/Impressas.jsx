@@ -42,6 +42,13 @@ export default function Impressas() {
       if (!porDia.has(d)) porDia.set(d, []);
       porDia.get(d).push(e);
     }
+    // ⚠️ Dentro do dia, a MAIS RECENTE primeiro. Quem abre esta tela quase
+    // sempre quer a última que saiu — foi ela que rasgou. Etiqueta antiga sem
+    // `impressoEmHora` (gravada antes de 10/09) cai para o fim do dia em vez
+    // de embaralhar as que têm hora.
+    for (const [, lista_] of porDia) {
+      lista_.sort((a, b) => (b.impressoEmHora || '').localeCompare(a.impressoEmHora || ''));
+    }
     return [...porDia.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [etiquetasImpressas, busca]);
 
@@ -137,7 +144,15 @@ export default function Impressas() {
                           <p className="font-semibold text-sm text-gray-800 truncate">
                             {e.nome}{e.medida ? ` · ${e.medida}` : ''}
                           </p>
+                          {/* ⚠️ A HORA AQUI É A DA IMPRESSÃO, não a que está
+                              escrita na etiqueta. Numa reimpressão as duas são
+                              diferentes de propósito: o papel repete a hora de
+                              manipulação original, e esta lista mostra quando o
+                              rolo andou. Etiqueta gravada antes de 10/09 não
+                              tem a hora — aí a linha sai sem ela, em vez de
+                              inventar um horário. */}
                           <p className="text-[11px] text-gray-600 mt-0.5">
+                            {e.impressoEmHora ? `${e.impressoEmHora} · ` : ''}
                             {e.validade ? `Validade ${fmtData(e.validade)}` : 'sem validade'}
                             {e.responsavel ? ` · ${e.responsavel}` : ''}
                             {(e.copias || 1) > 1 ? ` · ${e.copias} cópias` : ''}

@@ -653,7 +653,14 @@ export default function EtiquetaPrint() {
           // configuráveis e a etiqueta nova deve sair com o texto de hoje.
           armazenamento: c.armazenamento || null,
           tipoData: c.tipoData || 'fabricacao',
+          // ⚠️ DUAS HORAS DIFERENTES, e confundir as duas estraga as duas
+          // telas. `hora` é a que está IMPRESSA no papel (na reimpressão, a da
+          // etiqueta original — senão o pote passaria a alegar mais vida do
+          // que tem). `impressoEmHora` é quando o rolo andou de verdade, e é
+          // isso que o dono quer ver na lista: reimpressão às 21h de uma
+          // etiqueta manipulada às 10h tem que aparecer como 21h.
           hora: c.hora || '',
+          impressoEmHora: fmtHora(),
           responsavel: c.responsavel || '',
           impressoEm: hojeISO,
           status: 'valida',
