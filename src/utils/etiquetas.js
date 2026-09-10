@@ -25,11 +25,6 @@ export const ETIQUETA_CONFIG_PADRAO = {
   larguraMm: LARGURA_ETIQUETA_MM,
   alturaMm: ALTURA_ETIQUETA_MM,
   incluirQR: false,
-  // ⚠️ DESLIGADO de fábrica: manda o nome do item como IMAGEM pelo Bluetooth,
-  // para o celular usar a mesma letra do computador. Depende de o firmware da
-  // impressora aceitar o comando BITMAP do TSPL, e isso só se confirma
-  // imprimindo — por isso é escolha do dono, em Administração → Etiquetas.
-  letraDoComputador: false,
   campos: {
     restaurante: true, validade: true, fabricacao: true, armazenamento: true,
     responsavel: true, marca: true, sif: true, estabelecimento: true,

@@ -123,15 +123,32 @@ main .bg-white.rounded-xl {
      letra com antialiasing — pixels CINZA nas bordas —, e a térmica é de 1 bit:
      ela não tem cinza, então converte aquilo em ponto esparso ou em nada. O
      resultado no papel é uma letra fina e clara, exatamente o que o dono
-     apontou. O TSPL resolve isso imprimindo o texto DUAS VEZES deslocado um
-     ponto (ver utils/tspl.js); aqui o equivalente é engrossar o próprio traço.
-     0,06 mm ≈ meio ponto a 203 DPI: engorda sem fechar o buraco do "a".
-     `print-color-adjust: exact` impede o navegador de "economizar tinta",
-     que é a outra metade do clareamento. */
+     apontou.
+
+     ⚠️ A PRIMEIRA DOSE NÃO BASTOU, e a conta explica por quê. Era só
+     `-webkit-text-stroke: 0.06mm` — e o contorno é desenhado METADE para
+     dentro e metade para fora da letra. Cada lado engordava 0,03 mm: um
+     QUARTO de ponto a 203 DPI. O dono imprimiu, o rodapé parou de cortar e a
+     letra continuou fraca.
+
+     Agora é o equivalente literal do que o celular faz e o dono aprovou no
+     papel: o TSPL imprime cada texto DUAS VEZES, a segunda um ponto para a
+     direita (ver `texto` em utils/tspl.js). `text-shadow` sem desfoque,
+     deslocado 0,125 mm (1 ponto), É essa segunda batida. O contorno de 0,1 mm
+     enche o miolo da haste por cima.
+
+     `print-color-adjust: exact` impede o navegador de "economizar tinta". */
   body.imprimindo-etiqueta .etiqueta-label {
-    -webkit-text-stroke: 0.06mm currentColor;
+    -webkit-text-stroke: 0.1mm currentColor;
+    text-shadow: 0.125mm 0 0 currentColor;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* O rodapé tem letra de 2,2 a 2,6 mm: o contorno cheio ali fecharia o buraco
+     do "e" e do "a". Fica a segunda batida e um contorno leve — que é, de novo,
+     o que o TSPL faz com a fonte 2 do rodapé, e ela sai legível. */
+  body.imprimindo-etiqueta .etiqueta-label .etiqueta-rodape {
+    -webkit-text-stroke: 0.05mm currentColor;
   }
 
   /* ⚠️ MARGEM DE SEGURANÇA EMBAIXO. A etiqueta era desenhada com a altura

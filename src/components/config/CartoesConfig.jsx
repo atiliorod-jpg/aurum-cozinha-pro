@@ -250,29 +250,6 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
         </button>
       </div>
       </>}
-      {/* ⚠️ EXPERIMENTAL e desligado de fábrica, de propósito. Pelo Bluetooth
-          quem desenha o texto é a fonte INTERNA da impressora, quadrada e
-          magra; pelo computador é a fonte da tela, e o dono comparou as duas
-          no papel e preferiu a segunda. Mandar a mesma letra pelo Bluetooth só
-          é possível mandando PIXEL — e se o firmware da impressora não aceitar
-          o comando BITMAP, isso só se descobre imprimindo. Por isso é uma
-          escolha, e não o padrão: quem liga sabe que está testando. */}
-      <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-        <div className="pr-3">
-          <p className="text-xs font-semibold text-gray-600">Letra do computador no celular</p>
-          <p className="text-[11px] text-gray-600">
-            Deixa o nome do item com a mesma letra da impressão pelo computador. A etiqueta
-            demora uns segundos a mais para sair.
-          </p>
-        </div>
-        <button role="switch" aria-checked={!!cfg.letraDoComputador}
-          aria-label="Letra do computador no celular"
-          onClick={() => { salvar({ letraDoComputador: !cfg.letraDoComputador }); toast(!cfg.letraDoComputador ? 'Nome do item com a letra do computador.' : 'Nome do item com a letra da impressora.', 'sucesso'); }}
-          className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cfg.letraDoComputador ? 'bg-green-500' : 'bg-gray-300'}`}>
-          <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.letraDoComputador ? 'left-6' : 'left-0.5'}`} />
-        </button>
-      </div>
-
       <div className="border-t border-gray-100 pt-3">
         {/* ⚠️ AS CAIXINHAS TINHAM 16px, abaixo do mínimo de 24 da WCAG 2.5.8 —
             e são justamente os controles que decidem o que sai IMPRESSO no

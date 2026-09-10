@@ -243,7 +243,13 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
         {/* ⚠️ 2,1 mm saía ilegível no papel — o dono leu a etiqueta impressa e
             apontou o CNPJ e o endereço. Numa térmica, letra menor que ~2,4 mm
             perde o traço: o ponto é grande demais para desenhar a curva. */}
-        <div style={{ fontSize: apertado ? '2.2mm' : '2.6mm', lineHeight: 1.35 }} className="min-w-0">
+        {/* ⚠️ PESO 700 NO RODAPÉ INTEIRO. CNPJ, endereço e cidade estavam com
+            peso normal (400) — as linhas mais finas da etiqueta, justamente no
+            menor corpo. Na impressão pelo computador foram as primeiras a sair
+            fracas. O nome da casa continua 800, por cima. A classe é o gancho
+            do CSS de impressão, que dá ao rodapé um contorno mais leve que o do
+            resto (ver index.css). */}
+        <div style={{ fontSize: apertado ? '2.2mm' : '2.6mm', lineHeight: 1.35, fontWeight: 700 }} className="min-w-0 etiqueta-rodape">
           {c.restaurante !== false && campos.restauranteNome && (
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>{campos.restauranteNome}</div>
           )}
@@ -492,11 +498,18 @@ export default function EtiquetaPrint() {
   // Payload do QR de cada item — é também a chave do cache de QR
   const payloadDe = (item, loteId) => montarPayloadQR(camposDe(item, loteId));
 
-  // ⚠️ O NOME COM A LETRA DA TELA, quando o dono liga em Administração.
+  // ⚠️ O NOME COM A LETRA DA TELA, sempre que a impressão for pelo Bluetooth.
   // Pelo Bluetooth quem desenha é a fonte INTERNA da impressora, quadrada e
   // magra; pelo computador é a fonte da tela, rasterizada — e o dono comparou
   // as duas no papel e preferiu a segunda, principalmente no nome do item.
   // Mandar a MESMA letra pelo Bluetooth só é possível mandando PIXEL.
+  //
+  // ⚠️ VIROU PADRÃO EM 10/09/2026, e o interruptor saiu. Nasceu desligado
+  // porque dependia de o firmware da MDK-022 aceitar o comando BITMAP, e isso
+  // só se sabia imprimindo. O dono imprimiu, aprovou e pediu para tirar a
+  // opção. A QUEDA CONTINUA: sem canvas (navegador estranho, contexto
+  // bloqueado), `bitmapsDoNome` devolve null e o nome volta sozinho à fonte
+  // interna. Só o botão é que saiu.
   //
   // ⚠️ SÓ NO CAMINHO DO BLUETOOTH. No computador quem imprime é o HTML, que já
   // tem essa letra; gerar bitmap lá seria trabalho jogado fora.
@@ -506,12 +519,7 @@ export default function EtiquetaPrint() {
   // degrau "nome volta a uma linha" e etiqueta cheia com nome longo estourava
   // o rodapé (folga 1,1 mm virava -1,9 mm, medido). Ver `bitmapDoNivel` em
   // utils/tspl.js.
-  //
-  // ⚠️ DESLIGADO por padrão: depende de o firmware aceitar o comando BITMAP, e
-  // isso só se descobre imprimindo. Sem canvas, `bitmapsDoNome` devolve null e
-  // tudo volta para a fonte interna sozinho.
-  const letraDoComputador = config.letraDoComputador === true;
-  const usaBitmap = letraDoComputador && mostrarDireto;
+  const usaBitmap = mostrarDireto;
   const bitmapsPorItem = useMemo(
     () => itens.map(it => (usaBitmap
       ? bitmapsDoNome(camposDe(it, loteDaCopia(it, 0)), { ...config, estabelecimento })
