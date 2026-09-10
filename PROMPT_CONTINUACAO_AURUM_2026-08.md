@@ -791,10 +791,11 @@ passou por uma lente de segurança ou de regra comercial.
 Depois delas, o que ficou registrado e não é achado de auditoria continua na
 lista de "Achados registrados e NÃO corrigidos", lá embaixo.
 
-⚠️ Sobrou uma conta de teste viva: `caloteiro.teste@example.invalid`
-(restaurante `42f3c374-…`), criada em 03/09 para testar o teste manual. Ela
-não é `pentest.*`, então o `pentest-limpar.mjs` não a alcança — vale conferir
-no painel se ainda faz sentido existir.
+✅ A conta de teste `caloteiro.teste@example.invalid` (restaurante
+`42f3c374-…`, "Caloteiro Teste") JÁ FOI APAGADA — pelo próprio dono, no
+painel, em 03/09 às 19:47 UTC (lápide em `admin_exclusoes`). Conferido no
+banco em 10/09: nem conta, nem restaurante, nem linha órfã. Restam só três
+contas no banco, todas reais (a do dono e mais duas); nenhuma de teste.
 
 ---
 
