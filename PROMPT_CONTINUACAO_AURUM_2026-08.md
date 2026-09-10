@@ -181,6 +181,58 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (10/09/2026, madrugada) — O PAPEL, DEPOIS DO USO REAL
+
+Commits `e4f3d3e` e `b623744`. 481 testes, lint 0 erros, build ok.
+
+### Impressão pelo COMPUTADOR — dois defeitos que o dono viu no papel
+
+- **Rodapé cortado** ("CNPJ, endereço e cidade, às vezes vai muito embaixo").
+  A etiqueta usava a altura CHEIA do papel com o rodapé ancorado na borda —
+  folga zero. Qualquer diferença entre o que o Chrome manda e o que a driver
+  imprime comia a última linha. O "às vezes" é a assinatura do defeito.
+  Agora reserva **1,5 mm** embaixo, e a folga sai do miolo, nunca do rodapé.
+  ⚠️ O TSPL já reservava 2 mm; só a tela não reservava.
+- **Etiqueta lavada.** O navegador desenha com antialiasing (pixel CINZA), e a
+  térmica é de 1 bit — vira ponto esparso. `-webkit-text-stroke: 0.06mm` +
+  `print-color-adjust: exact`. É o equivalente da dupla batida do TSPL.
+  ⚠️ Se o texto miúdo do rodapé borrar, reduzir o stroke.
+
+### ⚠️ NOME DO ITEM COM A LETRA DO COMPUTADOR, TAMBÉM NO CELULAR
+
+`utils/tsplBitmap.js` + `lib/nomeEmBitmap.js`. **Desligado de fábrica**, em
+Administração → Etiquetas (`etiquetaConfig.letraDoComputador`).
+
+⚠️ **No TSPL, bit 1 é BRANCO e bit 0 é PRETO** — invertido do que se assume.
+Trocar imprime um retângulo preto com a letra vazada. Tem teste.
+
+⚠️ **SÓ O NOME**, e é orçamento de tempo: a etiqueta inteira em pixel são
+24.000 bytes, e o BLE manda 20 por escrita (acima disso o firmware barato
+quebra) — passaria de meio minuto. Só o nome são ~2.100 bytes ≈ 1,6 s.
+
+**Bônus:** como é imagem, os ACENTOS voltam — "PICANHA (PORÇÃO)" em vez de
+"PICANHA (PORCAO)". A fonte interna nunca imprimiu acento.
+
+Três medições que mudaram o desenho no caminho, e que valem para quem mexer:
+1. "86% da altura da linha" saiu PEQUENO — a maiúscula é ~2/3 do corpo.
+2. Medir `'MÁQ'` como régua deixou o ACENTO mandar no tamanho de TODO nome,
+   até dos sem acento. A régua virou o próprio nome.
+3. A caixa do nome em pixel é mais ALTA que a da fonte interna: no mesmo
+   corpo, a letra da tela gasta 37 pontos onde a interna gasta 32.
+O corpo agora sai de `corpoDoNomeMm` — a MESMA regra da etiqueta do
+computador, num lugar só.
+
+### `/impressas`
+
+- **Hora da impressão** na lista, campo NOVO (`impressoEmHora`). ⚠️ NÃO é a
+  hora escrita na etiqueta: numa reimpressão o papel repete a hora de
+  manipulação original e a lista mostra quando o rolo andou.
+- Reimpressão **já contabilizava** — conferido (1 → 2).
+- ⚠️ `podarEtiquetas` só descarta vencida com +30 dias e encerrada com +120,
+  então **não morde** em Hoje / 7 dias / Este mês. Só afeta olhar meses atrás.
+
+---
+
 ## Onde paramos (10/09/2026) — LAPIDAÇÃO DE ARQUITETURA
 
 Auditoria da organização do código (o app foi feito sem dev). Commits `24dad68`
