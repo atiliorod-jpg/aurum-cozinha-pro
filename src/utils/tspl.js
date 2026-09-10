@@ -15,6 +15,8 @@
 //  de `larguraMm`/`alturaMm`.
 // =====================================================================
 
+import { comandoBITMAP } from './tsplBitmap';
+
 export const PONTOS_POR_MM = 8; // 203 DPI
 const mm = (v) => Math.round(v * PONTOS_POR_MM);
 
@@ -195,16 +197,31 @@ function montarEtiqueta(campos, config, opcoes = {}) {
   // para saber aqui, porque o espaço que sobra depende dos campos de baixo.
   const linhasNome = quebrarEmLinhas(nome, fonteNome, 1, espacoNome, opcoes.linhasNome ?? 1);
   const ENTRELINHA = 2;
-  linhasNome.forEach((ln, i) => {
-    linhas.push(...texto(margem, y + i * (ALTURA_FONTE[fonteNome] + ENTRELINHA), fonteNome, 1, ln));
-  });
+  // ⚠️ MESMA CAIXA, DESENHADA DE OUTRO JEITO. Com `nomeBitmap`, o nome vem
+  // pronto em pixels (a letra do computador, ver utils/tsplBitmap.js) em vez
+  // da fonte interna da impressora. A GEOMETRIA não muda: o bitmap é gerado
+  // com exatamente a largura e a altura que este bloco ocuparia em texto
+  // (`medidasDoNome` devolve as duas), então nada abaixo se desloca e as
+  // medições de `melhorDesenho` continuam valendo.
+  if (opcoes.nomeBitmap) {
+    linhas.push(comandoBITMAP(margem, y, opcoes.nomeBitmap));
+  } else {
+    linhasNome.forEach((ln, i) => {
+      linhas.push(...texto(margem, y + i * (ALTURA_FONTE[fonteNome] + ENTRELINHA), fonteNome, 1, ln));
+    });
+  }
   // A medida acompanha a PRIMEIRA linha do nome — é onde o olho procura.
   if (campos.medida) {
     const m = cortarParaLargura(campos.medida, 3, 1, util * 0.26);
     linhas.push(...texto(margem + util - larguraTexto(m, 3, 1), y, 3, 1, m));
   }
-  const alturaNome = linhasNome.length * ALTURA_FONTE[fonteNome]
-    + Math.max(0, linhasNome.length - 1) * ENTRELINHA;
+  // ⚠️ Com bitmap a altura é a DELE, não a da fonte interna: a letra da tela
+  // precisa de mais espaço vertical no mesmo corpo (acento sobe, cedilha
+  // desce). Ler a altura daqui é o que faz tudo abaixo do nome se acomodar
+  // sozinho, e o que permite `melhorDesenho` medir a etiqueta de verdade.
+  const alturaNome = opcoes.nomeBitmap
+    ? opcoes.nomeBitmap.altura
+    : linhasNome.length * ALTURA_FONTE[fonteNome] + Math.max(0, linhasNome.length - 1) * ENTRELINHA;
   y += alturaNome + mm(1);
 
   linhas.push(`BAR ${margem},${y},${util},2`);
@@ -348,6 +365,59 @@ function folgaDe(desenho, config) {
   return limite - desenho.fimDoCorpo;
 }
 
+/**
+ * Onde e de que tamanho o NOME é desenhado, em pontos da impressora.
+ *
+ * ⚠️ Existe para o canvas conseguir desenhar o nome na caixa EXATA que o
+ * gerador reservou. Sem isto o componente teria de reproduzir aqui a escolha
+ * de fonte, a largura que a medida rouba e a entrelinha — uma segunda cópia da
+ * regra, que é o defeito que este arquivo passou a semana inteira corrigindo.
+ *
+ * `linhas` vem de `nivelDeDesenho`, que é quem decide uma ou duas.
+ */
+/**
+ * Corpo do nome do produto, em milímetros — a MESMA regra da etiqueta do
+ * computador (`EtiquetaLabel`), num lugar só para as duas não divergirem.
+ */
+export const corpoDoNomeMm = (nome) => (String(nome || '').length > 24 ? 3.2 : 3.9);
+
+// ⚠️ A CAIXA DO NOME EM PIXEL É MAIS ALTA que a da fonte interna, e tem de
+// ser. A fonte interna 4 mede 32 pontos e desenha dentro deles; a fonte da
+// tela, no corpo que o computador usa (3,9 mm = 31 pontos), gasta 37 pontos de
+// TINTA em "PICANHA (PORÇÃO)" — a cedilha desce e o til sobe. Na caixa de 32
+// ela era encolhida até 27 pontos, e o nome saía menor que o do computador,
+// que é o oposto do pedido. 1,25 é a mesma entrelinha que a etiqueta da tela
+// usa. Se essa altura a mais não couber, `melhorDesenho` derruba o nome para
+// uma linha, como já faz com o resto.
+const ENTRELINHA_NOME = 2;
+const alturaLinhaBitmap = (nome) => Math.round(corpoDoNomeMm(nome) * PONTOS_POR_MM * 1.25);
+
+export function medidasDoNome(campos, config, linhasDeNome = 1, paraBitmap = false) {
+  const { larguraMm = 60 } = config || {};
+  const margem = mm(2.5);
+  const util = mm(larguraMm) - margem * 2;
+  const nome = (campos?.nome || '').toUpperCase();
+  const espacoNome = campos?.medida ? util * 0.72 : util;
+  const fonte = [4, 3, 2].find(f => larguraTexto(nome, f, 1) <= espacoNome) || 2;
+  const usadas = quebrarEmLinhas(nome, fonte, 1, espacoNome, linhasDeNome);
+  // ⚠️ QUANTAS LINHAS É `usadas.length` NOS DOIS CASOS, nunca o teto pedido.
+  // Reservar o teto (duas) para um nome que cabe em uma jogava 40 pontos fora
+  // e empurrava a etiqueta inteira para baixo — "PICANHA (PORÇÃO)" abria uma
+  // caixa de 80 pontos para usar 39. E a conta da fonte interna serve de teto
+  // seguro para a de pixel: a proporcional cabe MAIS por linha, então nunca
+  // vai precisar de mais linhas que a de largura fixa.
+  const linhas = usadas.length;
+  const alturaLinha = paraBitmap ? alturaLinhaBitmap(nome) : ALTURA_FONTE[fonte];
+  return {
+    x: margem,
+    y: mm(2),
+    largura: Math.floor(espacoNome),
+    altura: linhas * alturaLinha + Math.max(0, linhas - 1) * ENTRELINHA_NOME,
+    fonte,
+    linhas: usadas,
+  };
+}
+
 /** O desenho mais generoso que ainda cabe — ou o mais apertado, se nenhum couber. */
 function melhorDesenho(campos, config, opcoes = {}) {
   let ultimo = null;
@@ -395,9 +465,16 @@ export function medirEtiqueta(campos, config, opcoes = {}) {
   return { cabe: folga >= 0, folgaMm: Math.round((folga / PONTOS_POR_MM) * 10) / 10 };
 }
 
-/** Vários itens numa tacada: cada bloco é uma etiqueta completa. */
+/**
+ * Vários itens numa tacada: cada bloco é uma etiqueta completa.
+ *
+ * `nomeBitmap` é POR BLOCO porque cada item tem o seu nome desenhado — um
+ * bitmap só serviria para o primeiro. Ausente, o nome sai na fonte interna.
+ */
 export const loteTSPL = (etiquetas, config) =>
-  etiquetas.map(({ campos, copias }) => etiquetaTSPL(campos, config, { copias })).join('');
+  etiquetas
+    .map(({ campos, copias, nomeBitmap }) => etiquetaTSPL(campos, config, { copias, nomeBitmap }))
+    .join('');
 
 /**
  * Texto → bytes Windows-1252.

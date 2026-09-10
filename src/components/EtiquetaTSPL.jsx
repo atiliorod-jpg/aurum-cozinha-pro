@@ -15,7 +15,7 @@ import { interpretarTSPL, larguraDoTexto, alturaDoTexto, papelEmPontos } from '.
  * o HTML do `EtiquetaLabel` — mostrar este SVG ali seria trocar uma prévia
  * mentirosa por outra.
  */
-export default function EtiquetaTSPL({ tspl }) {
+export default function EtiquetaTSPL({ tspl, nomeImagem = null }) {
   const { larguraMm, alturaMm, desenho } = useMemo(() => interpretarTSPL(tspl), [tspl]);
   const papel = papelEmPontos({ larguraMm, alturaMm });
 
@@ -25,6 +25,15 @@ export default function EtiquetaTSPL({ tspl }) {
       width={`${larguraMm}mm`} height={`${alturaMm}mm`}
       role="img" aria-label="Prévia da etiqueta como a impressora vai desenhar"
       style={{ display: 'block', background: '#fff' }}>
+      {/* ⚠️ O NOME EM IMAGEM ENTRA AQUI, e não é uma recriação dele: é o MESMO
+          pixel que vai para a impressora (o canvas que gerou o BITMAP do TSPL,
+          exportado em PNG). Sem isto o nome sumiria da prévia — o
+          interpretador ignora o comando BITMAP, que é binário. */}
+      {nomeImagem && (
+        <image href={nomeImagem.imagem}
+          x={nomeImagem.caixa.x} y={nomeImagem.caixa.y}
+          width={nomeImagem.caixa.largura} height={nomeImagem.caixa.altura} />
+      )}
       {desenho.map((d, i) => {
         if (d.tipo === 'barra') {
           return <rect key={i} x={d.x} y={d.y} width={d.largura} height={d.altura} fill="#000" />;

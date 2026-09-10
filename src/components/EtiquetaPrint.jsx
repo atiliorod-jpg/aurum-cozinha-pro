@@ -17,6 +17,7 @@ import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, pod
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL, medirEtiqueta, nivelDeDesenho } from '../utils/tspl';
 import EtiquetaTSPL from './EtiquetaTSPL';
+import { nomeEmBitmap } from '../lib/nomeEmBitmap';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
@@ -508,16 +509,42 @@ export default function EtiquetaPrint() {
   );
   const nivelDoItem = (idx) => desenhos[idx]?.nivel ?? NIVEL_PADRAO;
 
+  // ⚠️ O NOME COM A LETRA DA TELA, quando o dono liga em Administração.
+  // Pelo Bluetooth quem desenha é a fonte INTERNA da impressora, quadrada e
+  // magra; pelo computador é a fonte da tela, rasterizada — e o dono comparou
+  // as duas no papel e preferiu a segunda, principalmente no nome do item.
+  // Mandar a MESMA letra pelo Bluetooth só é possível mandando PIXEL.
+  //
+  // ⚠️ SÓ O NOME. A etiqueta inteira em pixel são 24.000 bytes, e o BLE aqui
+  // manda 20 por escrita — daria mais de meio minuto por etiqueta. Ver o
+  // orçamento em utils/tsplBitmap.js.
+  //
+  // ⚠️ DESLIGADO por padrão: depende de o firmware da impressora aceitar o
+  // comando BITMAP, e isso só se descobre imprimindo. Falhando a geração
+  // (navegador sem canvas, contexto bloqueado), `nomeEmBitmap` devolve null e
+  // tudo volta para a fonte interna sozinho.
+  const letraDoComputador = config.letraDoComputador === true;
+  const nomeImagem = useMemo(
+    () => (letraDoComputador && itens.length
+      ? nomeEmBitmap(camposDe(itens[0], loteDaCopia(itens[0], 0)),
+                     { ...config, estabelecimento },
+                     desenhos[0]?.nivel?.linhasNome ?? 1)
+      : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mesmas dependências reais de `desenhos`
+    [letraDoComputador, itens, config, estabelecimento, responsavel, desenhos],
+  );
+
   // O MESMO texto que vai pelo Bluetooth, para a prévia desenhar em vez de
   // adivinhar. Uma etiqueta só (a primeira), sem cópias: o interpretador para
   // no primeiro `PRINT`.
   const tsplDaPrevia = useMemo(
     () => (itens.length
-      ? loteTSPL([{ campos: camposDe(itens[0], loteDaCopia(itens[0], 0)), copias: 1 }],
+      ? loteTSPL([{ campos: camposDe(itens[0], loteDaCopia(itens[0], 0)), copias: 1,
+                    nomeBitmap: nomeImagem?.bitmap }],
                  { ...config, estabelecimento })
       : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mesmas dependências reais de `desenhos` acima
-    [itens, config, estabelecimento, responsavel],
+    [itens, config, estabelecimento, responsavel, nomeImagem],
   );
 
   // Gera os QR codes quando ligado (async — toDataURL é Promise).
@@ -758,7 +785,14 @@ export default function EtiquetaPrint() {
       }
       setConectada(true);
       for (const it of aEnviar) {
-        const bloco = [{ campos: camposDe(it, loteDaCopia(it, 0)), copias: limitarCopias(it.quantidade) }];
+        const campos = camposDe(it, loteDaCopia(it, 0));
+        // ⚠️ UM BITMAP POR ITEM: cada nome é um desenho diferente. Reaproveitar
+        // o da prévia mandaria o nome do PRIMEIRO item em todas as etiquetas.
+        const bmp = letraDoComputador
+          ? nomeEmBitmap(campos, { ...config, estabelecimento },
+                         nivelDoItem(itens.indexOf(it)).linhasNome)
+          : null;
+        const bloco = [{ campos, copias: limitarCopias(it.quantidade), nomeBitmap: bmp?.bitmap }];
         // O estabelecimento não vive em `config`, mas o rodapé do papel precisa
         // dele para ficar igual à prévia da tela.
         await enviarTSPL(loteTSPL(bloco, { ...config, estabelecimento }));
@@ -1034,7 +1068,7 @@ export default function EtiquetaPrint() {
               <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
                 <div className="shadow-md flex-shrink-0">
                   {mostrarDireto ? (
-                    <EtiquetaTSPL tspl={tsplDaPrevia} />
+                    <EtiquetaTSPL tspl={tsplDaPrevia} nomeImagem={nomeImagem} />
                   ) : (
                     <EtiquetaLabel
                       campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}

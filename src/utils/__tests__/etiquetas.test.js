@@ -19,7 +19,8 @@ import { planoDeEnvio, escolherCaracteristica, escolherConhecido, pareceImpresso
 import { faltasDoPrimeiroUso } from '../primeiroUso';
 import { marcaDeUpgrade } from '../produto';
 import { prazoDe, temAlgumPrazo, comEspelhoDePrazos, listarArmazenamentos } from '../armazenamento';
-import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM, medirEtiqueta, quebrarEmLinhas, nivelDeDesenho } from '../tspl';
+import { etiquetaTSPL, loteTSPL, paraBytesLatin1, cortarParaLargura, PONTOS_POR_MM, medirEtiqueta, quebrarEmLinhas, nivelDeDesenho, medidasDoNome, corpoDoNomeMm } from '../tspl';
+import { bitmapTSPL, comandoBITMAP } from '../tsplBitmap';
 import { interpretarTSPL, larguraDoTexto, alturaDoTexto } from '../tsplPreview';
 import { BIBLIOTECA_ETIQUETAS, CATEGORIAS_BIBLIOTECA, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
 
@@ -1455,3 +1456,141 @@ describe('faltasDoPrimeiroUso — o cartão que pede o RESP. e o endereço', () 
 //
 //  Ausência de dado não é dado.
 // =====================================================================
+
+// =====================================================================
+//  Nome do item como IMAGEM (a letra do computador, pelo Bluetooth)
+//
+//  ⚠️ NO TSPL, BIT 1 É BRANCO E BIT 0 É PRETO — invertido do que quase todo
+//  mundo assume. Trocar isso imprime um retângulo preto com a letra vazada, e
+//  o teste disso sai em etiqueta de verdade. Por isso a polaridade tem teste.
+// =====================================================================
+describe('bitmapTSPL — polaridade invertida e empacotamento em bytes', () => {
+  // pixels RGBA; preto = 0,0,0,255 | branco = 255,255,255,255
+  const px = (cores) => {
+    const d = [];
+    for (const c of cores) d.push(c, c, c, 255);
+    return d;
+  };
+
+  it('pixel PRETO vira bit 0, pixel BRANCO vira bit 1', () => {
+    // 8 pixels: o primeiro preto, o resto branco -> 0111 1111 = 0x7F
+    const r = bitmapTSPL(px([0, 255, 255, 255, 255, 255, 255, 255]), 8, 1);
+    expect(r.bytesPorLinha).toBe(1);
+    expect(r.altura).toBe(1);
+    expect(r.dados.charCodeAt(0)).toBe(0x7f);
+  });
+
+  it('linha toda branca é 0xFF, toda preta é 0x00', () => {
+    expect(bitmapTSPL(px(new Array(8).fill(255)), 8, 1).dados.charCodeAt(0)).toBe(0xff);
+    expect(bitmapTSPL(px(new Array(8).fill(0)), 8, 1).dados.charCodeAt(0)).toBe(0x00);
+  });
+
+  // ⚠️ Largura que não fecha em byte: a sobra tem de sair BRANCA. Preenchida
+  // com preto, cada etiqueta ganharia uma tarja na borda direita do nome.
+  it('largura fora do múltiplo de 8 completa o byte com branco', () => {
+    // 3 pixels pretos numa largura de 3 -> 000 11111 = 0x1F
+    const r = bitmapTSPL(px([0, 0, 0]), 3, 1);
+    expect(r.bytesPorLinha).toBe(1);
+    expect(r.dados.charCodeAt(0)).toBe(0x1f);
+  });
+
+  it('transparente conta como branco — o papel não tem transparência', () => {
+    const d = [];
+    for (let i = 0; i < 8; i++) d.push(0, 0, 0, 0); // preto, mas alfa 0
+    expect(bitmapTSPL(d, 8, 1).dados.charCodeAt(0)).toBe(0xff);
+  });
+
+  it('empacota linha a linha, no tamanho anunciado', () => {
+    const r = bitmapTSPL(px(new Array(16 * 3).fill(255)), 16, 3);
+    expect(r.bytesPorLinha).toBe(2);
+    expect(r.altura).toBe(3);
+    expect(r.dados.length).toBe(2 * 3);
+  });
+
+  it('comandoBITMAP cola os dados na vírgula, sem quebra de linha', () => {
+    const bmp = bitmapTSPL(px(new Array(8).fill(255)), 8, 1);
+    const cmd = comandoBITMAP(20, 16, bmp);
+    expect(cmd.startsWith('BITMAP 20,16,1,1,0,')).toBe(true);
+    expect(cmd.length).toBe('BITMAP 20,16,1,1,0,'.length + 1);
+  });
+});
+
+describe('medidasDoNome — a caixa que o canvas tem de respeitar', () => {
+  const cfg = { larguraMm: 60, alturaMm: 50, campos: {} };
+
+  it('sem medida ao lado, o nome usa a largura útil inteira', () => {
+    const m = medidasDoNome({ nome: 'Picanha' }, cfg, 1);
+    expect(m.x).toBe(20);            // margem de 2,5 mm
+    expect(m.largura).toBe(440);     // 55 mm úteis
+    expect(m.altura).toBe(32);       // uma linha na fonte 4
+  });
+
+  // A medida come 28% da largura — é onde ela é impressa.
+  it('com medida ao lado, sobra menos espaço para o nome', () => {
+    expect(medidasDoNome({ nome: 'Picanha', medida: '1,5 kg' }, cfg, 1).largura).toBe(316);
+  });
+
+  it('duas linhas dobram a altura e somam a entrelinha', () => {
+    const nome = 'Bacalhau dessalgado desfiado para bolinho';
+    const uma = medidasDoNome({ nome }, cfg, 1);
+    const duas = medidasDoNome({ nome }, cfg, 2);
+    expect(duas.altura).toBe(uma.altura * 2 + 2);
+  });
+
+  // ⚠️ A caixa do bitmap é MAIS ALTA que a da fonte interna no mesmo corpo: a
+  // letra da tela gasta mais vertical (o til sobe, a cedilha desce). Se ela
+  // reservasse a altura da fonte interna, o navegador encolheria o nome até
+  // caber e o resultado sairia MENOR que o do computador — o oposto do pedido.
+  it('a caixa em pixel é mais alta que a da fonte interna', () => {
+    const campos = { nome: 'Picanha' };
+    const interna = medidasDoNome(campos, cfg, 1, false);
+    const pixel = medidasDoNome(campos, cfg, 1, true);
+    expect(pixel.altura).toBeGreaterThan(interna.altura);
+    expect(pixel.largura).toBe(interna.largura);   // a largura é a mesma
+  });
+
+  // ⚠️ Reservar o TETO de linhas (duas) para um nome que cabe em uma jogava 40
+  // pontos fora e empurrava a etiqueta inteira para baixo.
+  it('nome curto reserva UMA linha mesmo com duas permitidas', () => {
+    const uma = medidasDoNome({ nome: 'Picanha' }, cfg, 1, true);
+    const teto2 = medidasDoNome({ nome: 'Picanha' }, cfg, 2, true);
+    expect(teto2.altura).toBe(uma.altura);
+  });
+
+  it('nome comprido usa as duas linhas quando permitido', () => {
+    const nome = 'Bacalhau dessalgado desfiado para bolinho da casa';
+    const uma = medidasDoNome({ nome }, cfg, 1, true);
+    const duas = medidasDoNome({ nome }, cfg, 2, true);
+    expect(duas.altura).toBeGreaterThan(uma.altura);
+  });
+
+  it('o corpo do nome é a MESMA regra da etiqueta do computador', () => {
+    expect(corpoDoNomeMm('Picanha')).toBe(3.9);
+    expect(corpoDoNomeMm('Bacalhau dessalgado desfiado para bolinho')).toBe(3.2);
+  });
+});
+
+describe('nomeBitmap no gerador — troca o desenho, não a geometria', () => {
+  const SEP = String.fromCharCode(13) + String.fromCharCode(10);
+  const cfg = { larguraMm: 60, alturaMm: 50, campos: {} };
+  const campos = { nome: 'Picanha', rotuloData: 'MANIPULACAO', dataFabricacaoFmt: '09/09/2026' };
+  const bmpFalso = { bytesPorLinha: 55, altura: 32, dados: 'x'.repeat(55 * 32) };
+
+  it('com bitmap, o nome sai como BITMAP e não como TEXT', () => {
+    const t = etiquetaTSPL(campos, cfg, { nomeBitmap: bmpFalso });
+    expect(t).toContain('BITMAP 20,16,55,32,0,');
+    expect(t).not.toContain('"PICANHA"');
+  });
+
+  it('sem bitmap, nada muda — continua na fonte interna', () => {
+    expect(etiquetaTSPL(campos, cfg)).toContain('"PICANHA"');
+  });
+
+  // ⚠️ A geometria tem de ficar IDÊNTICA: o bitmap ocupa a mesma caixa que o
+  // texto ocuparia, senão tudo abaixo dele desce e o rodapé é atropelado.
+  it('o resto da etiqueta fica na mesma posição', () => {
+    const semBmp = etiquetaTSPL(campos, cfg).split(SEP).filter(l => l.includes('MANIPULACAO'));
+    const comBmp = etiquetaTSPL(campos, cfg, { nomeBitmap: bmpFalso }).split(SEP).filter(l => l.includes('MANIPULACAO'));
+    expect(comBmp).toEqual(semBmp);
+  });
+});
