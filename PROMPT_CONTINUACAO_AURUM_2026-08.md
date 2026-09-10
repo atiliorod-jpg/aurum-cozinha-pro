@@ -181,6 +181,58 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (10/09/2026) — LAPIDAÇÃO DE ARQUITETURA
+
+Auditoria da organização do código (o app foi feito sem dev). Commits `24dad68`
+e `a2f4a56`. 465 testes, lint 0 erros, build ok.
+
+### O que estava BOM (não mexer achando que é bagunça)
+
+- **Camadas limpas, zero inversão**: `utils/` nunca importa de `pages`,
+  `components` ou `store`; `components` nunca importa de `pages`; `lib` nunca
+  importa de `components`. Medido.
+- 29 dos 30 arquivos de `utils/` têm teste (só `contas.js` fora).
+- Modais 100% consolidados: nenhum `role="dialog"` fora do `Dialogo.jsx`.
+- Tem `ErrorBoundary`, code splitting (19 rotas lazy), 6 dependências de runtime.
+
+### ⚠️ Corrigido: cada toast re-renderizava o app inteiro (`24dad68`)
+
+Ordem dos providers é `UIProvider > AuthProvider > AppProvider`, e o UIContext
+guarda os **toasts**. Sem memo, cada toast criava um `value` novo no
+AppProvider e re-renderizava os **34** arquivos que chamam `useApp()`.
+
+`AppContext` (72 deps) e `AuthContext` (31 deps) agora memoizam o `value`.
+⚠️ O risco é dependência esquecida → dado velho na tela. Lista literal, e o
+`react-hooks/exhaustive-deps` confere. `erroNaURL` fica FORA de propósito: é
+constante de módulo.
+
+### Testes divididos em quatro (`a2f4a56`)
+
+`etiquetas` / `operacao` / `acessos` / `comercial`, por ASSUNTO. Mesmos 465
+testes, mesmo texto. ⚠️ Armadilha: o arquivo original importava o mesmo símbolo
+em duas linhas do mesmo módulo — separar sem deduplicar dá redeclaração.
+
+### ⚠️ DOIS ACHADOS MEUS QUE NÃO SE SUSTENTARAM — não refazer
+
+1. **"20 caixas de aviso feitas na mão, inacessíveis"** — ERRADO. Investigando:
+   4 eram **placares do relatório** (regex meu contou errado), e a maioria do
+   resto é **texto explicativo estático**, lido na ordem do documento. `role="status"`
+   em conteúdo estático faz leitor de tela anunciar à toa — seria REGRESSÃO.
+   O `Aviso` está usado onde importa: mensagens que aparecem/somem nos modais.
+2. **"8 lugares formatam data fora do `formatters.js`"** — verdade técnica, mas
+   `formatters.js` não tem formatador de moeda nem de data-com-hora, e os 8 usam
+   formatos DIFERENTES de propósito. Consolidar mudaria o que aparece na tela.
+
+### Em aberto, por decisão (não é esquecimento)
+
+- **`Admin.jsx`: 1.883 linhas, um componente, 25 `useState`.** Real, mas é o
+  painel interno da Aurum, não a tela do cliente. Dividir é risco sem retorno
+  visível num app pronto. Só fazer se for mexer muito nessa tela.
+- `Configuracoes.jsx` tem 1.898 linhas mas está dividido em 8 peças — menos
+  urgente que o Admin.
+
+---
+
 ## Onde paramos (09/09/2026, noite) — A PRÉVIA PARA DE MENTIR, E /IMPRESSAS
 
 Teste do sistema de etiquetas inteiro (suíte, banco de casos medindo o desenho
