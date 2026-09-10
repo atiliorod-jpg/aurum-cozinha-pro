@@ -72,6 +72,15 @@ export const CAPACIDADES = [
   { id: 'verImpressas',      grupo: 'Operação', label: 'Ver e reimprimir etiquetas já impressas',
     desc: 'Abrir a lista do que já saiu no rolo, com os totais do dia, da semana e do mês, e repetir uma etiqueta que rasgou — com as datas originais.',
     etiquetas: true },
+  // ⚠️ SEPARADA DE `verImpressas` DE PROPÓSITO. Aquela é ferramenta de quem
+  // está com o pote na mão (reimprimir o que rasgou) e nasce ligada para
+  // todos; esta é leitura de gestão — quanto a casa produz por dia, quem mais
+  // imprime, mês contra mês — e nasce DESLIGADA para a cozinha. Juntar as
+  // duas obrigaria o dono a escolher entre esconder o botão de reimprimir ou
+  // abrir o relatório para a equipe inteira.
+  { id: 'verRelatorioEtiquetas', grupo: 'Gestão', label: 'Ver relatório de etiquetas',
+    desc: 'Quantas etiquetas a casa imprimiu por dia, semana e mês, os itens mais etiquetados e quem imprimiu. Pode baixar em planilha ou salvar em PDF.',
+    etiquetas: true },
   { id: 'verFinanceiro',     grupo: 'Financeiro', label: 'Ver custos e preços',
     desc: 'Custo de insumo, valor do estoque e curva ABC.',
     duro: true },
@@ -104,6 +113,8 @@ export const PERMISSOES_PADRAO = {
     // chamar o dono no meio do serviço — ou remontar a etiqueta do zero, que
     // recalcula a validade e devolve um pote mentindo sobre a idade.
     verImpressas: true,
+    // relatório é gestão: a diretoria libera para quem quiser
+    verRelatorioEtiquetas: false,
     // quem opera o estoque não vê custo por padrão — decisão do dono
     verFinanceiro: false,
     // desligado por padrão, mas é o que a diretoria costuma querer ligar: ver o
@@ -114,6 +125,7 @@ export const PERMISSOES_PADRAO = {
     removerRegistros: true, inventario: true, verRelatorio: true,
     verAuditoria: true, gerenciarProdutos: true, configurarSistema: true,
     verImpressas: true,
+    verRelatorioEtiquetas: true,
     // nem a gerência: financeiro é liberado item a item pela diretoria, porque
     // é o único dado aqui cuja exposição não tem volta (margem e fornecedor)
     verFinanceiro: false,
@@ -218,6 +230,9 @@ export function podeAbrirAdministracao(sessao, permissoes) {
   if (!sessao) return false;
   if (sessao.eSuperAdmin || sessao.cargo === 'diretoria' || sessao.cargo === 'gerencia') return true;
   // cozinha só entra se a diretoria tiver liberado alguma capacidade de gestão
-  return ['verRelatorio', 'verAuditoria', 'gerenciarProdutos', 'configurarSistema', 'verFinanceiro']
+  // ⚠️ `verRelatorioEtiquetas` entra aqui porque, no plano completo, a porta
+  // do relatório é um cartão da Administração: liberar o relatório para a
+  // cozinha sem liberar a Administração deixaria a permissão sem caminho.
+  return ['verRelatorio', 'verAuditoria', 'gerenciarProdutos', 'configurarSistema', 'verFinanceiro', 'verRelatorioEtiquetas']
     .some(c => pode(sessao, permissoes, c));
 }

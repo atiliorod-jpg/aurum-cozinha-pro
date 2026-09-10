@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import Aviso from '../../components/Aviso';
 import { useApp } from '../../store/AppContext';
+import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
+import { pode } from '../../utils/permissoes';
 import { hoje, fmtData } from '../../utils/formatters';
 import { statusEtiqueta, STATUS_ETIQUETA, medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
 import { prazosDoProduto } from '../../utils/armazenamento';
@@ -23,8 +26,10 @@ import { prazosDoProduto } from '../../utils/armazenamento';
  * impedir.
  */
 export default function Impressas() {
-  const { etiquetasImpressas, produtos } = useApp();
+  const { etiquetasImpressas, produtos, permissoes } = useApp();
+  const { sessao } = useAuth();
   const { abrirEtiquetas } = useUI();
+  const verRelatorio = pode(sessao, permissoes, 'verRelatorioEtiquetas');
   const [busca, setBusca] = useState('');
 
   const hj = hoje();
@@ -79,6 +84,10 @@ export default function Impressas() {
       medida: e.medida || (p ? medidaDoProduto(p) : ''),
       responsavel: e.responsavel || '',
       quantidade: 1,
+      // ⚠️ Marca para o relatório (M43) contar à parte. Reimpressão demais é
+      // sinal de etiqueta estragando no pote, e o dono só enxerga isso se ela
+      // não se misturar com a produção do dia.
+      reimpressao: true,
     }]);
   };
 
@@ -86,6 +95,16 @@ export default function Impressas() {
 
   return (
     <Layout title="Impressas">
+      {/* ⚠️ FORA DO "vazio", de propósito: a lista abaixo é deste aparelho,
+          o relatório é da casa inteira. Um tablet novo, sem nada impresso
+          ainda, continua precisando chegar no relatório dos outros. */}
+      {verRelatorio && (
+        <Link to="/relatorio-etiquetas"
+          className="mb-4 flex items-center justify-between gap-2 bg-polo-navy text-polo-gold rounded-xl px-4 min-h-11 text-sm font-bold">
+          <span>Relatório por dia, semana e mês</span>
+          <span aria-hidden="true">→</span>
+        </Link>
+      )}
       {vazio ? (
         <Aviso tom="neutro">
           Nada impresso ainda. O que sair no rolo aparece aqui, e dá para repetir

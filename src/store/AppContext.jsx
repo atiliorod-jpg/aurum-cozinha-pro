@@ -308,6 +308,31 @@ export function AppProvider({ children }) {
       });
   }, []);
 
+  // ── Relatório de etiquetas (M43) ───────────────────────────
+  // Cada impressão vira uma linha no banco, e é o que alimenta o relatório do
+  // dono por dia, semana e mês.
+  //
+  // ⚠️ ENTRA NA FILA OFFLINE, ao contrário do contador antigo da M42. Aquele
+  // era estatística da Aurum e podia perder um lote; este é o relatório do
+  // CLIENTE, e um mês com buraco nos dias em que a internet caiu seria um
+  // número errado com cara de certo. O reenvio não conta em dobro: cada linha
+  // leva um id gerado no aparelho, e o banco ignora o que já recebeu.
+  //
+  // ⚠️ Em lotes de 200, o teto por chamada do banco. Um lote maior que isso
+  // seria recusado inteiro e morreria na fila.
+  const registrarImpressoes = useCallback((eventos) => {
+    if (soLeituraRef.current) return; // modo suporte = só leitura
+    const r = nuvemDe(ridRef.current);
+    if (!r || !eventos?.length) return;
+    for (let i = 0; i < eventos.length; i += 200) {
+      const lote = eventos.slice(i, i + 200);
+      const enfileirar = () => outboxAdd(r, { kind: 'impressao', op: 'rpc', payload: { itens: lote } });
+      supabase.rpc('registrar_impressoes', { p_itens: lote })
+        .then(({ error }) => { if (error) enfileirar(); })
+        .catch(enfileirar);
+    }
+  }, []);
+
   // ── Catálogos (documentos JSONB, 1 linha por lista) ────────
   // Versão conhecida de cada documento (anti-sobrescrita entre 2 tablets —
   // migração 8). Atualizada na hidratação, no realtime e a cada gravação ok.
@@ -940,6 +965,10 @@ export function AppProvider({ children }) {
             ({ error } = await supabase.rpc('registrar_auditoria', {
               p_acao: item.payload?.acao, p_detalhe: item.payload?.detalhe ?? null,
             }));
+          else if (item.kind === 'impressao' && item.op === 'rpc')
+            // relatório de etiquetas (M43): o id de cada linha veio do aparelho,
+            // então reenviar aqui não conta a mesma etiqueta duas vezes
+            ({ error } = await supabase.rpc('registrar_impressoes', { p_itens: item.payload?.itens || [] }));
           else if (item.kind === 'clearAll')
             // Os tipos vão no PAYLOAD: o replay acontece depois, possivelmente
             // com outro módulo aberto. Sem isso, "apagar tudo" feito offline no
@@ -1425,6 +1454,7 @@ export function AppProvider({ children }) {
       rid,
       pendencias, online,
       mortos, retentarMortos, descartarMortos,
+      registrarImpressoes,
     }), [
     produtos, setProdutos, compras, addCompra, removeCompra, entradas,
     addEntrada, removeEntrada, saidas, addSaida, removeSaida, aparas,
@@ -1438,6 +1468,7 @@ export function AppProvider({ children }) {
     prefs, setPref, setPrefs, moduloEfetivo, setModulo, recebimentos,
     estoque, limparTudo, resetarProdutos, exportarBackup, importarBackup, soLeitura,
     rid, pendencias, online, mortos, retentarMortos, descartarMortos,
+    registrarImpressoes,
   ]);
 
   return (

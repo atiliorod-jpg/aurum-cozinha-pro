@@ -181,6 +181,49 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (10/09/2026, fim da noite) — RELATÓRIO DE ETIQUETAS (M43)
+
+Pedido do dono: "o proprietário analisar os dias passados — mês passado,
+por semana e por dia". **Feito e no ar**, migração 43 aplicada e conferida.
+
+- **Banco (M43):** tabela `etiquetas_impressoes` (uma linha por impressão,
+  RLS ligada e ZERO policy) + `registrar_impressoes(jsonb)` (id gerado no
+  aparelho → `on conflict do nothing`, reenvio da fila não conta em dobro;
+  soma no contador da M42 só o que entrou) + `relatorio_etiquetas(de, ate,
+  p_restaurante)` (devolve agrupado; `p_restaurante` só vale para o
+  super-admin). Recuperou o que estava nas listas `…etiquetasImpressas`
+  (11 linhas / 14 etiquetas da Aurum Serviços). Conferido como usuário comum
+  numa transação desfeita: 3 → reenvio 0 → relatório 17 → pedir o vizinho
+  devolve o próprio → contador 23→26.
+- **App:** `EtiquetaPrint.aoImprimir` NÃO chama mais `contar_etiquetas_impressas`
+  (contaria em dobro — há teste que trava isso); chama `registrarImpressoes`
+  do AppContext, que entra na FILA OFFLINE (kind `'impressao'`). O dia é o
+  do APARELHO, nunca o `now()` do banco (UTC). A função velha continua no
+  banco por causa dos apps congelados no endereço antigo.
+- **Tela** `/relatorio-etiquetas` (pages/RelatorioEtiquetas.jsx, nos DOIS
+  planos): este mês / mês passado / 30 dias / datas; total com % contra o
+  período anterior (mês contra mês, trecho contra o mesmo trecho), média,
+  pico, reimpressões, por dia, por semana (seg–dom), top itens, por
+  responsável, planilha e PDF. Porta: botão no topo da aba Impressas
+  (plano Etiquetas) e cartão na Administração (completo).
+- **Permissão nova** `verRelatorioEtiquetas` — cozinha DESLIGADA, gerência
+  ligada; o dono decide na matriz. É trava de TELA (o dado não é segredo na
+  casa; a aba Impressas já mostra item e responsável).
+- Reimpressão: `Impressas.reimprimir` manda `reimpressao: true`.
+- Contas puras em `utils/relatorioEtiquetas.js`, com teste próprio.
+  517 testes, lint 0 erros, build ok. Tela NÃO vista no navegador: a
+  demonstração pede nome/contato antes de abrir e a conta real pede senha.
+
+**Pergunta do dono respondida:** conta criada pelo painel do super-admin
+NÃO tem senha que alguém conheça — nasce com senha aleatória descartável
+(`supabase/functions/restaurante`), e o painel manda na hora o link de
+"escolher senha" para o e-mail do dono. Para a Aurum olhar a conta, o
+caminho é o MODO SUPORTE, não a senha do cliente.
+
+**Sentry: o dono adiou em 10/09 ("é pago") — não lembrar até ele voltar ao assunto.**
+
+---
+
 ## Onde paramos (10/09/2026, noite) — O APP INSTALADO ESTAVA CONGELADO EM 31/08
 
 ### ⚠️ A ARMADILHA DO DOMÍNIO PRÓPRIO — todo aparelho instalado antes de 31/08, 11h

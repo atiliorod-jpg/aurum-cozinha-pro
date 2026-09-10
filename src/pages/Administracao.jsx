@@ -33,6 +33,10 @@ export default function Administracao() {
       to: '/relatorio', icone: 'relatorio', titulo: 'Relatórios',
       desc: 'Consumo, giro e lista de compras.',
     },
+    can('verRelatorioEtiquetas') && {
+      to: '/relatorio-etiquetas', icone: 'etiqueta', titulo: 'Relatório de etiquetas',
+      desc: 'Quantas saíram por dia, semana e mês, e de quê',
+    },
     can('verFinanceiro') && {
       to: '/financeiro', icone: 'financeiro', titulo: 'Custos e valor do estoque',
       desc: 'Valor parado, curva ABC, consumo e perdas em R$',

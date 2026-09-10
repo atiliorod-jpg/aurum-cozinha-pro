@@ -5,7 +5,6 @@ import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import { estabelecimentoDe } from '../utils/instancias';
-import { supabase } from '../lib/supabase';
 import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
@@ -20,6 +19,7 @@ import EtiquetaTSPL from './EtiquetaTSPL';
 import { bitmapsDoNome } from '../lib/nomeEmBitmap';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
+import { idDeImpressao } from '../utils/relatorioEtiquetas';
 import { temRecurso } from '../utils/modulos';
 import { produtoAtivo, produtoTem } from '../utils/produto';
 
@@ -283,7 +283,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao, impersonando } = useAuth();
-  const { prefs, setPrefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas } = useApp();
+  const { prefs, setPrefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas, registrarImpressoes } = useApp();
   // ⚠️ Nome que SAI IMPRESSO no pote. Com dois restaurantes na mesma conta, o
   // nome da conta sairia na etiqueta dos dois — erro visível na frente do
   // cliente, e o pote ainda circula. O nome do ESTOQUE manda quando o dono
@@ -723,21 +723,34 @@ export default function EtiquetaPrint() {
   // então a memória nunca funcionaria justo no produto que vai ser vendido.
   const aoImprimir = (soEstes, umCodigoPorCopia = true) => {
     registrarImpressao(soEstes, umCodigoPorCopia);
-    // ⚠️ CONTADOR DE USO (M42), e é o ÚNICO caminho que existe para o plano
-    // Etiquetas: ele não guarda histórico de etiquetas (decisão de 30/08), e
-    // por isso o painel mostrava "0 etiquetas impressas" para toda conta
-    // daquele plano. O contador é um número por conta — a Aurum vê quanto a
-    // casa usa e continua sem ver O QUE ela etiqueta.
+    // ⚠️ CADA IMPRESSÃO VIRA UMA LINHA NO BANCO (M43): é o que alimenta o
+    // relatório do dono por dia, semana e mês. Isto SUBSTITUI a chamada ao
+    // contador da M42 — `registrar_impressoes` soma no mesmo contador do
+    // painel, então as duas juntas contariam cada etiqueta duas vezes.
     //
-    // ⚠️ Solto e sem `await`: impressão não pode esperar rede, e falhar aqui
-    // não pode atrapalhar quem está com o pote na mão. Sem internet a
-    // contagem daquele lote se perde, de propósito — pôr estatística na fila
-    // offline sairia caro no lugar errado (ver o comentário da M42).
-    const quantas = contarEtiquetas(soEstes || itens);
-    if (quantas > 0 && !sessao?.demo) {
-      supabase.rpc('contar_etiquetas_impressas', { p_quantas: quantas })
-        .then(({ error }) => { if (error) console.warn('[etiquetas] contador não somou:', error.message); })
-        .catch(() => { /* offline — ver acima */ });
+    // ⚠️ Sem `await` e sem erro na tela: impressão não espera rede. Sem
+    // internet o lote vai para a fila offline e sobe quando voltar (ver
+    // `registrarImpressoes` no AppContext).
+    //
+    // ⚠️ O DIA É O DO APARELHO, não o do servidor. O banco conta em UTC: uma
+    // etiqueta das 22h em Recife cairia no dia seguinte.
+    if (!sessao?.demo) {
+      const dia = hoje();
+      const hora = fmtHora();
+      const eventos = [];
+      (soEstes || itens).forEach(item => {
+        const copias = limitarCopias(item.quantidade);
+        if (!copias) return;
+        const c = camposDe(item);
+        eventos.push({
+          id: idDeImpressao(), dia, hora,
+          item: c.nome || '', responsavel: c.responsavel || '',
+          copias,
+          // marcada pela aba Impressas ao pedir a repetição (ver `reimprimir`)
+          reimpressao: !!item.reimpressao,
+        });
+      });
+      registrarImpressoes(eventos);
     }
     // ⚠️ `setPrefs` (plural) para gravar as duas de uma vez. Dois `setPref`
     // seguidos leriam as prefs pelo ref, que só é atualizado no efeito

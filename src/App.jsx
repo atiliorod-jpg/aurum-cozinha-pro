@@ -49,6 +49,8 @@ const Administracao = lazy(() => import('./pages/Administracao'));
 const Financeiro = lazy(() => import('./pages/Financeiro'));
 const Estoques = lazy(() => import('./pages/Estoques'));
 const Balanco = lazy(() => import('./pages/Balanco'));
+// Os dois planos usam a mesma tela; ela só baixa quando alguém abre.
+const RelatorioEtiquetas = lazy(() => import('./pages/RelatorioEtiquetas'));
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -375,6 +377,7 @@ function Rotas() {
               dia, semana e mês, e isso é informação de gestão que o dono pode
               querer fechar. A trava por URL direta continua valendo. */}
           <Route path="/impressas"  element={can('verImpressas') ? <EtiquetasImpressas /> : <Navigate to="/" replace />} />
+          <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') ? <RelatorioEtiquetas /> : <Navigate to="/" replace />} />
           {/* ⚠️ Estava SEM TRAVA: qualquer pessoa logada — inclusive o
               cozinheiro que entrou por convite — mudava temperatura, tamanho
               de etiqueta, dados do estabelecimento, suporte remoto e
@@ -448,6 +451,7 @@ function Rotas() {
           no cálculo do turno e corrompia a sobra apurada. */}
       <Route path="/inventario" element={temRecurso(modulo, 'inventario') && can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
       <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
+      <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') ? <RelatorioEtiquetas /> : <Navigate to="/administracao" replace />} />
       <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
       {/* Administração é SEÇÃO, não estoque: tem rota própria e não mexe no
           módulo aberto. A regra de acesso vem de podeAbrirAdministracao — a

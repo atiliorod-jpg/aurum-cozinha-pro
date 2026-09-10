@@ -1143,7 +1143,10 @@ describe('plano Etiquetas não abre tela do plano completo', () => {
     expect(rotasDoRamo.sort()).toEqual(
       // `/impressas` entrou em 09/09/2026: repetir uma etiqueta rasgada com as
       // datas ORIGINAIS, sem remontar o item (ver pages/etiquetas/Impressas.jsx).
-      ['*', '/', '/admin', '/ajustes', '/etiquetas', '/impressas', '/itens', '/novidades', '/pagamento'].sort(),
+      // `/relatorio-etiquetas` entrou em 10/09/2026, a pedido do dono: quantas
+      // etiquetas por dia, semana e mês (M43). É relatório DESTE produto — não
+      // confundir com `/relatorio`, o de estoque, que continua fora daqui.
+      ['*', '/', '/admin', '/ajustes', '/etiquetas', '/impressas', '/itens', '/novidades', '/pagamento', '/relatorio-etiquetas'].sort(),
     );
   });
 
