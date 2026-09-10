@@ -243,13 +243,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
         {/* ⚠️ 2,1 mm saía ilegível no papel — o dono leu a etiqueta impressa e
             apontou o CNPJ e o endereço. Numa térmica, letra menor que ~2,4 mm
             perde o traço: o ponto é grande demais para desenhar a curva. */}
-        {/* ⚠️ PESO 700 NO RODAPÉ INTEIRO. CNPJ, endereço e cidade estavam com
-            peso normal (400) — as linhas mais finas da etiqueta, justamente no
-            menor corpo. Na impressão pelo computador foram as primeiras a sair
-            fracas. O nome da casa continua 800, por cima. A classe é o gancho
-            do CSS de impressão, que dá ao rodapé um contorno mais leve que o do
-            resto (ver index.css). */}
-        <div style={{ fontSize: apertado ? '2.2mm' : '2.6mm', lineHeight: 1.35, fontWeight: 700 }} className="min-w-0 etiqueta-rodape">
+        <div style={{ fontSize: apertado ? '2.2mm' : '2.6mm', lineHeight: 1.35 }} className="min-w-0">
           {c.restaurante !== false && campos.restauranteNome && (
             <div style={{ fontWeight: 800, textTransform: 'uppercase' }}>{campos.restauranteNome}</div>
           )}
