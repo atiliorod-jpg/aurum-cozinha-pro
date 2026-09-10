@@ -181,6 +181,74 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (09/09/2026, noite) — A PRÉVIA PARA DE MENTIR, E /IMPRESSAS
+
+Teste do sistema de etiquetas inteiro (suíte, banco de casos medindo o desenho
+real, e o app no navegador). Commit `cebfca4`. 455 testes, lint 0 erros, build ok.
+
+### A família de defeitos encontrada
+
+Todos a mesma coisa: **a tela desenha em HTML, a impressora em TSPL, e os dois
+discordavam**.
+
+- **Nome**: prévia mostrava inteiro em duas linhas, papel imprimia uma só,
+  cortada. Corrigido — o TSPL quebra em duas linhas.
+- **Lote do fabricante**: `"SIF 1234 - L-2026-0912-."` Lote truncado não casa
+  com recall nenhum. Ganha linha própria quando não cabe com o SIF.
+- **Endereço**: cortava em ~36 caracteres, o bairro sumia (RDC 216). Ganha
+  segunda linha quando há papel.
+- **Rodapé**: a tela agrupava "CNPJ + CEP", o papel "cidade + CEP". **Quem
+  cedeu foi a tela** — no TSPL os dois juntos passam de ~36 caracteres e cortam
+  o CNPJ.
+
+### ⚠️ `melhorDesenho` — desenha e confere, não estima
+
+As três folgas (nome em 2 linhas, SIF/LOTE separados, endereço em 2) competem
+pelo **mesmo papel**: cada uma cabe sozinha, as três juntas nem sempre. E o
+espaço depende dos campos ligados, do rodapé e do comprimento do nome — não há
+conta fechada. Então `melhorDesenho` **desenha a etiqueta inteira** e confere se
+o corpo bateu no rodapé, do nível mais generoso ao mais apertado. A ordem das
+concessões é a inversa da importância: endereço → lote → nome por último.
+
+`nivelDeDesenho()` expõe o nível escolhido, e **a prévia da tela consulta ele**
+em vez de supor. Enquanto existirem dois desenhos, pelo menos as decisões são
+tomadas num lugar só.
+
+Efeito colateral bom: o aviso "Não cabe no papel" **voltou a ser alcançável**
+(estava inatingível desde que o tamanho travou em 60×50).
+
+### `/impressas` no plano Etiquetas — e a decisão de 30/08 revertida
+
+Ver o que saiu no rolo e **repetir uma etiqueta que rasgou**.
+
+⚠️ **REPETE, NÃO RECALCULA.** Datas, **hora** e armazenamento vêm gravados do
+registro. Remontar do zero recalcularia a validade a partir de hoje e devolveria
+um pote mentindo sobre a própria idade — e a hora importa: num item de 3 dias
+ela é metade da informação.
+
+⚠️ Isto **reverte** `historicoEtiquetas: false` para o plano etiquetas
+(decisão de 30/08). Aquela decisão estava certa quando não havia leitor — as
+linhas só eram lidas pelo Inventário e pelo Validades, telas que este produto
+não tem. Agora há leitor dentro do próprio produto. O custo (uma linha por
+lote, sincronizada) voltou, e agora é pago por algo que o cliente vê.
+
+### Melhoria estrutural ainda EM ABERTO (explicada ao dono, não feita)
+
+Desenhar a prévia **a partir do próprio TSPL**, interpretando os comandos num
+canvas, em vez de recriar a etiqueta em HTML. Hoje existem dois desenhos
+mantidos iguais na mão, e os quatro achados acima foram exatamente essa
+divergência aparecendo. `nivelDeDesenho` reduziu a superfície; não a eliminou.
+
+### Também em aberto
+
+- **Etiqueta de teste** na tela Impressora (hoje o primeiro teste de alinhamento
+  do rolo é com etiqueta real).
+- **QR não sai no TSPL** — `tspl.js` não emite `QRCODE`. Só o plano Completo
+  liga o QR, e é justo o plano cuja contagem por câmera depende dele. **O dono
+  tirou do escopo em 09/09**; se voltar, TSPL tem o comando.
+
+---
+
 ## Onde paramos (09/09/2026) — A IMPRESSORA QUE TRAVAVA ANTES DE PROCURAR
 
 Teste em três Android: **dois imprimiram, um não**. No terceiro, tocar em
