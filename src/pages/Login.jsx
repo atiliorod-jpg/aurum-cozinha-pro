@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
-import { PRODUTOS } from '../utils/assinatura';
+import { PRODUTOS, fmtPreco } from '../utils/assinatura';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos, UFS } from '../utils/documentos';
 import { traduzErroAuth as traduz } from '../utils/erros';
 import { TERMOS_VERSAO } from './Termos';
@@ -252,7 +252,7 @@ export default function Login() {
                         <span className="text-xs font-bold text-polo-navy flex-shrink-0">
                           {p.emBreve
                             ? <span className="text-gray-600 bg-gray-200 rounded-full px-2 py-0.5">em breve</span>
-                            : <>R$ {p.precoMes}<span className="font-normal text-gray-500">/mês</span></>}
+                            : <>R$ {fmtPreco(p.precoMes)}<span className="font-normal text-gray-500">/mês</span></>}
                         </span>
                       </span>
                       <span className="block text-[11px] text-gray-600 mt-0.5">{p.resumo}</span>
@@ -361,7 +361,7 @@ export default function Login() {
                       ${sel ? 'border-polo-gold bg-polo-beige' : 'border-gray-200 bg-white'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-sm text-polo-navy">{p.label}</span>
-                      <span className="text-sm font-bold text-polo-navy flex-shrink-0">R$ {p.precoMes}<span className="text-[11px] font-normal text-gray-500">/mês</span></span>
+                      <span className="text-sm font-bold text-polo-navy flex-shrink-0">R$ {fmtPreco(p.precoMes)}<span className="text-[11px] font-normal text-gray-500">/mês</span></span>
                     </div>
                     <p className="text-[11px] text-gray-600 mt-0.5">{p.resumo}</p>
                   </button>

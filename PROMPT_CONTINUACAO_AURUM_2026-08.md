@@ -273,6 +273,26 @@ banco PRIMEIRO e da lista depois. O relatório diz onde fica o botão.
 Conferido como dono numa transação desfeita: 1 → 2 → sem vínculo 1 →
 contador 23→27→23. 522 testes.
 
+**Pagamento e Termos (10/09, pedido do dono).**
+- "Sua conta" (Administração do Etiquetas) ganhou **"Ver planos e pagar"**
+  fixo — antes a tela de Assinatura só aparecia na faixa do teste, nos 3
+  últimos dias e no bloqueio. No MODO SUPORTE ele não aparece (a sessão é do
+  super-admin, "isento"); para ver como o cliente, entrar com a senha dele.
+- Pagamento: "Como funciona" não promete mais "14 dias de teste" (acabou na
+  M41); a situação diz "Aguardando liberação" / "Conta cortesia" / "Acesso
+  vencido" em vez de cair em "Conta administrativa".
+- `fmtPreco` (utils/assinatura.js): o preço saía "R$ 279.9/mês" no cadastro,
+  na Administração e no painel. Usar SEMPRE ele para mostrar preço.
+- **Termos 1.2** (vigência 10/09/2026): teste liberado pela contratada (cl.
+  3); Cozinha Pro em pré-lançamento (cl. 2); trocar a senha inicial (cl. 6);
+  conta aberta pela Aurum com senha que ela conhece + troca de e-mail a
+  pedido (cl. 8 e exceções na 14); responsáveis e registro de impressões nos
+  dados tratados (cl. 12). Aceite só é gravado no cadastro — sem novo aceite.
+- **Ficou para o dono decidir:** a cl. 14 promete que o acesso do suporte
+  fica no "Histórico de mudanças do próprio contratante", e essa tela NÃO
+  existe no plano Etiquetas (o registro existe no banco). E a data da
+  CVS 3/2026 na "Base normativa" segue sem conferência.
+
 **Sentry: o dono adiou em 10/09 ("é pago") — não lembrar até ele voltar ao assunto.**
 
 ---

@@ -4,7 +4,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
-import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime } from '../utils/assinatura';
+import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco } from '../utils/assinatura';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarTelefone, UFS } from '../utils/documentos';
@@ -406,8 +406,8 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     const ok = await confirm({
       titulo: paraEtiquetas ? 'Mudar para Aurum Etiquetas' : 'Mudar para Aurum Cozinha Pro',
       mensagem: paraEtiquetas
-        ? `"${r.nome}" passa a ver só as telas de etiqueta (R$ ${produtoDe('etiquetas').precoMes}/mês).\n\nNENHUM dado é apagado: o estoque, as compras e o histórico continuam no banco e reaparecem inteiros se você voltar para o plano completo.`
-        : `"${r.nome}" passa a ver o app inteiro (R$ ${produtoDe('completo').precoMes}/mês).\n\nOs itens e as etiquetas que ele já cadastrou continuam onde estão — aparecem na Cozinha de Produção.`,
+        ? `"${r.nome}" passa a ver só as telas de etiqueta (R$ ${fmtPreco(produtoDe('etiquetas').precoMes)}/mês).\n\nNENHUM dado é apagado: o estoque, as compras e o histórico continuam no banco e reaparecem inteiros se você voltar para o plano completo.`
+        : `"${r.nome}" passa a ver o app inteiro (R$ ${fmtPreco(produtoDe('completo').precoMes)}/mês).\n\nOs itens e as etiquetas que ele já cadastrou continuam onde estão — aparecem na Cozinha de Produção.`,
       confirmar: paraEtiquetas ? 'Mudar para Etiquetas' : 'Mudar para Completo',
     });
     if (!ok) return;
@@ -1866,7 +1866,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           <button key={id} onClick={() => mudarProduto(r, id)} disabled={sel}
                             className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 border
                               ${sel ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'text-polo-navy border-gray-300'}`}>
-                            {produtoDe(id).label} · R$ {produtoDe(id).precoMes}
+                            {produtoDe(id).label} · R$ {fmtPreco(produtoDe(id).precoMes)}
                           </button>
                         );
                       })}

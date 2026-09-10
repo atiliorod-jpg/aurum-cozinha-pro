@@ -14,7 +14,8 @@ import { describe, it, expect } from 'vitest';
 
 import { custoUnitario, valorDoEstoque, curvaABC, custoDosRegistros, precoDaCompra } from '../financeiro';
 
-import { statusAssinatura, statusRestaurante, rotuloRegime, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS } from '../assinatura';
+import { readFileSync } from 'node:fs';
+import { statusAssinatura, statusRestaurante, rotuloRegime, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS, fmtPreco } from '../assinatura';
 import { produtoTem, produtoAtivo, emprestimoAtivo } from '../produto';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../painel';
 import { crc16, montarPixBRCode } from '../pix';
@@ -730,6 +731,24 @@ describe('statusAssinatura — leitura que falhou não bloqueia', () => {
   it('conta suspensa continua suspensa', () => {
     const st = statusAssinatura({ restauranteId: 'r1', bloqueado: true, assinaturaLida: false }, agora);
     expect(st).toEqual({ ok: false, tipo: 'bloqueado' });
+  });
+});
+
+// ⚠️ Achado em 10/09/2026: a tela de cadastro mostrava "R$ 279.9/mês" —
+// `R$ {precoMes}` direto, com ponto e sem o zero final.
+describe('preço na tela', () => {
+  it('sai com vírgula e dois decimais', () => {
+    expect(fmtPreco(PRODUTOS.etiquetas.precoMes)).toBe('279,90');
+    expect(fmtPreco(PRODUTOS.completo.precoMes)).toBe('399,00');
+    expect(fmtPreco(undefined)).toBe('0,00');
+  });
+
+  it('nenhuma tela escreve o preço cru', () => {
+    for (const arq of ['../../pages/Login.jsx', '../../pages/etiquetas/Ajustes.jsx', '../../pages/Admin.jsx']) {
+      const src = readFileSync(new URL(arq, import.meta.url), 'utf8');
+      expect(src, arq).not.toMatch(/R\$ \{[^}]*precoMes\}/);
+      expect(src, arq).not.toMatch(/R\$ \$\{[^}]*precoMes\}/);
+    }
   });
 });
 

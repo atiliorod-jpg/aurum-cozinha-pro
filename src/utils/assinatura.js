@@ -88,6 +88,11 @@ export const precoMensalEquivalente = (plano, produto) => r2(precoPlano(plano, p
 export const economiaPlano = (plano, produto) => r2(mensalDe(produto) * plano.meses - precoPlano(plano, produto));
 export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
 
+// Preço para a TELA: vírgula e dois decimais. `R$ {precoMes}` direto saía
+// "R$ 279.9/mês" — ponto americano e sem o zero final — justo na tela de
+// cadastro, onde o cliente está decidindo se paga.
+export const fmtPreco = (v) => (Number(v) || 0).toFixed(2).replace('.', ',');
+
 /**
  * Situação do plano de uma sessão:
  *  { ok:true,  tipo:'assinatura', ate }            — assinatura ativa

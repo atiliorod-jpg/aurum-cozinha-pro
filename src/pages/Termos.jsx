@@ -18,8 +18,15 @@ import { useNavigate } from 'react-router-dom';
 // ⚠️ VERSÃO E DATA. O aceite é gravado junto com a versão (`termosVersao` no
 // cadastro): aceite sem versão registrada não vale nada no dia em que o texto
 // mudar, porque não há como dizer o que a pessoa aceitou.
-export const TERMOS_VERSAO = '1.1';
-export const TERMOS_VIGENCIA = '29 de agosto de 2026';
+//
+// 1.2 (10/09/2026) — o texto voltou a descrever o que o app faz: o teste
+// deixou de ser automático (M41) e é liberado pela Aurum; a Aurum pode abrir a
+// conta com senha inicial que ela conhece e trocar o e-mail a pedido; os
+// nomes dos responsáveis e o registro de cada impressão (relatório, M43)
+// entraram nos dados tratados. O aceite só é gravado no CADASTRO — contas
+// antigas seguem com a 1.1 registrada, e o app não pede novo aceite.
+export const TERMOS_VERSAO = '1.2';
+export const TERMOS_VIGENCIA = '10 de setembro de 2026';
 
 function Clausula({ n, titulo, children }) {
   return (
@@ -94,24 +101,33 @@ export default function Termos() {
 
           <Clausula n="2" titulo="Produtos, preços e pagamento">
             <p>
-              O sistema é oferecido em dois produtos, contratados separadamente:{' '}
+              O sistema tem dois produtos, contratados separadamente:{' '}
               <strong>Aurum Etiquetas</strong>, restrito ao cadastro de itens e à impressão de
               etiquetas de validade; e <strong>Aurum Cozinha Pro</strong>, que acrescenta estoque,
-              recebimento, produção, relatórios e demais funções.
+              recebimento, produção, relatórios e demais funções. O Aurum Cozinha Pro está em
+              pré-lançamento e só é contratado mediante liberação da contratada.
             </p>
             <p>
               Os valores vigentes são apresentados no momento da contratação e na tela de
-              assinatura. O pagamento é feito por Pix, com ativação manual pela contratada após a
-              confirmação. A contratada pode reajustar os valores mediante aviso prévio de 30 dias,
+              assinatura, nos planos mensal, semestral e anual. O pagamento é feito por Pix, com
+              ativação manual pela contratada após a confirmação. A contratada pode reajustar os valores mediante aviso prévio de 30 dias,
               sem efeito sobre período já pago.
             </p>
           </Clausula>
 
           <Clausula n="3" titulo="Período de teste">
+            {/* ⚠️ Dizia "contado da criação da conta" — regra que acabou em
+                03/09/2026 (M41). Hoje a conta nasce esperando liberação e a
+                Aurum escolhe a data do teste conta a conta. */}
+            <p>
+              O acesso é <strong>liberado pela contratada</strong>: a conta criada fica aguardando
+              liberação até que a contratada conceda o período de teste gratuito ou registre o
+              pagamento. A duração do teste é informada no momento da liberação.
+            </p>
             <p>
               Cada estabelecimento tem direito a <strong>um único período de teste gratuito</strong>,
-              contado da criação da conta. O teste é vinculado ao <strong>CNPJ</strong> informado no
-              cadastro: um mesmo CNPJ não obtém novo período de teste mediante criação de nova conta.
+              vinculado ao <strong>CNPJ</strong> informado no cadastro: um mesmo CNPJ não obtém novo
+              período de teste mediante criação de nova conta.
             </p>
             <p>
               Encerrado o teste sem contratação, o acesso é suspenso e{' '}
@@ -165,6 +181,10 @@ export default function Termos() {
             <ul className="list-disc pl-5 space-y-1">
               <li>fornecer dados cadastrais verdadeiros, incluindo CNPJ próprio e válido;</li>
               <li>manter a guarda das credenciais, respondendo pelo uso feito com elas;</li>
+              <li>
+                quando a conta for entregue pela contratada, <strong>trocar a senha inicial</strong>{' '}
+                no primeiro acesso (Administração → Trocar minha senha);
+              </li>
               <li>conceder acesso apenas a pessoal autorizado do estabelecimento;</li>
               <li>
                 <strong>conferir e definir os prazos de validade</strong> aplicáveis aos seus
@@ -218,6 +238,22 @@ export default function Termos() {
               Para <em>editar</em> qualquer dado, depende de autorização expressa, limitada a 24
               horas e revogável.
             </p>
+            {/* ⚠️ Desde 10/09/2026 o painel mostra a senha sorteada à Aurum,
+                para ela montar a conta antes de entregar. Esse acesso é um
+                login comum — NÃO passa pelo modo suporte e não aparece como
+                "Suporte Aurum". O contrato tem de dizer isso com todas as
+                letras, e dizer como o cliente fecha essa porta. */}
+            <p>
+              <strong>Conta aberta pela contratada.</strong> A pedido do contratante, a contratada
+              pode criar a conta e configurá-la antes da entrega. Nesse caso a conta é entregue com
+              uma <strong>senha inicial gerada pelo sistema e conhecida pela contratada</strong>; os
+              acessos feitos com ela não aparecem como “Suporte Aurum”. A troca da senha pelo
+              contratante (cláusula 6) encerra esse acesso.
+            </p>
+            <p>
+              A contratada também pode alterar o e-mail de acesso da conta principal,{' '}
+              <strong>somente a pedido do contratante</strong>. A alteração fica registrada.
+            </p>
           </Clausula>
 
           <Clausula n="9" titulo="Dados pessoais (LGPD)">
@@ -264,9 +300,11 @@ export default function Termos() {
 
           <Clausula n="12" titulo="Dados tratados">
             <p>
-              Nome e e-mail dos usuários vinculados à conta, os dados cadastrais do estabelecimento
-              (razão social, CNPJ, WhatsApp, cidade) e os registros operacionais — itens, prazos,
-              etiquetas emitidas e, no plano completo, estoque, produção e movimentações.
+              Nome e e-mail dos usuários vinculados à conta, os nomes dos responsáveis que assinam
+              as etiquetas, os dados cadastrais do estabelecimento (razão social, CNPJ, WhatsApp,
+              cidade) e os registros operacionais — itens, prazos, etiquetas emitidas (com data,
+              hora, item e responsável, que formam o relatório de etiquetas) e, no plano completo,
+              estoque, produção e movimentações.
             </p>
           </Clausula>
 
@@ -293,6 +331,11 @@ export default function Termos() {
               <strong> todo acesso fica registrado no Histórico de mudanças do próprio contratante</strong>,
               identificado como “Suporte Aurum”. Para <em>editar</em> qualquer dado, a equipe depende de
               autorização expressa do contratante, limitada a 24 horas e revogável a qualquer momento.
+            </p>
+            <p>
+              São exceções, ambas a pedido do contratante e descritas na cláusula 8: a configuração
+              da conta aberta pela contratada, antes da troca da senha inicial, e a alteração do
+              e-mail de acesso.
             </p>
           </Clausula>
 

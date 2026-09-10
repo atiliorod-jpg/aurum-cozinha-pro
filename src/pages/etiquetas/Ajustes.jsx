@@ -8,7 +8,7 @@ import { useUI } from '../../store/UIContext';
 import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos,
          CartaoMeusDados } from '../../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../../components/config/CartaoMinhaSenha';
-import { statusAssinatura, produtoDe, PRODUTOS } from '../../utils/assinatura';
+import { statusAssinatura, produtoDe, PRODUTOS, fmtPreco } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
 /**
@@ -109,7 +109,7 @@ export default function Ajustes() {
           <p className="text-xs text-gray-500 mt-0.5">{sessao?.restauranteNome}</p>
         </div>
         <div className="text-xs text-gray-700 space-y-1">
-          <p>Plano: <strong>{prod.label}</strong> — R$ {prod.precoMes}/mês</p>
+          <p>Plano: <strong>{prod.label}</strong> — R$ {fmtPreco(prod.precoMes)}/mês</p>
           <p>
             {st.tipo === 'assinatura' ? `Assinatura válida até ${fmtData(isoLocal(new Date(st.ate)))}`
               : st.tipo === 'teste' ? `Teste grátis até ${fmtData(isoLocal(new Date(st.ate)))}`
@@ -149,7 +149,7 @@ export default function Ajustes() {
             <p className="text-sm font-bold text-polo-gold">O Aurum Cozinha Pro</p>
             {PRODUTOS.completo.emBreve
               ? <span className="text-[10px] font-bold text-polo-navy bg-polo-gold rounded-full px-2 py-0.5 flex-shrink-0">em breve</span>
-              : <span className="text-xs text-white/80 flex-shrink-0">R$ {PRODUTOS.completo.precoMes}/mês</span>}
+              : <span className="text-xs text-white/80 flex-shrink-0">R$ {fmtPreco(PRODUTOS.completo.precoMes)}/mês</span>}
           </div>
           <ul className="text-xs text-white/90 space-y-1">
             <li>Estoque com entradas, saídas e contagem</li>

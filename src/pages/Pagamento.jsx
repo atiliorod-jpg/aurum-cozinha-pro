@@ -3,7 +3,7 @@ import QRCode from 'qrcode';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import { statusAssinatura, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe } from '../utils/assinatura';
+import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe } from '../utils/assinatura';
 import { montarPixBRCode } from '../utils/pix';
 import { fmtData, isoLocal } from '../utils/formatters';
 
@@ -66,9 +66,9 @@ export default function Pagamento() {
   const { toast } = useUI();
   const st = statusAssinatura(sessao);
 
-  // ⚠️ O preço vem do PRODUTO que esta conta contratou (Etiquetas R$270 vs
-  // Completo R$500), não de uma constante única. Sem isto o cliente do plano
-  // menor veria — e pagaria — o valor do maior.
+  // ⚠️ O preço vem do PRODUTO que esta conta contratou (PRODUTOS em
+  // utils/assinatura.js), não de uma constante única. Sem isto o cliente do
+  // plano menor veria — e pagaria — o valor do maior.
   const prod = produtoDe(sessao);
 
   const [planoId, setPlanoId] = useState('mensal');
@@ -127,16 +127,27 @@ export default function Pagamento() {
         </div>
         <div>
           <p className="text-xs text-white/80 uppercase tracking-wide">Situação</p>
+          {/* ⚠️ "Conta administrativa" era o SENÃO de tudo, e caía em cliente:
+              a conta que acabou de nascer esperando liberação e a de cortesia
+              liam "Conta administrativa — sem cobrança" na tela onde vieram
+              pagar. Cada situação diz a sua. "Vencido" também deixou de dizer
+              "Teste encerrado": vale para assinatura que venceu. */}
           <p className="text-polo-gold font-bold text-xl">
             {st.tipo === 'assinatura' ? 'Assinatura ativa'
               : st.tipo === 'teste' ? `Período de teste — ${st.diasRestantes} dia(s)`
-              : st.tipo === 'vencido' ? 'Teste encerrado'
+              : st.tipo === 'vencido' ? 'Acesso vencido'
+              : st.tipo === 'aguardando' ? 'Aguardando liberação'
+              : st.tipo === 'cortesia' ? 'Conta cortesia'
+              : st.tipo === 'indeterminado' ? 'Situação indisponível'
               : 'Conta administrativa'}
           </p>
           <p className="text-white/80 text-xs mt-0.5">
             {st.tipo === 'assinatura' ? `Válida até ${fmtData(dataISO(st.ate))}`
               : st.tipo === 'teste' ? `Teste grátis até ${fmtData(dataISO(st.ate))} — depois, assine para continuar`
               : st.tipo === 'vencido' ? 'Assine para voltar a usar o sistema'
+              : st.tipo === 'aguardando' ? 'A equipe Aurum libera o seu acesso. Se já quiser assinar, pague aqui.'
+              : st.tipo === 'cortesia' ? 'Sem cobrança por enquanto, por acordo com a Aurum'
+              : st.tipo === 'indeterminado' ? 'Não consegui conferir agora — veja a conexão'
               : 'Sem cobrança para esta conta'}
           </p>
         </div>
@@ -299,9 +310,14 @@ export default function Pagamento() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
         <p className="font-bold mb-1">ℹ️ Como funciona</p>
-        <p>Todo restaurante novo tem <strong>{TESTE_DIAS} dias de teste grátis</strong>.
-        Depois, escolha um plano e pague por Pix. A equipe Aurum confirma o pagamento e ativa sua
-        assinatura — você recebe a confirmação pelo WhatsApp.</p>
+        {/* ⚠️ Dizia "todo restaurante novo tem 14 dias de teste grátis" — regra
+            que acabou em 03/09/2026 (M41): o teste deixou de ser automático e
+            passou a ser liberado pela Aurum, conta a conta. O dono achou a
+            frase velha na tela em 10/09. Esta caixa descreve só o que acontece
+            HOJE, sem prometer prazo de teste nenhum. */}
+        <p>Escolha o plano e pague por Pix. Depois toque em <strong>“Já paguei”</strong> e
+        mande o comprovante pelo WhatsApp. A equipe Aurum confirma o pagamento e ativa a sua
+        assinatura em até 24h úteis — você recebe a confirmação pelo WhatsApp.</p>
       </div>
     </Layout>
   );
