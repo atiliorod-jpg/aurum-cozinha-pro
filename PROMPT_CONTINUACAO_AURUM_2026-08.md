@@ -181,6 +181,48 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (10/09/2026, noite) — O APP INSTALADO ESTAVA CONGELADO EM 31/08
+
+### ⚠️ A ARMADILHA DO DOMÍNIO PRÓPRIO — todo aparelho instalado antes de 31/08, 11h
+
+O dono viu na Administração "Mudar para o Aurum Cozinha Pro — R$ 500/mês —
+Quero o plano completo" e "Aurum Etiquetas — R$ 270/mês". Nada disso existe no
+código desde `cfde9a5` (31/08, 13h31). O site no ar estava certo — conferido
+baixando o bundle de app.aurumcozinha.com.br, que já tem "Quero saber quando
+abrir". O app INSTALADO é que estava parado numa versão anterior.
+
+Por quê: ele foi instalado pelo endereço antigo
+(`atiliorod-jpg.github.io/aurum-cozinha-pro/`). Desde `4ee1eab` (31/08, 11h14)
+o GitHub Pages responde esse endereço com **301** para o domínio novo — o
+`sw.js` inclusive. E o navegador **recusa atualizar um service worker cuja
+busca é redirecionada**. O worker antigo segue servindo o app antigo do cache,
+para sempre, e nenhum código novo chega lá para consertar.
+
+Conserto: SÓ NO APARELHO — desinstalar o app e instalar de novo por
+`app.aurumcozinha.com.br`. Não há conserto por código: nada no endereço antigo
+pode ser servido sem redirecionar. ⚠️ Vale para os tablets e celulares dele
+instalados antes de 31/08 — e para qualquer piloto que tenha instalado cedo.
+⚠️ Se o domínio mudar de novo, isso se repete. Antes de trocar, publicar no
+endereço velho um `sw.js` que se desregistra, e só depois redirecionar.
+
+### A letra do computador virou padrão no celular
+O dono imprimiu, aprovou e pediu para tirar a opção. `usaBitmap =
+mostrarDireto`; a chave `letraDoComputador` saiu do padrão e o interruptor saiu
+da Administração. A queda para a fonte interna (sem canvas) continua.
+
+### Impressão pelo computador: o rodapé parou de cortar, a letra seguia fraca
+A dose anterior (`-webkit-text-stroke: 0.06mm`) era quase nada: o contorno é
+metade para dentro, metade para fora — 0,03 mm por lado, um quarto de ponto.
+Agora: `text-shadow: 0.125mm 0 0` (a "segunda batida" do TSPL, 1 ponto à
+direita) + contorno de 0,1 mm; no rodapé, contorno de 0,05 mm. E o rodapé
+(CNPJ, endereço, cidade) estava com peso 400 — passou a 700. ⚠️ Falta o papel.
+
+A driver tem `OutputDensity` (LEVEL0–15, está em LEVEL8), mas com
+`PrinterSetting = ON` ("usar configuração da impressora") essa densidade é
+ignorada. Mexer nisso é configuração do Windows do dono — oferecido, não feito.
+
+---
+
 ## Onde paramos (10/09/2026, tarde) — A RODADA DE TESTES DO BITMAP
 
 Pedido: testar as últimas atualizações. O workflow de 10 agentes MORREU no
