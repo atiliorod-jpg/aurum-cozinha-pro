@@ -800,9 +800,9 @@ export default function EtiquetaPrint() {
   // certo. O Bluetooth não pergunta nada — lá o app sabe o que a impressora
   // recebeu.
   //
-  // ⚠️ PARA NÃO VIRAR UM PASSO A MAIS (preocupação dele): "Saiu" conta E
+  // ⚠️ PARA NÃO VIRAR UM PASSO A MAIS (preocupação dele): "Sim" conta E
   // FECHA a janela — é o toque em "Fechar" que ele já dava depois de
-  // imprimir, agora com resposta. "Não saiu" deixa tudo aberto para tentar de
+  // imprimir, agora com resposta. "Não" deixa tudo aberto para tentar de
   // novo. Fechar sem responder não conta: na dúvida, o relatório fica sem a
   // etiqueta, não com uma que não existe.
   //
@@ -1208,16 +1208,16 @@ export default function EtiquetaPrint() {
 
           {perguntaPapel ? (
             <div className="border-2 border-polo-navy rounded-xl bg-polo-beige p-3 space-y-2" aria-live="polite">
-              <p className="text-sm font-bold text-polo-navy">A etiqueta saiu no papel?</p>
-              <p className="text-[11px] text-gray-600">Só entra no relatório o que saiu de verdade.</p>
+              {/* Texto do dono (10/09): curto e direto, sem explicação embaixo. */}
+              <p className="text-sm font-bold text-polo-navy">Etiqueta foi impressa?</p>
               <div className="flex gap-3">
                 <button onClick={() => responderPapel(false)}
                   className="flex-1 border border-gray-300 bg-white text-gray-700 font-semibold py-3 rounded-xl">
-                  Não saiu
+                  Não
                 </button>
                 <button onClick={() => responderPapel(true)}
                   className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl">
-                  Saiu
+                  Sim
                 </button>
               </div>
             </div>

@@ -198,7 +198,7 @@ describe('etiqueta contada que não saiu no papel', () => {
   const tela = ler('../../components/EtiquetaPrint.jsx');
   const imprimir = tela.slice(tela.indexOf('const imprimir = () =>'), tela.indexOf('// ── Caminho 2'));
 
-  it('pelo navegador, tocar em Imprimir NÃO conta — só a resposta "saiu"', () => {
+  it('pelo navegador, tocar em Imprimir NÃO conta — só o "Sim" de "Etiqueta foi impressa?"', () => {
     expect(imprimir).toMatch(/window\.print\(\)/);
     expect(imprimir).not.toMatch(/aoImprimir\(/);
     expect(tela).toMatch(/const responderPapel = \(saiu\) =>/);

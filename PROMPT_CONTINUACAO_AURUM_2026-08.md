@@ -254,9 +254,10 @@ do servidor vão por `node scripts/publicar-funcao.mjs <nome>`; migrações por
 "Imprimir pelo computador" chamava `aoImprimir` ANTES de `window.print()` —
 fechar a janela sem imprimir já contava. O navegador não diz se a pessoa
 imprimiu ou cancelou (`print()` e `afterprint` são iguais nos dois casos),
-então agora o app PERGUNTA "A etiqueta saiu no papel?" (só nesse caminho; o
-Bluetooth não pergunta). "Saiu" conta E fecha a janela (é o toque em Fechar de
-antes — ele pediu cuidado para não virar passo a mais); "Não saiu" deixa
+então agora o app PERGUNTA "Etiqueta foi impressa?" — Sim / Não, texto do dono,
+sem frase de apoio embaixo (só nesse caminho; o
+Bluetooth não pergunta). "Sim" conta E fecha a janela (é o toque em Fechar de
+antes — ele pediu cuidado para não virar passo a mais); "Não" deixa
 aberto; fechar sem responder não conta. A pergunta guarda o `etiquetaState`
 que a gerou (`perguntaPara`), então some sozinha no próximo pedido.
 ⚠️ O `useState` dela mora ANTES do `if (!etiquetaState) return null` — o lint

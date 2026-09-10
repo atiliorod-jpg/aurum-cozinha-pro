@@ -117,6 +117,18 @@ export default function Ajustes() {
               : 'Assinatura vencida'}
           </p>
         </div>
+        {/* ⚠️ A PORTA FIXA DO PAGAMENTO — e ela não existia. O dono abriu a
+            conta de um cliente em 10/09 e não achou onde pagar: a tela de
+            Assinatura (mensal/semestral/anual, Pix) só aparecia na faixa do
+            teste, no aviso dos 3 últimos dias e na tela de bloqueio. Com a
+            assinatura em dia, o cliente que quisesse pagar adiantado — ou
+            trocar para o anual — não tinha caminho nenhum. Some só para conta
+            isenta (super-admin, demonstração), que não paga. */}
+        {st.tipo !== 'isento' && (
+          <Link to="/pagamento" className="block">
+            <Botao tamanho="sm">Ver planos e pagar</Botao>
+          </Link>
+        )}
       </div>
 
       {/* ⚠️ Logo abaixo da conta: a conta entregue pela Aurum chega com a senha
