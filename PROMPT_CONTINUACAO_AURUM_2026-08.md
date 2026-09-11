@@ -306,6 +306,22 @@ contador 23→27→23. 522 testes.
   atraso no sistema — o painel calcula multa + juros de quem está atrasado,
   o super-admin toca UMA vez para lançar, e o valor entra no QR Code SÓ
   daquele cliente até o próximo pagamento registrado.
+- **Indique e ganhe (10/09, pedido dele):** bloco no pé da tela de Pagamento
+  com "Indicar pelo WhatsApp". A indicação viaja DENTRO da mensagem: o link
+  leva o indicado ao WhatsApp da Aurum já dizendo "Fui indicado por <nome do
+  restaurante>" — sem código, sem tabela. O mês grátis é lançado À MÃO no
+  painel ("Liberar dias de acesso", `ativar_assinatura`, soma a partir do
+  vencimento) quando o indicado paga a 1ª vez. Regras na cl. 2 dos Termos
+  (1 por estabelecimento; não vale mesmo grupo nem ex-cliente; 30 dias ou
+  dispensa da parcela seguinte; não vira dinheiro). Some sem nome de
+  restaurante (super-admin/demo).
+- **Contrato revisado:** o dono editou o Word (título "Sistema Aurum", impressora
+  R$ 600, assinaturas simplificadas). Em cima da versão DELE entraram, sem
+  regenerar: § 2º/§ 3º na cl. 2 (uma impressora por grupo econômico + declaração
+  sob pena de pagar os R$ 600), frase dos encargos pelo QR Code na cl. 6, o fecho
+  que tinha sido cortado, a linha de assinatura do cliente no Anexo I (tinha
+  sumido) e o bloco de assinaturas preso numa página. Script em scratchpad
+  (revisar_contrato.py) acha tudo pelo TEXTO.
 
 **Sentry: o dono adiou em 10/09 ("é pago") — não lembrar até ele voltar ao assunto.**
 

@@ -27,7 +27,8 @@ import { useNavigate } from 'react-router-dom';
 // antigas seguem com a 1.1 registrada, e o app não pede novo aceite.
 // Complemento no mesmo dia, AINDA na 1.2, a pedido do dono: o contrato anual
 // com impressora (prevalência do contrato, encargos de atraso, impressora em
-// comodato, uma por grupo econômico, e a exceção de fidelidade na cl. 10).
+// comodato, uma por grupo econômico, e a exceção de fidelidade na cl. 10),
+// e as regras do "Indique e ganhe" (cl. 2), que a tela de pagamento anuncia.
 export const TERMOS_VERSAO = '1.2';
 export const TERMOS_VIGENCIA = '10 de setembro de 2026';
 
@@ -138,6 +139,17 @@ export default function Termos() {
             <p>
               A impressora cedida em contrato é concedida <strong>uma única vez por estabelecimento
               e por grupo econômico</strong>, ainda que com outro CNPJ, e não se repete na renovação.
+            </p>
+            <p>
+              <strong>Indique e ganhe.</strong> O contratante que indicar outro estabelecimento ganha{' '}
+              <strong>1 (um) mês grátis</strong> quando o indicado contratar qualquer plano pago e tiver o
+              primeiro pagamento confirmado. A indicação vale quando o indicado informa quem o indicou no
+              primeiro contato com a contratada — a mensagem de indicação do sistema já faz isso. Cada
+              estabelecimento indicado gera um único mês grátis, e não conta a indicação de
+              estabelecimento do mesmo grupo econômico do contratante nem de quem já foi cliente. O mês
+              grátis equivale a 30 (trinta) dias a mais de acesso e, no pagamento mensal, dispensa a
+              parcela seguinte; não é convertido em dinheiro. A contratada pode alterar ou encerrar o
+              programa mediante aviso, mantidos os meses já conquistados.
             </p>
           </Clausula>
 

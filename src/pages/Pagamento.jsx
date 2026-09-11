@@ -84,6 +84,20 @@ export default function Pagamento() {
   const [nomePagador, setNomePagador] = useState('');
   const [wppPronto, setWppPronto] = useState(''); // link do comprovante, se o pop-up for bloqueado
 
+  // ⚠️ INDIQUE E GANHE (pedido do dono, 10/09/2026). A indicação viaja DENTRO
+  // da mensagem: o restaurante indicado toca no link e já chega no WhatsApp da
+  // Aurum dizendo quem indicou — sem código, sem cadastro, sem tabela nova. O
+  // mês grátis é lançado à mão pelo painel quando o indicado paga (regras na
+  // cláusula 2 dos Termos). Sem nome de restaurante (super-admin, demonstração)
+  // a indicação chegaria sem dono, então o bloco nem aparece.
+  const nomeCasa = sessao?.restauranteNome || '';
+  const linkIndicacao = nomeCasa
+    ? `https://wa.me/?text=${encodeURIComponent(
+      'Uso o Aurum para as etiquetas de validade da cozinha e recomendo! Fale com a equipe por aqui: '
+      + `https://wa.me/${WPP_NUMERO}?text=${encodeURIComponent(`Olá! Quero conhecer o Aurum. Fui indicado por ${nomeCasa}.`)}`,
+    )}`
+    : '';
+
   useEffect(() => {
     let vivo = true;
     // setState só nos callbacks assíncronos (nunca síncrono no corpo do efeito)
@@ -319,6 +333,24 @@ export default function Pagamento() {
         mande o comprovante pelo WhatsApp. A equipe Aurum confirma o pagamento e ativa a sua
         assinatura em até 24h úteis — você recebe a confirmação pelo WhatsApp.</p>
       </div>
+
+      {linkIndicacao && (
+        <div className="bg-polo-navy rounded-2xl p-5 mt-5 space-y-2">
+          <p className="text-polo-gold font-bold">🎁 Indique e ganhe 1 mês grátis</p>
+          <p className="text-sm text-white/90">
+            Indique o Aurum para outro restaurante. Se ele contratar e o primeiro pagamento for
+            confirmado, você ganha <strong>1 mês grátis</strong> no seu plano.
+          </p>
+          <a href={linkIndicacao} target="_blank" rel="noopener noreferrer"
+            className="block w-full bg-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm text-center min-h-11">
+            Indicar pelo WhatsApp
+          </a>
+          <p className="text-[11px] text-white/70">
+            A mensagem já leva o nome do seu restaurante, para sabermos que a indicação foi sua.
+            Regras na cláusula 2 dos Termos de uso.
+          </p>
+        </div>
+      )}
     </Layout>
   );
 }
