@@ -325,6 +325,16 @@ contador 23→27→23. 522 testes.
   - Conferido no banco (transação desfeita): 5 dias → escreve, 12 → não;
     lançou 5,60 + 0,47 = 6,07; 2º lançamento recusado; dono não lança; cliente
     vê 6,07 e, após a baixa, nada. 535 testes.
+  - **11/09 — o dono se confundiu com a tela**: a 1ª versão era uma linha cinza
+    "Sem contrato parcelado · marcar contrato" no meio dos botões de pagamento.
+    Virou SEÇÃO PRÓPRIA "Contrato anual" no cartão (acima de Financeiro), com
+    três estados que se explicam: sem contrato (frase do que muda + "📄
+    Registrar contrato assinado"), editando ("Valor da parcela mensal"),
+    ativo ("Contrato ativo — R$ X/mês" + situação em uma linha + "Alterar
+    parcela" / "Encerrar contrato"). Juros em quadro multa/juros/total com
+    "Cobrar R$ X na próxima parcela". No PAINEL a palavra é "juros de atraso";
+    na tela do cliente segue "encargos" (é a do contrato). Encerrar contrato
+    com juros pendentes é recusado.
 - **Indique e ganhe (10/09, pedido dele):** bloco no pé da tela de Pagamento
   com "Indicar pelo WhatsApp". A indicação viaja DENTRO da mensagem: o link
   leva o indicado ao WhatsApp da Aurum já dizendo "Fui indicado por <nome do

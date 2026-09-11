@@ -369,12 +369,18 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
   const salvarParcela = async (r, valorTexto) => {
     const v = valorTexto === null ? null : Number(String(valorTexto).replace(/\./g, '').replace(',', '.'));
     if (v !== null && !(v > 0)) { toast('Digite o valor da parcela.', 'aviso'); return; }
+    // ⚠️ Encerrar com juros pendentes deixaria a cobrança no QR do cliente sem
+    // contrato por trás. Primeiro baixa ou dispensa; depois encerra.
+    if (v === null && encargos[r.id]) {
+      toast('Há juros lançados para este cliente. Marque como pagos ou dispense antes de encerrar o contrato.', 'aviso');
+      return;
+    }
     const ok = await confirm({
-      titulo: v === null ? 'Tirar contrato parcelado' : 'Contrato parcelado',
+      titulo: v === null ? 'Encerrar contrato' : (r.parcela_contrato ? 'Alterar parcela do contrato' : 'Registrar contrato assinado'),
       mensagem: v === null
-        ? `"${r.nome}" deixa de ter contrato parcelado: sem os 10 dias de tolerância e sem encargo de atraso.`
-        : `"${r.nome}" passa a ter parcela de contrato de R$ ${fmtPreco(v)}.\n\nCom isso: 10 dias de tolerância antes de suspender o acesso (cláusula 7ª) e encargo de atraso calculado sobre esta parcela (cláusula 6ª).`,
-      confirmar: v === null ? 'Tirar' : 'Salvar',
+        ? `Encerrar o contrato de "${r.nome}"?\n\nEle deixa de ter os 10 dias de tolerância e os juros de atraso. Faça isso quando o contrato terminar ou for rescindido.`
+        : `"${r.nome}" — parcela de R$ ${fmtPreco(v)} por mês.\n\nCom isso: 10 dias de tolerância antes de suspender o acesso (cláusula 7ª) e juros de atraso calculados sobre esta parcela (cláusula 6ª).`,
+      confirmar: v === null ? 'Encerrar' : 'Salvar',
       perigo: v === null,
     });
     if (!ok) return;
@@ -382,38 +388,38 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     if (error) { toast('Não salvou: ' + error.message, 'erro'); return; }
     setRestaurantes(prev => prev.map(x => (x.id === r.id ? { ...x, parcela_contrato: v } : x)));
     setParcelaEdit(null);
-    toast(v === null ? 'Contrato parcelado removido.' : `Parcela de R$ ${fmtPreco(v)} salva.`, 'sucesso');
+    toast(v === null ? 'Contrato encerrado.' : `Contrato registrado: parcela de R$ ${fmtPreco(v)}.`, 'sucesso');
   };
 
   const lancarEncargo = async (r, previa) => {
     const ok = await confirm({
-      titulo: 'Lançar encargo de atraso',
+      titulo: 'Cobrar juros de atraso',
       mensagem: `${r.nome} — ${previa.dias} dia(s) de atraso\n\nMulta de 2%: R$ ${fmtPreco(previa.multa)}\nJuros de 1% ao mês: R$ ${fmtPreco(previa.juros)}\nTotal: R$ ${fmtPreco(previa.total)}\n\nO valor entra UMA vez no QR Code de pagamento deste cliente, somado à parcela, até o próximo pagamento registrado.`,
-      confirmar: 'Lançar',
+      confirmar: 'Cobrar',
     });
     if (!ok) return;
     const { data, error } = await supabase.rpc('lancar_encargo', { p_restaurante: r.id });
     if (error) { toast('Não lançou: ' + error.message, 'erro'); return; }
     setEncargos(prev => ({ ...prev, [r.id]: data }));
-    toast(`Encargo de R$ ${fmtPreco(data?.valor)} lançado para ${r.nome}.`, 'sucesso');
+    toast(`Juros de R$ ${fmtPreco(data?.valor)} lançados no QR Code de ${r.nome}.`, 'sucesso');
   };
 
   const baixarEncargo = async (r, como) => {
     const quitar = como === 'pago';
     const valor = fmtPreco(encargos[r.id]?.valor);
     const ok = await confirm({
-      titulo: quitar ? 'Marcar encargo como pago' : 'Dispensar encargo',
+      titulo: quitar ? 'Juros pagos' : 'Dispensar juros',
       mensagem: quitar
-        ? `O encargo de R$ ${valor} de "${r.nome}" foi pago?`
-        : `Perdoar o encargo de R$ ${valor} de "${r.nome}"? Ele sai do QR Code do cliente.`,
-      confirmar: quitar ? 'Foi pago' : 'Dispensar',
+        ? `Os juros de R$ ${valor} de "${r.nome}" foram pagos?`
+        : `Perdoar os juros de R$ ${valor} de "${r.nome}"? Eles saem do QR Code do cliente.`,
+      confirmar: quitar ? 'Foram pagos' : 'Dispensar',
       perigo: !quitar,
     });
     if (!ok) return;
     const { error } = await supabase.rpc(quitar ? 'quitar_encargo' : 'dispensar_encargo', { p_restaurante: r.id });
     if (error) { toast('Não baixou: ' + error.message, 'erro'); return; }
     setEncargos(prev => { const n = { ...prev }; delete n[r.id]; return n; });
-    toast(quitar ? 'Encargo marcado como pago.' : 'Encargo dispensado.', 'sucesso');
+    toast(quitar ? 'Juros marcados como pagos.' : 'Juros dispensados.', 'sucesso');
   };
 
   const carregarPagamentos = async (r) => {
@@ -993,7 +999,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         {tipo === 'vencido' && <>🔴 Vencido desde {dataBR(r.assinatura_ate)}</>}
                         {tipo === 'atraso' && <>
                           🟠 Contrato em atraso há {statusRestaurante(r).diasAtraso} dia(s)
-                          {encargos[r.id] ? ' — encargo já lançado' : ' — lançar encargo'}
+                          {encargos[r.id] ? ' — juros já lançados' : ' — cobrar juros'}
                         </>}
                       </span>
                     </span>
@@ -1610,6 +1616,126 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     )}
                   </div>
 
+                  {/* ══ CONTRATO ANUAL (M45) ═════════════════════
+                      ⚠️ SEÇÃO PRÓPRIA, com título e explicação, a pedido do
+                      dono (11/09/2026): a primeira versão era uma linha cinza
+                      "Sem contrato parcelado · marcar contrato" espremida entre
+                      os botões de pagamento, e ele não entendeu o que "marcar"
+                      fazia. Aqui cada estado diz o que é e o que muda.
+                      A parcela fica gravada na conta porque o contrato a
+                      congela por 12 meses. A prévia dos juros é do navegador;
+                      o valor que vale é o que o banco calcula ao lançar. */}
+                  {(() => {
+                    const enc = encargos[r.id];
+                    const temContrato = !!r.parcela_contrato;
+                    const cortesia = (r.regime || 'pagante') !== 'pagante';
+                    const previa = temContrato && !cortesia
+                      ? calcularEncargo(r.parcela_contrato, r.assinatura_ate) : null;
+                    const emDia = !!r.assinatura_ate && new Date(r.assinatura_ate).getTime() > agora;
+                    const linhaValor = (rotulo, valor, forte = false) => (<>
+                      <dt className={forte ? 'font-bold' : ''}>{rotulo}</dt>
+                      <dd className={`text-right tabular-nums ${forte ? 'font-bold' : ''}`}>R$ {fmtPreco(valor)}</dd>
+                    </>);
+                    return (
+                      <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Contrato anual</p>
+
+                        {parcelaEdit?.id === r.id ? (
+                          <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
+                            <label htmlFor={`parc-${r.id}`} className="block text-[11px] font-bold text-polo-navy">
+                              Valor da parcela mensal (R$)
+                            </label>
+                            <input id={`parc-${r.id}`} type="text" inputMode="decimal" value={parcelaEdit.valor}
+                              onChange={e => setParcelaEdit(v => ({ ...v, valor: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-2 text-sm bg-white" />
+                            <p className="text-[11px] text-gray-600">
+                              O mesmo valor escrito no contrato. Ele fica fixo durante os 12 meses, mesmo que o
+                              preço do plano mude.
+                            </p>
+                            <div className="flex gap-2">
+                              <button onClick={() => setParcelaEdit(null)}
+                                className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded-lg py-2 bg-white min-h-11">
+                                Cancelar
+                              </button>
+                              <button onClick={() => salvarParcela(r, parcelaEdit.valor)}
+                                className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded-lg py-2 min-h-11">
+                                Salvar contrato
+                              </button>
+                            </div>
+                          </div>
+                        ) : !temContrato ? (<>
+                          <p className="text-[11px] text-gray-600">
+                            Este cliente não tem contrato assinado. Registre aqui quando ele assinar o contrato
+                            anual: ele ganha <strong>10 dias de tolerância</strong> antes de o acesso ser suspenso, e
+                            os <strong>juros de atraso</strong> passam a ser calculados sobre a parcela.
+                          </p>
+                          <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(produtoDe(r.produto).precoMes) })}
+                            className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
+                            📄 Registrar contrato assinado
+                          </button>
+                        </>) : (<>
+                          <div>
+                            <p className="text-sm font-bold text-polo-navy">
+                              📄 Contrato ativo — R$ {fmtPreco(r.parcela_contrato)}/mês
+                            </p>
+                            <p className="text-[11px] text-gray-600">
+                              {cortesia ? 'Conta em cortesia: sem juros de atraso enquanto durar.'
+                                : emDia ? `Em dia — a próxima parcela vence em ${dataBR(r.assinatura_ate)}.`
+                                : st.tipo === 'atraso' ? `Em atraso — o acesso será suspenso em ${dataBR(st.suspendeEm)} se não pagar.`
+                                : 'Em atraso há mais de 10 dias — o acesso está suspenso.'}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(r.parcela_contrato) })}
+                              className="flex-1 text-[11px] font-semibold text-polo-navy border border-polo-navy/30 rounded-lg py-1.5 min-h-11">
+                              Alterar parcela
+                            </button>
+                            <button onClick={() => salvarParcela(r, null)}
+                              className="flex-1 text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg py-1.5 min-h-11">
+                              Encerrar contrato
+                            </button>
+                          </div>
+                        </>)}
+
+                        {temContrato && enc && (
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-1.5">
+                            <p className="text-[11px] font-bold text-amber-900">Juros lançados — aguardando pagamento</p>
+                            <dl className="grid grid-cols-[1fr_auto] gap-x-3 text-[11px] text-amber-900">
+                              {linhaValor('Multa (2%)', enc.multa)}
+                              {linhaValor(`Juros (${enc.dias_atraso} dia(s))`, enc.juros)}
+                              {linhaValor('Total no QR Code do cliente', enc.valor, true)}
+                            </dl>
+                            <p className="text-[10px] text-amber-800">Lançado em {dataBR(enc.lancado_em)}.</p>
+                            <div className="flex gap-2">
+                              <button onClick={() => baixarEncargo(r, 'pago')}
+                                className="flex-1 text-[11px] font-bold text-white bg-green-700 rounded-lg py-1.5 min-h-11">Já pagou</button>
+                              <button onClick={() => baixarEncargo(r, 'dispensar')}
+                                className="flex-1 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-lg py-1.5 bg-white min-h-11">Dispensar</button>
+                            </div>
+                          </div>
+                        )}
+
+                        {temContrato && !enc && previa && (
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 space-y-1.5">
+                            <p className="text-[11px] font-bold text-red-900">Juros de atraso — {previa.dias} dia(s)</p>
+                            <dl className="grid grid-cols-[1fr_auto] gap-x-3 text-[11px] text-red-900">
+                              {linhaValor('Multa (2%)', previa.multa)}
+                              {linhaValor('Juros (1% ao mês, por dia)', previa.juros)}
+                              {linhaValor('Total', previa.total, true)}
+                            </dl>
+                            <button onClick={() => lancarEncargo(r, previa)}
+                              className="w-full text-[11px] font-bold text-white bg-red-700 rounded-lg py-2 min-h-11">
+                              Cobrar R$ {fmtPreco(previa.total)} na próxima parcela
+                            </button>
+                            <p className="text-[10px] text-red-800">
+                              O valor entra uma vez no QR Code deste cliente e fica fixo até ele pagar.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* ══ FINANCEIRO ═════════════════════════════
                       ⚠️ ANTES ISTO ERAM DOIS BOTÕES SOLTOS — "liberar 30 dias"
                       e "dispensar aviso" — e o dinheiro não era registrado em
@@ -1639,81 +1765,6 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </button>
                       )}
                     </div>
-
-                    {/* ══ CONTRATO PARCELADO E ENCARGOS (M45) ══
-                        ⚠️ SÓ QUEM TEM CONTRATO ASSINADO entra aqui. A parcela
-                        fica gravada na conta porque o contrato a congela por
-                        12 meses — reajuste de preço não pode mudar a base do
-                        encargo. A prévia é do navegador; o valor que vale é o
-                        que o banco calcula ao lançar (mesma fórmula). */}
-                    {(() => {
-                      const enc = encargos[r.id];
-                      const pagante = (r.regime || 'pagante') === 'pagante';
-                      const previa = r.parcela_contrato && pagante
-                        ? calcularEncargo(r.parcela_contrato, r.assinatura_ate) : null;
-                      return (
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5 space-y-2">
-                          {parcelaEdit?.id === r.id ? (
-                            <div className="flex items-end gap-2">
-                              <div className="flex-1">
-                                <label htmlFor={`parc-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Parcela do contrato (R$)</label>
-                                <input id={`parc-${r.id}`} type="text" inputMode="decimal" value={parcelaEdit.valor}
-                                  onChange={e => setParcelaEdit(v => ({ ...v, valor: e.target.value }))}
-                                  className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                              </div>
-                              <button onClick={() => setParcelaEdit(null)}
-                                className="text-[11px] font-semibold text-gray-600 border border-gray-200 rounded px-2.5 py-1.5 bg-white">Cancelar</button>
-                              <button onClick={() => salvarParcela(r, parcelaEdit.valor)}
-                                className="text-[11px] font-bold text-white bg-polo-navy rounded px-2.5 py-1.5">Salvar</button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-[11px] text-gray-700">
-                                {r.parcela_contrato
-                                  ? <>📄 Contrato parcelado: <strong>R$ {fmtPreco(r.parcela_contrato)}</strong>/mês · 10 dias de tolerância</>
-                                  : 'Sem contrato parcelado'}
-                              </p>
-                              <span className="flex items-center gap-2 flex-shrink-0">
-                                {r.parcela_contrato && (
-                                  <button onClick={() => salvarParcela(r, null)}
-                                    className="text-[11px] font-semibold text-red-700 underline underline-offset-2">tirar</button>
-                                )}
-                                <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(r.parcela_contrato || produtoDe(r.produto).precoMes) })}
-                                  className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">
-                                  {r.parcela_contrato ? 'alterar' : 'marcar contrato'}
-                                </button>
-                              </span>
-                            </div>
-                          )}
-                          {enc ? (
-                            <div className="bg-amber-50 border border-amber-200 rounded p-2 space-y-1.5">
-                              <p className="text-[11px] text-amber-900">
-                                Encargo lançado em {dataBR(enc.lancado_em)}: <strong>R$ {fmtPreco(enc.valor)}</strong>
-                                {' '}(multa R$ {fmtPreco(enc.multa)} + juros R$ {fmtPreco(enc.juros)}, {enc.dias_atraso} dia(s)).
-                                Já está somado no QR Code do cliente.
-                              </p>
-                              <div className="flex gap-2">
-                                <button onClick={() => baixarEncargo(r, 'pago')}
-                                  className="flex-1 text-[11px] font-bold text-white bg-green-700 rounded py-1.5">Marcar como pago</button>
-                                <button onClick={() => baixarEncargo(r, 'dispensar')}
-                                  className="flex-1 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded py-1.5 bg-white">Dispensar</button>
-                              </div>
-                            </div>
-                          ) : previa ? (
-                            <div className="bg-red-50 border border-red-200 rounded p-2 space-y-1.5">
-                              <p className="text-[11px] text-red-900">
-                                Em atraso há <strong>{previa.dias} dia(s)</strong>: multa R$ {fmtPreco(previa.multa)}
-                                {' '}+ juros R$ {fmtPreco(previa.juros)} = <strong>R$ {fmtPreco(previa.total)}</strong>
-                              </p>
-                              <button onClick={() => lancarEncargo(r, previa)}
-                                className="w-full text-[11px] font-bold text-white bg-red-700 rounded py-1.5">
-                                Lançar na próxima cobrança
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })()}
 
                     {/* Registrar pagamento */}
                     {cobrando?.id === r.id && (
@@ -1769,8 +1820,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                                 setCobrando(v => ({ ...v, incluiEncargo: inclui, valor: String(valorCobranca(r, planoPorId(v.plano), inclui)) }));
                               }} />
                             <span>
-                              Este pagamento inclui o encargo de atraso de R$ {fmtPreco(encargos[r.id].valor)}.
-                              Ao registrar, o encargo é dado como pago.
+                              Este pagamento inclui os juros de atraso de R$ {fmtPreco(encargos[r.id].valor)}.
+                              Ao registrar, os juros são dados como pagos.
                             </span>
                           </label>
                         )}
