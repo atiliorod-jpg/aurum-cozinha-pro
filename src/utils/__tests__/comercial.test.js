@@ -15,7 +15,8 @@ import { describe, it, expect } from 'vitest';
 import { custoUnitario, valorDoEstoque, curvaABC, custoDosRegistros, precoDaCompra } from '../financeiro';
 
 import { readFileSync } from 'node:fs';
-import { statusAssinatura, statusRestaurante, rotuloRegime, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS, fmtPreco } from '../assinatura';
+import { statusAssinatura, statusRestaurante, rotuloRegime, TESTE_DIAS, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, PRODUTOS, fmtPreco, TOLERANCIA_CONTRATO_DIAS } from '../assinatura';
+import { calcularEncargo, MULTA_ATRASO, JUROS_AO_MES } from '../encargos';
 import { produtoTem, produtoAtivo, emprestimoAtivo } from '../produto';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../painel';
 import { crc16, montarPixBRCode } from '../pix';
@@ -749,6 +750,85 @@ describe('preço na tela', () => {
       expect(src, arq).not.toMatch(/R\$ \{[^}]*precoMes\}/);
       expect(src, arq).not.toMatch(/R\$ \$\{[^}]*precoMes\}/);
     }
+  });
+});
+
+// ⚠️ M45 (10/09/2026). O contrato anual parcelado promete 10 dias antes de
+// suspender (cl. 7ª) e cobra 2% + 1% ao mês dia a dia (cl. 6ª). O app cortava
+// no primeiro dia para todo mundo — com contrato, a Aurum descumpria o próprio
+// contrato.
+describe('contrato parcelado — tolerância de 10 dias e encargos de atraso', () => {
+  const DIA = 86400000;
+  const agora = new Date(2026, 8, 20, 12, 0).getTime(); // 20/09/2026, meio-dia local
+  const contrato = (diasAtras) => ({ restauranteId: 'r1', parcelaContrato: 279.9,
+    assinaturaAte: new Date(agora - diasAtras * DIA).toISOString() });
+
+  it('com contrato, até 10 dias de atraso NÃO cortam o acesso', () => {
+    const st = statusAssinatura(contrato(3), agora);
+    expect(st).toMatchObject({ ok: true, tipo: 'atraso', diasAtraso: 3 });
+    expect(st.suspendeEm).toBe(agora - 3 * DIA + TOLERANCIA_CONTRATO_DIAS * DIA);
+  });
+
+  it('passados os 10 dias, vence como qualquer conta', () => {
+    expect(statusAssinatura(contrato(11), agora).tipo).toBe('vencido');
+  });
+
+  it('sem contrato, vence no primeiro dia — como sempre foi', () => {
+    const st = statusAssinatura({ restauranteId: 'r1', assinaturaAte: new Date(agora - DIA).toISOString() }, agora);
+    expect(st.tipo).toBe('vencido');
+  });
+
+  it('cortesia com contrato continua cortesia', () => {
+    expect(statusAssinatura({ ...contrato(3), regime: 'cortesia' }, agora).tipo).toBe('cortesia');
+  });
+
+  it('o painel enxerga o mesmo atraso, e ele entra na fila e no filtro de vencidos', () => {
+    const r = { id: 'r1', parcela_contrato: '279.90', assinatura_ate: new Date(agora - 2 * DIA).toISOString() };
+    expect(statusRestaurante(r, agora).tipo).toBe('atraso');
+    expect(filaDoPainel([r], agora).map(f => f.tipo)).toEqual(['atraso']);
+    expect(passaNoFiltro(r, 'vencidos', agora)).toBe(true);
+    expect(numerosDoPainel([r], agora).vencidos).toBe(1);
+  });
+
+  it('encargo pelo contrato: 2% de multa + 1% ao mês, dia a dia', () => {
+    expect(MULTA_ATRASO).toBe(0.02);
+    expect(JUROS_AO_MES).toBe(0.01);
+    expect(calcularEncargo(279.9, new Date(agora - 15 * DIA), agora))
+      .toEqual({ base: 279.9, dias: 15, multa: 5.6, juros: 1.4, total: 7 });
+    expect(calcularEncargo(279.9, new Date(agora - 30 * DIA), agora))
+      .toMatchObject({ multa: 5.6, juros: 2.8, total: 8.4 });
+  });
+
+  it('sem atraso, ou sem parcela, não há encargo', () => {
+    expect(calcularEncargo(279.9, new Date(agora + DIA), agora)).toBeNull();
+    expect(calcularEncargo(279.9, new Date(agora), agora)).toBeNull();
+    expect(calcularEncargo(0, new Date(agora - 5 * DIA), agora)).toBeNull();
+  });
+
+  const sql = readFileSync(new URL('../../lib/migration45_encargos_atraso.sql', import.meta.url), 'utf8');
+
+  it('o banco usa a MESMA tolerância e a MESMA conta do app', () => {
+    expect(TOLERANCIA_CONTRATO_DIAS).toBe(10);
+    expect(sql).toMatch(/r\.assinatura_ate \+ interval '10 days' > now\(\)/);
+    expect(sql).toMatch(/r\.parcela_contrato \* 0\.02, 2/);
+    expect(sql).toMatch(/r\.parcela_contrato \* 0\.01 \/ 30 \* v_dias, 2/);
+  });
+
+  it('um encargo pendente por conta, travado no banco', () => {
+    expect(sql).toMatch(/create unique index if not exists encargos_um_pendente[\s\S]{0,120}where quitado_em is null and dispensado_em is null/);
+  });
+
+  it('só o super-admin marca contrato, lança, baixa ou lista encargos', () => {
+    for (const f of ['definir_parcela_contrato', 'lancar_encargo', 'quitar_encargo', 'dispensar_encargo', 'encargos_pendentes_admin']) {
+      const corpo = sql.slice(sql.indexOf(`create or replace function ${f}(`));
+      expect(corpo.slice(0, 500), f).toMatch(/if not coalesce\(sou_super_admin\(\), false\) then/);
+    }
+  });
+
+  it('o cliente lê SÓ o próprio encargo, sem parâmetro para trocar de casa', () => {
+    expect(sql).toMatch(/create or replace function meu_encargo_pendente\(\)/);
+    const corpo = sql.slice(sql.indexOf('create or replace function meu_encargo_pendente('));
+    expect(corpo.slice(0, 600)).toMatch(/e\.restaurante_id = meu_restaurante_id\(\)/);
   });
 });
 

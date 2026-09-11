@@ -5,6 +5,7 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe } from '../utils/assinatura';
 import { montarPixBRCode } from '../utils/pix';
+import { supabase } from '../lib/supabase';
 import { fmtData, isoLocal } from '../utils/formatters';
 
 const WPP_NUMERO = '5581998184489';
@@ -71,9 +72,30 @@ export default function Pagamento() {
   // plano menor veria — e pagaria — o valor do maior.
   const prod = produtoDe(sessao);
 
+  // ⚠️ ENCARGO DE ATRASO (M45): só existe para quem tem contrato parcelado e
+  // só depois de a Aurum lançar pelo painel. Vem de uma RPC que lê SÓ o
+  // restaurante de quem está logado — sem parâmetro — então o QR de um cliente
+  // nunca carrega o encargo de outro.
+  const [encargo, setEncargo] = useState(null);
+  useEffect(() => {
+    if (!sessao?.restauranteId || sessao.demo || sessao.eSuperAdmin) return undefined;
+    let vivo = true;
+    supabase.rpc('meu_encargo_pendente')
+      .then(({ data }) => { if (vivo) setEncargo((Array.isArray(data) && data[0]) || null); })
+      .catch(() => { /* sem rede: a tela segue sem encargo, e o painel continua cobrando */ });
+    return () => { vivo = false; };
+  }, [sessao?.restauranteId, sessao?.demo, sessao?.eSuperAdmin]);
+
+  // ⚠️ CONTRATO PARCELADO NÃO ESCOLHE PLANO: a parcela é a do contrato,
+  // congelada por 12 meses (cl. 5ª § 3º). Mostrar mensal/semestral/anual a
+  // quem assinou contrato convidaria a pagar um valor que não é o dele.
+  const parcela = Number(sessao?.parcelaContrato) || 0;
   const [planoId, setPlanoId] = useState('mensal');
-  const plano = PLANOS.find(p => p.id === planoId) || PLANOS[0];
-  const valor = precoPlano(plano, prod.id);
+  const plano = parcela
+    ? { id: 'mensal', label: 'Parcela do contrato', meses: 1, dias: 30, desconto: 0 }
+    : (PLANOS.find(p => p.id === planoId) || PLANOS[0]);
+  const valorEncargo = Number(encargo?.valor) || 0;
+  const valor = Math.round(((parcela || precoPlano(plano, prod.id)) + valorEncargo) * 100) / 100;
   const brcode = PIX_CHAVE
     ? montarPixBRCode({ chave: PIX_CHAVE, nome: PIX_NOME, cidade: PIX_CIDADE, valor, txid: plano.id.toUpperCase() })
     : '';
@@ -135,9 +157,9 @@ export default function Pagamento() {
     // tiraria a barra, deixando a tela sem saída.
     <Layout title="Assinatura" area={prod.id === 'etiquetas' ? 'estoque' : 'admin'}>
       {/* Situação atual */}
-      <div className={`rounded-2xl p-5 mb-6 flex items-center gap-4 ${st.tipo === 'vencido' ? 'bg-red-700' : 'bg-polo-navy'}`}>
+      <div className={`rounded-2xl p-5 mb-6 flex items-center gap-4 ${st.tipo === 'vencido' || st.tipo === 'atraso' ? 'bg-red-700' : 'bg-polo-navy'}`}>
         <div className="w-14 h-14 bg-polo-gold/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">
-          {st.tipo === 'assinatura' ? '✅' : st.tipo === 'teste' ? '⏳' : st.tipo === 'vencido' ? '⚠️' : '🏪'}
+          {st.tipo === 'assinatura' ? '✅' : st.tipo === 'teste' ? '⏳' : st.tipo === 'vencido' || st.tipo === 'atraso' ? '⚠️' : '🏪'}
         </div>
         <div>
           <p className="text-xs text-white/80 uppercase tracking-wide">Situação</p>
@@ -149,6 +171,7 @@ export default function Pagamento() {
           <p className="text-polo-gold font-bold text-xl">
             {st.tipo === 'assinatura' ? 'Assinatura ativa'
               : st.tipo === 'teste' ? `Período de teste — ${st.diasRestantes} dia(s)`
+              : st.tipo === 'atraso' ? `Pagamento em atraso — ${st.diasAtraso} dia(s)`
               : st.tipo === 'vencido' ? 'Acesso vencido'
               : st.tipo === 'aguardando' ? 'Aguardando liberação'
               : st.tipo === 'cortesia' ? 'Conta cortesia'
@@ -158,6 +181,7 @@ export default function Pagamento() {
           <p className="text-white/80 text-xs mt-0.5">
             {st.tipo === 'assinatura' ? `Válida até ${fmtData(dataISO(st.ate))}`
               : st.tipo === 'teste' ? `Teste grátis até ${fmtData(dataISO(st.ate))} — depois, assine para continuar`
+              : st.tipo === 'atraso' ? `Pague até ${fmtData(dataISO(st.suspendeEm))} para não ter o acesso suspenso`
               : st.tipo === 'vencido' ? 'Assine para voltar a usar o sistema'
               : st.tipo === 'aguardando' ? 'A equipe Aurum libera o seu acesso. Se já quiser assinar, pague aqui.'
               : st.tipo === 'cortesia' ? 'Sem cobrança por enquanto, por acordo com a Aurum'
@@ -176,7 +200,17 @@ export default function Pagamento() {
         </p>
       </div>
 
-      {/* Escolha do plano */}
+      {/* Escolha do plano — ou a parcela do contrato, que não se escolhe */}
+      {parcela ? (<>
+        <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2">Sua parcela</p>
+        <div className="rounded-2xl p-4 border-2 border-polo-gold bg-polo-beige mb-5 flex items-center justify-between gap-3">
+          <div>
+            <p className="font-bold text-polo-navy">Parcela do contrato</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">Valor fixo durante os 12 meses do contrato</p>
+          </div>
+          <span className="text-lg font-bold text-polo-navy flex-shrink-0">{brl(parcela)}</span>
+        </div>
+      </>) : (<>
       <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2">Escolha o plano</p>
       <div className="space-y-2 mb-5">
         {PLANOS.map(p => {
@@ -218,6 +252,20 @@ export default function Pagamento() {
           );
         })}
       </div>
+      </>)}
+
+      {/* ⚠️ OS ENCARGOS APARECEM SEPARADOS antes do Pix: o cliente precisa ver
+          de onde saiu cada centavo a mais — senão o QR parece cobrança errada
+          e a conversa vira reclamação em vez de pagamento. */}
+      {encargo && (
+        <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-5 text-xs text-amber-900 space-y-1">
+          <p className="font-bold">Encargos de atraso (contrato, cláusula 6ª)</p>
+          <p>
+            Multa de 2%: {brl(Number(encargo.multa) || 0)} · Juros de {encargo.dias_atraso} dia(s): {brl(Number(encargo.juros) || 0)}
+          </p>
+          <p>Total de encargos: <strong>{brl(valorEncargo)}</strong> — já somado no valor do Pix abaixo.</p>
+        </div>
+      )}
 
       {/* Pagamento por Pix */}
       {PIX_CHAVE ? (

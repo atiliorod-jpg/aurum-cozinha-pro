@@ -25,6 +25,22 @@
 // caixa chegar, e a pessoa julga o produto sem nunca ter visto uma etiqueta.
 export const TESTE_DIAS = 14;
 
+// ⚠️ TOLERÂNCIA DO CONTRATO PARCELADO (cl. 7ª do Contrato de Assinatura
+// Anual, 10/09/2026): o acesso só pode ser suspenso com atraso SUPERIOR a 10
+// dias. Antes da M45 o app cortava no primeiro dia para todo mundo — com
+// contrato assinado, era a Aurum descumprindo o próprio contrato.
+// ⚠️ PARIDADE com `interval '10 days'` em restaurante_pode_escrever (M45).
+export const TOLERANCIA_CONTRATO_DIAS = 10;
+
+// Dias de calendário entre o vencimento e hoje, pela data LOCAL do aparelho —
+// é o "dia a dia" dos juros do contrato. 0 = vence hoje ou ainda não venceu.
+const diaLocal = (t) => { const d = new Date(t); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
+export function diasDeAtraso(vencimento, agora = Date.now()) {
+  const v = vencimento ? new Date(vencimento).getTime() : NaN;
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, Math.round((diaLocal(agora) - diaLocal(v)) / 86400000));
+}
+
 // ⚠️ DOIS EIXOS INDEPENDENTES, e os nomes existem para não confundi-los:
 //   PRODUTOS → O QUE a conta comprou   (etiquetas | completo)
 //   PLANOS   → POR QUANTO TEMPO pagou  (mensal | semestral | anual)
@@ -102,6 +118,8 @@ export const fmtPreco = (v) => (Number(v) || 0).toFixed(2).replace('.', ',');
  *  { ok:true,  tipo:'indeterminado' }              — não deu para ler o cadastro (rede/RLS)
  *  { ok:false, tipo:'bloqueado' }                  — conta suspensa pelo administrador
  *  { ok:true,  tipo:'cortesia', regime, ate }     — não paga, por decisão da Aurum
+ *  { ok:true,  tipo:'atraso', ate, diasAtraso, suspendeEm } — contrato parcelado
+ *                                                   vencido há até 10 dias (M45)
  *  { ok:true,  tipo:'isento' }                     — super-admin/demo/sem restaurante
  */
 export function statusAssinatura(sessao, agora = Date.now()) {
@@ -138,6 +156,16 @@ export function statusAssinatura(sessao, agora = Date.now()) {
   }
   const assin = sessao.assinaturaAte ? new Date(sessao.assinaturaAte).getTime() : 0;
   if (assin > agora) return { ok: true, tipo: 'assinatura', ate: assin };
+
+  // ⚠️ CONTRATO PARCELADO NÃO É CORTADO NO PRIMEIRO DIA (cl. 7ª): até 10 dias
+  // depois do vencimento a conta segue aberta, com a faixa de atraso na tela.
+  // Só para conta marcada com contrato e que PAGA — cortesia tem régua própria.
+  // O banco libera a escrita pelo mesmo critério (M45).
+  const limite = assin + TOLERANCIA_CONTRATO_DIAS * 86400000;
+  if (sessao.parcelaContrato && assin && regime === 'pagante' && limite > agora) {
+    return { ok: true, tipo: 'atraso', ate: assin, suspendeEm: limite,
+      diasAtraso: Math.max(1, diasDeAtraso(assin, agora)) };
+  }
 
   // ⚠️ O TESTE DEIXOU DE SER AUTOMÁTICO (M41, 03/09/2026). Antes saía de
   // `criado + TESTE_DIAS`: qualquer um que preenchesse o cadastro entrava por
@@ -182,6 +210,9 @@ export function statusRestaurante(rest, agora = Date.now()) {
     // ⚠️ Sem esta linha o painel mostraria como VENCIDA justamente a conta a
     // quem a Aurum acabou de dar o teste — e ela entraria na fila de cobrança.
     testeAte: rest?.teste_ate || null,
+    // M45: sem isto o painel veria como VENCIDA a conta de contrato que ainda
+    // está nos 10 dias de tolerância — e o cliente, como aberta.
+    parcelaContrato: rest?.parcela_contrato ? Number(rest.parcela_contrato) : null,
   }, agora);
 }
 

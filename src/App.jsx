@@ -350,6 +350,14 @@ function Rotas() {
           ⏳ Período de teste — {plano.diasRestantes} dia(s) restante(s). Toque para assinar.
         </Link>
       )}
+      {/* Contrato parcelado vencido, dentro dos 10 dias de tolerância (M45):
+          o app segue aberto, mas a data do corte fica escrita na cara. */}
+      {plano.tipo === 'atraso' && (
+        <Link to="/pagamento" className="block bg-red-700 text-white text-center text-xs font-bold px-4 py-1.5 print:hidden">
+          ⚠️ Pagamento em atraso há {plano.diasAtraso} dia(s) — o acesso será suspenso em{' '}
+          {fmtData(isoLocal(new Date(plano.suspendeEm)))}. Toque para pagar.
+        </Link>
+      )}
       <Suspense fallback={<Splash texto="Abrindo…" />}>
       {/* ⚠️ ÁRVORE DE ROTAS PRÓPRIA para o plano Aurum Etiquetas.
           É um `if` no topo, e NÃO `produtoTem` espalhado em 25 <Route>. Além

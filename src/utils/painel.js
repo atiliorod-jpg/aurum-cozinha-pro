@@ -20,7 +20,10 @@ import { statusRestaurante, produtoDe } from './assinatura';
 // ⚠️ FEEDBACK LOGO DEPOIS DO AVISO, e pelo mesmo motivo: nos dois casos há
 // alguém do outro lado ESPERANDO RESPOSTA. Teste acabando e vencido são
 // coisas nossas, não do cliente — podem esperar mais uma hora.
-const ORDEM = { aviso: 0, feedback: 1, teste: 2, vencido: 3 };
+// ⚠️ ATRASO DE CONTRATO (M45) logo depois: é dinheiro vencido de quem assinou
+// contrato, e o prazo corre — com 10 dias o acesso cai, e o encargo lançado
+// só entra no QR do cliente depois do toque.
+const ORDEM = { aviso: 0, feedback: 1, atraso: 2, teste: 3, vencido: 4 };
 
 /** Quantos dias antes do fim do teste a conta entra na fila. */
 export const DIAS_TESTE_ACABANDO = 2;
@@ -67,6 +70,9 @@ export function filaDoPainel(restaurantes, agora = Date.now(), feedbacks = []) {
     if (st.tipo === 'teste' && st.diasRestantes <= DIAS_TESTE_ACABANDO) {
       itens.push({ r, tipo: 'teste', quando: st.ate });
     }
+    if (st.tipo === 'atraso') {
+      itens.push({ r, tipo: 'atraso', quando: st.ate });
+    }
     if (st.tipo === 'vencido') {
       itens.push({ r, tipo: 'vencido', quando: new Date(r.assinatura_ate || r.created_at || 0).getTime() });
     }
@@ -95,7 +101,10 @@ export function numerosDoPainel(restaurantes, agora = Date.now()) {
     if (st.tipo === 'cortesia') { n.cortesia++; continue; }
     if (st.tipo === 'assinatura') { n.pagantes++; n.mrr += produtoDe(r.produto).precoMes; continue; }
     if (st.tipo === 'teste') { n.teste++; continue; }
-    if (st.tipo === 'vencido') n.vencidos++;
+    // ⚠️ Contrato em atraso conta como VENCIDO no número do topo: o dinheiro
+    // já venceu, e é o número que manda cobrar. O acesso aberto (tolerância)
+    // é detalhe do cartão, não do placar.
+    if (st.tipo === 'vencido' || st.tipo === 'atraso') n.vencidos++;
   }
   return n;
 }
@@ -115,7 +124,7 @@ export function passaNoFiltro(r, situacao, agora = Date.now()) {
   const st = statusRestaurante(r, agora).tipo;
   if (situacao === 'pagantes') return st === 'assinatura';
   if (situacao === 'teste') return st === 'teste';
-  if (situacao === 'vencidos') return st === 'vencido';
+  if (situacao === 'vencidos') return st === 'vencido' || st === 'atraso';
   if (situacao === 'bloqueados') return st === 'bloqueado';
   if (situacao === 'cortesia') return st === 'cortesia';
   return true;

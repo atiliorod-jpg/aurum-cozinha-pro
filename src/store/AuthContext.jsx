@@ -176,7 +176,7 @@ export function AuthProvider({ children }) {
       // select completo → fallback progressivo p/ bancos sem as colunas novas
       let { data: rest, error: errRest } = await supabase
         .from('restaurantes')
-        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate')
+        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate, parcela_contrato')
         .eq('id', perfil.restaurante_id)
         .maybeSingle();
       if (errRest) {
@@ -247,6 +247,9 @@ export function AuthProvider({ children }) {
         // escrita e a tela barrava — o pior par possível.
         regime:           rest?.regime || 'pagante',
         cortesiaAte:      rest?.cortesia_ate || null,
+        // Contrato parcelado (M45): valor da parcela congelado no contrato.
+        // Liga os 10 dias de tolerância e mostra a parcela na tela de pagar.
+        parcelaContrato:  rest?.parcela_contrato ? Number(rest.parcela_contrato) : null,
         // Teste escolhido pela Aurum e plano emprestado (M41).
         testeAte:         rest?.teste_ate || null,
         produtoTeste:     rest?.produto_teste || null,

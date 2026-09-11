@@ -302,10 +302,29 @@ contador 23→27→23. 522 testes.
   1% a.m. dia a dia + IPCA, cobráveis na parcela seguinte pelo QR Code (cl.
   2); impressora cedida — desgaste, sem assistência (cl. 7); e a cl. 10
   deixou de prometer "sair sem multa" quando há contrato com prazo mínimo.
-- **PROPOSTA PENDENTE (não construída, esperando o OK dele):** encargos de
-  atraso no sistema — o painel calcula multa + juros de quem está atrasado,
-  o super-admin toca UMA vez para lançar, e o valor entra no QR Code SÓ
-  daquele cliente até o próximo pagamento registrado.
+- **ENCARGOS DE ATRASO — FEITO (M45, 10/09, "pode construir como achar melhor"):**
+  - `restaurantes.parcela_contrato` (numeric, null = sem contrato): o super-admin
+    marca no cartão ("marcar contrato"), `definir_parcela_contrato`. A parcela é
+    CONGELADA na conta (cl. 5ª § 3º) — não segue o preço da tabela.
+  - ⚠️ **10 DIAS DE TOLERÂNCIA** para quem tem contrato (cl. 7ª): o app cortava
+    no 1º dia para todo mundo. `statusAssinatura` ganhou o tipo `'atraso'`
+    (ok:true, `diasAtraso`, `suspendeEm`) com faixa vermelha no topo, e
+    `restaurante_pode_escrever` libera pelo MESMO critério — paridade
+    `TOLERANCIA_CONTRATO_DIAS = 10` ↔ `interval '10 days'` (teste trava).
+  - Tabela `encargos` (RLS sem policy), UM pendente por conta (índice único
+    parcial). `lancar_encargo` — o BANCO calcula: 2% da parcela + 1%/30 por dia,
+    dia de RECIFE; IPCA fora de propósito. `quitar_encargo` / `dispensar_encargo`;
+    tudo no livro da M39 à mão (tabela 'encargos'). Pago é toque EXPLÍCITO (não
+    gatilho): no "Registrar pagamento" uma caixa "inclui o encargo" (marcada
+    quando há pendente) soma o valor e dá baixa junto.
+  - Cliente: `meu_encargo_pendente()` SEM parâmetro (lê meu_restaurante_id) —
+    não mistura contas. Pagamento mostra "Parcela do contrato" no lugar dos
+    planos, os encargos separados, e o QR com parcela + encargo.
+  - Painel: selo "🟠 Atraso (Nd)", item "atraso" na fila (depois de feedback),
+    conta em "vencidos", prévia com "Lançar na próxima cobrança".
+  - Conferido no banco (transação desfeita): 5 dias → escreve, 12 → não;
+    lançou 5,60 + 0,47 = 6,07; 2º lançamento recusado; dono não lança; cliente
+    vê 6,07 e, após a baixa, nada. 535 testes.
 - **Indique e ganhe (10/09, pedido dele):** bloco no pé da tela de Pagamento
   com "Indicar pelo WhatsApp". A indicação viaja DENTRO da mensagem: o link
   leva o indicado ao WhatsApp da Aurum já dizendo "Fui indicado por <nome do

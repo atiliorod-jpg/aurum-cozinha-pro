@@ -112,6 +112,7 @@ export default function Ajustes() {
           <p>Plano: <strong>{prod.label}</strong> — R$ {fmtPreco(prod.precoMes)}/mês</p>
           <p>
             {st.tipo === 'assinatura' ? `Assinatura válida até ${fmtData(isoLocal(new Date(st.ate)))}`
+              : st.tipo === 'atraso' ? `Pagamento em atraso desde ${fmtData(isoLocal(new Date(st.ate)))} — o acesso será suspenso em ${fmtData(isoLocal(new Date(st.suspendeEm)))}`
               : st.tipo === 'teste' ? `Teste grátis até ${fmtData(isoLocal(new Date(st.ate)))}`
               : st.tipo === 'isento' ? 'Sem cobrança para esta conta'
               : 'Assinatura vencida'}

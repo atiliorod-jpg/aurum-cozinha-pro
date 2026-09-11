@@ -5,6 +5,7 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco } from '../utils/assinatura';
+import { calcularEncargo } from '../utils/encargos';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarTelefone, UFS } from '../utils/documentos';
@@ -22,6 +23,7 @@ const brlAdmin = (v) => `R$ ${Math.round(v).toLocaleString('pt-BR')}`;
 // Badge de situação comercial do restaurante (mesma régua do app do cliente)
 function BadgeStatus({ st }) {
   const cfg = st.tipo === 'assinatura' ? ['🟢 Ativo', 'bg-green-100 text-green-700']
+    : st.tipo === 'atraso' ? [`🟠 Atraso (${st.diasAtraso}d)`, 'bg-orange-100 text-orange-800']
     : st.tipo === 'teste' ? [`🟡 Teste (${st.diasRestantes}d)`, 'bg-amber-100 text-amber-700']
     : st.tipo === 'bloqueado' ? ['Suspenso', 'bg-red-100 text-red-700']
     : ['🔴 Vencido', 'bg-red-100 text-red-700'];
@@ -59,6 +61,8 @@ const NOMES_DOC = {
   prefs: 'configurações',
   // troca de e-mail da conta dona — registrada à mão pela função `restaurante`
   'auth.users': 'conta de acesso',
+  // lançamento, baixa e dispensa de encargo de atraso (M45)
+  encargos: 'encargo de atraso',
 };
 const nomeDoc = (chave) => {
   const partes = String(chave || '').split('::');
@@ -110,6 +114,9 @@ export default function Admin() {
   // Trocar o e-mail da conta dona: { id, email, repetir } — uma conta por vez
   const [trocaEmail, setTrocaEmail] = useState(null);
   const [salvandoEmail, setSalvandoEmail] = useState(false);
+  // Encargos de atraso lançados e ainda não pagos (M45): { [restauranteId]: encargo }
+  const [encargos, setEncargos] = useState({});
+  const [parcelaEdit, setParcelaEdit] = useState(null); // { id, valor }
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
   // viram uma parede de rolagem e o painel deixa de ser consultável.
   const [aberto, setAberto] = useState('');
@@ -152,7 +159,7 @@ export default function Admin() {
       // ⚠️ cnpj/whatsapp/cidade/uf (M28) entram SÓ nesta primeira tentativa. A
       // cadeia de fallback abaixo existe para banco sem as colunas novas; pôr
       // as colunas lá também faria a queda em cascata falhar inteira.
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, teste_ate, produto_teste, produto_teste_ate, regime, regime_motivo, cortesia_ate')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, teste_ate, produto_teste, produto_teste_ate, regime, regime_motivo, cortesia_ate, parcela_contrato')
       .order('created_at', { ascending: false });
     if (errR) {
       // banco sem a migração 27: cai para o select de antes e todo mundo
@@ -192,6 +199,11 @@ export default function Admin() {
         break; // RPC ausente — não insiste nos demais
       }
     }
+
+    // Encargos de atraso lançados e ainda não pagos (M45). Falhar aqui não
+    // derruba o painel — sem a migração, o mapa só fica vazio.
+    const { data: pendentes } = await supabase.rpc('encargos_pendentes_admin');
+    setEncargos(Object.fromEntries((pendentes || []).map(e => [e.restaurante_id, e])));
 
     // As prefs (incl. autorização de suporte) ficam em documentos.chave='prefs'
     const { data: docsPrefs } = ids.length
@@ -288,15 +300,27 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
   // aviso. Antes eram dois botões separados (liberar dias / dispensar aviso) e
   // o registro do dinheiro simplesmente não existia — a informação de que houve
   // pagamento morria no momento em que o aviso era apagado.
+  // Valor sugerido no registro: a PARCELA DO CONTRATO quando há (fixa por 12
+  // meses — cl. 5ª § 3º), senão o preço do plano; mais o encargo pendente
+  // quando este pagamento o inclui. É o número que tem que bater no extrato.
+  const valorCobranca = (r, plano, incluiEncargo) => {
+    const base = r.parcela_contrato && plano.id === 'mensal'
+      ? Number(r.parcela_contrato) : precoPlano(plano, r.produto);
+    const enc = incluiEncargo && encargos[r.id] ? Number(encargos[r.id].valor) || 0 : 0;
+    return Math.round((base + enc) * 100) / 100;
+  };
+
   const abrirCobranca = (r) => {
     const plano = planoPorId(r.aviso_pagamento_plano || 'mensal');
+    const incluiEncargo = !!encargos[r.id];
     setCobrando({
       id: r.id,
       // Valor e dias já vêm do plano que o cliente disse ter pago: é o número
       // que tem que bater no extrato, e digitar de novo só cria divergência.
-      valor: String(precoPlano(plano, r.produto)),
+      valor: String(valorCobranca(r, plano, incluiEncargo)),
       dias: String(plano.dias),
       plano: plano.id,
+      incluiEncargo,
       extras: '', valorExtras: '', obs: '',
     });
   };
@@ -326,9 +350,70 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     setRestaurantes(prev => prev.map(x => x.id === r.id
       ? { ...x, assinatura_ate: data, aviso_pagamento_em: null, aviso_pagamento_plano: null, aviso_pagamento_nome: null }
       : x));
+    // Encargo de atraso (M45): dado como pago junto, SÓ se a caixa dizia que
+    // este pagamento o incluía. Quem pagou só a parcela continua devendo.
+    if (encargos[r.id] && c.incluiEncargo) {
+      const { error: eEnc } = await supabase.rpc('quitar_encargo', { p_restaurante: r.id });
+      if (eEnc) toast('Pagamento registrado, mas o encargo não foi baixado: ' + eEnc.message, 'aviso');
+      else setEncargos(prev => { const n = { ...prev }; delete n[r.id]; return n; });
+    }
     setCobrando(null);
     if (pagamentos?.id === r.id) carregarPagamentos(r);
     toast(`✅ ${r.nome}: ${brlAdmin(valor + valorExtras)} registrado${dias > 0 ? `, acesso até ${dataBR(data)}` : ''}.`, 'sucesso');
+  };
+
+  // ── Contrato parcelado e encargos de atraso (M45) ─────────────
+  // ⚠️ MARCAR O CONTRATO É O QUE LIGA TUDO: 10 dias de tolerância antes de
+  // cortar o acesso (cl. 7ª) e o encargo calculado sobre a parcela (cl. 6ª).
+  // Quem assina pelo app, sem contrato, fica como sempre: vence e perde o acesso.
+  const salvarParcela = async (r, valorTexto) => {
+    const v = valorTexto === null ? null : Number(String(valorTexto).replace(/\./g, '').replace(',', '.'));
+    if (v !== null && !(v > 0)) { toast('Digite o valor da parcela.', 'aviso'); return; }
+    const ok = await confirm({
+      titulo: v === null ? 'Tirar contrato parcelado' : 'Contrato parcelado',
+      mensagem: v === null
+        ? `"${r.nome}" deixa de ter contrato parcelado: sem os 10 dias de tolerância e sem encargo de atraso.`
+        : `"${r.nome}" passa a ter parcela de contrato de R$ ${fmtPreco(v)}.\n\nCom isso: 10 dias de tolerância antes de suspender o acesso (cláusula 7ª) e encargo de atraso calculado sobre esta parcela (cláusula 6ª).`,
+      confirmar: v === null ? 'Tirar' : 'Salvar',
+      perigo: v === null,
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('definir_parcela_contrato', { p_restaurante: r.id, p_valor: v });
+    if (error) { toast('Não salvou: ' + error.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => (x.id === r.id ? { ...x, parcela_contrato: v } : x)));
+    setParcelaEdit(null);
+    toast(v === null ? 'Contrato parcelado removido.' : `Parcela de R$ ${fmtPreco(v)} salva.`, 'sucesso');
+  };
+
+  const lancarEncargo = async (r, previa) => {
+    const ok = await confirm({
+      titulo: 'Lançar encargo de atraso',
+      mensagem: `${r.nome} — ${previa.dias} dia(s) de atraso\n\nMulta de 2%: R$ ${fmtPreco(previa.multa)}\nJuros de 1% ao mês: R$ ${fmtPreco(previa.juros)}\nTotal: R$ ${fmtPreco(previa.total)}\n\nO valor entra UMA vez no QR Code de pagamento deste cliente, somado à parcela, até o próximo pagamento registrado.`,
+      confirmar: 'Lançar',
+    });
+    if (!ok) return;
+    const { data, error } = await supabase.rpc('lancar_encargo', { p_restaurante: r.id });
+    if (error) { toast('Não lançou: ' + error.message, 'erro'); return; }
+    setEncargos(prev => ({ ...prev, [r.id]: data }));
+    toast(`Encargo de R$ ${fmtPreco(data?.valor)} lançado para ${r.nome}.`, 'sucesso');
+  };
+
+  const baixarEncargo = async (r, como) => {
+    const quitar = como === 'pago';
+    const valor = fmtPreco(encargos[r.id]?.valor);
+    const ok = await confirm({
+      titulo: quitar ? 'Marcar encargo como pago' : 'Dispensar encargo',
+      mensagem: quitar
+        ? `O encargo de R$ ${valor} de "${r.nome}" foi pago?`
+        : `Perdoar o encargo de R$ ${valor} de "${r.nome}"? Ele sai do QR Code do cliente.`,
+      confirmar: quitar ? 'Foi pago' : 'Dispensar',
+      perigo: !quitar,
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc(quitar ? 'quitar_encargo' : 'dispensar_encargo', { p_restaurante: r.id });
+    if (error) { toast('Não baixou: ' + error.message, 'erro'); return; }
+    setEncargos(prev => { const n = { ...prev }; delete n[r.id]; return n; });
+    toast(quitar ? 'Encargo marcado como pago.' : 'Encargo dispensado.', 'sucesso');
   };
 
   const carregarPagamentos = async (r) => {
@@ -906,6 +991,10 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </>}
                         {tipo === 'teste' && <>⏳ Teste acabando — {statusRestaurante(r).diasRestantes} dia(s)</>}
                         {tipo === 'vencido' && <>🔴 Vencido desde {dataBR(r.assinatura_ate)}</>}
+                        {tipo === 'atraso' && <>
+                          🟠 Contrato em atraso há {statusRestaurante(r).diasAtraso} dia(s)
+                          {encargos[r.id] ? ' — encargo já lançado' : ' — lançar encargo'}
+                        </>}
                       </span>
                     </span>
                     {/* O valor já calculado poupa a conta de cabeça na hora de
@@ -1551,6 +1640,81 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       )}
                     </div>
 
+                    {/* ══ CONTRATO PARCELADO E ENCARGOS (M45) ══
+                        ⚠️ SÓ QUEM TEM CONTRATO ASSINADO entra aqui. A parcela
+                        fica gravada na conta porque o contrato a congela por
+                        12 meses — reajuste de preço não pode mudar a base do
+                        encargo. A prévia é do navegador; o valor que vale é o
+                        que o banco calcula ao lançar (mesma fórmula). */}
+                    {(() => {
+                      const enc = encargos[r.id];
+                      const pagante = (r.regime || 'pagante') === 'pagante';
+                      const previa = r.parcela_contrato && pagante
+                        ? calcularEncargo(r.parcela_contrato, r.assinatura_ate) : null;
+                      return (
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5 space-y-2">
+                          {parcelaEdit?.id === r.id ? (
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1">
+                                <label htmlFor={`parc-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Parcela do contrato (R$)</label>
+                                <input id={`parc-${r.id}`} type="text" inputMode="decimal" value={parcelaEdit.valor}
+                                  onChange={e => setParcelaEdit(v => ({ ...v, valor: e.target.value }))}
+                                  className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                              </div>
+                              <button onClick={() => setParcelaEdit(null)}
+                                className="text-[11px] font-semibold text-gray-600 border border-gray-200 rounded px-2.5 py-1.5 bg-white">Cancelar</button>
+                              <button onClick={() => salvarParcela(r, parcelaEdit.valor)}
+                                className="text-[11px] font-bold text-white bg-polo-navy rounded px-2.5 py-1.5">Salvar</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-[11px] text-gray-700">
+                                {r.parcela_contrato
+                                  ? <>📄 Contrato parcelado: <strong>R$ {fmtPreco(r.parcela_contrato)}</strong>/mês · 10 dias de tolerância</>
+                                  : 'Sem contrato parcelado'}
+                              </p>
+                              <span className="flex items-center gap-2 flex-shrink-0">
+                                {r.parcela_contrato && (
+                                  <button onClick={() => salvarParcela(r, null)}
+                                    className="text-[11px] font-semibold text-red-700 underline underline-offset-2">tirar</button>
+                                )}
+                                <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(r.parcela_contrato || produtoDe(r.produto).precoMes) })}
+                                  className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">
+                                  {r.parcela_contrato ? 'alterar' : 'marcar contrato'}
+                                </button>
+                              </span>
+                            </div>
+                          )}
+                          {enc ? (
+                            <div className="bg-amber-50 border border-amber-200 rounded p-2 space-y-1.5">
+                              <p className="text-[11px] text-amber-900">
+                                Encargo lançado em {dataBR(enc.lancado_em)}: <strong>R$ {fmtPreco(enc.valor)}</strong>
+                                {' '}(multa R$ {fmtPreco(enc.multa)} + juros R$ {fmtPreco(enc.juros)}, {enc.dias_atraso} dia(s)).
+                                Já está somado no QR Code do cliente.
+                              </p>
+                              <div className="flex gap-2">
+                                <button onClick={() => baixarEncargo(r, 'pago')}
+                                  className="flex-1 text-[11px] font-bold text-white bg-green-700 rounded py-1.5">Marcar como pago</button>
+                                <button onClick={() => baixarEncargo(r, 'dispensar')}
+                                  className="flex-1 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded py-1.5 bg-white">Dispensar</button>
+                              </div>
+                            </div>
+                          ) : previa ? (
+                            <div className="bg-red-50 border border-red-200 rounded p-2 space-y-1.5">
+                              <p className="text-[11px] text-red-900">
+                                Em atraso há <strong>{previa.dias} dia(s)</strong>: multa R$ {fmtPreco(previa.multa)}
+                                {' '}+ juros R$ {fmtPreco(previa.juros)} = <strong>R$ {fmtPreco(previa.total)}</strong>
+                              </p>
+                              <button onClick={() => lancarEncargo(r, previa)}
+                                className="w-full text-[11px] font-bold text-white bg-red-700 rounded py-1.5">
+                                Lançar na próxima cobrança
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+
                     {/* Registrar pagamento */}
                     {cobrando?.id === r.id && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-2.5 space-y-2">
@@ -1558,7 +1722,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         <div className="flex gap-2">
                           {PLANOS.map(pl => (
                             <button key={pl.id}
-                              onClick={() => setCobrando(v => ({ ...v, plano: pl.id, valor: String(precoPlano(pl, r.produto)), dias: String(pl.dias) }))}
+                              onClick={() => setCobrando(v => ({ ...v, plano: pl.id, valor: String(valorCobranca(r, pl, v.incluiEncargo)), dias: String(pl.dias) }))}
                               aria-pressed={cobrando.plano === pl.id}
                               className={`flex-1 text-[11px] font-bold py-1.5 rounded border
                                 ${cobrando.plano === pl.id ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
@@ -1597,6 +1761,19 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </div>
                         </div>
+                        {encargos[r.id] && (
+                          <label className="flex items-start gap-2 text-[11px] text-gray-700">
+                            <input type="checkbox" checked={!!cobrando.incluiEncargo} className="mt-0.5"
+                              onChange={e => {
+                                const inclui = e.target.checked;
+                                setCobrando(v => ({ ...v, incluiEncargo: inclui, valor: String(valorCobranca(r, planoPorId(v.plano), inclui)) }));
+                              }} />
+                            <span>
+                              Este pagamento inclui o encargo de atraso de R$ {fmtPreco(encargos[r.id].valor)}.
+                              Ao registrar, o encargo é dado como pago.
+                            </span>
+                          </label>
+                        )}
                         <input type="text" value={cobrando.obs} placeholder="Observação (opcional)"
                           aria-label="Observação do pagamento"
                           onChange={e => setCobrando(v => ({ ...v, obs: e.target.value }))}
