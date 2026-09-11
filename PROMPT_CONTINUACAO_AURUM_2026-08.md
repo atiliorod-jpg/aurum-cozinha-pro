@@ -335,6 +335,9 @@ contador 23→27→23. 522 testes.
     "Cobrar R$ X na próxima parcela". No PAINEL a palavra é "juros de atraso";
     na tela do cliente segue "encargos" (é a do contrato). Encerrar contrato
     com juros pendentes é recusado.
+  - ⚠️ A seção se chama "Contrato anual PARCELADO" e diz que o à vista NÃO se
+    registra ali (basta o pagamento anual): registrar um à vista daria, no fim
+    do ano, tolerância e juros sobre uma parcela que ele nunca teve.
 - **Indique e ganhe (10/09, pedido dele):** bloco no pé da tela de Pagamento
   com "Indicar pelo WhatsApp". A indicação viaja DENTRO da mensagem: o link
   leva o indicado ao WhatsApp da Aurum já dizendo "Fui indicado por <nome do

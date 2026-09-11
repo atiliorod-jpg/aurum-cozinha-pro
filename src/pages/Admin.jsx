@@ -376,7 +376,7 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
       return;
     }
     const ok = await confirm({
-      titulo: v === null ? 'Encerrar contrato' : (r.parcela_contrato ? 'Alterar parcela do contrato' : 'Registrar contrato assinado'),
+      titulo: v === null ? 'Encerrar contrato' : (r.parcela_contrato ? 'Alterar parcela do contrato' : 'Registrar contrato parcelado'),
       mensagem: v === null
         ? `Encerrar o contrato de "${r.nome}"?\n\nEle deixa de ter os 10 dias de tolerância e os juros de atraso. Faça isso quando o contrato terminar ou for rescindido.`
         : `"${r.nome}" — parcela de R$ ${fmtPreco(v)} por mês.\n\nCom isso: 10 dias de tolerância antes de suspender o acesso (cláusula 7ª) e juros de atraso calculados sobre esta parcela (cláusula 6ª).`,
@@ -1638,7 +1638,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     </>);
                     return (
                       <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Contrato anual</p>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Contrato anual parcelado</p>
 
                         {parcelaEdit?.id === r.id ? (
                           <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
@@ -1664,14 +1664,23 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             </div>
                           </div>
                         ) : !temContrato ? (<>
+                          {/* ⚠️ SÓ O PARCELADO SE REGISTRA AQUI. O contrato tem duas
+                              formas de pagamento; no À VISTA os 12 meses já estão
+                              pagos e basta registrar o pagamento anual. Registrar
+                              um cliente à vista daria a ele, no fim do ano,
+                              tolerância e juros sobre uma parcela que não existe. */}
                           <p className="text-[11px] text-gray-600">
-                            Este cliente não tem contrato assinado. Registre aqui quando ele assinar o contrato
-                            anual: ele ganha <strong>10 dias de tolerância</strong> antes de o acesso ser suspenso, e
-                            os <strong>juros de atraso</strong> passam a ser calculados sobre a parcela.
+                            Use quando o cliente assinar o contrato anual <strong>pagando por mês</strong>: ele ganha{' '}
+                            <strong>10 dias de tolerância</strong> antes de o acesso ser suspenso, e os{' '}
+                            <strong>juros de atraso</strong> passam a ser calculados sobre a parcela.
+                          </p>
+                          <p className="text-[11px] text-gray-600">
+                            Contrato pago <strong>à vista</strong> não precisa disto: basta registrar o pagamento
+                            do plano anual em Financeiro.
                           </p>
                           <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(produtoDe(r.produto).precoMes) })}
                             className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
-                            📄 Registrar contrato assinado
+                            📄 Registrar contrato parcelado
                           </button>
                         </>) : (<>
                           <div>
