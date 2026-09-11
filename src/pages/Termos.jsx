@@ -25,6 +25,9 @@ import { useNavigate } from 'react-router-dom';
 // nomes dos responsáveis e o registro de cada impressão (relatório, M43)
 // entraram nos dados tratados. O aceite só é gravado no CADASTRO — contas
 // antigas seguem com a 1.1 registrada, e o app não pede novo aceite.
+// Complemento no mesmo dia, AINDA na 1.2, a pedido do dono: o contrato anual
+// com impressora (prevalência do contrato, encargos de atraso, impressora em
+// comodato, uma por grupo econômico, e a exceção de fidelidade na cl. 10).
 export const TERMOS_VERSAO = '1.2';
 export const TERMOS_VIGENCIA = '10 de setembro de 2026';
 
@@ -112,6 +115,29 @@ export default function Termos() {
               assinatura, nos planos mensal, semestral e anual. O pagamento é feito por Pix, com
               ativação manual pela contratada após a confirmação. A contratada pode reajustar os valores mediante aviso prévio de 30 dias,
               sem efeito sobre período já pago.
+            </p>
+            {/* ⚠️ Complemento de 10/09/2026, na MESMA versão 1.2 (pedido do
+                dono): a Aurum passou a fechar plano anual por contrato assinado,
+                com impressora em comodato, fidelidade e multa. Sem estes
+                parágrafos, os Termos diziam o contrário do contrato — a cl. 10
+                prometia sair "a qualquer tempo, sem multa". */}
+            <p>
+              <strong>Contratação por contrato assinado.</strong> O plano anual com cessão de
+              impressora, e qualquer outra contratação feita por contrato assinado entre as partes, é
+              regido também pelo respectivo contrato, que define o prazo mínimo, a forma de
+              pagamento, os encargos de atraso, as multas de rescisão e as regras da impressora.
+              Havendo conflito, <strong>prevalece o contrato</strong>.
+            </p>
+            <p>
+              Nas contratações pagas em parcelas, o atraso sujeita o contratante a multa de 2%, juros
+              de 1% ao mês calculados dia a dia e correção pelo IPCA. Esses encargos podem ser cobrados
+              em separado ou somados à parcela seguinte, inclusive no QR Code de pagamento exibido no
+              sistema. Com mais de 10 dias de atraso, o acesso pode ser suspenso, com os dados
+              preservados.
+            </p>
+            <p>
+              A impressora cedida em contrato é concedida <strong>uma única vez por estabelecimento
+              e por grupo econômico</strong>, ainda que com outro CNPJ, e não se repete na renovação.
             </p>
           </Clausula>
 
@@ -223,6 +249,13 @@ export default function Termos() {
               temporária de conexão. A responsabilidade da contratada, em qualquer hipótese, fica
               limitada ao total pago nos 3 meses anteriores ao problema.
             </p>
+            <p>
+              <strong>Impressora cedida pela contratada.</strong> Quando o contrato incluir impressora,
+              ela fica em comodato até o fim do prazo contratado e depois passa ao contratante. A
+              impressora é térmica e se desgasta com o uso; a guarda, os cuidados de uso e limpeza e
+              a compra de etiquetas são do contratante, e a contratada não presta assistência técnica
+              nem responde por defeito ou desgaste do equipamento, conforme o contrato.
+            </p>
           </Clausula>
 
           <Clausula n="8" titulo="Disponibilidade e suporte">
@@ -266,7 +299,10 @@ export default function Termos() {
           <Clausula n="10" titulo="Vigência, rescisão e devolução de dados">
             <p>
               A contratação vigora por prazo indeterminado e pode ser encerrada por qualquer das
-              partes, a qualquer tempo, sem multa. Não há reembolso proporcional de período já pago.
+              partes, a qualquer tempo, sem multa — <strong>salvo quando houver contrato assinado com
+              prazo mínimo</strong>, como o plano anual com impressora, caso em que valem o prazo, as
+              multas e a devolução da impressora nele previstos. Não há reembolso proporcional de
+              período já pago, ressalvado o que o contrato assinado dispuser.
             </p>
             <p>
               Encerrada a relação, o contratante pode <strong>exportar seus dados</strong> pelo

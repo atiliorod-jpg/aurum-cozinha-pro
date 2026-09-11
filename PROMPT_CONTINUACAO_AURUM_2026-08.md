@@ -292,6 +292,20 @@ contador 23→27→23. 522 testes.
   fica no "Histórico de mudanças do próprio contratante", e essa tela NÃO
   existe no plano Etiquetas (o registro existe no banco). E a data da
   CVS 3/2026 na "Base normativa" segue sem conferência.
+- **Termos 1.2 — complemento no MESMO dia (a pedido dele, sem mudar a versão):**
+  a Aurum passou a fechar PLANO ANUAL POR CONTRATO ASSINADO (Word em
+  Downloads: "Contrato Modelo Aurum - Assinatura Anual com Impressora
+  (revisado).docx"), com impressora MDK-022 em comodato (vira do cliente após
+  12 meses pagos), fidelidade, multa de 20% das parcelas restantes, devolução
+  ou R$ 600 pela impressora, uma impressora por GRUPO econômico. Os Termos
+  agora dizem: contrato assinado prevalece (cl. 2); atraso em parcela = 2% +
+  1% a.m. dia a dia + IPCA, cobráveis na parcela seguinte pelo QR Code (cl.
+  2); impressora cedida — desgaste, sem assistência (cl. 7); e a cl. 10
+  deixou de prometer "sair sem multa" quando há contrato com prazo mínimo.
+- **PROPOSTA PENDENTE (não construída, esperando o OK dele):** encargos de
+  atraso no sistema — o painel calcula multa + juros de quem está atrasado,
+  o super-admin toca UMA vez para lançar, e o valor entra no QR Code SÓ
+  daquele cliente até o próximo pagamento registrado.
 
 **Sentry: o dono adiou em 10/09 ("é pago") — não lembrar até ele voltar ao assunto.**
 
