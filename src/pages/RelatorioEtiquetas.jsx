@@ -271,7 +271,8 @@ export default function RelatorioEtiquetas() {
             {/* ⚠️ O relatório é somado; a etiqueta avulsa mora na aba Impressas.
                 O dono procurou o botão de apagar AQUI e não achou — então a tela
                 diz onde ele fica, em vez de ele concluir que não existe. */}
-            {soEtiquetas && sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && (
+            {/* A aba Impressas existe nos dois planos desde 15/09. */}
+            {sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && (
               <p className="text-[11px] text-gray-600 print:hidden">
                 Contou uma etiqueta que não saiu no papel? Apague na aba Impressas: ela sai daqui junto.
               </p>

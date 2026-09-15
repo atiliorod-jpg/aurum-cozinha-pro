@@ -11,9 +11,9 @@ import { calcSugestoesMinMax } from '../utils/sugestoes';
 import { fmtNum, fmtData } from '../utils/formatters';
 import { POLO_PRESET } from '../data/presetPolo';
 import { fatorCorrecaoProduto } from '../utils/analise';
-import { pode, CAPACIDADES, permissoesEfetivas } from '../utils/permissoes';
+import { pode } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
-import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas, CartaoContas } from '../components/config/CartoesConfig';
+import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas, CartaoContas, CartaoCargos } from '../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../utils/armazenamento';
@@ -798,16 +798,6 @@ export default function Configuracoes() {
   const eDiretoria = sessao?.eSuperAdmin || sessao?.cargo === 'diretoria';
   // Só gerência+ mexe em acessos (convites/cargos); a matriz de permissões é só diretoria.
   const podeAcessos = eDiretoria || sessao?.cargo === 'gerencia';
-  // Matriz de permissões efetiva (padrão + o que a diretoria ajustou)
-  const permMatriz = permissoesEfetivas(permissoes);
-  const togglePermissao = (cargo, cap, valor) => {
-    const nova = { ...permMatriz, [cargo]: { ...permMatriz[cargo], [cap]: valor } };
-    // setPermissoes (chave própria, só diretoria grava) — NÃO setPref: dentro de
-    // `prefs` qualquer membro reescreve a matriz que o restringe, e a trava da
-    // migração 18 (que filtra por chave) nunca seria acionada.
-    setPermissoes(nova);
-    logAudit('ajustou permissões', `${cargo}: ${cap} ${valor ? 'liberado' : 'bloqueado'}`);
-  };
 
   // Cargos que o usuário logado pode CONCEDER: ninguém atribui acima do próprio
   // nível (gerência não cria diretoria). Super-admin/diretoria concedem tudo.
@@ -1705,49 +1695,16 @@ export default function Configuracoes() {
         )}
       </div>
 
-      {/* Matriz de permissões — só a diretoria configura o que cozinha/gerência podem */}
+      {/* ⚠️ O MESMO CARTÃO DO PLANO ETIQUETAS (15/09/2026). Aqui havia uma
+          tabela só com Cozinha e Gerência, enquanto o plano menor já deixava o
+          dono inventar cargos ("Confeiteiro") e abrir exceção por pessoa. Quem
+          criasse isso no Etiquetas e subisse de plano continuava com as regras
+          valendo — `pode()` as lê — mas sem tela nenhuma para vê-las ou mudá-las.
+          O cartão grava nas mesmas chaves da tabela antiga, então nada do que
+          já estava marcado se perde. Só a diretoria configura. */}
       {eDiretoria && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
-          <div>
-            <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">🔑 O que cada função pode fazer</h2>
-            <p className="text-xs text-gray-500 mt-1">
-              A <strong>diretoria</strong> tem acesso total, sempre. Aqui você escolhe o que <strong>cozinha</strong> e{' '}
-              <strong>gerência</strong> podem fazer — é o que aparece no app para cada pessoa.
-            </p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-gray-500">
-                  <th className="text-left font-semibold py-1">Ação</th>
-                  <th className="font-semibold py-1 px-2 text-center w-16">Cozinha</th>
-                  <th className="font-semibold py-1 px-2 text-center w-16">Gerência</th>
-                </tr>
-              </thead>
-              <tbody>
-                {CAPACIDADES.map(cap => (
-                  <tr key={cap.id} className="border-t border-gray-100 align-top">
-                    <td className="py-2 pr-2">
-                      <span className="font-semibold text-gray-800">{cap.label}</span>
-                      <span className="block text-[11px] text-gray-600 leading-snug">{cap.desc}</span>
-                    </td>
-                    {['cozinha', 'gerencia'].map(cargo => (
-                      <td key={cargo} className="text-center px-2 py-2">
-                        <input type="checkbox" checked={!!permMatriz[cargo][cap.id]}
-                          aria-label={`${cap.label} — ${cargo === 'cozinha' ? 'Cozinha' : 'Gerência'}`}
-                          onChange={e => togglePermissao(cargo, cap.id, e.target.checked)}
-                          className="w-6 h-6 accent-polo-navy" />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-[11px] text-gray-600">
-            Criar convites e trocar cargos continua sendo só da diretoria. As mudanças valem para todos os aparelhos.
-          </p>
-        </div>
+        <CartaoCargos permissoes={permissoes} setPermissoes={setPermissoes}
+          usuarios={usuarios} toast={toast} confirm={confirm} />
       )}
 
       </>}

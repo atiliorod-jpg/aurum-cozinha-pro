@@ -181,6 +181,38 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (15/09/2026) — TESTE LIVRE E O ETIQUETAS COMO RECORTE DO PRO
+
+**Regra do dono, que vale para todo código novo:** o plano Etiquetas é um
+RECORTE do Pro. Tudo que existe no Etiquetas tem de existir e funcionar no
+completo, porque é ali que o cliente chega quando sobe de plano — e os dados
+já são os mesmos (mesmas chaves, módulo `producao` raiz).
+
+- **Painel, teste grátis:** além de 7/14/30, campo "dias" + **Liberar** (1 a
+  365, a partir de hoje, substitui o prazo); "encerrar" virou **Zerar teste**,
+  com confirmação que diz se o cliente perde o acesso na hora (sem assinatura
+  nem cortesia → volta a "aguardando"). "Emprestar o outro plano" ganhou o
+  mesmo campo. Linha de situação: "Em teste até…" / "O teste acabou em…".
+- **Paridade conferida e corrigida:**
+  - `/impressas` NÃO existia no Pro (reimprimir com datas originais, totais,
+    apagar da M44, porta do relatório). Agora: rota no ramo completo
+    (`temRecurso(modulo,'etiquetas') && can('verImpressas')`) + cartão
+    "Etiquetas impressas" no hub Registrar, ao lado de Etiquetas.
+  - Cargos: o Pro tinha só a tabela Cozinha/Gerência; o Etiquetas já tinha
+    cargos inventados e exceção por conta (`CartaoCargos`). Configurações do
+    Pro agora usa o MESMO `CartaoCargos` (mesmas chaves — nada se perde).
+    Perda aceita: a tabela antiga anotava cada mudança na auditoria; o cartão não.
+  - Já estavam OK no Pro: /itens, /relatorio-etiquetas (cartão na
+    Administração), pergunta "Etiqueta foi impressa?" e registro no relatório
+    (componente único), Trocar minha senha (Configurações), Assinatura/pagar
+    (Administração), faixa de atraso e de teste (acima das duas árvores),
+    armazenamentos, etiqueta, responsáveis, contas, suporte remoto, backup.
+- **Teste novo trava a regra:** toda rota do ramo Etiquetas (menos `/`, `*` e
+  `/ajustes`, que no Pro são Início/Configurações/Administração) tem de existir
+  no ramo Pro, e o cartão do Registrar tem as mesmas travas. 537 testes.
+
+---
+
 ## Onde paramos (10/09/2026, fim da noite) — RELATÓRIO DE ETIQUETAS (M43)
 
 Pedido do dono: "o proprietário analisar os dias passados — mês passado,

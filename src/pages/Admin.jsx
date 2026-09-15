@@ -117,6 +117,8 @@ export default function Admin() {
   // Encargos de atraso lançados e ainda não pagos (M45): { [restauranteId]: encargo }
   const [encargos, setEncargos] = useState({});
   const [parcelaEdit, setParcelaEdit] = useState(null); // { id, valor }
+  // Dias digitados à mão para teste e empréstimo: { [restauranteId]: { teste, emprestimo } }
+  const [diasLivres, setDiasLivres] = useState({});
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
   // viram uma parede de rolagem e o painel deixa de ser consultável.
   const [aberto, setAberto] = useState('');
@@ -470,7 +472,36 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     const { error } = await supabase.rpc('definir_teste', { p_restaurante: r.id, p_ate: ate });
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, teste_ate: ate } : x));
-    toast(ate ? `${r.nome}: teste liberado por ${dias} dia(s).` : `${r.nome}: teste encerrado.`, 'sucesso');
+    toast(ate ? `${r.nome}: teste liberado por ${dias} dia(s).` : `${r.nome}: teste zerado.`, 'sucesso');
+  };
+
+  // ⚠️ DIAS À ESCOLHA (pedido do dono, 15/09/2026): o painel só oferecia 7, 14
+  // e 30, e cada venda combina um prazo — "10 dias até a impressora chegar",
+  // "45 dias de piloto". O teto de 365 barra o zero a mais digitado sem querer.
+  const lerDias = (r, campo) => {
+    const n = parseInt(diasLivres[r.id]?.[campo], 10);
+    if (!(n >= 1 && n <= 365)) { toast('Digite de 1 a 365 dias.', 'aviso'); return null; }
+    setDiasLivres(v => ({ ...v, [r.id]: { ...v[r.id], [campo]: '' } }));
+    return n;
+  };
+
+  // ⚠️ "ZERAR" TIRA A DATA DO TESTE, e o efeito depende do resto da conta —
+  // por isso a confirmação diz qual é. Sem assinatura nem cortesia, a conta
+  // volta a "aguardando liberação" e o cliente perde o acesso NA HORA.
+  const zerarTeste = async (r) => {
+    const semOutraCobertura = !aindaVale(r.assinatura_ate, Date.now())
+      && (r.regime || 'pagante') === 'pagante';
+    const ok = await confirm({
+      titulo: 'Zerar teste grátis',
+      mensagem: `Zerar o teste de "${r.nome}"?\n\nO teste acaba agora.`
+        + (semOutraCobertura
+          ? ' Como a conta não tem assinatura em dia nem cortesia, o cliente perde o acesso na hora e a conta volta a ficar aguardando liberação.'
+          : ' A conta continua com acesso pela assinatura ou cortesia que já tem.')
+        + '\n\nDá para liberar um teste novo depois, com os dias que quiser.',
+      confirmar: 'Zerar teste',
+      perigo: semOutraCobertura,
+    });
+    if (ok) darTeste(r, null);
   };
 
   // ⚠️ EMPRESTAR UM PLANO, sem mexer no que a conta PAGA. O `produto` continua
@@ -1509,17 +1540,34 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">
                         Teste grátis
                       </p>
-                      <div className="flex flex-wrap gap-1.5">
+                      <p className="text-[11px] text-gray-600 mb-1.5">
+                        {!r.teste_ate ? 'Sem teste liberado.'
+                          : aindaVale(r.teste_ate, agora) ? `Em teste até ${dataBR(r.teste_ate)}.`
+                          : `O teste acabou em ${dataBR(r.teste_ate)}.`}
+                        {' '}Liberar conta a partir de hoje e substitui o prazo atual.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {[7, 14, 30].map(d => (
                           <button key={d} onClick={() => darTeste(r, d)}
                             className="text-[11px] font-semibold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1.5 min-h-11">
                             {d} dias
                           </button>
                         ))}
+                        <span className="flex items-center gap-1">
+                          <input type="number" min="1" max="365" inputMode="numeric" placeholder="dias"
+                            value={diasLivres[r.id]?.teste ?? ''}
+                            onChange={e => setDiasLivres(v => ({ ...v, [r.id]: { ...v[r.id], teste: e.target.value } }))}
+                            aria-label={`Quantos dias de teste para ${r.nome}`}
+                            className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-[11px] min-h-11" />
+                          <button onClick={() => { const n = lerDias(r, 'teste'); if (n) darTeste(r, n); }}
+                            className="text-[11px] font-bold text-white bg-polo-navy rounded-lg px-2.5 py-1.5 min-h-11">
+                            Liberar
+                          </button>
+                        </span>
                         {r.teste_ate && (
-                          <button onClick={() => darTeste(r, null)}
+                          <button onClick={() => zerarTeste(r)}
                             className="text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1.5 min-h-11">
-                            encerrar
+                            Zerar teste
                           </button>
                         )}
                       </div>
@@ -1533,7 +1581,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         Ela continua pagando o {produtoDe(r.produto).label}. Quando a data passa,
                         volta sozinha — e o que ela lançou no plano emprestado fica guardado.
                       </p>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {[7, 14, 30].map(d => (
                           <button key={d}
                             onClick={() => emprestarPlano(r, r.produto === 'etiquetas' ? 'completo' : 'etiquetas', d)}
@@ -1541,6 +1589,20 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             {produtoDe(r.produto === 'etiquetas' ? 'completo' : 'etiquetas').label} · {d} dias
                           </button>
                         ))}
+                        <span className="flex items-center gap-1">
+                          <input type="number" min="1" max="365" inputMode="numeric" placeholder="dias"
+                            value={diasLivres[r.id]?.emprestimo ?? ''}
+                            onChange={e => setDiasLivres(v => ({ ...v, [r.id]: { ...v[r.id], emprestimo: e.target.value } }))}
+                            aria-label={`Quantos dias de empréstimo de plano para ${r.nome}`}
+                            className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-[11px] min-h-11" />
+                          <button onClick={() => {
+                            const n = lerDias(r, 'emprestimo');
+                            if (n) emprestarPlano(r, r.produto === 'etiquetas' ? 'completo' : 'etiquetas', n);
+                          }}
+                            className="text-[11px] font-bold text-white bg-polo-navy rounded-lg px-2.5 py-1.5 min-h-11">
+                            Emprestar
+                          </button>
+                        </span>
                         {r.produto_teste && (
                           <button onClick={() => emprestarPlano(r, null, 0)}
                             className="text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1.5 min-h-11">

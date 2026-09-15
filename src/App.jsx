@@ -460,6 +460,13 @@ function Rotas() {
       <Route path="/inventario" element={temRecurso(modulo, 'inventario') && can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
       <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
       <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') ? <RelatorioEtiquetas /> : <Navigate to="/administracao" replace />} />
+      {/* ⚠️ O ETIQUETAS É UM RECORTE DO PRO, e esta tela faltava aqui (15/09):
+          reimprimir com as datas originais, totais, apagar a etiqueta que
+          contou errado (M44) e a porta do relatório só existiam no plano
+          menor. A lista é a mesma — mesmas chaves —, então quem sobe de plano
+          encontra tudo. Mesma trava do plano Etiquetas (`verImpressas`), mais
+          o recurso do estoque: no Seco não se imprime etiqueta. */}
+      <Route path="/impressas" element={temRecurso(modulo, 'etiquetas') && can('verImpressas') ? <EtiquetasImpressas /> : <Navigate to="/registrar" replace />} />
       <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
       {/* Administração é SEÇÃO, não estoque: tem rota própria e não mexe no
           módulo aberto. A regra de acesso vem de podeAbrirAdministracao — a

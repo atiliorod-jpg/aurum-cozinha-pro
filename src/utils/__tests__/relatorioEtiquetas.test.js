@@ -191,6 +191,31 @@ describe('relatório de etiquetas — as travas que não podem voltar atrás', (
   });
 });
 
+// ⚠️ O PLANO ETIQUETAS É UM RECORTE DO PRO (regra do dono, 15/09/2026): tudo
+// que existe no plano menor precisa existir e funcionar no completo, porque é
+// ali que o cliente chega quando sobe de plano. A aba Impressas nasceu só no
+// Etiquetas e passou uma semana fora do Pro — estes testes impedem a repetição.
+describe('o que existe no Etiquetas existe no Pro', () => {
+  const app = ler('../../App.jsx');
+  const ramoEtiquetas = app.slice(app.indexOf('{soEtiquetas ? ('), app.indexOf('<Routes key={modulo}>'));
+  const ramoPro = app.slice(app.indexOf('<Routes key={modulo}>'));
+  const rotas = (trecho) => [...trecho.matchAll(/path="([^"]+)"/g)].map(m => m[1]);
+
+  it('toda tela do plano Etiquetas também tem rota no plano completo', () => {
+    // `/` e `/etiquetas` são a mesma tela nos dois; `*` é o curinga
+    const doPro = new Set(rotas(ramoPro));
+    const faltando = rotas(ramoEtiquetas)
+      .filter(p => !['*', '/', '/ajustes'].includes(p))
+      .filter(p => !doPro.has(p));
+    expect(faltando).toEqual([]);
+  });
+
+  it('no Pro, a aba Impressas tem porta no hub Registrar, com as mesmas travas', () => {
+    const hub = ler('../../pages/Registrar.jsx');
+    expect(hub).toMatch(/to: '\/impressas'[^}]*recurso: 'etiquetas'[^}]*cap: 'verImpressas'/);
+  });
+});
+
 // ⚠️ Defeito achado pelo dono em 10/09/2026: no computador, "Imprimir" abre a
 // janela do navegador e a etiqueta já era contada ali — mesmo fechando a
 // janela sem imprimir. E não havia como apagar o que entrou errado.

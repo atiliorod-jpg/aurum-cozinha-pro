@@ -43,6 +43,11 @@ const SECOES = [
     desc: 'Etiquetas de validade para os potes e embalagens',
     acoes: [
       { to: '/etiquetas', icone: 'etiqueta', titulo: 'Etiquetas', recurso: 'etiquetas', desc: 'Imprimir etiquetas do estoque ou avulsas' },
+      // ⚠️ A mesma aba do plano Etiquetas (15/09/2026): lá ela é item da barra;
+      // aqui a barra é da operação de estoque, então a porta mora ao lado de
+      // quem imprime. Mesmas travas da rota — recurso do estoque e `verImpressas`.
+      { to: '/impressas', icone: 'historico', titulo: 'Etiquetas impressas', recurso: 'etiquetas', cap: 'verImpressas',
+        desc: 'Reimprimir com as datas originais, totais do dia, semana e mês, e o relatório' },
       // "Validades" saiu daqui: é item PERMANENTE da barra inferior, e ter o
       // mesmo destino em dois lugares fazia parecer que eram telas diferentes.
     ],
