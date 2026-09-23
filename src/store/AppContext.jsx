@@ -13,6 +13,10 @@ import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
 import { cozinhaDeEtiquetas, acharUnidade } from '../utils/unidades';
+import {
+  ehChaveImpressas, chavePendencias, PENDENCIAS_VAZIAS, semPendencias, diferencaImpressas,
+  acumularPendencias, aplicarPendencias, limparConfirmadas, unirImpressas,
+} from '../utils/impressasSync';
 import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
@@ -117,6 +121,11 @@ const avisaErroDefinitivo = (msg) => {
 // Modo demonstração: rid 'demo' NUNCA fala com o Supabase — tudo fica só no
 // cache local do navegador (apagado ao sair). Retorna o rid quando é de nuvem.
 const nuvemDe = (r) => (r && r !== 'demo' ? r : null);
+// Mudanças deste aparelho na lista de impressas que o servidor ainda não
+// confirmou — ver utils/impressasSync.js. Ficam no aparelho (sobrevivem a
+// fechar o app sem internet).
+const lerPend = (r, chave) => cacheGet(r, chavePendencias(chave), PENDENCIAS_VAZIAS);
+const gravarPend = (r, chave, pend) => cacheSet(r, chavePendencias(chave), pend);
 
 const AppContext = createContext(null);
 
@@ -417,7 +426,9 @@ export function AppProvider({ children }) {
   // Gravação versionada: o servidor compara a versão que ESTE aparelho conhece.
   // Conflito (outro tablet gravou antes) → aplicamos o conteúdo vigente aqui e
   // avisamos, em vez de sobrescrever o trabalho do outro em silêncio.
-  const salvarDocNuvem = useCallback((r, chave, dadosDoc, aplicarServidor) => {
+  // a regravação depois de juntar chama a si mesma por aqui (identidade fixa)
+  const salvarDocRef = useRef(null);
+  const salvarDocNuvem = useCallback((r, chave, dadosDoc, aplicarServidor, tentativa = 0) => {
     const payload = { restaurante_id: r, chave, dados: dadosDoc, updated_at: new Date().toISOString() };
     supabase.rpc('salvar_documento', { p_restaurante: r, p_chave: chave, p_dados: dadosDoc, p_versao: versoesRef.current[chave] ?? 0 })
       .then(({ data, error }) => {
@@ -428,18 +439,36 @@ export function AppProvider({ children }) {
               if (e2) outboxAdd(r, { kind: 'doc', op: 'upsert', payload });
             });
           } else {
-            outboxAdd(r, { kind: 'doc', op: 'upsert', payload });
+            // a lista de impressas vai marcada: o replay junta com a do servidor
+            // em vez de gravar por cima (ver `regravarImpressas` no flush)
+            outboxAdd(r, { kind: 'doc', op: 'upsert', payload, ...(ehChaveImpressas(chave) ? { _comPendencias: true } : {}) });
           }
           return;
         }
-        if (data?.ok) { versoesRef.current[chave] = data.versao; return; }
+        if (data?.ok) {
+          versoesRef.current[chave] = data.versao;
+          if (ehChaveImpressas(chave)) gravarPend(r, chave, limparConfirmadas(lerPend(r, chave), dadosDoc));
+          return;
+        }
         if (data?.conflito) {
           versoesRef.current[chave] = data.versao;
+          // ⚠️ IMPRESSAS: JUNTAR, NUNCA SUBSTITUIR. Trocar a lista deste
+          // aparelho pela do servidor apagava da aba Impressas a etiqueta que
+          // acabou de sair no papel (tablet que volta do descanso e imprime).
+          // A lista do servidor recebe as mudanças deste aparelho por cima e é
+          // gravada de novo — sem aviso, porque não há nada para refazer.
+          if (ehChaveImpressas(chave) && tentativa < 3) {
+            const junta = aplicarPendencias(data.dados, lerPend(r, chave));
+            aplicarServidor?.(junta);
+            if (junta !== data.dados) salvarDocRef.current?.(r, chave, junta, aplicarServidor, tentativa + 1);
+            return;
+          }
           aplicarServidor?.(data.dados);
           try { window.dispatchEvent(new CustomEvent('catalogo-conflito', { detail: { chave } })); } catch { /* sem window */ }
         }
       });
   }, []);
+  useEffect(() => { salvarDocRef.current = salvarDocNuvem; }, [salvarDocNuvem]);
 
   const persistCatalogo = useCallback((chaveBase, setRaw, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -454,12 +483,23 @@ export function AppProvider({ children }) {
     //  • resto → chave do próprio módulo
     const GLOBAIS = ['pessoas', 'permissoes', 'precos', 'estoques'];
     const COMPARTILHADOS = ['produtos', 'categorias', 'fichas'];
-    const chave = GLOBAIS.includes(chaveBase) ? chaveBase
+    const chaveDe = () => (GLOBAIS.includes(chaveBase) ? chaveBase
       : COMPARTILHADOS.includes(chaveBase) ? kc(chaveBase)
-      : k(chaveBase);
+      : k(chaveBase));
+    const chave = chaveDe();
+    // o que ESTE aparelho mudou na lista de impressas, até o servidor confirmar
+    if (nuvemDe(r) && ehChaveImpressas(chave)) {
+      gravarPend(r, chave, acumularPendencias(lerPend(r, chave), diferencaImpressas(cacheGet(r, chave, []), valor)));
+    }
     cacheSet(r, chave, valor);
     if (!nuvemDe(r)) return;
-    salvarDocNuvem(r, chave, valor, (dadosSrv) => { setRaw(dadosSrv); cacheSet(r, chave, dadosSrv); });
+    salvarDocNuvem(r, chave, valor, (dadosSrv) => {
+      cacheSet(r, chave, dadosSrv);
+      // ⚠️ A resposta chega depois: se a pessoa trocou de cozinha (ou de conta)
+      // nesse meio-tempo, a lista que voltou é da ANTERIOR — pôr na tela a
+      // mostraria na cozinha errada, e a próxima gravação a copiaria para lá.
+      if (ridRef.current === r && chaveDe() === chave) setRaw(dadosSrv);
+    });
   }, [salvarDocNuvem, k, kc]);
 
   const setMetas = useCallback((v) => persistCatalogo('metas', setMetasRaw, v), [persistCatalogo]);
@@ -1001,6 +1041,41 @@ export function AppProvider({ children }) {
     setRecebimentosRaw(cacheGet(rid, k('recebimentos'), []));
     setAuditoriaRaw(cacheGet(rid, 'auditoria', [])); // auditoria é do restaurante
 
+    // ⚠️ IMPRESSAS SEM INTERNET: o replay comum grava por cima (versão -1), e
+    // isso apagava as etiquetas que OUTRO aparelho imprimiu enquanto este
+    // estava offline. Aqui lê a lista do servidor, junta e grava na versão
+    // dela; se alguém gravar no meio, lê de novo.
+    const regravarImpressas = async (item) => {
+      const { restaurante_id: r, chave, dados } = item.payload;
+      for (let t = 0; t < 3; t++) {
+        const { data: atual, error: eLer } = await supabase.from('documentos')
+          .select('dados, versao').eq('restaurante_id', r).eq('chave', chave).maybeSingle();
+        if (eLer) return { error: eLer };
+        const pend = lerPend(r, chave);
+        const junta = !atual ? dados
+          // item de antes desta versão não tem pendências guardadas: junta sem apagar
+          : !item._comPendencias ? unirImpressas(atual.dados, dados)
+          : aplicarPendencias(atual.dados, pend);
+        // nada deste aparelho faltando no servidor → não há o que gravar
+        if (atual && junta === atual.dados) {
+          versoesRef.current[chave] = atual.versao || 0;
+          return { error: null };
+        }
+        const { data: res, error } = await supabase.rpc('salvar_documento', {
+          p_restaurante: r, p_chave: chave, p_dados: junta, p_versao: atual ? (atual.versao || 0) : -1,
+        });
+        if (error) return { error };
+        if (res?.ok) {
+          versoesRef.current[chave] = res.versao;
+          if (!semPendencias(pend)) gravarPend(r, chave, limparConfirmadas(pend, junta));
+          cacheSet(r, chave, junta);
+          if (chave === k('etiquetasImpressas')) setEtiquetasImpressasRaw(junta);
+          return { error: null };
+        }
+      }
+      return { error: { message: 'A lista de impressas mudou em outro aparelho durante o envio.' } };
+    };
+
     // sobe pendências acumuladas offline
     const flush = async () => {
       if (soLeituraRef.current) return; // modo suporte: não sobe nada para a conta do cliente
@@ -1024,6 +1099,8 @@ export function AppProvider({ children }) {
             ({ error } = await supabase.from('registros').upsert(item.payload));
           else if (item.kind === 'registro' && item.op === 'delete')
             ({ error } = await supabase.from('registros').update({ deleted: true }).eq('id', item.payload.id));
+          else if (item.kind === 'doc' && item.op === 'upsert' && ehChaveImpressas(item.payload?.chave))
+            ({ error } = await regravarImpressas(item));
           else if (item.kind === 'doc' && item.op === 'upsert') {
             // replay offline: RPC com versão -1 (força com bump — mantém o
             // contador coerente); fallback pro upsert se a migração 8 faltar
@@ -1118,7 +1195,10 @@ export function AppProvider({ children }) {
         aplicaCat(k('locais'), setLocaisRaw, LOC, (d) => mesclarFixos(d, LOC));
         aplicaCat(k('listaManual'), setListaManualRaw, P.listaManual);
         aplicaCat(k('etiquetasAvulsas'), setEtiquetasAvulsasRaw, P.etiquetasAvulsas);
-        aplicaCat(k('etiquetasImpressas'), setEtiquetasImpressasRaw, P.etiquetasImpressas);
+        // pendências deste aparelho por cima (gravação que não chegou a ser
+        // confirmada antes de o app fechar) — `aplicaCat` regrava se mudou
+        aplicaCat(k('etiquetasImpressas'), setEtiquetasImpressasRaw, P.etiquetasImpressas,
+          (d) => aplicarPendencias(d, lerPend(rid, k('etiquetasImpressas'))));
         // Compatibilidade: contas antigas têm a matriz dentro de prefs. Lê de lá
         // enquanto a chave nova não existir — sem exigir migração de dados.
         // `precos` pode simplesmente NÃO VIR: a policy da migração 20 não
@@ -1245,7 +1325,11 @@ export function AppProvider({ children }) {
       precos: setPrecosRaw,          // tabela de custos: idem, e só chega a quem pode
       estoques: setEstoquesDocRaw,   // registro dos estoques da conta
     };
-    const reparoDoc = { [k('locais')]: (d) => mesclarFixos(d, LOC) };
+    const reparoDoc = {
+      [k('locais')]: (d) => mesclarFixos(d, LOC),
+      // a lista que outro aparelho gravou, com o que ESTE ainda não enviou por cima
+      [k('etiquetasImpressas')]: (d) => aplicarPendencias(d, lerPend(rid, k('etiquetasImpressas'))),
+    };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
       // outro aparelho gravou: só entra se for do MÓDULO que está aberto aqui
