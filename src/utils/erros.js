@@ -95,3 +95,29 @@ export const ultimoErroGuardado = () => {
   catch { return null; }
 };
 
+// Mensagens da IMPRESSORA (Bluetooth). Morava dentro de EtiquetaPrint; veio
+// para cá em 23/09/2026 porque a aba Impressora (trocar impressora, etiqueta
+// de teste) fala as mesmas frases.
+// ⚠️ O NAVEGADOR FALA INGLÊS DE ENGENHEIRO. "GATT operation failed" ou
+// "NetworkError" no meio do serviço não diz nada para quem está com o pote na
+// mão — e o pior é que quase sempre a causa é banal: impressora desligada,
+// longe, ou presa em outro aparelho. Cada mensagem aqui termina com o que
+// FAZER; o texto original vai junto só para o suporte.
+export function erroEmPortugues(e) {
+  const cru = e?.message || String(e || '');
+  const nome = e?.name || '';
+  // ⚠️ Erro nosso passa direto. A lista abaixo reconhece o que o NAVEGADOR
+  // fala; sem esta linha, uma frase já escrita em português caía no fim e
+  // saía embrulhada em "Não deu para imprimir… (a mesma frase)".
+  if (e?.emPortugues) return cru;
+  if (nome === 'NotAllowedError') return 'O navegador bloqueou o acesso ao Bluetooth. Toque no cadeado ao lado do endereço e libere.';
+  if (nome === 'SecurityError') return 'Abra o app pelo endereço https:// — o Bluetooth não funciona fora dele.';
+  if (/GATT|disconnect|NetworkError/i.test(cru) || nome === 'NetworkError') {
+    return 'Perdeu a conexão com a impressora. Confira se ela está ligada e por perto, e mande de novo.';
+  }
+  if (/Bluetooth adapter not available|globally disabled/i.test(cru)) {
+    return 'O Bluetooth do aparelho está desligado. Ligue e tente de novo.';
+  }
+  if (/User cancelled|cancelled/i.test(cru)) return '';
+  return `Não deu para imprimir. Desligue e ligue a impressora e tente de novo. (${cru})`;
+}

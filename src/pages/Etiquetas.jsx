@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import PrimeiroUso from '../components/PrimeiroUso';
+import { FaixaImpressora, CartaoImpressora } from '../components/Impressora';
 import { useApp } from '../store/AppContext';
 import { agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { useUI } from '../store/UIContext';
@@ -62,6 +63,8 @@ function GuiaImpressora() {
   const [aberto, setAberto] = useState('celular');
   return (
     <div className="space-y-3">
+      {/* status, trocar, etiqueta de teste e diagnóstico — fora do PDF do guia */}
+      <div className="print:hidden"><CartaoImpressora /></div>
       <div className="bg-polo-navy text-white rounded-xl p-4">
         <p className="text-sm font-bold text-polo-gold">Impressora e rolo</p>
         <p className="text-xs mt-1 text-white/90">
@@ -250,6 +253,8 @@ export default function Etiquetas() {
         <GuiaImpressora />
       ) : (
         <div className="space-y-4">
+          {/* a impressora à vista ANTES de escolher o item (só no Android) */}
+          <FaixaImpressora />
           {/* ⚠️ NO CAMINHO DE ENTRADA, e não escondido na Administração: uma
               conta nova imprimia um rolo inteiro com o RESP. em branco e nada
               avisava. Some sozinho quando as duas coisas estão preenchidas. */}

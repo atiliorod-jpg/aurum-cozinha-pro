@@ -8,6 +8,9 @@ import { readFileSync } from 'node:fs';
 import { casaBusca, normalizarBusca } from '../busca';
 import { maisUsados } from '../etiquetas';
 import { buscarNaBiblioteca } from '../../data/bibliotecaEtiquetas';
+import { textoDoDiagnostico } from '../diagnostico';
+import { erroEmPortugues } from '../erros';
+import { aoMudarConexao, versaoDaConexao, desconectar, estadoDaConexao } from '../../lib/impressoraBLE';
 
 const ler = (caminho) => readFileSync(new URL(caminho, import.meta.url), 'utf8');
 
@@ -111,5 +114,80 @@ describe('mais usados no topo da tela Etiquetar', () => {
     expect(src).toMatch(/maisUsados\(etiquetasImpressas, produtos\.filter\(p => p\.ativo\), hoje\(\)\)/);
     expect(src).toMatch(/\{!buscando && catAtiva === '' && atalhos\.length > 0 && \(/);
     expect(src).toMatch(/atalhos\.map\(p => \(\s*<button key=\{p\.id\} onClick=\{\(\) => imprimirProduto\(p\)\}/);
+  });
+});
+
+describe('impressora à vista', () => {
+  it('quem olha a conexão é avisado quando ela cai ou é trocada', () => {
+    let avisos = 0;
+    const sair = aoMudarConexao(() => { avisos += 1; });
+    const antes = versaoDaConexao();
+    desconectar();
+    expect(avisos).toBe(1);
+    expect(versaoDaConexao()).toBe(antes + 1);
+    sair();
+    desconectar();
+    expect(avisos).toBe(1); // depois de sair, não recebe mais
+    expect(estadoDaConexao()).toEqual({ conectada: false, nome: '', modo: '' });
+  });
+
+  it('trocar solta a atual e abre o seletor SEM espera antes (regra do requestDevice)', () => {
+    const src = ler('../../components/Impressora.jsx');
+    expect(src).toMatch(/desconectar\(\);\s*try \{\s*await escolherImpressora\(\);/);
+    // na faixa, o Conectar também vai direto ao seletor
+    expect(src).toMatch(/try \{ await escolherImpressora\(\); \}/);
+  });
+
+  it('a etiqueta de teste vai marcada, e a janela não registra nada dela', () => {
+    const imp = ler('../../components/Impressora.jsx');
+    expect(imp).toMatch(/nome: 'TESTE DE IMPRESSÃO',\s*teste: true,/);
+    const ep = ler('../../components/EtiquetaPrint.jsx');
+    // nem relatório, nem Impressas, nem responsável lembrado: tudo mora em aoImprimir
+    expect(ep).toMatch(/const lista = \(soEstes \|\| itens\)\.filter\(i => !i\.teste\);\s*if \(!lista\.length\) return;/);
+    // não exige responsável e não pergunta se saiu no papel
+    expect(ep).toMatch(/const faltaResponsavel = !soTeste && config\.exigirResponsavel === true/);
+    expect(ep).toMatch(/if \(!soTeste\) setPerguntaPara\(etiquetaState\);/);
+  });
+
+  it('a faixa fica na tela Etiquetar e o cartão na aba Impressora', () => {
+    const src = ler('../../pages/Etiquetas.jsx');
+    expect(src).toMatch(/<FaixaImpressora \/>/);
+    expect(src).toMatch(/<CartaoImpressora \/>/);
+  });
+
+  it('diagnóstico: o que o suporte precisa, e nada de dado pessoal', () => {
+    const t = textoDoDiagnostico({
+      quando: '23/09/2026 10:00', conta: 'Casa X', plano: 'Aurum Etiquetas', unidade: 'Centro',
+      versao: '2026-09-23 12:00 UTC', navegador: 'Android Chrome', tela: '800x1280', online: true,
+      pendencias: 2, mortos: 1, caminho: 'Bluetooth direto', bleNoNavegador: true, bleLigado: false,
+      impressora: { conectada: true, nome: 'MDK-022', modo: 'comConfirmacao' },
+      autorizados: ['MDK-022'], ultimoErro: { quando: 'ontem', tela: '/etiquetas', mensagem: 'x is null' },
+    });
+    expect(t).toMatch(/Conta: Casa X \(Aurum Etiquetas\)/);
+    expect(t).toMatch(/Unidade: Centro/);
+    expect(t).toMatch(/Versão do app: 2026-09-23 12:00 UTC/);
+    expect(t).toMatch(/Envios pendentes: 2 \(com erro: 1\)/);
+    expect(t).toMatch(/Bluetooth ligado: não/);
+    expect(t).toMatch(/Impressora: conectada \(MDK-022\) · envio comConfirmacao/);
+    expect(t).toMatch(/Último travamento de tela: ontem em \/etiquetas — x is null/);
+    expect(t).not.toMatch(/@/);
+  });
+
+  it('diagnóstico no computador não fala de Bluetooth que não é usado', () => {
+    const t = textoDoDiagnostico({ conta: 'Casa', bleNoNavegador: false, caminho: 'janela de impressão do navegador' });
+    expect(t).toMatch(/Bluetooth no navegador: não/);
+    expect(t).not.toMatch(/Bluetooth ligado|Impressora:/);
+    expect(t).toMatch(/Versão do app: desconhecida/);
+  });
+
+  it('as mensagens de erro da impressora continuam em português, agora num lugar só', () => {
+    expect(erroEmPortugues({ name: 'NotAllowedError', message: 'x' })).toMatch(/bloqueou o acesso ao Bluetooth/);
+    expect(erroEmPortugues({ message: 'GATT operation failed' })).toMatch(/Perdeu a conexão/);
+    expect(erroEmPortugues({ emPortugues: true, message: 'Frase nossa.' })).toBe('Frase nossa.');
+    expect(ler('../../components/EtiquetaPrint.jsx')).toMatch(/import \{ erroEmPortugues \} from '\.\.\/utils\/erros';/);
+  });
+
+  it('a versão do app é carimbada na publicação', () => {
+    expect(ler('../../../vite.config.js')).toMatch(/'import\.meta\.env\.VITE_VERSAO_APP': JSON\.stringify\(VERSAO_APP\)/);
   });
 });

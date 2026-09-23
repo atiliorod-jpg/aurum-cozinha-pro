@@ -27,8 +27,16 @@ const ghPagesFallback = {
 }
 
 // https://vite.dev/config/
+// ⚠️ A VERSÃO QUE ESTÁ NO APARELHO. Vai no "Copiar diagnóstico" da aba
+// Impressora: é como o suporte descobre, sem adivinhar, um app instalado que
+// ficou preso numa versão velha (o caso do endereço github.io antigo).
+const VERSAO_APP = new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+
 export default defineConfig({
   base,
+  define: {
+    'import.meta.env.VITE_VERSAO_APP': JSON.stringify(VERSAO_APP),
+  },
   plugins: [
     react(),
     ghPagesFallback,

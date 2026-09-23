@@ -6,6 +6,7 @@ import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
 import { dadosDaEtiqueta, temUnidadesExtras } from '../utils/unidades';
 import { formatarCNPJ } from '../utils/documentos';
+import { erroEmPortugues } from '../utils/erros';
 import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
@@ -58,29 +59,6 @@ const contarEtiquetas = (lista) =>
 // "!" tocável. Texto curto fica no rótulo; o resto vem só se a pessoa pedir —
 // parágrafo de apoio embaixo de cada campo empurra o formulário para baixo e
 // ninguém lê.
-// ⚠️ O NAVEGADOR FALA INGLÊS DE ENGENHEIRO. "GATT operation failed" ou
-// "NetworkError" no meio do serviço não diz nada para quem está com o pote na
-// mão — e o pior é que quase sempre a causa é banal: impressora desligada,
-// longe, ou presa em outro aparelho. Cada mensagem aqui termina com o que
-// FAZER; o texto original vai junto só para o suporte.
-function erroEmPortugues(e) {
-  const cru = e?.message || String(e || '');
-  const nome = e?.name || '';
-  // ⚠️ Erro nosso passa direto. A lista abaixo reconhece o que o NAVEGADOR
-  // fala; sem esta linha, uma frase já escrita em português caía no fim e
-  // saía embrulhada em "Não deu para imprimir… (a mesma frase)".
-  if (e?.emPortugues) return cru;
-  if (nome === 'NotAllowedError') return 'O navegador bloqueou o acesso ao Bluetooth. Toque no cadeado ao lado do endereço e libere.';
-  if (nome === 'SecurityError') return 'Abra o app pelo endereço https:// — o Bluetooth não funciona fora dele.';
-  if (/GATT|disconnect|NetworkError/i.test(cru) || nome === 'NetworkError') {
-    return 'Perdeu a conexão com a impressora. Confira se ela está ligada e por perto, e mande de novo.';
-  }
-  if (/Bluetooth adapter not available|globally disabled/i.test(cru)) {
-    return 'O Bluetooth do aparelho está desligado. Ligue e tente de novo.';
-  }
-  if (/User cancelled|cancelled/i.test(cru)) return '';
-  return `Não deu para imprimir. Desligue e ligue a impressora e tente de novo. (${cru})`;
-}
 
 function Dica({ texto }) {
   const [aberta, setAberta] = useState(false);
@@ -733,7 +711,11 @@ export default function EtiquetaPrint() {
   // só roda quando a conta guarda histórico, e o plano Etiquetas não guarda —
   // então a memória nunca funcionaria justo no produto que vai ser vendido.
   const aoImprimir = (soEstes, umCodigoPorCopia = true) => {
-    const lista = soEstes || itens;
+    // ⚠️ ETIQUETA DE TESTE (aba Impressora) NÃO REGISTRA NADA: nem relatório,
+    // nem aba Impressas, nem o responsável e o armazenamento lembrados. Ela
+    // serve para conferir o rolo — contar seria mentir no relatório do dono.
+    const lista = (soEstes || itens).filter(i => !i.teste);
+    if (!lista.length) return;
     // Um id por item, gerado ANTES das duas gravações: o mesmo vai para a
     // lista de Impressas e para a linha do relatório.
     const idDe = new Map(lista.map(item => [item, idDeImpressao()]));
@@ -797,7 +779,10 @@ export default function EtiquetaPrint() {
   // só viu depois que o RESP. saiu em branco e teve que refazer. Trava os DOIS
   // botões, não só o do diálogo — senão a impressão direta, que é a que a
   // cozinha usa, passaria por baixo da regra que o dono ligou.
-  const faltaResponsavel = config.exigirResponsavel === true && !responsavel.trim();
+  // a etiqueta de teste da aba Impressora: não exige quem assina, não pergunta
+  // se saiu no papel e não registra nada (ver aoImprimir)
+  const soTeste = itens.length > 0 && itens.every(i => i.teste);
+  const faltaResponsavel = !soTeste && config.exigirResponsavel === true && !responsavel.trim();
 
   // ⚠️ "SAIU NO PAPEL?" — SÓ NO CAMINHO DO COMPUTADOR. Defeito achado pelo
   // dono em 10/09/2026: tocar em "Imprimir pelo computador" abre a janela de
@@ -836,7 +821,8 @@ export default function EtiquetaPrint() {
     window.print();
     // No Chrome do computador `print()` só volta quando a janela fecha, então
     // a pergunta aparece DEPOIS de a pessoa imprimir ou cancelar.
-    setPerguntaPara(etiquetaState);
+    // Etiqueta de teste não conta, então não há o que perguntar.
+    if (!soTeste) setPerguntaPara(etiquetaState);
   };
 
   // ── Caminho 2: direto na impressora, em TSPL ────────────────
@@ -936,6 +922,9 @@ export default function EtiquetaPrint() {
               o tablet apontado para a unidade errada imprime o CNPJ errado, e
               isso é problema de fiscalização, não de tela. É a última chance
               de conferir antes de o rolo andar. */}
+          {soTeste && (
+            <Aviso tom="neutro">Etiqueta de teste: serve para conferir o rolo e o alinhamento. Não entra no relatório nem na lista de impressas.</Aviso>
+          )}
           {variasUnidades && (
             <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
               <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide">Imprimindo pela unidade</p>

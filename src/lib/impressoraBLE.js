@@ -126,6 +126,35 @@ let canal = null;
 export const impressoraConectada = () => !!(dispositivo?.gatt?.connected && canal);
 export const nomeImpressora = () => dispositivo?.name || '';
 
+// ── Quem está olhando a conexão ────────────────────────────────
+// A conexão mora aqui, fora do React. A faixa "impressora conectada" da tela
+// de etiquetar e o cartão da aba Impressora se inscrevem para redesenhar
+// quando ela liga, cai ou é trocada (23/09/2026). `versaoDaConexao` muda a
+// cada evento — é o que o `useSyncExternalStore` compara.
+const ouvintes = new Set();
+let versao = 0;
+const avisarMudanca = () => { versao += 1; ouvintes.forEach(fn => { try { fn(); } catch { /* ouvinte quebrado não derruba a impressão */ } }); };
+export const versaoDaConexao = () => versao;
+export function aoMudarConexao(fn) {
+  ouvintes.add(fn);
+  return () => ouvintes.delete(fn);
+}
+
+/** Para o diagnóstico do suporte: o que esta aba sabe da impressora agora. */
+export function estadoDaConexao() {
+  return {
+    conectada: impressoraConectada(),
+    nome: nomeImpressora(),
+    modo: planoDeEnvio(canal?.properties)?.modo || '',
+  };
+}
+
+/** Nomes dos aparelhos que este navegador já autorizou (diagnóstico). */
+export async function aparelhosAutorizados() {
+  if (!bleDisponivel() || !navigator.bluetooth.getDevices) return null;
+  try { return (await navigator.bluetooth.getDevices()).map(d => d?.name || '(sem nome)'); } catch { return null; }
+}
+
 // ── Nada pode travar a tela ────────────────────────────────────
 //
 // ⚠️ `gatt.connect()` NÃO TEM TEMPO LIMITE, e isso é de propósito na
@@ -205,7 +234,8 @@ async function ligar(dev) {
   // Se a impressora desligar ou sair de alcance, o estado tem que refletir —
   // senão o botão continua dizendo "conectada" e a impressão falha sem motivo
   // aparente.
-  dev.addEventListener('gattserverdisconnected', () => { canal = null; });
+  dev.addEventListener('gattserverdisconnected', () => { canal = null; avisarMudanca(); });
+  avisarMudanca();
   return dev;
 }
 
@@ -310,6 +340,7 @@ export function desconectar() {
   try { dispositivo?.gatt?.disconnect(); } catch { /* já caiu */ }
   dispositivo = null;
   canal = null;
+  avisarMudanca();
 }
 
 // ⚠️ ERRO NOSSO, JÁ EM PORTUGUÊS — e a marca importa. O tradutor de mensagens
