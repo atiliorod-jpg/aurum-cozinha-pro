@@ -25,7 +25,7 @@ export default defineConfig([
   },
   // Scripts de Node (rodam fora do browser: build e utilitários de terminal)
   {
-    files: ['vite.config.js', 'eslint.config.js', 'onboarding.js'],
+    files: ['vite.config.js', 'eslint.config.js', 'onboarding.js', 'playwright.config.js'],
     languageOptions: { globals: globals.node },
   },
   // Contexts exportam Provider + hook + constantes juntos por design

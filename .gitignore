@@ -24,3 +24,7 @@ dev-dist
 *.sln
 *.sw?
 .claude/settings.local.json
+
+# Robô (Playwright): resultados de cada execução
+test-results
+playwright-report

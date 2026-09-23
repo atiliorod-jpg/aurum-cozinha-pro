@@ -41,6 +41,12 @@ jobs:
           VITE_PIX_CHAVE: ${{ secrets.VITE_PIX_CHAVE }}
           VITE_PIX_NOME: ${{ secrets.VITE_PIX_NOME }}
           VITE_PIX_CIDADE: ${{ secrets.VITE_PIX_CIDADE }}
+      # ⚠️ O ROBÔ (23/09/2026): abre o app JÁ COMPILADO num navegador de
+      # verdade, entra na demonstração dos dois planos e visita cada tela. Os
+      # testes acima leem o código; este é o único que ABRE as telas. Tela que
+      # trava ao abrir derruba a publicação aqui, antes de chegar ao cliente.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run robo
       # SPA no GitHub Pages: o 404 devolve o app e o React Router resolve a rota
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3
