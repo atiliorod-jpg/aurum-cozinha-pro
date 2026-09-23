@@ -15,13 +15,27 @@ import { MODULOS, moduloPorId, tipoBase, ehIdInstancia } from './modulos';
 const texto = (v) => String(v ?? '').trim();
 
 /**
- * Lista de estoques para o seletor e para o balanço, na ordem dos tipos.
+ * Lista de estoques (cozinhas) para o seletor e para o balanço, na ordem dos
+ * tipos.
  *
- * Cada item: { id, tipo, raiz, nome, estabelecimento, icone, descricao, arquivado }
+ * Cada item: { id, tipo, raiz, nome, estabelecimento, icone, descricao,
+ *              arquivado, unidade, principalDaUnidade }
+ *
+ * ⚠️ UNIDADES (M46). `unidade` é o id da unidade extra dona da cozinha, ou
+ * `null` para a principal (a própria conta). A Produção principal de cada
+ * unidade extra é SINTETIZADA aqui a partir da tabela `unidades`, do mesmo
+ * jeito que as raízes — não é gravada no documento. É isso que deixa a Aurum
+ * criar a unidade pelo painel: o suporte não grava `estoques` (M22).
+ * Sem unidades extras, a lista sai idêntica à de antes (há teste).
  */
-export function listarEstoques(doc) {
+export function listarEstoques(doc, unidades = []) {
   const salvos = Array.isArray(doc?.itens) ? doc.itens.filter(Boolean) : [];
   const porId = new Map(salvos.map(i => [i.id, i]));
+  const extras = (unidades || []).filter(u => u && u.id && u.cozinha);
+  const cozinhasDeUnidade = new Set(extras.map(u => u.cozinha));
+  const unidadePorId = new Map(extras.map(u => [u.id, u]));
+  // cozinha de uma unidade arquivada sai do seletor junto com a unidade
+  const unidadeArquivada = (id) => !!unidadePorId.get(id)?.arquivada_em;
 
   const lista = [];
   for (const m of MODULOS) {
@@ -38,10 +52,34 @@ export function listarEstoques(doc) {
       // Raiz NUNCA arquiva: ela é o destino de queda quando uma instância some,
       // e é onde moram os dados de quem usa o app desde antes das instâncias.
       arquivado: false,
+      unidade: null,
+      principalDaUnidade: m.id === MODULOS[0].id,
     });
+    // a Produção principal de cada unidade extra (só existe desse tipo)
+    extras
+      .filter(u => tipoBase(u.cozinha) === m.id)
+      .sort((a, b) => String(a.criada_em || '').localeCompare(String(b.criada_em || '')))
+      .forEach(u => {
+        // o dono pode RENOMEAR a cozinha (fica no documento), mas ela só
+        // arquiva junto com a unidade — sem ela a unidade não teria onde imprimir
+        const c = porId.get(u.cozinha);
+        lista.push({
+          id: u.cozinha,
+          tipo: m.id,
+          raiz: false,
+          icone: m.icone,
+          descricao: m.descricao,
+          nome: texto(c?.nome) || m.label,
+          estabelecimento: '',
+          criadoEm: Date.parse(u.criada_em || '') || 0,
+          arquivado: !!u.arquivada_em,
+          unidade: u.id,
+          principalDaUnidade: true,
+        });
+      });
     // e as instâncias daquele tipo, na ordem em que foram criadas
     salvos
-      .filter(i => ehIdInstancia(i.id) && tipoBase(i.id) === m.id)
+      .filter(i => ehIdInstancia(i.id) && tipoBase(i.id) === m.id && !cozinhasDeUnidade.has(i.id))
       .sort((a, b) => (a.criadoEm || 0) - (b.criadoEm || 0))
       .forEach(i => lista.push({
         id: i.id,
@@ -52,7 +90,9 @@ export function listarEstoques(doc) {
         nome: texto(i.nome) || `${m.label} (${i.id.split('#')[1]})`,
         estabelecimento: texto(i.estabelecimento),
         criadoEm: i.criadoEm || 0,
-        arquivado: !!i.arquivado,
+        arquivado: !!i.arquivado || unidadeArquivada(texto(i.unidade)),
+        unidade: texto(i.unidade) || null,
+        principalDaUnidade: false,
       }));
   }
   return lista;
@@ -90,7 +130,7 @@ export function estabelecimentoDe(estoque, estabelecimentoDaConta) {
  * nunca renomeou nada continua sem documento, e o padrão continua vindo do
  * código.
  */
-export function salvarEstoque(doc, { id, nome, estabelecimento, arquivado, tipo, criadoEm }) {
+export function salvarEstoque(doc, { id, nome, estabelecimento, arquivado, tipo, criadoEm, unidade }) {
   const itens = Array.isArray(doc?.itens) ? [...doc.itens] : [];
   const i = itens.findIndex(x => x && x.id === id);
   const anterior = i >= 0 ? itens[i] : null;
@@ -103,6 +143,10 @@ export function salvarEstoque(doc, { id, nome, estabelecimento, arquivado, tipo,
     arquivado: arquivado !== undefined ? !!arquivado : !!anterior?.arquivado,
     criadoEm: anterior?.criadoEm || criadoEm || 0,
   };
+  // A unidade dona da cozinha (M46). Só é gravada quando é uma EXTRA: sem o
+  // campo, a cozinha é da principal — que é o que todo documento antigo já diz.
+  const dona = unidade !== undefined ? texto(unidade) : texto(anterior?.unidade);
+  if (dona && ehIdInstancia(id)) novo.unidade = dona;
 
   // Raiz sem personalização nenhuma não precisa ocupar espaço no documento.
   const ehRaizVazia = !ehIdInstancia(id) && !novo.nome && !novo.estabelecimento;
@@ -154,11 +198,18 @@ export { moduloPorId };
  * "Cozinha de Finalização" oferecido no Estoque Seco seria um beco sem saída —
  * a pessoa manda o mantimento e ele não aparece em lugar nenhum, em silêncio.
  */
-export function destinosFinalizacao(estoques, moduloAtivo) {
+export function destinosFinalizacao(estoques, moduloAtivo, unidades = []) {
   if (tipoBase(moduloAtivo) !== MODULOS[0].id) return [];
+  // ⚠️ Com várias unidades, "Cozinha de Finalização" sozinho não diz de qual
+  // casa é — e mandar para a casa errada é mercadoria no lugar errado. A
+  // produção central que abastece outra unidade continua permitida.
+  const nomeDe = (e) => {
+    const u = e.unidade ? (unidades || []).find(x => x && x.id === e.unidade) : null;
+    return u ? `${e.nome} · ${texto(u.nome)}` : e.nome;
+  };
   return estoquesAtivos(estoques)
     .filter(e => e.tipo === 'finalizacao')
-    .map(e => ({ id: e.id, nome: e.nome, fixo: true }));
+    .map(e => ({ id: e.id, nome: nomeDe(e), fixo: true }));
 }
 
 /**
@@ -169,7 +220,7 @@ export function destinosFinalizacao(estoques, moduloAtivo) {
  * (o semeador só roda quando o documento não existe). É o mesmo buraco que
  * `mesclarFixos` foi criada para tapar.
  */
-export function locaisPadrao(locaisDoCatalogo, estoques, moduloAtivo) {
+export function locaisPadrao(locaisDoCatalogo, estoques, moduloAtivo, unidades = []) {
   const editaveis = (locaisDoCatalogo || []).filter(l => l && !l.fixo);
-  return [...editaveis, ...destinosFinalizacao(estoques, moduloAtivo)];
+  return [...editaveis, ...destinosFinalizacao(estoques, moduloAtivo, unidades)];
 }

@@ -11,6 +11,10 @@ import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
 import { formatarCNPJ } from '../../utils/documentos';
 import { CAPACIDADES, PERMISSOES_PADRAO, cargosDaCasa, capacidadesDoProduto } from '../../utils/permissoes';
+import { temUnidadesExtras, opcoesDeUnidade } from '../../utils/unidades';
+import { useApp } from '../../store/AppContext';
+import { useAuth } from '../../store/AuthContext';
+import { useUI } from '../../store/UIContext';
 
 export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
   // eslint-disable-next-line react-hooks/purity -- a hora atual é insumo legítimo do prazo de 24h; recalcular a cada render é o comportamento desejado
@@ -204,18 +208,9 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
     ['responsavel', 'Responsável'],
   ];
 
-  // Dados do estabelecimento (rodapé da etiqueta) — prefs.estabelecimento
-  const est = prefs.estabelecimento || {};
-  const [estLocal, setEstLocal] = useState(est);
-  const salvarEst = () => {
-    // ⚠️ O CNPJ SAI DAQUI NA GRAVAÇÃO. Contas que editaram esse campo quando
-    // ele era livre têm um valor guardado; deixá-lo passar faria o número
-    // antigo continuar indo para a etiqueta mesmo com o campo já travado.
-    const { cnpj: _ignorado, ...semCnpj } = estLocal;
-    const limpo = Object.fromEntries(Object.entries(semCnpj).map(([k, v]) => [k, (v || '').trim()]));
-    setPref('estabelecimento', limpo);
-    toast('Dados do estabelecimento salvos.', 'sucesso');
-  };
+  // Dados do estabelecimento (rodapé da etiqueta): os da UNIDADE deste
+  // aparelho — ver DadosDoEstabelecimento, logo abaixo.
+  const { unidadeAtual } = useApp();
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
@@ -285,60 +280,185 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
           </span>
         </label>
       </div>
-      <div className="border-t border-gray-100 pt-3 space-y-2">
-        <p className="text-xs font-semibold text-gray-600">Dados do estabelecimento (rodapé da etiqueta)</p>
-        {/* ⚠️ O NOME É SÓ LEITURA AQUI, de propósito. Ele identifica a conta no
-            contrato, na cobrança e no painel de suporte — conta que se renomeia
-            sozinha vira outra conta para quem atende. A troca existe, passa
-            pela Aurum, e o caminho está escrito em vez de a pessoa concluir
-            que o campo "faltou". */}
-        <div className="bg-gray-50 rounded-lg px-3 py-2">
-          <p className="text-[11px] text-gray-600">Nome do estabelecimento</p>
-          <p className="text-sm font-semibold text-polo-navy">{nomeRestaurante || '—'}</p>
-          <p className="text-[11px] text-gray-600 mt-1">
-            Sai impresso na etiqueta. Para trocar, use <strong>Ajuda → Pedido</strong> no topo da
-            tela — a equipe Aurum confere e muda.
+      <DadosDoEstabelecimento key={unidadeAtual?.id || 'principal'} prefs={prefs} setPref={setPref}
+        toast={toast} nomeRestaurante={nomeRestaurante} cnpjDaConta={cnpjDaConta} />
+    </div>
+  );
+}
+
+/**
+ * Dados do estabelecimento — o rodapé da etiqueta, da UNIDADE deste aparelho.
+ *
+ * ⚠️ DUAS ORIGENS, UMA TELA (M46). Na unidade principal os dados continuam em
+ * `prefs.estabelecimento`, como sempre, e qualquer um que abra este cartão
+ * edita. Na unidade extra eles moram na linha da unidade, no banco: o
+ * endereço só a conta dona altera (a função confere o cargo lá dentro), e
+ * nome e CNPJ só a Aurum.
+ *
+ * ⚠️ `key` pela unidade (quem chama passa): trocar de unidade REMONTA o cartão,
+ * senão o rascunho da unidade anterior ficaria na tela e seria salvo na outra.
+ */
+function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDaConta }) {
+  const { unidadeAtual: extra, unidades, editarEnderecoUnidade } = useApp();
+  const { sessao } = useAuth();
+  const variasUnidades = temUnidadesExtras(unidades);
+  const dono = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin;
+  const podeEditar = extra ? dono : true;
+  const [local, setLocal] = useState(() => (extra
+    ? { endereco: extra.endereco || '', cidade: extra.cidade || '', uf: extra.uf || '', cep: extra.cep || '' }
+    : (prefs.estabelecimento || {})));
+  const [salvando, setSalvando] = useState(false);
+
+  const salvar = async () => {
+    if (extra) {
+      setSalvando(true);
+      const erro = await editarEnderecoUnidade(extra.id, local);
+      setSalvando(false);
+      toast(erro ? `Não salvou: ${erro}` : 'Endereço da unidade salvo.', erro ? 'erro' : 'sucesso');
+      return;
+    }
+    // ⚠️ O CNPJ SAI DAQUI NA GRAVAÇÃO. Contas que editaram esse campo quando
+    // ele era livre têm um valor guardado; deixá-lo passar faria o número
+    // antigo continuar indo para a etiqueta mesmo com o campo já travado.
+    const { cnpj: _ignorado, ...semCnpj } = local;
+    const limpo = Object.fromEntries(Object.entries(semCnpj).map(([k, v]) => [k, (v || '').trim()]));
+    setPref('estabelecimento', limpo);
+    toast('Dados do estabelecimento salvos.', 'sucesso');
+  };
+
+  const nome = extra ? extra.nome : nomeRestaurante;
+  const cnpj = extra ? extra.cnpj : cnpjDaConta;
+  const campo = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs disabled:bg-gray-50';
+
+  return (
+    <div className="border-t border-gray-100 pt-3 space-y-2">
+      <p className="text-xs font-semibold text-gray-600">Dados do estabelecimento (rodapé da etiqueta)</p>
+      {variasUnidades && (
+        <p className="text-[11px] text-polo-navy bg-polo-beige rounded-lg px-2.5 py-1.5">
+          São os dados da unidade <strong>{nome || '—'}</strong>, a deste aparelho. Para ver outra
+          unidade, troque de unidade no topo da tela.
+        </p>
+      )}
+      {/* ⚠️ O NOME É SÓ LEITURA AQUI, de propósito. Ele identifica a conta no
+          contrato, na cobrança e no painel de suporte — conta que se renomeia
+          sozinha vira outra conta para quem atende. A troca existe, passa
+          pela Aurum, e o caminho está escrito em vez de a pessoa concluir
+          que o campo "faltou". */}
+      <div className="bg-gray-50 rounded-lg px-3 py-2">
+        <p className="text-[11px] text-gray-600">Nome do estabelecimento</p>
+        <p className="text-sm font-semibold text-polo-navy">{nome || '—'}</p>
+        <p className="text-[11px] text-gray-600 mt-1">
+          Sai impresso na etiqueta. Para trocar, use <strong>Ajuda → Pedido</strong> no topo da
+          tela — a equipe Aurum confere e muda.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {/* ⚠️ CNPJ NÃO SE EDITA AQUI. Ele vem do cadastro (da conta, ou da
+            unidade) e é o que sai IMPRESSO no rodapé da etiqueta — o dado que
+            identifica quem manipulou o alimento para a fiscalização. Enquanto
+            era um campo livre, um erro de digitação (ou uma troca por engano)
+            circulava colado no pote, e ninguém tinha como saber que estava
+            errado. Mudar passa pela Aurum, como o nome do estabelecimento. */}
+        <div>
+          <p className="text-[11px] text-gray-500 mb-0.5">CNPJ</p>
+          <p className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700">
+            {cnpj ? formatarCNPJ(cnpj) : '—'}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {/* ⚠️ CNPJ NÃO SE EDITA AQUI. Ele vem do cadastro da conta e é o que sai
-              IMPRESSO no rodapé da etiqueta — o dado que identifica quem
-              manipulou o alimento para a fiscalização. Enquanto era um campo
-              livre, um erro de digitação (ou uma troca por engano) circulava
-              colado no pote, e ninguém tinha como saber que estava errado.
-              Mudar passa pela Aurum, como o nome do estabelecimento. */}
-          <div>
-            <p className="text-[11px] text-gray-500 mb-0.5">CNPJ</p>
-            <p className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700">
-              {cnpjDaConta ? formatarCNPJ(cnpjDaConta) : '—'}
-            </p>
-          </div>
-          <div>
-            <label htmlFor="est-cep" className="block text-[11px] text-gray-500 mb-0.5">CEP</label>
-            <input id="est-cep" type="text" value={estLocal.cep || ''} placeholder="00000-000"
-              onChange={e => setEstLocal(p => ({ ...p, cep: e.target.value }))}
-              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
-          </div>
-        </div>
-        <p className="text-[11px] text-gray-600">
-          O CNPJ vem do cadastro e não muda por aqui — ele identifica quem manipulou o alimento.
-          Para corrigir, use <strong>Ajuda → Pedido</strong>.
-        </p>
         <div>
-          <label htmlFor="est-end" className="block text-[11px] text-gray-500 mb-0.5">Endereço</label>
-          <input id="est-end" type="text" value={estLocal.endereco || ''} placeholder="Rua, número"
-            onChange={e => setEstLocal(p => ({ ...p, endereco: e.target.value }))}
-            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
+          <label htmlFor="est-cep" className="block text-[11px] text-gray-500 mb-0.5">CEP</label>
+          <input id="est-cep" type="text" value={local.cep || ''} placeholder="00000-000" disabled={!podeEditar}
+            onChange={e => setLocal(p => ({ ...p, cep: e.target.value }))} className={campo} />
         </div>
+      </div>
+      <p className="text-[11px] text-gray-600">
+        O CNPJ vem do cadastro e não muda por aqui — ele identifica quem manipulou o alimento.
+        Para corrigir, use <strong>Ajuda → Pedido</strong>.
+      </p>
+      <div>
+        <label htmlFor="est-end" className="block text-[11px] text-gray-500 mb-0.5">Endereço</label>
+        <input id="est-end" type="text" value={local.endereco || ''} placeholder="Rua, número" disabled={!podeEditar}
+          onChange={e => setLocal(p => ({ ...p, endereco: e.target.value }))} className={campo} />
+      </div>
+      {extra ? (
+        // Na unidade extra cidade e UF são campos do banco, separados
+        <div className="grid grid-cols-[1fr_4.5rem] gap-2">
+          <div>
+            <label htmlFor="est-cid" className="block text-[11px] text-gray-500 mb-0.5">Cidade</label>
+            <input id="est-cid" type="text" value={local.cidade || ''} placeholder="Recife" disabled={!podeEditar}
+              onChange={e => setLocal(p => ({ ...p, cidade: e.target.value }))} className={campo} />
+          </div>
+          <div>
+            <label htmlFor="est-uf" className="block text-[11px] text-gray-500 mb-0.5">UF</label>
+            <input id="est-uf" type="text" value={local.uf || ''} placeholder="PE" maxLength={2} disabled={!podeEditar}
+              onChange={e => setLocal(p => ({ ...p, uf: e.target.value.toUpperCase() }))} className={campo} />
+          </div>
+        </div>
+      ) : (
         <div>
           <label htmlFor="est-cid" className="block text-[11px] text-gray-500 mb-0.5">Cidade - UF</label>
-          <input id="est-cid" type="text" value={estLocal.cidade || ''} placeholder="Recife - PE"
-            onChange={e => setEstLocal(p => ({ ...p, cidade: e.target.value }))}
-            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
+          <input id="est-cid" type="text" value={local.cidade || ''} placeholder="Recife - PE"
+            onChange={e => setLocal(p => ({ ...p, cidade: e.target.value }))} className={campo} />
         </div>
-        <button onClick={salvarEst}
-          className="w-full bg-polo-navy text-polo-gold font-bold py-2.5 rounded-lg text-xs">Salvar dados do estabelecimento</button>
+      )}
+      {podeEditar ? (
+        <button onClick={salvar} disabled={salvando}
+          className="w-full bg-polo-navy text-polo-gold font-bold py-2.5 rounded-lg text-xs disabled:opacity-60">
+          {salvando ? 'Salvando…' : 'Salvar dados do estabelecimento'}
+        </button>
+      ) : (
+        <p className="text-[11px] text-gray-600">Só a conta dona altera o endereço de uma unidade.</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Unidades da conta — a lista, com o CNPJ de cada uma (M46).
+ *
+ * ⚠️ É O MESMO RECORTE NOS DOIS PLANOS: no Etiquetas este cartão fica na
+ * Administração; no completo a tela "Unidades e cozinhas" mostra as mesmas
+ * unidades com as cozinhas de cada uma. A unidade nova não se cria aqui — o
+ * CNPJ passa pela Aurum, que também combina o adicional antes.
+ */
+export function CartaoUnidades() {
+  const { unidades, unidadeAtual } = useApp();
+  const { sessao, impersonando } = useAuth();
+  const { abrirAjuda } = useUI();
+  const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
+  const atual = unidadeAtual?.id || null;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-bold text-polo-navy">Unidades</h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Cada unidade é um estabelecimento, com o seu CNPJ. A etiqueta sai com os dados da unidade
+          em que o aparelho está.
+        </p>
       </div>
+      <ul className="space-y-1.5">
+        {opcoesDeUnidade(unidades, nomeConta).map(u => (
+          <li key={u.id || 'principal'} className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-polo-navy truncate">{u.nome}</span>
+              <span className="block text-[11px] text-gray-600">
+                {u.principal ? 'Unidade principal' : 'Unidade'}
+                {(u.principal ? sessao?.cnpj : u.cnpj) ? ` · CNPJ ${formatarCNPJ(u.principal ? sessao.cnpj : u.cnpj)}` : ''}
+              </span>
+            </span>
+            {u.id === atual && (
+              <span className="text-[11px] font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5 flex-shrink-0">este aparelho</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {!sessao?.eSuperAdmin && (
+        <button onClick={() => abrirAjuda('pedido')}
+          className="w-full border-2 border-polo-navy text-polo-navy font-bold rounded-xl py-2.5 text-sm">
+          Preciso de outra unidade
+        </button>
+      )}
     </div>
   );
 }

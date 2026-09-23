@@ -185,6 +185,32 @@ export function resumirRelatorio(linhas, { de, ate }) {
 }
 
 /**
+ * Etiquetas por UNIDADE no período (M46) — a comparação entre as casas.
+ *
+ * `id` null = unidade principal (é como o banco grava o histórico de antes
+ * das unidades, e o que a principal continua gravando). A mais movimentada
+ * primeiro.
+ */
+export function totaisPorUnidade(linhas, { de, ate }) {
+  const mapa = new Map();
+  for (const l of linhas || []) {
+    if (!l || l.dia < de || l.dia > ate) continue;
+    const id = l.unidade_id || null;
+    mapa.set(id, (mapa.get(id) || 0) + numero(l.etiquetas));
+  }
+  return [...mapa.entries()]
+    .map(([id, etiquetas]) => ({ id, etiquetas }))
+    .sort((a, b) => b.etiquetas - a.etiquetas);
+}
+
+/** Só as linhas de uma unidade; `'todas'` devolve tudo. */
+export function linhasDaUnidade(linhas, filtro) {
+  if (filtro === 'todas' || filtro === undefined) return linhas || [];
+  const alvo = filtro || null;
+  return (linhas || []).filter(l => (l?.unidade_id || null) === alvo);
+}
+
+/**
  * Quanto subiu ou caiu, em %.
  *
  * ⚠️ `null` QUANDO O PERÍODO ANTERIOR FOI ZERO e o atual não: não existe
@@ -216,9 +242,17 @@ export function idDeImpressao() {
 
 const br = (iso) => { const [a, m, d] = iso.split('-'); return `${d}/${m}/${a}`; };
 
-/** As abas da planilha que o dono baixa: [nome da aba, linhas]. */
-export function planilhaDoRelatorio(resumo, { de, ate }) {
+/**
+ * As abas da planilha que o dono baixa: [nome da aba, linhas].
+ *
+ * `porUnidade` ([{ nome, etiquetas }]) só entra quando há mais de uma casa —
+ * com uma só a aba repetiria o total.
+ */
+export function planilhaDoRelatorio(resumo, { de, ate }, porUnidade = []) {
   const media = Math.round((resumo.mediaPorDia || 0) * 10) / 10;
+  const abaUnidades = (porUnidade || []).length > 1
+    ? [['Por unidade', [['Unidade', 'Etiquetas'], ...porUnidade.map(u => [u.nome, u.etiquetas])]]]
+    : [];
   return [
     ['Resumo', [
       ['Período', `${br(de)} a ${br(ate)}`],
@@ -233,5 +267,6 @@ export function planilhaDoRelatorio(resumo, { de, ate }) {
       ...resumo.semanas.map(s => [br(s.de), br(s.ate), s.etiquetas])]],
     ['Por item', [['Item', 'Etiquetas'], ...resumo.porItem.map(i => [i.nome, i.etiquetas])]],
     ['Por responsável', [['Responsável', 'Etiquetas'], ...resumo.porResponsavel.map(r => [r.nome, r.etiquetas])]],
+    ...abaUnidades,
   ];
 }

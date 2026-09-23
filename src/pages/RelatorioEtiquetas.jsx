@@ -8,9 +8,10 @@ import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import { hoje, fmtData } from '../utils/formatters';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
+import { temUnidadesExtras, opcoesDeUnidade, nomeDaUnidade } from '../utils/unidades';
 import {
   PERIODOS, periodoDoRelatorio, periodoAnterior, resumirRelatorio, variacao,
-  diaDaSemana, planilhaDoRelatorio,
+  diaDaSemana, planilhaDoRelatorio, totaisPorUnidade, linhasDaUnidade,
 } from '../utils/relatorioEtiquetas';
 
 const fmtCurta = (iso) => fmtData(iso).slice(0, 5);
@@ -57,7 +58,7 @@ function Barra({ rotulo, valor, maximo }) {
  * filtro.
  */
 export default function RelatorioEtiquetas() {
-  const { rid, online } = useApp();
+  const { rid, online, unidades } = useApp();
   const { sessao, impersonando } = useAuth();
   const { toast } = useUI();
   const soEtiquetas = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
@@ -92,9 +93,21 @@ export default function RelatorioEtiquetas() {
   }, [semNuvem, chave, anterior.de, periodo.ate, rid]);
 
   const carregando = !semNuvem && resposta.chave !== chave;
-  const linhas = useMemo(() => (resposta.chave === chave ? resposta.linhas : []), [resposta, chave]);
+  const todasAsLinhas = useMemo(() => (resposta.chave === chave ? resposta.linhas : []), [resposta, chave]);
+  // ⚠️ UNIDADES (M46): o filtro corta TUDO — números, gráficos, itens,
+  // comparação com o período anterior. 'todas' é o grupo inteiro; `null` é a
+  // unidade principal. O filtro só aparece quando a conta tem mais de uma
+  // casa, ou quando há linha de alguma extra (unidade arquivada inclusive).
+  const [filtroUnidade, setFiltroUnidade] = useState('todas');
+  const comUnidades = temUnidadesExtras(unidades) || todasAsLinhas.some(l => l?.unidade_id);
+  const linhas = useMemo(
+    () => linhasDaUnidade(todasAsLinhas, comUnidades ? filtroUnidade : 'todas'),
+    [todasAsLinhas, filtroUnidade, comUnidades]);
   const resumo = useMemo(() => resumirRelatorio(linhas, periodo), [linhas, periodo]);
   const resumoAnt = useMemo(() => resumirRelatorio(linhas, anterior), [linhas, anterior]);
+  const porUnidade = useMemo(() => (comUnidades
+    ? totaisPorUnidade(todasAsLinhas, periodo).map(u => ({ ...u, nome: nomeDaUnidade(unidades, u.id, nomeCasa) }))
+    : []), [comUnidades, todasAsLinhas, periodo, unidades, nomeCasa]);
 
   const v = variacao(resumo.total, resumoAnt.total);
   const maxDia = Math.max(0, ...resumo.dias.map(d => d.etiquetas));
@@ -106,7 +119,7 @@ export default function RelatorioEtiquetas() {
     try {
       const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
-      for (const [nome, linhasAba] of planilhaDoRelatorio(resumo, periodo)) {
+      for (const [nome, linhasAba] of planilhaDoRelatorio(resumo, periodo, filtroUnidade === 'todas' ? porUnidade : [])) {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(linhasAba), nome);
       }
       XLSX.writeFile(wb, `etiquetas_${periodo.de}_a_${periodo.ate}.xlsx`);
@@ -138,7 +151,10 @@ export default function RelatorioEtiquetas() {
   return (
     <Layout title="Relatório de etiquetas" area={soEtiquetas ? 'estoque' : 'admin'}>
       <div className="relatorio-print-cabecalho mb-4">
-        <p className="text-lg font-bold text-polo-navy">Relatório de etiquetas — {nomeCasa || 'Aurum'}</p>
+        <p className="text-lg font-bold text-polo-navy">
+          Relatório de etiquetas — {nomeCasa || 'Aurum'}
+          {comUnidades && filtroUnidade !== 'todas' ? ` · ${nomeDaUnidade(unidades, filtroUnidade, nomeCasa)}` : ''}
+        </p>
         <p className="text-xs text-gray-600">
           {fmtData(periodo.de)} a {fmtData(periodo.ate)} · comparado com {fmtData(anterior.de)} a {fmtData(anterior.ate)}
         </p>
@@ -174,6 +190,20 @@ export default function RelatorioEtiquetas() {
           {fmtData(periodo.de)} a {fmtData(periodo.ate)} · comparado com {fmtData(anterior.de)} a {fmtData(anterior.ate)}
         </p>
 
+        {comUnidades && (
+          <div className="flex flex-wrap gap-2 print:hidden" role="group" aria-label="Unidade do relatório">
+            {[{ chave: 'todas', nome: 'Todas as unidades' },
+              ...opcoesDeUnidade(unidades, nomeCasa).map(u => ({ chave: u.id, nome: u.nome }))].map(o => (
+              <button key={o.chave ?? 'principal'} type="button" onClick={() => setFiltroUnidade(o.chave)}
+                aria-pressed={filtroUnidade === o.chave}
+                className={`min-h-11 px-3 rounded-full text-xs font-bold border
+                  ${filtroUnidade === o.chave ? 'bg-polo-gold text-polo-navy border-polo-gold' : 'bg-white text-polo-navy border-gray-200'}`}>
+                {o.nome}
+              </button>
+            ))}
+          </div>
+        )}
+
         {semNuvem ? (
           <Aviso tom="neutro">
             O relatório vem da nuvem e não existe na demonstração. Numa conta de verdade,
@@ -208,6 +238,19 @@ export default function RelatorioEtiquetas() {
               <Aviso tom="neutro">Nenhuma etiqueta impressa neste período.</Aviso>
             ) : (
               <>
+                {/* A comparação entre as casas — só no grupo inteiro, e só
+                    quando há mais de uma com etiqueta no período. */}
+                {filtroUnidade === 'todas' && porUnidade.length > 1 && (
+                  <Secao titulo="Por unidade">
+                    <ul className="space-y-1">
+                      {porUnidade.map(u => (
+                        <Barra key={u.id || 'principal'} rotulo={u.nome} valor={u.etiquetas}
+                          maximo={porUnidade[0]?.etiquetas || 0} />
+                      ))}
+                    </ul>
+                  </Secao>
+                )}
+
                 {resumo.dias.length <= MAX_DIAS_NA_TELA ? (
                   <Secao titulo="Por dia">
                     <ul className="space-y-1">

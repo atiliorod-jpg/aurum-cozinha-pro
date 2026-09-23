@@ -50,8 +50,8 @@ export default function Administracao() {
       desc: 'Quem mexeu em quê, no sistema inteiro',
     },
     eDiretoria && {
-      to: '/estoques', icone: 'estabelecimento', titulo: 'Estoques da conta',
-      desc: 'Criar, renomear e arquivar — e o nome que sai na etiqueta de cada um',
+      to: '/estoques', icone: 'estabelecimento', titulo: 'Unidades e cozinhas',
+      desc: 'Cada unidade com o seu CNPJ, e as cozinhas de cada uma',
     },
     // ⚠️ Cada cartão gateado pela MESMA condição da aba que ele abre
     // (espelha Configuracoes). Sem isso os três apareciam para todo mundo e,

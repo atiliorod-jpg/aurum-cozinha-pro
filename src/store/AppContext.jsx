@@ -12,6 +12,7 @@ import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outbo
 import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
+import { cozinhaDeEtiquetas, acharUnidade } from '../utils/unidades';
 import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
@@ -144,6 +145,10 @@ export function AppProvider({ children }) {
   const [permissoes, setPermissoesRaw] = useState(CAT.permissoes);
   const [precos,      setPrecosRaw]      = useState(CAT.precos);
   const [estoquesDoc, setEstoquesDocRaw] = useState(CAT.estoques);
+  // Unidades EXTRAS da conta (M46) — a principal é a própria conta e não entra
+  // aqui. Vêm da tabela `unidades` (só a Aurum escreve), com cache para a
+  // etiqueta sair certa também sem internet.
+  const [unidades,    setUnidadesRaw]    = useState([]);
   // mín/máx DESTE estoque, sobrepostos ao catálogo compartilhado (Fase 3)
   const [metas,       setMetasRaw]       = useState({});
   const [prefs,       setPrefsRaw]       = useState(CAT.prefs);
@@ -183,7 +188,9 @@ export function AppProvider({ children }) {
   });
   // Lista completa dos estoques: as três raízes (sintetizadas) + as instâncias
   // que o dono criou. Derivada, nunca gravada — ver utils/instancias.js.
-  const estoques = useMemo(() => listarEstoques(estoquesDoc), [estoquesDoc]);
+  // ⚠️ Com as unidades (M46): a Produção principal de cada unidade extra é
+  // sintetizada aqui, a partir da tabela — ver utils/instancias.js.
+  const estoques = useMemo(() => listarEstoques(estoquesDoc, unidades), [estoquesDoc, unidades]);
 
   // ⚠️ O id do estoque aberto fica no APARELHO. Um tablet levado para outra
   // unidade abriria o estoque de lá; e um id ARQUIVADO continuaria passando na
@@ -199,10 +206,18 @@ export function AppProvider({ children }) {
   //   • a etiqueta saía SEM a linha do armazenamento;
   //   • o prazo caía no ramo "prateleira única" de diasDoCadastro.
   // Tudo em silêncio, e sem caminho de volta. Foi assim que o dono viu.
+  //
+  // ⚠️ COM UNIDADES (M46) o plano Etiquetas deixa de ser cravado na raiz: ele
+  // usa a Produção principal da UNIDADE do aparelho. A correção acima continua
+  // valendo — um 'seco' guardado é da unidade principal e cai em 'producao',
+  // exatamente como antes. Ver cozinhaDeEtiquetas (utils/unidades.js).
   const moduloEfetivo = useMemo(
-    () => (soEtiq ? MODULO_PADRAO : moduloUtilizavel(estoques, modulo)),
+    () => (soEtiq ? cozinhaDeEtiquetas(estoques, modulo) : moduloUtilizavel(estoques, modulo)),
     [estoques, modulo, soEtiq]);
   const estoqueAtual = useMemo(() => acharEstoque(estoques, moduloEfetivo), [estoques, moduloEfetivo]);
+  // A unidade da cozinha aberta: a linha da extra, ou `null` (principal). É
+  // dela que a etiqueta tira nome, CNPJ e endereço.
+  const unidadeAtual = useMemo(() => acharUnidade(unidades, estoqueAtual?.unidade), [unidades, estoqueAtual]);
 
   // ⚠️ NÃO colocar `estoques` nas deps do efeito de hidratação. Ele é um array
   // NOVO a cada mudança de `estoquesDoc`, e o próprio efeito grava esse estado
@@ -211,11 +226,15 @@ export function AppProvider({ children }) {
   // no tablet trava o app. A chave abaixo é uma STRING e só muda quando algo
   // que o efeito realmente usa muda: quais finalizações existem e como se
   // chamam (é o que vira destino de saída).
+  // O nome da UNIDADE entra na chave (M46): ele faz parte do nome do destino
+  // ("Finalização · Centro"), então renomear a unidade tem de refazer a lista.
   const chaveDestinos = useMemo(
-    () => estoques.filter(e => e.tipo === 'finalizacao' && !e.arquivado).map(e => `${e.id}:${e.nome}`).join('|'),
-    [estoques],
+    () => estoques.filter(e => e.tipo === 'finalizacao' && !e.arquivado)
+      .map(e => `${e.id}:${e.nome}:${acharUnidade(unidades, e.unidade)?.nome || ''}`).join('|'),
+    [estoques, unidades],
   );
   const estoquesRef = useRef(estoques); estoquesRef.current = estoques;
+  const unidadesRef = useRef(unidades); unidadesRef.current = unidades;
 
   const moduloRef = useRef(moduloEfetivo); moduloRef.current = moduloEfetivo;
   // Mesmo padrao do moduloRef: o produto so muda com troca de sessao, e por-lo
@@ -263,7 +282,7 @@ export function AppProvider({ children }) {
   // devolvia sempre { catalogo: <lista com mín/máx dentro>, metas: null }, e o
   // documento `metas` nunca era gravado — o mín/máx de um restaurante ia para a
   // chave compartilhada por tipo e sobrescrevia o do outro, em silêncio.
-  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria };
+  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria, unidades };
   /* eslint-enable react-hooks/refs */
 
   // Só lê refs (estáveis) — identidade fixa para entrar nos deps dos callbacks.
@@ -331,6 +350,63 @@ export function AppProvider({ children }) {
         .then(({ error }) => { if (error) enfileirar(); })
         .catch(enfileirar);
     }
+  }, []);
+
+  // ── Unidades (M46) ─────────────────────────────────────────
+  // ⚠️ SÓ LEITURA DAQUI: quem cria, renomeia e troca o CNPJ de uma unidade é a
+  // Aurum, pelo painel. O cliente só edita o endereço (ver abaixo).
+  //
+  // ⚠️ CACHE PRIMEIRO, rede depois — a etiqueta de uma unidade extra precisa
+  // sair com o CNPJ certo também sem internet. Falha de rede (ou banco sem a
+  // M46) mantém o cache em vez de zerar: zerar faria a unidade extra "sumir" e
+  // a etiqueta sair com o CNPJ da principal.
+  const recarregarUnidades = useCallback(async () => {
+    const r = nuvemDe(ridRef.current);
+    if (!r) return;
+    const { data, error } = await supabase.from('unidades')
+      .select('id, nome, cnpj, endereco, cidade, uf, cep, cozinha, arquivada_em, criada_em')
+      .eq('restaurante_id', r).order('criada_em');
+    if (error || ridRef.current !== r) return;
+    setUnidadesRaw(data || []);
+    cacheSet(r, 'unidades', data || []);
+  }, []);
+
+  useEffect(() => {
+    const r = nuvemDe(rid);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- troca de conta: a lista é do cache da conta nova até a rede responder (mesmo padrão da hidratação)
+    setUnidadesRaw(r ? cacheGet(r, 'unidades', []) : []);
+    if (!r) return undefined;
+    recarregarUnidades();
+    // ⚠️ O tablet fica aberto por dias. Uma unidade que a Aurum criou hoje tem
+    // de aparecer sem ninguém fechar o app — então confere de novo quando a
+    // tela volta a ficar visível, no máximo a cada minuto.
+    let ultima = Date.now();
+    const aoVoltar = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - ultima < 60000) return;
+      ultima = Date.now();
+      recarregarUnidades();
+    };
+    document.addEventListener('visibilitychange', aoVoltar);
+    return () => document.removeEventListener('visibilitychange', aoVoltar);
+  }, [rid, recarregarUnidades]);
+
+  // O dono edita o ENDEREÇO de uma unidade extra (o da principal continua em
+  // `prefs.estabelecimento`). Precisa de internet: é gravação no banco, com a
+  // trava de cargo lá dentro. Devolve a mensagem de erro, ou null.
+  const editarEnderecoUnidade = useCallback(async (id, { endereco, cidade, uf, cep }) => {
+    if (soLeituraRef.current) return 'Modo suporte é somente leitura.';
+    const { data, error } = await supabase.rpc('editar_endereco_unidade', {
+      p_id: id, p_endereco: endereco || null, p_cidade: cidade || null,
+      p_uf: uf || null, p_cep: cep || null,
+    });
+    if (error) return error.message || 'Não foi possível salvar.';
+    const r = ridRef.current;
+    setUnidadesRaw(prev => {
+      const nova = (prev || []).map(u => (u.id === id ? { ...u, ...data } : u));
+      if (r) cacheSet(r, 'unidades', nova);
+      return nova;
+    });
+    return null;
   }, []);
 
   // ── Catálogos (documentos JSONB, 1 linha por lista) ────────
@@ -905,7 +981,7 @@ export function AppProvider({ children }) {
     // finalização criada hoje precisa virar destino também nas contas que já
     // têm o documento `locais` gravado (o semeador só roda quando ele não
     // existe). É o mesmo buraco que mesclarFixos foi criada para tapar.
-    const LOC = locaisPadrao(P.locais, estoquesRef.current, moduloEfetivo);
+    const LOC = locaisPadrao(P.locais, estoquesRef.current, moduloEfetivo, unidadesRef.current);
     setLocaisRaw(mesclarFixos(cacheGet(rid, k('locais'), LOC), LOC));
     setListaManualRaw(cacheGet(rid, k('listaManual'), P.listaManual));
     setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), P.etiquetasAvulsas));
@@ -1321,6 +1397,10 @@ export function AppProvider({ children }) {
       produtos: d.produtos, compras: d.compras, entradas: d.entradas, saidas: d.saidas,
       aparas: d.aparas, desperdicio: d.desperdicio, ajustes: d.ajustes, pessoas: d.pessoas,
       fichas: d.fichas, producoes: d.producoes, locais: d.locais, listaManual: d.listaManual, etiquetasAvulsas: d.etiquetasAvulsas, destinos: d.destinos, categorias: d.categorias, auditoria: d.auditoria, prefs: d.prefs,
+      // ⚠️ SÓ PARA LEITURA: as unidades extras (M46) entram na cópia porque os
+      // Termos prometem a íntegra dos dados, mas a importação NÃO as recria —
+      // unidade e CNPJ passam pela Aurum.
+      unidades: d.unidades,
     };
     const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1455,6 +1535,8 @@ export function AppProvider({ children }) {
       pendencias, online,
       mortos, retentarMortos, descartarMortos,
       registrarImpressoes,
+      // unidades extras da conta (M46) e a da cozinha aberta (null = principal)
+      unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,
     }), [
     produtos, setProdutos, compras, addCompra, removeCompra, entradas,
     addEntrada, removeEntrada, saidas, addSaida, removeSaida, aparas,
@@ -1469,6 +1551,7 @@ export function AppProvider({ children }) {
     estoque, limparTudo, resetarProdutos, exportarBackup, importarBackup, soLeitura,
     rid, pendencias, online, mortos, retentarMortos, descartarMortos,
     registrarImpressoes,
+    unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,
   ]);
 
   return (

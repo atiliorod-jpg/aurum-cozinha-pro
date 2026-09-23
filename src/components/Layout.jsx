@@ -7,6 +7,7 @@ import { useApp } from '../store/AppContext';
 import SeletorModulo from './SeletorModulo';
 import Dialogo from './Dialogo';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
+import { temUnidadesExtras, nomeDaUnidade } from '../utils/unidades';
 import Icon from './Icons';
 import { useUI } from '../store/UIContext';
 
@@ -24,7 +25,7 @@ const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
  */
 export default function Layout({ title, children, actions, area = 'estoque' }) {
   const { sessao, logout, impersonando } = useAuth();
-  const { pendencias, online, estoqueAtual } = useApp();
+  const { pendencias, online, estoqueAtual, unidades, unidadeAtual } = useApp();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const emAdmin = area === 'admin';
@@ -53,12 +54,20 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   // Onde a pessoa está agora. Num estoque é o nome da INSTÂNCIA, não o rótulo
   // do tipo: com dois restaurantes na conta, "Estoque Seco" sozinho não diz de
   // qual casa é, e o cabeçalho é onde se confere isso antes de lançar.
+  //
+  // ⚠️ COM VÁRIAS UNIDADES (M46) o nome da UNIDADE fica fixo embaixo do
+  // título, em todas as telas: o tablet apontado para a casa errada imprime o
+  // CNPJ errado, e é aqui que se confere antes. No plano Etiquetas, o selo do
+  // topo vira o botão de trocar de unidade — a única troca que existe nele.
+  const variasUnidades = temUnidadesExtras(unidades) && !semCozinhas;
+  const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
+  const nomeUnidade = variasUnidades ? nomeDaUnidade(unidades, unidadeAtual?.id, nomeConta) : '';
   const mod = semCozinhas
     ? { icone: 'config', label: 'Painel Aurum' }
     : emAdmin
     ? { icone: 'config', label: 'Administração' }
     : soEtiq
-      ? { icone: 'etiqueta', label: 'Aurum Etiquetas' }
+      ? (variasUnidades ? { icone: 'estabelecimento', label: nomeUnidade } : { icone: 'etiqueta', label: 'Aurum Etiquetas' })
       : { icone: estoqueAtual?.icone || 'caixa', label: estoqueAtual?.nome || 'Estoque' };
   const [trocandoModulo, setTrocandoModulo] = useState(false);
   const { confirm } = useUI();
@@ -112,6 +121,8 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
             <h1 className="text-base font-bold text-polo-gold tracking-wide truncate">{title}</h1>
             {dentroDaAdmin ? (
               <p className="text-[11px] text-white/80 truncate">Administração</p>
+            ) : variasUnidades ? (
+              <p className="text-[11px] text-polo-gold/90 font-semibold truncate">Unidade: {nomeUnidade}</p>
             ) : sessao?.restauranteNome && (
               <p className="text-[11px] text-white/80 truncate">{sessao.restauranteNome}</p>
             )}
@@ -121,7 +132,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
             Administração: é a única saída de lá desde que a barra do rodapé
             saiu, e num PWA em tablet não existe botão de voltar do navegador.
             No plano Etiquetas vira etiqueta fixa: não há outra área para onde ir. */}
-        {soEtiq || semCozinhas ? (
+        {(soEtiq && !variasUnidades) || semCozinhas ? (
           <span className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1 min-h-11">
             <Icon name={mod.icone} size={18} />
             <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
@@ -178,10 +189,10 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
       {trocandoModulo && (
         // "Trocar de estoque" era o nome errado: a lista tem as cozinhas E a
         // Administração, que não é estoque.
-        <Dialogo aoFechar={() => setTrocandoModulo(false)} titulo="Ir para"
+        <Dialogo aoFechar={() => setTrocandoModulo(false)} titulo={soEtiq ? 'Unidade' : 'Ir para'}
           forma="caixa" largura="sm" camada={130} respiro="p5" classeCaixa="space-y-4">
           <>
-            <SeletorModulo aoEscolher={(id) => {
+            <SeletorModulo soUnidades={soEtiq} aoEscolher={(id) => {
               setTrocandoModulo(false);
               // Na Administração, escolher uma cozinha precisa LEVAR até ela:
               // trocar o estoque aberto sem navegar deixava a pessoa parada na

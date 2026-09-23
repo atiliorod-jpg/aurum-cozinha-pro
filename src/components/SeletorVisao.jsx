@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { estoquesAtivos } from '../utils/instancias';
+import { useAuth } from '../store/AuthContext';
+import { temUnidadesExtras, nomeDaUnidade } from '../utils/unidades';
 import Icon from './Icons';
 
 /**
@@ -21,8 +23,14 @@ export const TODOS = 'todos';
 const OPCAO_TODOS = { id: TODOS, icone: 'relatorio', nome: 'Todas as cozinhas', estabelecimento: '' };
 
 export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
-  const { estoques } = useApp();
+  const { estoques, unidades } = useApp();
+  const { sessao, impersonando } = useAuth();
   const [aberto, setAberto] = useState(false);
+  // Com várias unidades (M46), cada cozinha diz de QUAL casa é — duas
+  // "Cozinha de Produção" seguidas não dizem nada.
+  const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
+  const subtitulo = (e) => (temUnidadesExtras(unidades) && e.tipo
+    ? nomeDaUnidade(unidades, e.unidade, nomeConta) : e.estabelecimento);
   const ativos = estoquesAtivos(estoques);
   if (ativos.length <= 1) return null;
 
@@ -38,7 +46,7 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
         <span className="min-w-0 flex-1">
           <span className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Mostrando</span>
           <span className="block text-sm font-bold text-polo-navy truncate">
-            {atual.nome}{atual.estabelecimento ? ` · ${atual.estabelecimento}` : ''}
+            {atual.nome}{subtitulo(atual) ? ` · ${subtitulo(atual)}` : ''}
           </span>
         </span>
         <span className="text-gray-600 text-xs" aria-hidden="true">▾</span>
@@ -57,7 +65,7 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
                 <span className="text-polo-navy flex-shrink-0"><Icon name={e.icone} size={20} /></span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-polo-navy truncate">{e.nome}</span>
-                  {e.estabelecimento && <span className="block text-[11px] text-gray-600 truncate">{e.estabelecimento}</span>}
+                  {subtitulo(e) && <span className="block text-[11px] text-gray-600 truncate">{subtitulo(e)}</span>}
                 </span>
               </button>
             ))}

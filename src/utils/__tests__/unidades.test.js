@@ -9,6 +9,12 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { listarEstoques, salvarEstoque, destinosFinalizacao, estoquesAtivos } from '../instancias';
+import {
+  cozinhaDeEtiquetas, cozinhaPrincipalDa, unidadeDaCozinha, dadosDaEtiqueta, opcoesDeUnidade,
+  nomeDaUnidade, temUnidadesExtras, unidadesAtivas, cidadeUf,
+} from '../unidades';
+import { totaisPorUnidade, linhasDaUnidade, planilhaDoRelatorio, resumirRelatorio } from '../relatorioEtiquetas';
 
 const ler = (caminho) => readFileSync(new URL(caminho, import.meta.url), 'utf8');
 
@@ -77,5 +83,167 @@ describe('a conta aberta pelo painel confere o CNPJ das unidades', () => {
     const checagem = fn.indexOf(".from('unidades').select('nome').eq('cnpj', cnpj)");
     expect(checagem).toBeGreaterThan(0);
     expect(checagem).toBeLessThan(fn.indexOf('admin.auth.admin.createUser('));
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+//  Etapa 2 — o app nos dois planos
+// ─────────────────────────────────────────────────────────────────────
+const U1 = {
+  id: 'u-1', nome: 'Unidade Centro', cnpj: '11444777000161', endereco: 'Rua X, 10',
+  cidade: 'Recife', uf: 'PE', cep: '50000000', cozinha: 'producao#ab12',
+  arquivada_em: null, criada_em: '2026-09-22T10:00:00Z',
+};
+const U2 = { ...U1, id: 'u-2', nome: 'Unidade Velha', cnpj: '11222333000181', cozinha: 'producao#cd34', arquivada_em: '2026-09-22T12:00:00Z' };
+
+describe('sem unidade extra, tudo exatamente como antes', () => {
+  it('a lista de cozinhas é a mesma com ou sem a lista de unidades, e toda cozinha é da principal', () => {
+    const doc = { itens: [{ id: 'seco#x7k2', nome: 'Seco do salão', criadoEm: 1 }] };
+    expect(listarEstoques(doc, [])).toEqual(listarEstoques(doc));
+    expect(listarEstoques(doc).every(e => e.unidade === null)).toBe(true);
+    expect(temUnidadesExtras([])).toBe(false);
+  });
+
+  it('no plano Etiquetas a cozinha é sempre a Produção raiz — inclusive com o Seco guardado no aparelho', () => {
+    const l = listarEstoques({ itens: [{ id: 'seco#x7k2', nome: 'X' }] });
+    for (const guardado of ['producao', 'seco', 'finalizacao', 'seco#x7k2', 'lixo', null]) {
+      expect(cozinhaDeEtiquetas(l, guardado), String(guardado)).toBe('producao');
+    }
+  });
+
+  it('a etiqueta sai com os dados de sempre — e o CNPJ antigo guardado em prefs perde para o da conta', () => {
+    const d = dadosDaEtiqueta({
+      unidade: null, estoque: { estabelecimento: '' }, nomeConta: 'Conta Matriz', cnpjConta: '11222333000181',
+      estabelecimentoConta: { endereco: 'Rua A, 1', cidade: 'Recife - PE', cnpj: '99999999999999' },
+    });
+    expect(d).toEqual({ nome: 'Conta Matriz', estabelecimento: { endereco: 'Rua A, 1', cidade: 'Recife - PE', cnpj: '11222333000181' } });
+    // o texto antigo do estoque continua valendo na principal
+    expect(dadosDaEtiqueta({ unidade: null, estoque: { estabelecimento: 'Restaurante Y' }, nomeConta: 'Conta' }).nome)
+      .toBe('Restaurante Y');
+  });
+});
+
+describe('unidade extra', () => {
+  const l = listarEstoques({ itens: [{ id: 'seco#s001', nome: 'Seco do Centro', unidade: 'u-1', criadoEm: 5 }] }, [U1, U2]);
+
+  it('a Produção principal da unidade aparece sintetizada, dona da unidade — sem gravar nada no documento', () => {
+    const c = l.find(e => e.id === 'producao#ab12');
+    expect(c).toMatchObject({ tipo: 'producao', raiz: false, unidade: 'u-1', principalDaUnidade: true, arquivado: false });
+    expect(unidadeDaCozinha(l, 'producao#ab12')).toBe('u-1');
+    expect(unidadeDaCozinha(l, 'producao')).toBeNull();
+  });
+
+  it('renomear a cozinha da unidade usa o nome novo, sem duplicar a cozinha nem arquivá-la', () => {
+    const doc = salvarEstoque({}, { id: 'producao#ab12', nome: 'Cozinha do Centro', arquivado: true });
+    const iguais = listarEstoques(doc, [U1]).filter(e => e.id === 'producao#ab12');
+    expect(iguais).toHaveLength(1);
+    expect(iguais[0]).toMatchObject({ nome: 'Cozinha do Centro', arquivado: false, unidade: 'u-1' });
+  });
+
+  it('cozinha criada dentro da unidade grava a unidade; na principal, o documento fica como sempre', () => {
+    expect(salvarEstoque({}, { id: 'seco#s002', nome: 'X', unidade: 'u-1' }).itens[0].unidade).toBe('u-1');
+    expect(salvarEstoque({}, { id: 'seco#s003', nome: 'Y' }).itens[0]).not.toHaveProperty('unidade');
+    // a raiz nunca é de unidade extra
+    expect(salvarEstoque({}, { id: 'seco', nome: 'Z', unidade: 'u-1' }).itens[0]).not.toHaveProperty('unidade');
+  });
+
+  it('unidade arquivada: as cozinhas dela saem de vista, e o Etiquetas cai na raiz', () => {
+    const l2 = listarEstoques({ itens: [{ id: 'seco#s009', unidade: 'u-2' }] }, [U1, U2]);
+    expect(l2.find(e => e.id === 'producao#cd34').arquivado).toBe(true);
+    expect(l2.find(e => e.id === 'seco#s009').arquivado).toBe(true);
+    expect(estoquesAtivos(l2).some(e => e.unidade === 'u-2')).toBe(false);
+    expect(cozinhaDeEtiquetas(l2, 'producao#cd34')).toBe('producao');
+    expect(unidadesAtivas([U1, U2]).map(u => u.id)).toEqual(['u-1']);
+  });
+
+  it('no Etiquetas, qualquer cozinha da unidade leva à Produção da unidade', () => {
+    expect(cozinhaDeEtiquetas(l, 'producao#ab12')).toBe('producao#ab12');
+    expect(cozinhaDeEtiquetas(l, 'seco#s001')).toBe('producao#ab12');
+    expect(cozinhaPrincipalDa(l, 'u-1')).toBe('producao#ab12');
+    expect(cozinhaPrincipalDa(l, null)).toBe('producao');
+    expect(cozinhaPrincipalDa(l, 'desconhecida')).toBe('producao');
+  });
+
+  it('a etiqueta da unidade extra sai com nome, CNPJ, endereço e "Cidade - UF" DELA', () => {
+    const d = dadosDaEtiqueta({
+      unidade: U1, estoque: { estabelecimento: 'Nome antigo' }, nomeConta: 'Conta Matriz',
+      cnpjConta: '11222333000181', estabelecimentoConta: { endereco: 'Rua da Matriz' },
+    });
+    expect(d).toEqual({
+      nome: 'Unidade Centro',
+      estabelecimento: { cnpj: '11444777000161', endereco: 'Rua X, 10', cidade: 'Recife - PE', cep: '50000000' },
+    });
+    expect(cidadeUf('Olinda', '')).toBe('Olinda');
+  });
+
+  it('a cozinha da unidade entra na lista que o gerador de ids consulta, então não se repete', () => {
+    // Estoques.jsx passa `estoques.filter(e => !e.raiz)` ao gerarIdInstancia
+    expect(l.filter(e => !e.raiz).map(e => e.id)).toContain('producao#ab12');
+  });
+
+  it('o seletor mostra a principal primeiro e só as unidades ativas', () => {
+    expect(opcoesDeUnidade([U1, U2], 'Conta Matriz')).toEqual([
+      { id: null, nome: 'Conta Matriz', principal: true },
+      { id: 'u-1', nome: 'Unidade Centro', cnpj: '11444777000161', principal: false },
+    ]);
+    expect(nomeDaUnidade([U1], null, '')).toBe('Unidade principal');
+  });
+
+  it('o destino de finalização de outra unidade diz de qual casa é', () => {
+    const l3 = listarEstoques({ itens: [{ id: 'finalizacao#f001', nome: 'Salão', unidade: 'u-1' }] }, [U1]);
+    expect(destinosFinalizacao(l3, 'producao', [U1]).map(d => d.nome))
+      .toEqual(['Cozinha de Finalização', 'Salão · Unidade Centro']);
+  });
+});
+
+describe('relatório de etiquetas por unidade', () => {
+  const periodo = { de: '2026-09-01', ate: '2026-09-30' };
+  const linhas = [
+    { dia: '2026-09-02', item: 'Arroz', unidade_id: null, etiquetas: 5, impressoes: 1 },
+    { dia: '2026-09-03', item: 'Arroz', unidade_id: 'u-1', etiquetas: 8, impressoes: 2 },
+    { dia: '2026-09-04', item: 'Feijão', unidade_id: 'u-1', etiquetas: 1, impressoes: 1 },
+    { dia: '2026-08-30', item: 'Fora', unidade_id: 'u-1', etiquetas: 99, impressoes: 1 },
+  ];
+
+  it('soma por unidade, no período, com null = principal, a mais movimentada primeiro', () => {
+    expect(totaisPorUnidade(linhas, periodo)).toEqual([{ id: 'u-1', etiquetas: 9 }, { id: null, etiquetas: 5 }]);
+  });
+
+  it('o filtro corta as linhas; "todas" devolve tudo', () => {
+    expect(linhasDaUnidade(linhas, 'todas')).toHaveLength(4);
+    expect(linhasDaUnidade(linhas, null).map(l => l.item)).toEqual(['Arroz']);
+    expect(resumirRelatorio(linhasDaUnidade(linhas, 'u-1'), periodo).total).toBe(9);
+  });
+
+  it('a planilha ganha a aba "Por unidade" só com duas ou mais casas', () => {
+    const r = resumirRelatorio(linhas, periodo);
+    expect(planilhaDoRelatorio(r, periodo).map(([n]) => n)).not.toContain('Por unidade');
+    const abas = planilhaDoRelatorio(r, periodo, [{ nome: 'Centro', etiquetas: 9 }, { nome: 'Matriz', etiquetas: 5 }]);
+    expect(abas.at(-1)).toEqual(['Por unidade', [['Unidade', 'Etiquetas'], ['Centro', 9], ['Matriz', 5]]]);
+  });
+});
+
+describe('unidades nos dois planos (o Etiquetas é um recorte do Pro)', () => {
+  it('o Etiquetas tem o cartão Unidades e o seletor de unidade; o Pro tem "Unidades e cozinhas"', () => {
+    expect(ler('../../pages/etiquetas/Ajustes.jsx')).toMatch(/<CartaoUnidades \/>/);
+    expect(ler('../../components/Layout.jsx')).toMatch(/<SeletorModulo soUnidades=\{soEtiq\}/);
+    expect(ler('../../pages/Estoques.jsx')).toMatch(/Preciso de outra unidade/);
+    expect(ler('../../components/config/CartoesConfig.jsx')).toMatch(/Preciso de outra unidade/);
+    expect(ler('../../pages/Administracao.jsx')).toMatch(/titulo: 'Unidades e cozinhas'/);
+  });
+
+  it('a etiqueta tira nome, CNPJ e endereço de UM lugar só, e grava a unidade no relatório', () => {
+    const tela = ler('../../components/EtiquetaPrint.jsx');
+    expect(tela).toMatch(/dadosDaEtiqueta\(\{/);
+    expect(tela).not.toMatch(/estabelecimentoDe\(/);
+    expect(tela).toMatch(/unidade: unidadeAtual\?\.id \|\| null/);
+  });
+
+  it('no Etiquetas a cozinha sai da unidade do aparelho — não mais cravada na raiz', () => {
+    expect(ler('../../store/AppContext.jsx')).toMatch(/soEtiq \? cozinhaDeEtiquetas\(estoques, modulo\)/);
+  });
+
+  it('trocar de unidade pede confirmação', () => {
+    expect(ler('../../components/SeletorModulo.jsx')).toMatch(/titulo: 'Trocar de unidade'/);
   });
 });

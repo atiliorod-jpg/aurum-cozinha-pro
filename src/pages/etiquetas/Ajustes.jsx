@@ -6,7 +6,7 @@ import { useApp } from '../../store/AppContext';
 import { useAuth, CARGOS } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos,
-         CartaoMeusDados } from '../../components/config/CartoesConfig';
+         CartaoMeusDados, CartaoUnidades } from '../../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../../components/config/CartaoMinhaSenha';
 import { statusAssinatura, produtoDe, PRODUTOS, fmtPreco } from '../../utils/assinatura';
 import { fmtData, isoLocal } from '../../utils/formatters';
@@ -135,6 +135,12 @@ export default function Ajustes() {
       {/* ⚠️ Logo abaixo da conta: a conta entregue pela Aurum chega com a senha
           que a Aurum sorteou, e trocar é a primeira coisa que o dono faz. */}
       <CartaoMinhaSenha toast={toast} />
+
+      {/* ⚠️ As unidades (M46) são assunto de contrato — cada uma com o seu
+          CNPJ e o seu adicional —, então ficam com a conta dona, junto da
+          assinatura. No plano completo a mesma lista é a tela "Unidades e
+          cozinhas" da Administração. */}
+      <CartaoUnidades />
 
       {/* Upgrade — some quando a conta já é completa.
           ⚠️ DUAS TELAS DIZIAM COISAS DIFERENTES SOBRE O MESMO PLANO: o cadastro

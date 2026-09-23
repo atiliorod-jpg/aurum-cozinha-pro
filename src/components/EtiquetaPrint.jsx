@@ -4,7 +4,8 @@ import QRCode from 'qrcode';
 import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
-import { estabelecimentoDe } from '../utils/instancias';
+import { dadosDaEtiqueta, temUnidadesExtras } from '../utils/unidades';
+import { formatarCNPJ } from '../utils/documentos';
 import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
@@ -283,21 +284,23 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao, impersonando } = useAuth();
-  const { prefs, setPrefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas, registrarImpressoes } = useApp();
-  // ⚠️ Nome que SAI IMPRESSO no pote. Com dois restaurantes na mesma conta, o
-  // nome da conta sairia na etiqueta dos dois — erro visível na frente do
-  // cliente, e o pote ainda circula. O nome do ESTOQUE manda quando o dono
-  // preencheu; senão cai no da conta, que é o caso de quem tem uma casa só e
-  // não precisa configurar nada.
-  const nomeImpresso = estabelecimentoDe(estoqueAtual, sessao?.restauranteNome);
+  const { prefs, setPrefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas,
+          registrarImpressoes, unidades, unidadeAtual } = useApp();
+  // ⚠️ O QUE SAI IMPRESSO NO POTE — nome no topo, CNPJ e endereço no rodapé —
+  // é o da UNIDADE da cozinha aberta (M46). Na unidade principal é o de
+  // sempre: o nome do estoque (texto antigo) ou o da conta, o CNPJ da CONTA
+  // (nunca o da preferência: contas que editaram esse campo quando ele era
+  // livre ainda têm um valor guardado) e o endereço de `prefs`. Na unidade
+  // extra, tudo vem da linha dela. Um lugar só decide: `dadosDaEtiqueta`.
+  const { nome: nomeImpresso, estabelecimento } = useMemo(() => dadosDaEtiqueta({
+    unidade: unidadeAtual, estoque: estoqueAtual, nomeConta: sessao?.restauranteNome,
+    cnpjConta: sessao?.cnpj, estabelecimentoConta: prefs.estabelecimento,
+  }), [unidadeAtual, estoqueAtual, sessao?.restauranteNome, sessao?.cnpj, prefs.estabelecimento]);
+  // Com mais de uma casa na conta, a janela diz de qual unidade vai sair
+  const variasUnidades = temUnidadesExtras(unidades);
   // despensa não tem congelado/resfriado: a etiqueta do seco não pergunta isso
   const comArmazenamento = temRecurso(modulo, 'armazenamento');
   const config = configEtiqueta(prefs);
-  // ⚠️ O CNPJ VEM DA CONTA, não da preferência. Ele identifica quem manipulou
-  // o alimento e não é editável pelo restaurante; contas que editaram esse
-  // campo quando ele era livre ainda têm um valor guardado, e sem esta linha o
-  // número antigo continuaria sendo impresso.
-  const estabelecimento = { ...(prefs.estabelecimento || {}), cnpj: sessao?.cnpj || prefs.estabelecimento?.cnpj || '' };
   // Estados de armazenamento configuráveis (Configurações → Sistema).
   const armazenamentos = armazenamentosAtivos(prefs);
 
@@ -760,6 +763,8 @@ export default function EtiquetaPrint() {
           copias,
           // marcada pela aba Impressas ao pedir a repetição (ver `reimprimir`)
           reimpressao: !!item.reimpressao,
+          // a unidade que imprimiu (M46) — separa o relatório por casa
+          unidade: unidadeAtual?.id || null,
         });
       });
       registrarImpressoes(eventos);
@@ -921,6 +926,19 @@ export default function EtiquetaPrint() {
       <Dialogo aoFechar={fecharEtiquetas} titulo="Imprimir etiquetas"
         forma="rolo" largura="md" camada={120} respiro="p5" classeCaixa="space-y-4">
         <>
+          {/* ⚠️ A UNIDADE ANTES DE TUDO, quando a conta tem mais de uma casa:
+              o tablet apontado para a unidade errada imprime o CNPJ errado, e
+              isso é problema de fiscalização, não de tela. É a última chance
+              de conferir antes de o rolo andar. */}
+          {variasUnidades && (
+            <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
+              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide">Imprimindo pela unidade</p>
+              <p className="text-sm font-bold text-polo-navy">{nomeImpresso || '—'}</p>
+              {estabelecimento.cnpj && (
+                <p className="text-[11px] text-gray-700">CNPJ {formatarCNPJ(estabelecimento.cnpj)}</p>
+              )}
+            </div>
+          )}
           <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
           {faltaResponsavel && (
             <Aviso tom="atencao">Escolha quem assina antes de imprimir.</Aviso>
