@@ -3,7 +3,9 @@ import QRCode from 'qrcode';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe } from '../utils/assinatura';
+import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe, adicionalUnidade } from '../utils/assinatura';
+import { useApp } from '../store/AppContext';
+import { unidadesAtivas } from '../utils/unidades';
 import { montarPixBRCode } from '../utils/pix';
 import { supabase } from '../lib/supabase';
 import { fmtData, isoLocal } from '../utils/formatters';
@@ -71,6 +73,10 @@ export default function Pagamento() {
   // utils/assinatura.js), não de uma constante única. Sem isto o cliente do
   // plano menor veria — e pagaria — o valor do maior.
   const prod = produtoDe(sessao);
+  // ⚠️ UNIDADES ADICIONAIS (M46): cada unidade extra ativa soma 1/3 do plano
+  // por mês, e o QR já sai com a soma. Arquivada não cobra.
+  const { unidades } = useApp();
+  const extras = unidadesAtivas(unidades).length;
 
   // ⚠️ ENCARGO DE ATRASO (M45): só existe para quem tem contrato parcelado e
   // só depois de a Aurum lançar pelo painel. Vem de uma RPC que lê SÓ o
@@ -95,7 +101,7 @@ export default function Pagamento() {
     ? { id: 'mensal', label: 'Parcela do contrato', meses: 1, dias: 30, desconto: 0 }
     : (PLANOS.find(p => p.id === planoId) || PLANOS[0]);
   const valorEncargo = Number(encargo?.valor) || 0;
-  const valor = Math.round(((parcela || precoPlano(plano, prod.id)) + valorEncargo) * 100) / 100;
+  const valor = Math.round(((parcela || precoPlano(plano, prod.id, extras)) + valorEncargo) * 100) / 100;
   const brcode = PIX_CHAVE
     ? montarPixBRCode({ chave: PIX_CHAVE, nome: PIX_NOME, cidade: PIX_CIDADE, valor, txid: plano.id.toUpperCase() })
     : '';
@@ -215,7 +221,7 @@ export default function Pagamento() {
       <div className="space-y-2 mb-5">
         {PLANOS.map(p => {
           const sel = p.id === planoId;
-          const total = precoPlano(p, prod.id);
+          const total = precoPlano(p, prod.id, extras);
           return (
             <button key={p.id} onClick={() => setPlanoId(p.id)}
               className={`w-full text-left rounded-2xl p-4 border-2 transition-colors
@@ -232,7 +238,7 @@ export default function Pagamento() {
                   </div>
                   <p className="text-[11px] text-gray-500 mt-0.5">
                     {p.meses === 1 ? 'Cobrado todo mês'
-                      : `${brl(precoMensalEquivalente(p, prod.id))}/mês · economize ${brl(economiaPlano(p, prod.id))}`}
+                      : `${brl(precoMensalEquivalente(p, prod.id, extras))}/mês · economize ${brl(economiaPlano(p, prod.id, extras))}`}
                   </p>
                 </div>
                 <div className="text-right flex items-center gap-2">
@@ -252,6 +258,11 @@ export default function Pagamento() {
           );
         })}
       </div>
+      {extras > 0 && (
+        <p className="text-[11px] text-gray-600 -mt-3 mb-5 px-1">
+          Inclui {extras} unidade(s) adicional(is) nesta conta: {brl(adicionalUnidade(prod.id))} por unidade, por mês.
+        </p>
+      )}
       </>)}
 
       {/* ⚠️ OS ENCARGOS APARECEM SEPARADOS antes do Pix: o cliente precisa ver

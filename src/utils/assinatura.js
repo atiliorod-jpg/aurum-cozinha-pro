@@ -97,11 +97,24 @@ export const PLANOS = [
 const r2 = (n) => Math.round(n * 100) / 100;
 const mensalDe = (produto) => produtoDe(produto).precoMes;
 // Preço TOTAL do período, já com o desconto aplicado.
-export const precoPlano = (plano, produto) => r2(mensalDe(produto) * plano.meses * (1 - plano.desconto));
+//
+// ⚠️ UNIDADES ADICIONAIS (M46, decisão do dono em 22/09/2026): cada unidade
+// extra da conta — outro CNPJ, na mesma conta — custa 1/3 do plano por mês.
+// `extras` tem padrão 0, então toda chamada antiga continua dando o mesmo
+// valor. O desconto semestral/anual vale sobre o total, com as unidades.
+export const ADICIONAL_UNIDADE = 1 / 3;
+/** Quanto custa UMA unidade extra por mês: Etiquetas R$ 93,30; Pro R$ 133,00. */
+export const adicionalUnidade = (produto) => r2(mensalDe(produto) * ADICIONAL_UNIDADE);
+/** O mês cheio da conta: o plano mais as unidades extras. */
+export const mensalComUnidades = (produto, extras = 0) =>
+  r2(mensalDe(produto) + Math.max(0, parseInt(extras, 10) || 0) * adicionalUnidade(produto));
+export const precoPlano = (plano, produto, extras = 0) =>
+  r2(mensalComUnidades(produto, extras) * plano.meses * (1 - plano.desconto));
 // Quanto sai por mês naquele plano (para mostrar "equivale a R$X/mês").
-export const precoMensalEquivalente = (plano, produto) => r2(precoPlano(plano, produto) / plano.meses);
+export const precoMensalEquivalente = (plano, produto, extras = 0) => r2(precoPlano(plano, produto, extras) / plano.meses);
 // Quanto o cliente economiza vs. pagar mês a mês.
-export const economiaPlano = (plano, produto) => r2(mensalDe(produto) * plano.meses - precoPlano(plano, produto));
+export const economiaPlano = (plano, produto, extras = 0) =>
+  r2(mensalComUnidades(produto, extras) * plano.meses - precoPlano(plano, produto, extras));
 export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
 
 // Preço para a TELA: vírgula e dois decimais. `R$ {precoMes}` direto saía

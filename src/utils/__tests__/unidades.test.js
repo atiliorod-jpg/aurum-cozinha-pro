@@ -15,6 +15,11 @@ import {
   nomeDaUnidade, temUnidadesExtras, unidadesAtivas, cidadeUf,
 } from '../unidades';
 import { totaisPorUnidade, linhasDaUnidade, planilhaDoRelatorio, resumirRelatorio } from '../relatorioEtiquetas';
+import {
+  ADICIONAL_UNIDADE, adicionalUnidade, mensalComUnidades, precoPlano, economiaPlano,
+  precoMensalEquivalente, PLANOS,
+} from '../assinatura';
+import { numerosDoPainel } from '../painel';
 
 const ler = (caminho) => readFileSync(new URL(caminho, import.meta.url), 'utf8');
 
@@ -245,5 +250,47 @@ describe('unidades nos dois planos (o Etiquetas é um recorte do Pro)', () => {
 
   it('trocar de unidade pede confirmação', () => {
     expect(ler('../../components/SeletorModulo.jsx')).toMatch(/titulo: 'Trocar de unidade'/);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+//  Etapa 3 — cobrança do adicional (decisão do dono: 1/3 do plano por mês)
+// ─────────────────────────────────────────────────────────────────────
+describe('adicional por unidade extra', () => {
+  it('é 1/3 do plano por mês: Etiquetas R$ 93,30; Pro R$ 133,00', () => {
+    expect(ADICIONAL_UNIDADE).toBeCloseTo(1 / 3);
+    expect(adicionalUnidade('etiquetas')).toBe(93.3);
+    expect(adicionalUnidade('completo')).toBe(133);
+    expect(mensalComUnidades('etiquetas', 2)).toBe(466.5);
+  });
+
+  it('sem unidade extra, o preço de todo plano continua o mesmo de antes', () => {
+    for (const p of PLANOS) {
+      expect(precoPlano(p, 'etiquetas', 0)).toBe(precoPlano(p, 'etiquetas'));
+    }
+  });
+
+  it('o desconto semestral e o anual valem sobre o total, com as unidades', () => {
+    const anual = PLANOS.find(p => p.id === 'anual');
+    // (279,90 + 93,30) × 12 × 0,90
+    expect(precoPlano(anual, 'etiquetas', 1)).toBe(4030.56);
+    expect(economiaPlano(anual, 'etiquetas', 1)).toBe(447.84);
+    expect(precoMensalEquivalente(anual, 'etiquetas', 1)).toBe(335.88);
+  });
+
+  it('a receita estimada do painel soma as unidades ATIVAS — a arquivada não cobra', () => {
+    const agora = Date.now();
+    const r = { id: 'r1', produto: 'etiquetas', assinatura_ate: new Date(agora + 86400000 * 10).toISOString(), unidades: [U1, U2] };
+    expect(numerosDoPainel([r], agora).mrr).toBe(373.2);
+  });
+
+  it('o QR do cliente e o painel usam as unidades extras no valor', () => {
+    const pag = ler('../../pages/Pagamento.jsx');
+    expect(pag).toMatch(/precoPlano\(plano, prod\.id, extras\)/);
+    expect(pag).toMatch(/const extras = unidadesAtivas\(unidades\)\.length/);
+    const adm = ler('../../pages/Admin.jsx');
+    expect(adm).toMatch(/precoPlano\(plano, r\.produto, extrasDe\(r\)\)/);
+    expect(adm).toMatch(/supabase\.rpc\('criar_unidade'/);
+    expect(adm).toMatch(/supabase\.rpc\('arquivar_unidade'/);
   });
 });

@@ -11,7 +11,8 @@
 //  (quem precisa de atenção, quanto a operação fatura), não desenho de tela.
 // =====================================================================
 
-import { statusRestaurante, produtoDe } from './assinatura';
+import { statusRestaurante, mensalComUnidades } from './assinatura';
+import { unidadesAtivas } from './unidades';
 
 // Aviso primeiro: é o único caso em que o CLIENTE está esperando resposta —
 // ele avisou que pagou e está olhando para uma conta que ainda não liberou.
@@ -99,7 +100,12 @@ export function numerosDoPainel(restaurantes, agora = Date.now()) {
     // ⚠️ Conta contada à parte e FORA da receita: somar cortesia inflaria o
     // faturamento exatamente onde não há dinheiro nenhum entrando.
     if (st.tipo === 'cortesia') { n.cortesia++; continue; }
-    if (st.tipo === 'assinatura') { n.pagantes++; n.mrr += produtoDe(r.produto).precoMes; continue; }
+    // ⚠️ Com as unidades extras ATIVAS (M46): cada uma soma 1/3 do plano.
+    if (st.tipo === 'assinatura') {
+      n.pagantes++;
+      n.mrr += mensalComUnidades(r.produto, unidadesAtivas(r.unidades).length);
+      continue;
+    }
     if (st.tipo === 'teste') { n.teste++; continue; }
     // ⚠️ Contrato em atraso conta como VENCIDO no número do topo: o dinheiro
     // já venceu, e é o número que manda cobrar. O acesso aberto (tolerância)
