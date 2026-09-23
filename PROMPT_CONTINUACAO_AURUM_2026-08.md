@@ -181,6 +181,64 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (23/09/2026) — UNIDADES: VÁRIOS CNPJs NA MESMA CONTA (M46)
+
+Pedido do dono: um grupo usar a mesma conta para outro restaurante/CNPJ, nos
+DOIS planos, sem perder nada ao subir/descer de plano, com adicional e com o
+painel pronto. Decisões dele (22/09): **só a Aurum cria unidade** (painel);
+adicional = **1/3 do plano por unidade extra, por mês** (Etiquetas R$ 93,30,
+Pro R$ 133,00); equipe vê todas as unidades por enquanto; impressora do
+contrato = **uma por grupo**; itens continuam **compartilhados**.
+
+**Modelo (ler antes de mexer):**
+- UNIDADE = estabelecimento (nome, CNPJ, endereço) → o que sai na etiqueta e
+  separa o relatório. COZINHA = o que o app chama de estoque; cada uma é de
+  uma unidade.
+- ⚠️ A UNIDADE PRINCIPAL É A PRÓPRIA CONTA (id `null`), fora da tabela: nome e
+  CNPJ de `restaurantes`, endereço de `prefs.estabelecimento`. A tabela
+  `unidades` guarda só as EXTRAS → nenhuma conta antiga precisou migrar.
+- Cada extra nasce com a sua Produção (`unidades.cozinha` = 'producao#xxxx'),
+  SINTETIZADA por `listarEstoques(doc, unidades)` como as raízes — não é gravada
+  no documento `estoques` (o suporte não pode gravá-lo, M22). Cozinhas extras
+  de uma unidade ficam no documento com `unidade: <id>`.
+- `utils/unidades.js` (puro, testado): `dadosDaEtiqueta` é O lugar que decide
+  nome/CNPJ/endereço impressos; `cozinhaDeEtiquetas` é o módulo do plano
+  Etiquetas (preserva a correção do 'seco' guardado → 'producao').
+
+**Banco (M46, aplicada e conferida numa transação desfeita):** tabela
+`unidades` (RLS só leitura: própria conta + super-admin); `criar_unidade`,
+`editar_unidade`, `arquivar_unidade` (super-admin); `editar_endereco_unidade`
+(só diretoria, só da própria conta); CNPJ único NO SISTEMA INTEIRO por
+gatilhos em `restaurantes` e `unidades` (errcode 23505 — o cadastro público já
+traduz); `etiquetas_impressoes.unidade_id`; `registrar_impressoes` só aceita
+unidade da própria conta; `relatorio_etiquetas` devolve `unidade_id` (foi
+apagada e recriada — grant refeito com sonda). Função `restaurante` v6 confere
+CNPJ de unidade antes de criar conta.
+
+**App (os dois planos):** etiqueta e janela de impressão ("Imprimindo pela
+unidade"); cabeçalho "Unidade: X"; seletor agrupado (Pro) / seletor de unidade
+no selo do topo (Etiquetas, só com 2+); trocar de unidade pede confirmação;
+"Estoques da conta" → "Unidades e cozinhas" (o campo de texto livre saiu — ele
+mostrava "[object Object]"; nome antigo vira aviso "parar de usar"); cartão
+Unidades na Administração do Etiquetas; Dados do estabelecimento editam a
+unidade do aparelho; relatório de etiquetas e Balanço com filtro por unidade;
+cópia de dados inclui as unidades.
+
+**Cobrança:** `precoPlano(plano, produto, extras=0)`; QR do cliente soma as
+extras ATIVAS; painel com seção Unidades (criar/editar/arquivar, selo "N
+unidades" e "unidade a confirmar"), valor sugerido e receita estimada com as
+extras; conta com contrato parcelado → oferta de somar o adicional na parcela.
+
+**Textos:** Termos cl. 2 (ainda 1.2) com unidades adicionais; contrato
+"(revisado).docx" ganhou o § 4º da cláusula 5ª (backup do antes no scratchpad).
+
+**NÃO feito (fica para quando ele pedir):** prender conta da equipe a uma
+unidade; catálogo separado por unidade; separar uma unidade em conta própria.
+**Não visto no navegador** — exige conta real com unidade; roteiro de teste
+entregue ao dono. 570 testes.
+
+---
+
 ## Onde paramos (15/09/2026) — TESTE LIVRE E O ETIQUETAS COMO RECORTE DO PRO
 
 **Regra do dono, que vale para todo código novo:** o plano Etiquetas é um

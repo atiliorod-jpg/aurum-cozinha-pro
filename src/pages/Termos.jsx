@@ -29,6 +29,8 @@ import { useNavigate } from 'react-router-dom';
 // com impressora (prevalência do contrato, encargos de atraso, impressora em
 // comodato, uma por grupo econômico, e a exceção de fidelidade na cl. 10),
 // e as regras do "Indique e ganhe" (cl. 2), que a tela de pagamento anuncia.
+// Complemento de 22/09/2026, ainda na 1.2: unidades adicionais (cl. 2) —
+// outro CNPJ na mesma conta, 1/3 do plano por unidade por mês (M46).
 export const TERMOS_VERSAO = '1.2';
 export const TERMOS_VIGENCIA = '10 de setembro de 2026';
 
@@ -139,6 +141,17 @@ export default function Termos() {
             <p>
               A impressora cedida em contrato é concedida <strong>uma única vez por estabelecimento
               e por grupo econômico</strong>, ainda que com outro CNPJ, e não se repete na renovação.
+            </p>
+            {/* ⚠️ Complemento de 22/09/2026, ainda na 1.2 (pedido do dono): a
+                conta passou a aceitar mais de um estabelecimento (M46). O
+                valor está nos Termos porque é cobrado no QR do sistema. */}
+            <p>
+              <strong>Unidades adicionais.</strong> A mesma conta pode reunir mais de um estabelecimento
+              do contratante, cada um com o seu CNPJ. Cada unidade adicional é incluída pela contratada, a
+              pedido do contratante, e acrescenta à assinatura <strong>1/3 (um terço) do valor mensal do
+              plano, por unidade, por mês</strong> — somado ao valor cobrado no sistema, com os mesmos
+              descontos dos planos semestral e anual. A unidade arquivada deixa de ser cobrada. Cada unidade
+              imprime a etiqueta com os próprios dados, e a conferência desses dados segue a cláusula 7.
             </p>
             <p>
               <strong>Indique e ganhe.</strong> O contratante que indicar outro estabelecimento ganha{' '}
