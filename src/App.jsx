@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from './store/AuthContext';
+import { AuthProvider, useAuth, lerMaiorHora } from './store/AuthContext';
+import { portaoSemInternet, agoraConfiavel } from './utils/semInternet';
+import ConecteInternet from './components/ConecteInternet';
 import { statusAssinatura, produtoDe } from './utils/assinatura';
 import SeletorModulo from './components/SeletorModulo';
 import { temRecurso } from './utils/modulos';
@@ -158,7 +160,8 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, onSair }) {
 }
 
 function Rotas() {
-  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao, cadastroPendenteErro } = useAuth();
+  const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao, cadastroPendenteErro,
+          confirmacao, reconfirmar } = useAuth();
   // marca de que este aparelho já escolheu o estoque de trabalho
   const [escolheuModulo, setEscolheuModulo] = useState(() => {
     try { return !!localStorage.getItem('pe::modulo'); } catch { return true; }
@@ -243,6 +246,11 @@ function Rotas() {
     );
   }
 
+  // ⚠️ SEM INTERNET E SEM SESSÃO GUARDADA NÃO É "CADASTRO INCOMPLETO": a busca
+  // do perfil falhou por falta de rede. Antes caía na tela de baixo, que
+  // manda sair e pedir convite — para quem só está sem Wi-Fi.
+  if (sessao.semConexao) return <ConecteInternet motivo="nunca" aoTentar={reconfirmar} aoSair={logout} />;
+
   // Conta autenticada mas sem perfil/cargo (cadastro interrompido).
   // Super-admin é exceção: acessa o painel mesmo sem restaurante próprio.
   if (!sessao.cargo && !sessao.eSuperAdmin) {
@@ -272,7 +280,17 @@ function Rotas() {
 
   // Teste de TESTE_DIAS dias: vencido → bloqueio visual (dados preservados).
   // Superadmin/impersonação/demo são isentos (statusAssinatura resolve).
-  const plano = impersonando ? { ok: true, tipo: 'isento' } : statusAssinatura(sessao);
+  // ⚠️ LIMITE DO USO SEM INTERNET (pedido do dono, 23/09/2026): até 72 h
+  // desde a última confirmação da assinatura, e relógio atrasado não passa.
+  // Vem ANTES do vencimento: conectar pode mostrar um pagamento que a Aurum
+  // já registrou.
+  const semNet = portaoSemInternet({ sessao, confirmacao, maiorHoraVista: lerMaiorHora(), isento: !!impersonando });
+  if (!semNet.ok) return <ConecteInternet motivo={semNet.motivo} aoTentar={reconfirmar} aoSair={logout} />;
+
+  // A data de vencimento é comparada com a hora CONFIÁVEL — a do aparelho
+  // corrigida pela diferença medida contra o servidor. Relógio atrasado de
+  // propósito não estica a assinatura.
+  const plano = impersonando ? { ok: true, tipo: 'isento' } : statusAssinatura(sessao, agoraConfiavel(confirmacao?.desvioMs));
   if (!plano.ok) {
     const bloqueado = plano.tipo === 'bloqueado';
     // conta suspensa: nem a página de assinatura resolve (reativação é com o suporte)

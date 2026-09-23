@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { emailDeLogin } from '../utils/contas';
-import { limparCacheLocal } from '../lib/cache';
+import { limparCacheLocal, cacheGet, cacheSet } from '../lib/cache';
+import { desvioDoRelogio, horaConfiavel } from '../utils/semInternet';
 import { statusAssinatura } from '../utils/assinatura';
 
 // ⚠️ ESTES TRÊS SÃO NÍVEIS DE SEGURANÇA, não rótulos. Estão numa trava da
@@ -20,6 +21,84 @@ export const CARGOS = [
 export const nivelDoCargo = (cargo) => CARGOS.find(c => c.id === cargo)?.nivel ?? 0;
 
 const AuthContext = createContext(null);
+
+// ── USO SEM INTERNET (23/09/2026) — ver utils/semInternet.js ─────────────
+// A última sessão CONFIRMADA pela internet fica guardada no aparelho, com a
+// hora da confirmação. É com ela que o app abre sem internet (até 72 h).
+// ⚠️ A chave tem três partes ('pe::_sessao::ultima') de propósito: o "Sair" e
+// a queda por sessão única apagam toda chave de dados (limparCacheLocal) —
+// e esta vai junto, senão o próximo a usar o aparelho entraria na conta.
+const lerInstantaneo = () => cacheGet('_sessao', 'ultima', null);
+const gravarInstantaneo = (v) => cacheSet('_sessao', 'ultima', v);
+// A maior hora de relógio que este aparelho já viu. Duas partes: sobrevive ao
+// "Sair" — relógio voltado para trás é assunto do aparelho, não da conta.
+const CHAVE_RELOGIO = 'pe::_relogio';
+export const lerMaiorHora = () => { try { return Number(localStorage.getItem(CHAVE_RELOGIO)) || 0; } catch { return 0; } };
+const marcarHora = (agora, forcar = false) => {
+  try { if (forcar || agora > lerMaiorHora()) localStorage.setItem(CHAVE_RELOGIO, String(agora)); } catch { /* sem storage */ }
+};
+
+// Os campos da sessão que vêm da linha do RESTAURANTE. Moram aqui para a
+// abertura do app e a reconfirmação periódica montarem a sessão igual.
+function camposDoRestaurante(rest) {
+  return {
+    restauranteNome:  rest?.nome || '',
+    // Segunda metade do login da equipe. Sem isto a tela de contas não
+    // consegue mostrar "o login da Maria é maria.polobeer".
+    apelido:          rest?.apelido || '',
+    // ⚠️ FONTE DA VERDADE DO CNPJ. Ele é o do CADASTRO, e é o que sai
+    // impresso no rodapé da etiqueta. Antes vivia numa preferência que o
+    // próprio restaurante editava — e CNPJ digitado errado numa etiqueta
+    // que viaja com o alimento é problema de fiscalização, não de tela.
+    cnpj:             rest?.cnpj || '',
+    // ⚠️ A LINHA DO RESTAURANTE FOI MESMO LIDA? Sem isto, uma consulta que
+    // falha (sem internet, RLS oscilando, banco fora do ar) produzia uma
+    // sessão com TODAS as datas nulas — e `statusAssinatura` lia isso como
+    // "esta conta nunca foi liberada", tapando o app inteiro com "Falta
+    // liberarmos o seu acesso". Aconteceu com a conta do dono, que tem
+    // assinatura em dia: o aviso ia e voltava conforme a rede.
+    // É a mesma defesa que o `produto` logo abaixo já fazia: na dúvida,
+    // NÃO tirar acesso de quem paga. Quem barra de verdade é o banco.
+    assinaturaLida:   !!rest,
+    // Assinatura/teste (migration7) + limite/bloqueio (migration9)
+    restauranteCriadoEm: rest?.created_at || null,
+    assinaturaAte:    rest?.assinatura_ate || null,
+    // ⚠️ O REGIME NUNCA CHEGAVA AQUI, e isso tornava a cortesia (M37) letra
+    // morta: `statusAssinatura` lia `sessao.regime`, que era sempre
+    // indefinido, então toda conta era tratada como pagante e uma conta de
+    // cortesia seria BLOQUEADA quando a data vencesse. O banco liberava a
+    // escrita e a tela barrava — o pior par possível.
+    regime:           rest?.regime || 'pagante',
+    cortesiaAte:      rest?.cortesia_ate || null,
+    // Contrato parcelado (M45): valor da parcela congelado no contrato.
+    // Liga os 10 dias de tolerância e mostra a parcela na tela de pagar.
+    parcelaContrato:  rest?.parcela_contrato ? Number(rest.parcela_contrato) : null,
+    // Teste escolhido pela Aurum e plano emprestado (M41).
+    testeAte:         rest?.teste_ate || null,
+    produtoTeste:     rest?.produto_teste || null,
+    produtoTesteAte:  rest?.produto_teste_ate || null,
+    maxUsuarios:      rest?.max_usuarios || 3,
+    bloqueado:        !!rest?.bloqueado,
+    // Produto contratado (migração 27) — 'etiquetas' | 'completo'.
+    // O `|| 'completo'` cobre banco sem a coluna E linha antiga sem valor:
+    // na dúvida, o cliente vê o app inteiro. O contrário esconderia telas
+    // de quem paga por elas, que é o erro caro deste par.
+    produto:          rest?.produto || 'completo',
+  };
+}
+// De quem é a sessão que o Supabase deixou guardada neste aparelho — mesmo com
+// o token vencido. Sem internet a renovação do token falha, o Supabase
+// responde "sem sessão" e o app caía no LOGIN, mas a sessão continua guardada
+// (erro de rede não a apaga): é por ela que se sabe quem estava aqui.
+const usuarioGuardadoNoAparelho = () => {
+  try {
+    const bruto = localStorage.getItem(supabase.auth.storageKey);
+    const s = bruto ? JSON.parse(bruto) : null;
+    return { id: s?.user?.id || null, email: s?.user?.email || '' };
+  } catch { return { id: null, email: '' }; }
+};
+
+const COLUNAS_RESTAURANTE = 'nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate, parcela_contrato';
 
 /**
  * O endereço já traz a recuperação de senha?
@@ -58,6 +137,10 @@ const erroNaURL = (() => {
 
 export function AuthProvider({ children }) {
   const [sessao,     setSessao]     = useState(null);
+  // Última confirmação da assinatura pela internet (utils/semInternet.js): a
+  // hora CONFIÁVEL em que aconteceu, a diferença do relógio deste aparelho
+  // para o servidor, e se a última tentativa ficou sem internet.
+  const [confirmacao, setConfirmacao] = useState({ confirmadoEm: null, desvioMs: 0, semInternet: false });
   const [carregando, setCarregando] = useState(true);
   const [usuarios,   setUsuarios]   = useState([]);
   const [convites,   setConvites]   = useState([]); // convites pendentes (não usados/não expirados)
@@ -128,15 +211,63 @@ export function AuthProvider({ children }) {
     } catch { /* etiqueta sai sem o rodapé; o cliente completa em Ajustes */ }
   }, []);
 
+  // A assinatura acabou de ser lida do servidor: mede o relógio, guarda a
+  // cópia da sessão para abrir sem internet e zera a contagem das 72 h.
+  const confirmarAgora = useCallback(async (userId, sessaoConfirmada, usuariosDaConta) => {
+    let desvioMs = 0;
+    try {
+      const { data: hora } = await supabase.rpc('hora_do_servidor');
+      desvioMs = desvioDoRelogio(hora, Date.now());
+    } catch { /* sem a M47: conta com o relógio do aparelho */ }
+    const agora = Date.now();
+    const confirmadoEm = horaConfiavel(agora, desvioMs);
+    // o servidor confirmou: a hora deste aparelho volta a valer como referência
+    marcarHora(agora, true);
+    gravarInstantaneo({ usuarioId: userId, sessao: sessaoConfirmada, usuarios: usuariosDaConta, confirmadoEm, desvioMs });
+    setConfirmacao({ confirmadoEm, desvioMs, semInternet: false });
+  }, []);
+
+  // Abre SEM internet: com a última sessão confirmada desta mesma pessoa, ou
+  // na tela que pede internet (aparelho que nunca entrou com ela).
+  const entrarSemInternet = useCallback((userId, email) => {
+    const inst = lerInstantaneo();
+    if (inst?.usuarioId === userId && inst.sessao?.restauranteId) {
+      setSessao({ ...inst.sessao, restauradaSemInternet: true, ts: Date.now() });
+      setUsuarios(inst.usuarios || []);
+      setConfirmacao({ confirmadoEm: inst.confirmadoEm || null, desvioMs: inst.desvioMs || 0, semInternet: true });
+    } else {
+      setSessao({ usuarioId: userId, email, nome: null, cargo: null, restauranteId: null, semConexao: true,
+        eSuperAdmin: email === 'atiliopinpolho@gmail.com', ts: Date.now() });
+      setUsuarios([]);
+    }
+    setCarregando(false);
+  }, []);
+
   const carregarPerfil = useCallback(async (userId) => {
-    let { data: perfil } = await supabase
+    let { data: perfil, error: errPerfil } = await supabase
       .from('perfis')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
 
     const { data: { user: authUser } } = await supabase.auth.getUser();
-    const email = authUser?.email || '';
+    let email = authUser?.email || '';
+    // sem internet o getUser falha; o e-mail está na sessão guardada no aparelho
+    if (!email) {
+      try { email = (await supabase.auth.getSession()).data?.session?.user?.email || ''; } catch { /* sem sessão */ }
+    }
+
+    // ⚠️ SEM INTERNET NÃO É "CADASTRO INCOMPLETO" (23/09/2026). A busca do
+    // perfil falhava por falta de rede e o app concluía que a conta não tinha
+    // restaurante: abrir o app com o Wi-Fi caído dava "Cadastro incompleto" e
+    // nenhuma etiqueta saía, mesmo com a assinatura em dia. Agora abre com a
+    // última sessão CONFIRMADA pela internet — e o limite de 72 h e a data de
+    // vencimento conhecida valem (App.jsx, utils/semInternet.js). Sem essa
+    // cópia (aparelho que nunca entrou com internet), a tela pede internet.
+    if (!perfil && errPerfil) {
+      entrarSemInternet(userId, email);
+      return false;
+    }
 
     // ⚠️ GANCHO DO CADASTRO PENDENTE.
     // Com a confirmação de e-mail LIGADA, o signUp não devolve sessão — não há
@@ -176,7 +307,7 @@ export function AuthProvider({ children }) {
       // select completo → fallback progressivo p/ bancos sem as colunas novas
       let { data: rest, error: errRest } = await supabase
         .from('restaurantes')
-        .select('nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate, parcela_contrato')
+        .select(COLUNAS_RESTAURANTE)
         .eq('id', perfil.restaurante_id)
         .maybeSingle();
       if (errRest) {
@@ -206,7 +337,15 @@ export function AuthProvider({ children }) {
           .eq('id', perfil.restaurante_id)
           .maybeSingle());
       }
-      setSessao({
+      // Restaurante não lido (a rede caiu no meio da abertura): os campos dele
+      // vêm da última confirmação desta mesma conta, se houver — senão vale a
+      // regra antiga, "consulta que falha não tira acesso".
+      const inst = !rest ? lerInstantaneo() : null;
+      const usarInst = inst?.usuarioId === userId && inst.sessao?.restauranteId === perfil.restaurante_id ? inst : null;
+      const doRestaurante = usarInst
+        ? Object.fromEntries(Object.keys(camposDoRestaurante(null)).map(k => [k, usarInst.sessao[k]]))
+        : camposDoRestaurante(rest);
+      const sessaoNova = {
         usuarioId:        userId,
         email,
         // Acesso revogado pela gerência. O banco também barra (migração 18
@@ -219,56 +358,18 @@ export function AuthProvider({ children }) {
         // sendo o nível de segurança que o banco reconhece.
         cargoRotulo:      perfil.cargo_rotulo || null,
         restauranteId:    perfil.restaurante_id,
-        restauranteNome:  rest?.nome || '',
-        // Segunda metade do login da equipe. Sem isto a tela de contas não
-        // consegue mostrar "o login da Maria é maria.polobeer".
-        apelido:          rest?.apelido || '',
-        // ⚠️ FONTE DA VERDADE DO CNPJ. Ele é o do CADASTRO, e é o que sai
-        // impresso no rodapé da etiqueta. Antes vivia numa preferência que o
-        // próprio restaurante editava — e CNPJ digitado errado numa etiqueta
-        // que viaja com o alimento é problema de fiscalização, não de tela.
-        cnpj:             rest?.cnpj || '',
-        // ⚠️ A LINHA DO RESTAURANTE FOI MESMO LIDA? Sem isto, uma consulta que
-        // falha (sem internet, RLS oscilando, banco fora do ar) produzia uma
-        // sessão com TODAS as datas nulas — e `statusAssinatura` lia isso como
-        // "esta conta nunca foi liberada", tapando o app inteiro com "Falta
-        // liberarmos o seu acesso". Aconteceu com a conta do dono, que tem
-        // assinatura em dia: o aviso ia e voltava conforme a rede.
-        // É a mesma defesa que o `produto` logo abaixo já fazia: na dúvida,
-        // NÃO tirar acesso de quem paga. Quem barra de verdade é o banco.
-        assinaturaLida:   !!rest,
-        // Assinatura/teste (migration7) + limite/bloqueio (migration9)
-        restauranteCriadoEm: rest?.created_at || null,
-        assinaturaAte:    rest?.assinatura_ate || null,
-        // ⚠️ O REGIME NUNCA CHEGAVA AQUI, e isso tornava a cortesia (M37) letra
-        // morta: `statusAssinatura` lia `sessao.regime`, que era sempre
-        // indefinido, então toda conta era tratada como pagante e uma conta de
-        // cortesia seria BLOQUEADA quando a data vencesse. O banco liberava a
-        // escrita e a tela barrava — o pior par possível.
-        regime:           rest?.regime || 'pagante',
-        cortesiaAte:      rest?.cortesia_ate || null,
-        // Contrato parcelado (M45): valor da parcela congelado no contrato.
-        // Liga os 10 dias de tolerância e mostra a parcela na tela de pagar.
-        parcelaContrato:  rest?.parcela_contrato ? Number(rest.parcela_contrato) : null,
-        // Teste escolhido pela Aurum e plano emprestado (M41).
-        testeAte:         rest?.teste_ate || null,
-        produtoTeste:     rest?.produto_teste || null,
-        produtoTesteAte:  rest?.produto_teste_ate || null,
-        maxUsuarios:      rest?.max_usuarios || 3,
-        bloqueado:        !!rest?.bloqueado,
-        // Produto contratado (migração 27) — 'etiquetas' | 'completo'.
-        // O `|| 'completo'` cobre banco sem a coluna E linha antiga sem valor:
-        // na dúvida, o cliente vê o app inteiro. O contrário esconderia telas
-        // de quem paga por elas, que é o erro caro deste par.
-        produto:          rest?.produto || 'completo',
+        ...doRestaurante,
         eSuperAdmin:      email === 'atiliopinpolho@gmail.com',
         ts:               Date.now(),
-      });
+      };
+      setSessao(sessaoNova);
       const { data: todos } = await supabase
         .from('perfis')
         .select('id, nome, cargo, ativo, usuario, cargo_rotulo')
         .eq('restaurante_id', perfil.restaurante_id);
       setUsuarios(todos || []);
+      if (rest) await confirmarAgora(userId, sessaoNova, todos || []);
+      else if (usarInst) setConfirmacao({ confirmadoEm: usarInst.confirmadoEm || null, desvioMs: usarInst.desvioMs || 0, semInternet: true });
     } else {
       // Auth criado mas perfil ainda não existe (setup incompleto)
       setSessao({ usuarioId: userId, email, nome: null, cargo: null, restauranteId: null, eSuperAdmin: email === 'atiliopinpolho@gmail.com', ts: Date.now() });
@@ -276,7 +377,67 @@ export function AuthProvider({ children }) {
     }
     registrarSessaoAtiva(userId); // marca este aparelho como o ativo
     setCarregando(false);
-  }, [registrarSessaoAtiva, semearEstabelecimento]);
+    return true;
+  }, [registrarSessaoAtiva, semearEstabelecimento, confirmarAgora, entrarSemInternet]);
+
+  // ── Reconfirmar a assinatura com o app ABERTO ──────────────────────
+  // ⚠️ Antes a assinatura só era lida ao ABRIR o app. Um aparelho que fica
+  // aberto por dias nunca reconfirmava — e com o limite de 72 h sem internet,
+  // ele seria barrado mesmo conectado. Agora confere a cada 15 minutos, quando
+  // a internet volta e quando a tela volta a ficar visível. De quebra, o
+  // pagamento que a Aurum registra aparece no aparelho sem precisar fechar.
+  const sessaoRef = useRef(null);
+  const usuariosRef = useRef([]);
+  useEffect(() => { sessaoRef.current = sessao; usuariosRef.current = usuarios; }, [sessao, usuarios]);
+
+  const reconfirmarSemLimite = useCallback(async () => {
+    const s = sessaoRef.current;
+    if (!s || s.demo) return false;
+    // Entrou sem internet (sem cópia, ou com a cópia): a volta da internet
+    // refaz a entrada inteira — perfil, equipe, sessão única, confirmação.
+    if (s.semConexao || s.restauradaSemInternet) return carregarPerfil(s.usuarioId);
+    if (!s.restauranteId) return false;
+    const { data: rest, error } = await supabase
+      .from('restaurantes').select(COLUNAS_RESTAURANTE).eq('id', s.restauranteId).maybeSingle();
+    if (error || !rest) {
+      // tentativa registrada: a tela recalcula o limite das 72 h
+      setConfirmacao(c => ({ ...c, semInternet: true, tentativaEm: Date.now() }));
+      return false;
+    }
+    const campos = camposDoRestaurante(rest);
+    const mudou = Object.keys(campos).some(k => JSON.stringify(campos[k]) !== JSON.stringify(s[k]));
+    const nova = mudou ? { ...s, ...campos } : s;
+    if (mudou) setSessao(prev => (prev && prev.usuarioId === s.usuarioId ? { ...prev, ...campos } : prev));
+    await confirmarAgora(s.usuarioId, nova, usuariosRef.current);
+    return true;
+  }, [carregarPerfil, confirmarAgora]);
+
+  // ⚠️ Com o Wi-Fi ligado mas sem internet de verdade, cada consulta pode
+  // demorar até ~30 s (o Supabase insiste). O "Tentar de novo" da tela de
+  // bloqueio não pode ficar meio minuto em "Conferindo…": em 10 s responde
+  // "ainda sem conexão" — e, se a consulta chegar depois, a tela se resolve.
+  const reconfirmar = useCallback(() => Promise.race([
+    reconfirmarSemLimite(),
+    new Promise(r => setTimeout(() => r(false), 10000)),
+  ]), [reconfirmarSemLimite]);
+
+  useEffect(() => {
+    if (!sessao?.usuarioId || sessao.demo) return undefined;
+    marcarHora(Date.now());
+    let ultima = Date.now();
+    const tentar = () => { ultima = Date.now(); marcarHora(ultima); reconfirmar(); };
+    const aoVoltar = () => {
+      if (document.visibilityState === 'visible' && Date.now() - ultima > 5 * 60 * 1000) tentar();
+    };
+    const intervalo = setInterval(tentar, 15 * 60 * 1000);
+    window.addEventListener('online', tentar);
+    document.addEventListener('visibilitychange', aoVoltar);
+    return () => {
+      clearInterval(intervalo);
+      window.removeEventListener('online', tentar);
+      document.removeEventListener('visibilitychange', aoVoltar);
+    };
+  }, [sessao?.usuarioId, sessao?.demo, reconfirmar]);
 
   // Sessão única: escuta o token desta conta. Se mudar (outro aparelho logou),
   // este aparelho cai e mostra a mensagem. (Demo não toca o Supabase.)
@@ -314,9 +475,29 @@ export function AuthProvider({ children }) {
   // recarregar o mesmo usuário que já está logado.
   const carregadoRef = useRef(null);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) { carregadoRef.current = session.user.id; carregarPerfil(session.user.id); }
-      else setCarregando(false);
+    // ⚠️ SEM INTERNET O SUPABASE INSISTE em renovar o token antes de
+    // responder — duas rodadas de ~30 s, quase um minuto de "Carregando…" com
+    // a cozinha esperando (medido pelo robô). Se em 4 s não respondeu e há uma
+    // cópia confirmada da pessoa que estava aqui, abre com ela. Sem cópia (o
+    // aparelho ainda não abriu com internet desde esta versão), em 12 s mostra
+    // "Conecte à internet" com o "Tentar de novo". Quando o Supabase responder
+    // com a sessão, a entrada completa é refeita por cima.
+    let respondeu = false;
+    const guardado = usuarioGuardadoNoAparelho();
+    const temCopia = !!guardado?.id && lerInstantaneo()?.usuarioId === guardado.id;
+    const atalho = guardado?.id
+      ? setTimeout(() => { if (!respondeu) entrarSemInternet(guardado.id, guardado.email); }, temCopia ? 4000 : 12000)
+      : null;
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      respondeu = true; if (atalho) clearTimeout(atalho);
+      if (session?.user) { carregadoRef.current = session.user.id; carregarPerfil(session.user.id); return; }
+      // ⚠️ TOKEN VENCIDO + SEM INTERNET (o caso de toda manhã: app fechado à
+      // noite, aberto com o Wi-Fi fora). O Supabase não conseguiu renovar e
+      // respondeu "sem sessão" — mas a sessão segue guardada. Abre com a cópia
+      // confirmada (até 72 h). `carregadoRef` fica vazio DE PROPÓSITO: quando a
+      // internet voltar e o token renovar, o aviso do Supabase refaz a entrada.
+      if (error && guardado?.id) { entrarSemInternet(guardado.id, guardado.email); return; }
+      setCarregando(false);
     });
 
     // ⚠️ A OUTRA ABA TROCOU A SENHA → esta sai da tela de recuperação e entra
@@ -335,6 +516,16 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') { setRecuperando(true); setCarregando(false); return; }
       const uid = session?.user?.id || null;
+      // ⚠️ "SESSÃO INICIAL VAZIA" NÃO É "SAIU DA CONTA" (23/09/2026). O
+      // Supabase manda INITIAL_SESSION sem sessão quando não consegue renovar
+      // o token ao abrir — e é exatamente o que acontece no celular recém
+      // desbloqueado, com o Wi-Fi ainda voltando, ou sem internet. Este
+      // código tratava isso como logout: APAGAVA os dados do aparelho e
+      // mandava para o login (o dono reclamou: "fechou o celular um pouco,
+      // tem que logar de novo"). A sessão continua guardada; quem decide a
+      // abertura é o `getSession` logo acima (e a cópia de até 72 h). Sair de
+      // verdade chega como SIGNED_OUT, que continua limpando tudo.
+      if (!uid && event === 'INITIAL_SESSION') return;
       setTimeout(() => {
         if (uid) {
           if (carregadoRef.current === uid) return; // já carregado — ignora eventos repetidos
@@ -354,7 +545,7 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe();
       window.removeEventListener('storage', aoTrocarEmOutraAba);
     };
-  }, [carregarPerfil]);
+  }, [carregarPerfil, entrarSemInternet]);
 
   // ── Login: e-mail OU usuário da casa ─────────────────────────
   //
@@ -794,6 +985,7 @@ export function AuthProvider({ children }) {
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,
+      confirmacao, reconfirmar,
     }), [
     // `erroNaURL` fica de fora de propósito: é constante de MÓDULO, lida uma
     // vez do endereço quando o arquivo carrega. Pôr uma variável de fora do
@@ -804,7 +996,7 @@ export function AuthProvider({ children }) {
     cadastroPendenteErro, criarConvite, usarConvite, alterarCargo, desativarUsuario,
     reativarUsuario, avisarPagamento, criarConta, trocarSenhaDe, removerConta,
     definirApelido, temPermissao, impersonando, verComoRestaurante, sairImpersonacao,
-    derrubado, limparDerrubado,
+    derrubado, limparDerrubado, confirmacao, reconfirmar,
   ]);
 
   return (

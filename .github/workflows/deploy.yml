@@ -46,7 +46,11 @@ jobs:
       # testes acima leem o código; este é o único que ABRE as telas. Tela que
       # trava ao abrir derruba a publicação aqui, antes de chegar ao cliente.
       - run: npx playwright install --with-deps chromium
+      # o endereço PÚBLICO do banco monta o nome da sessão nos testes sem
+      # internet (e2e/semInternet.pw.js); nada é gravado no banco
       - run: npm run robo
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       # SPA no GitHub Pages: o 404 devolve o app e o React Router resolve a rota
       - run: cp dist/index.html dist/404.html
       - uses: actions/upload-pages-artifact@v3

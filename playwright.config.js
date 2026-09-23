@@ -1,4 +1,13 @@
 import { defineConfig } from '@playwright/test';
+import { existsSync, readFileSync } from 'node:fs';
+
+// O endereço PÚBLICO do banco (o mesmo que vai dentro do app) monta o nome da
+// chave da sessão nos testes sem internet. No GitHub vem do segredo; aqui,
+// só ESTA linha do .env.local é lida — nada mais sai de lá.
+if (!process.env.VITE_SUPABASE_URL && existsSync('.env.local')) {
+  const linha = readFileSync('.env.local', 'utf8').split(/\r?\n/).find(l => /^\s*VITE_SUPABASE_URL\s*=/.test(l));
+  if (linha) process.env.VITE_SUPABASE_URL = linha.split('=').slice(1).join('=').trim().replace(/^["']|["']$/g, '');
+}
 
 // =====================================================================
 //  O ROBÔ QUE ABRE O APP (23/09/2026, pedido do dono)

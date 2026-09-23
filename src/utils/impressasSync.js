@@ -6,7 +6,7 @@
 //  gravam em cima da mesma versão, o banco recusa o segundo ("conflito").
 //
 //  ⚠️ O DEFEITO (23/09/2026): no conflito o app trocava a lista do aparelho
-//  pela do servidor. O caso comum com dois tablets: o A entra no descanso de
+//  pela do servidor. O caso comum com dois aparelhos: o A entra no descanso de
 //  tela, o B imprime, o A acorda e imprime → conflito → a etiqueta que o A
 //  acabou de imprimir SUMIA da aba Impressas, e aparecia "Outro aparelho
 //  alterou este catálogo. Refaça sua alteração". A pessoa reimprimia: pote

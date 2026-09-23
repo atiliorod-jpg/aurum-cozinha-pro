@@ -1,7 +1,7 @@
 // =====================================================================
 //  BUSCA — uma regra só para o app inteiro (23/09/2026)
 //
-//  ⚠️ O cozinheiro digita no tablet com pressa e sem acento: "file", "pure",
+//  ⚠️ O cozinheiro digita no celular ou no tablet com pressa e sem acento: "file", "pure",
 //  "feijao", "limao". Com `toLowerCase().includes`, isso dava "Nada
 //  encontrado" para Filé, Purê, Feijão e Limão — e a pessoa concluía que o
 //  item não existia: escrevia à mão ou cadastrava de novo (item duplicado).
