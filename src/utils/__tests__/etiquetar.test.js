@@ -191,3 +191,24 @@ describe('impressora à vista', () => {
     expect(ler('../../../vite.config.js')).toMatch(/'import\.meta\.env\.VITE_VERSAO_APP': JSON\.stringify\(VERSAO_APP\)/);
   });
 });
+
+describe('janela de imprimir com o botão sempre visível', () => {
+  const ep = ler('../../components/EtiquetaPrint.jsx');
+
+  it('o rodapé com o resumo e os botões fica grudado no fim da tela', () => {
+    expect(ep).toMatch(/<div className="sticky -bottom-4 -mx-5 -mb-5 px-5 pb-5 pt-3 bg-white border-t/);
+    const rodape = ep.slice(ep.indexOf('<div className="sticky -bottom-4'));
+    // dentro do rodapé: o resumo, o botão direto, a pergunta do computador e os botões do diálogo
+    expect(rodape.indexOf('resumoDoRodape.partes.join')).toBeGreaterThan(-1);
+    expect(rodape.indexOf('onClick={imprimirDireto}')).toBeGreaterThan(-1);
+    expect(rodape.indexOf('Etiqueta foi impressa?')).toBeGreaterThan(-1);
+    expect(rodape.indexOf('onClick={imprimir}')).toBeGreaterThan(-1);
+  });
+
+  it('o resumo diz armazenamento, vencimento e quantas etiquetas — e avisa quando sai sem vencimento', () => {
+    expect(ep).toMatch(/partes: \[c\.armazenamentoLabel, c\.validadeFmt \? `vence \$\{c\.validadeFmt\}` : null, nEtiquetas\]/);
+    expect(ep).toMatch(/semVencimento: !c\.validadeFmt && !soTeste/);
+    expect(ep).toMatch(/Sai sem vencimento — só identificação\./);
+    expect(ep).toMatch(/partes: \[`\$\{aSair\.length\} itens`, nEtiquetas\]/);
+  });
+});

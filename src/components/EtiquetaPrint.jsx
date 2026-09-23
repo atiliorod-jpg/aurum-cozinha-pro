@@ -784,6 +784,25 @@ export default function EtiquetaPrint() {
   const soTeste = itens.length > 0 && itens.every(i => i.teste);
   const faltaResponsavel = !soTeste && config.exigirResponsavel === true && !responsavel.trim();
 
+  // ⚠️ O RESUMO COLADO NO BOTÃO (pedido do dono, 23/09/2026). O botão de
+  // imprimir ficou fixo no rodapé da janela — antes ele morava no FIM, e a
+  // cada etiqueta a pessoa rolava a tela com a mão suja até achá-lo. Com o
+  // botão sempre à vista, o último olhar antes do toque cai aqui: o
+  // armazenamento e o vencimento que vão para o pote. Não é um toque a mais.
+  const aSair = itens.filter(it => limitarCopias(it.quantidade) > 0);
+  const nEtiquetas = totalEtiquetas === 1 ? '1 etiqueta' : `${totalEtiquetas} etiquetas`;
+  let resumoDoRodape = null;
+  if (aSair.length === 1) {
+    const c = camposDe(aSair[0]);
+    resumoDoRodape = {
+      partes: [c.armazenamentoLabel, c.validadeFmt ? `vence ${c.validadeFmt}` : null, nEtiquetas].filter(Boolean),
+      // item sem vencimento sai só com identificação — vale um olhar a mais
+      semVencimento: !c.validadeFmt && !soTeste,
+    };
+  } else if (aSair.length > 1) {
+    resumoDoRodape = { partes: [`${aSair.length} itens`, nEtiquetas], semVencimento: false };
+  }
+
   // ⚠️ "SAIU NO PAPEL?" — SÓ NO CAMINHO DO COMPUTADOR. Defeito achado pelo
   // dono em 10/09/2026: tocar em "Imprimir pelo computador" abre a janela de
   // impressão do navegador, e a etiqueta já era CONTADA ali — mesmo que ele
@@ -1178,29 +1197,9 @@ export default function EtiquetaPrint() {
               app aberto dentro do WhatsApp). Aí o diálogo volta, porque é a
               única saída que resta — mas com uma linha dizendo por quê. */}
           {mostrarDireto && (
-            <div className="space-y-2">
-              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel}>
-                {enviando
-                  ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
-                  : conectada ? 'Imprimir na impressora'
-                  : 'Conectar impressora e imprimir'}
-              </Botao>
-              {enviando && (
-                <button type="button" onClick={cancelarEnvio}
-                  className="w-full border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">
-                  Cancelar
-                </button>
-              )}
-              <p className="text-[11px] text-gray-600 text-center">
-                Sai direto, no tamanho exato. Sem janela de impressão.
-              </p>
-              {/* ⚠️ ASSERTIVO, e é o único do arquivo que precisa ser. A pessoa
-                  acabou de tocar em imprimir; se a impressora recusou, ela tem
-                  de saber AGORA, não quando o leitor terminar a frase. Era o
-                  aviso mais silencioso do app: aparecia sem som nenhum e ela
-                  ficava tocando de novo. */}
-              {erroBLE && <Aviso tom={erroBLE.tom}>{erroBLE.texto}</Aviso>}
-            </div>
+            <p className="text-[11px] text-gray-600 text-center">
+              Sai direto, no tamanho exato. Sem janela de impressão.
+            </p>
           )}
 
           {/* ⚠️ NO IPHONE O CONSELHO É OUTRO, e o texto único que havia aqui
@@ -1217,6 +1216,39 @@ export default function EtiquetaPrint() {
                 : <>Este navegador não conecta na impressora. No <strong>Chrome</strong> a
                     etiqueta sai direto, sem esta janela.</>}
             </p>
+          )}
+
+          {/* ⚠️ RODAPÉ FIXO (23/09/2026): o resumo e os botões ficam sempre à
+              vista no fim da tela, enquanto o resto da janela rola por baixo.
+              `sticky` dentro do fundo que rola — os outros modais não mudam. */}
+          <div className="sticky -bottom-4 -mx-5 -mb-5 px-5 pb-5 pt-3 bg-white border-t border-gray-200 rounded-b-2xl space-y-2 z-10">
+          {resumoDoRodape && (
+            <p className={`text-xs font-bold text-center ${resumoDoRodape.semVencimento ? 'text-amber-800' : 'text-polo-navy'}`}>
+              {resumoDoRodape.partes.join(' · ')}
+              {resumoDoRodape.semVencimento && <span className="block font-semibold">Sai sem vencimento — só identificação.</span>}
+            </p>
+          )}
+          {mostrarDireto && (
+            <div className="space-y-2">
+              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel}>
+                {enviando
+                  ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
+                  : conectada ? 'Imprimir na impressora'
+                  : 'Conectar impressora e imprimir'}
+              </Botao>
+              {enviando && (
+                <button type="button" onClick={cancelarEnvio}
+                  className="w-full border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">
+                  Cancelar
+                </button>
+              )}
+              {/* ⚠️ ASSERTIVO, e é o único do arquivo que precisa ser. A pessoa
+                  acabou de tocar em imprimir; se a impressora recusou, ela tem
+                  de saber AGORA, não quando o leitor terminar a frase. Era o
+                  aviso mais silencioso do app: aparecia sem som nenhum e ela
+                  ficava tocando de novo. */}
+              {erroBLE && <Aviso tom={erroBLE.tom}>{erroBLE.texto}</Aviso>}
+            </div>
           )}
 
           {perguntaPapel ? (
@@ -1252,6 +1284,7 @@ export default function EtiquetaPrint() {
             )}
           </div>
           )}
+          </div>
         </>
       </Dialogo>
 
