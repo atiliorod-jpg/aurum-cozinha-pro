@@ -181,6 +181,65 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (23/09/2026, noite) — IMPRESSAS COM 2 APARELHOS, BUSCA, MAIS USADOS, IMPRESSORA À VISTA, ROBÔ
+
+O dono aprovou do roteiro: a correção das Impressas, impressora à vista,
+busca sem acento, mais usados no topo e o robô. Tudo publicado, um commit por
+parte (`e2bc81b`, `e7a637e`, `f5c9de2`, `e8b9881`). 625 testes + robô.
+
+- **Impressas com vários aparelhos** (`utils/impressasSync.js`): cada aparelho
+  guarda as SUAS mudanças não confirmadas em `pe::<rid>::_pend::<chave>`
+  (novas/alteradas em `up`, apagadas em `rm`). No conflito da M8, a lista do
+  servidor recebe as pendências por cima e é regravada (até 3 vezes), SEM o
+  toast "refaça". Tempo real e hidratação também põem as pendências por cima.
+  A fila offline das impressas vai marcada `_comPendencias` e o replay
+  (`regravarImpressas` no flush) LÊ o servidor, junta e grava na versão dele
+  — antes gravava por cima com -1 e apagava o que outro aparelho imprimiu.
+  Item de fila de antes desta versão cai em `unirImpressas` (junta sem
+  apagar). Etiqueta apagada pela dona (M44) não ressuscita. Teste com servidor
+  versionado simulado e dois aparelhos (`impressasSync.test.js`).
+  De quebra: resposta de conflito que chega depois de trocar de cozinha não vai
+  para a tela da cozinha nova (`chaveDe()` em persistCatalogo).
+  ⚠️ `salvarDocNuvem` chama a si mesma por `salvarDocRef` (função nomeada
+  recursiva dentro do useCallback fez o lint do React Compiler parar de
+  analisar o AppProvider — sumiram avisos que deviam existir).
+- **Busca** (`utils/busca.js`, `casaBusca`): sem acento, sem maiúscula, cada
+  palavra em qualquer ordem. Em todas as telas de busca dos dois planos; há
+  teste que reprova se alguma voltar a `toLowerCase().includes`.
+- **Mais usados** (`maisUsados` em utils/etiquetas.js): 8 itens mais
+  etiquetados em 14 dias NESTA cozinha, ordem alfabética, some ao buscar/filtrar.
+- **Impressora à vista** (`components/Impressora.jsx`): faixa de status na
+  tela Etiquetar (só Android — `caminhosDeImpressao().direto`; tenta a
+  reconexão silenciosa ao abrir) e cartão "Sua impressora" na aba Impressora:
+  trocar (desconectar + seletor no mesmo toque), etiqueta de TESTE (marca
+  `teste: true`; `aoImprimir` filtra — não entra em relatório, Impressas nem
+  prefs; não pergunta "foi impressa?"), e "Copiar diagnóstico"
+  (`utils/diagnostico.js`, com a versão do app carimbada no build:
+  `import.meta.env.VITE_VERSAO_APP` em vite.config.js, e o último travamento
+  guardado pela BarreiraDeErro). `impressoraBLE.js` avisa quem se inscreve
+  (`aoMudarConexao`/`versaoDaConexao`, usado com useSyncExternalStore).
+  `erroEmPortugues` mudou para utils/erros.js.
+- **Robô** (`e2e/telas.pw.js`, `playwright.config.js`, `npm run robo`): abre o
+  build no navegador, entra na DEMONSTRAÇÃO dos dois planos (o Pro pergunta
+  "Onde você vai trabalhar?" primeiro), visita 8 + 26 telas navegando por
+  `history.pushState` (a sessão demo vive só na memória — `goto` a perderia),
+  imprime pelo computador e confere Impressas e a busca. Roda no deploy depois
+  do build. Local usa o Edge (`channel: 'msedge'`); no CI, o Chromium do
+  Playwright. Provado plantando um throw no Balanço: reprovou em /balanco.
+  Rota nova no App.jsx → acrescentar na lista do robô.
+
+**Pergunta do dono, em aberto (esperando decisão):** travar o app sem internet
+para cliente vencido. Hoje, sem ler a linha do restaurante, `statusAssinatura`
+devolve 'indeterminado' e DEIXA ENTRAR (regra de 03/09: consulta que falha não
+tira acesso) — então um vencido com o Wi-Fi desligado segue imprimindo (o banco
+recusa as gravações, mas a etiqueta por Bluetooth não passa pelo banco).
+Recomendação dada: NÃO exigir internet para tudo (Wi-Fi de cozinha cai no
+meio do serviço); limitar o uso offline a uma janela (ex.: 72 h desde a última
+confirmação da assinatura pela internet), nunca além da data de vencimento já
+conhecida, e desconfiar de relógio que volta para trás.
+
+---
+
 ## Onde paramos (23/09/2026, tarde) — REVISÃO DAS UNIDADES + ROTEIRO DE EVOLUÇÕES
 
 Pedido: "confira se está funcionando perfeitamente e depois faça uma análise
