@@ -20,6 +20,7 @@ import {
   precoMensalEquivalente, PLANOS,
 } from '../assinatura';
 import { numerosDoPainel } from '../painel';
+import { formatarCEP } from '../documentos';
 
 const ler = (caminho) => readFileSync(new URL(caminho, import.meta.url), 'utf8');
 
@@ -176,7 +177,7 @@ describe('unidade extra', () => {
     });
     expect(d).toEqual({
       nome: 'Unidade Centro',
-      estabelecimento: { cnpj: '11444777000161', endereco: 'Rua X, 10', cidade: 'Recife - PE', cep: '50000000' },
+      estabelecimento: { cnpj: '11444777000161', endereco: 'Rua X, 10', cidade: 'Recife - PE', cep: '50000-000' },
     });
     expect(cidadeUf('Olinda', '')).toBe('Olinda');
   });
@@ -292,5 +293,74 @@ describe('adicional por unidade extra', () => {
     expect(adm).toMatch(/precoPlano\(plano, r\.produto, extrasDe\(r\)\)/);
     expect(adm).toMatch(/supabase\.rpc\('criar_unidade'/);
     expect(adm).toMatch(/supabase\.rpc\('arquivar_unidade'/);
+  });
+});
+
+// Revisão de 23/09/2026: a cobrança com unidades tinha de dar o MESMO número
+// em todo lugar — QR do cliente, fila do painel, "Registrar pagamento",
+// Ajustes — e a parcela do contrato não podia ficar para trás.
+describe('cobrança com unidades: um número só em todas as telas', () => {
+  it('a fila do painel usa a mesma conta do Registrar pagamento (parcela, unidades, juros)', () => {
+    const adm = ler('../../pages/Admin.jsx');
+    expect(adm).toMatch(/brlAdmin\(valorCobranca\(r, plano, !!encargos\[r\.id\]\)\)/);
+    expect(adm).not.toMatch(/brlAdmin\(precoPlano\(plano, r\.produto, extrasDe\(r\)\)\)/);
+  });
+
+  it('o contrato parcelado já vem preenchido COM as unidades, e a confirmação avisa', () => {
+    const adm = ler('../../pages/Admin.jsx');
+    expect(adm).toMatch(/setParcelaEdit\(\{ id: r\.id, valor: fmtPreco\(mensalComUnidades\(r\.produto, extrasDe\(r\)\)\) \}\)/);
+    expect(adm).not.toMatch(/valor: fmtPreco\(produtoDe\(r\.produto\)\.precoMes\)/);
+    expect(adm).toMatch(/const avisoUnidades = v !== null && extras > 0/);
+  });
+
+  it('criar, arquivar e reativar unidade oferecem ajustar a parcela do contrato', () => {
+    const adm = ler('../../pages/Admin.jsx');
+    expect(adm).toMatch(/const oferecerAjusteParcela = async \(r, delta, porque\)/);
+    expect(adm).toMatch(/if \(nova\) await oferecerAjusteParcela\(r, adicionalUnidade\(r\.produto\)/);
+    expect(adm).toMatch(/await oferecerAjusteParcela\(r, arquivar \? -adicional : adicional/);
+    // a ajuda é declarada ANTES de quem a chama
+    expect(adm.indexOf('const oferecerAjusteParcela')).toBeLessThan(adm.indexOf('const salvarUnidade'));
+  });
+
+  it('trocar de plano no painel diz o valor do mês com as unidades', () => {
+    const adm = ler('../../pages/Admin.jsx');
+    expect(adm).toMatch(/fmtPreco\(mensalComUnidades\(novo, extras\)\)/);
+  });
+
+  it('o Pagamento confere as unidades na rede ao abrir', () => {
+    const pag = ler('../../pages/Pagamento.jsx');
+    expect(pag).toMatch(/const \{ unidades, recarregarUnidades \} = useApp\(\)/);
+    expect(pag).toMatch(/useEffect\(\(\) => \{ recarregarUnidades\(\); \}, \[recarregarUnidades\]\)/);
+  });
+
+  it('Ajustes mostra o que o cliente paga: parcela do contrato, ou plano + unidades', () => {
+    const aj = ler('../../pages/etiquetas/Ajustes.jsx');
+    expect(aj).toMatch(/mensalComUnidades\(prod\.id, extras\)/);
+    expect(aj).toMatch(/const parcela = Number\(sessao\?\.parcelaContrato\) \|\| 0/);
+    expect(aj).not.toMatch(/R\$ \{fmtPreco\(prod\.precoMes\)\}\/mês/);
+    expect(mensalComUnidades('etiquetas', 1)).toBe(373.2);
+  });
+});
+
+describe('detalhes da etiqueta e do balanço com unidades', () => {
+  it('CEP sai como se escreve; o que não é CEP volta como veio', () => {
+    expect(formatarCEP('50000000')).toBe('50000-000');
+    expect(formatarCEP('50000-000')).toBe('50000-000');
+    expect(formatarCEP('')).toBe('');
+    expect(formatarCEP(null)).toBe('');
+    expect(formatarCEP('123')).toBe('123');
+  });
+
+  it('a principal continua imprimindo o CEP exatamente como o dono digitou', () => {
+    const d = dadosDaEtiqueta({
+      unidade: null, estoque: null, nomeConta: 'Casa', cnpjConta: '11222333000181',
+      estabelecimentoConta: { cep: '50.000-000', cidade: 'Recife - PE' },
+    });
+    expect(d.estabelecimento.cep).toBe('50.000-000');
+  });
+
+  it('no balanço com várias unidades a coluna tem a cozinha E a unidade', () => {
+    const bal = ler('../../pages/Balanco.jsx');
+    expect(bal).toMatch(/\{variasUnidades \? \(<>\s*\{e\.nome\}/);
   });
 });

@@ -17,6 +17,7 @@
 
 import { MODULO_PADRAO } from './modulos';
 import { estabelecimentoDe } from './instancias';
+import { formatarCEP } from './documentos';
 
 const texto = (v) => String(v ?? '').trim();
 
@@ -98,7 +99,8 @@ export function dadosDaEtiqueta({ unidade, estoque, nomeConta, cnpjConta, estabe
         cnpj: texto(unidade.cnpj),
         endereco: texto(unidade.endereco),
         cidade: cidadeUf(unidade.cidade, unidade.uf),
-        cep: texto(unidade.cep),
+        // o banco guarda 8 números; no papel sai como se escreve (00000-000)
+        cep: formatarCEP(unidade.cep),
       },
     };
   }

@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 import Botao from '../Botao';
 import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
-import { formatarCNPJ } from '../../utils/documentos';
+import { formatarCNPJ, formatarCEP } from '../../utils/documentos';
 import { CAPACIDADES, PERMISSOES_PADRAO, cargosDaCasa, capacidadesDoProduto } from '../../utils/permissoes';
 import { temUnidadesExtras, opcoesDeUnidade } from '../../utils/unidades';
 import { useApp } from '../../store/AppContext';
@@ -305,7 +305,7 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
   const dono = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin;
   const podeEditar = extra ? dono : true;
   const [local, setLocal] = useState(() => (extra
-    ? { endereco: extra.endereco || '', cidade: extra.cidade || '', uf: extra.uf || '', cep: extra.cep || '' }
+    ? { endereco: extra.endereco || '', cidade: extra.cidade || '', uf: extra.uf || '', cep: formatarCEP(extra.cep) }
     : (prefs.estabelecimento || {})));
   const [salvando, setSalvando] = useState(false);
 

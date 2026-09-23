@@ -54,6 +54,15 @@ export function formatarCNPJ(valor) {
  * — sem isso "00" ou "01" passariam e o WhatsApp do dono não chegaria a lugar
  * nenhum na hora de ativar a assinatura.
  */
+/**
+ * CEP no formato em que se escreve: 00000-000. O banco guarda só os 8
+ * números (unidades, M46); qualquer outra coisa volta como veio.
+ */
+export function formatarCEP(valor) {
+  const c = soDigitos(valor);
+  return c.length === 8 ? `${c.slice(0, 5)}-${c.slice(5)}` : String(valor ?? '').trim();
+}
+
 export function validarTelefone(valor) {
   const t = soDigitos(valor);
   if (t.length !== 10 && t.length !== 11) return false;

@@ -8,7 +8,8 @@ import { useUI } from '../../store/UIContext';
 import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos,
          CartaoMeusDados, CartaoUnidades } from '../../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../../components/config/CartaoMinhaSenha';
-import { statusAssinatura, produtoDe, PRODUTOS, fmtPreco } from '../../utils/assinatura';
+import { statusAssinatura, produtoDe, PRODUTOS, fmtPreco, mensalComUnidades } from '../../utils/assinatura';
+import { unidadesAtivas } from '../../utils/unidades';
 import { fmtData, isoLocal } from '../../utils/formatters';
 
 /**
@@ -28,7 +29,7 @@ import { fmtData, isoLocal } from '../../utils/formatters';
  */
 export default function Ajustes() {
   const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa,
-          permissoes, setPermissoes, exportarBackup, importarBackup } = useApp();
+          permissoes, setPermissoes, exportarBackup, importarBackup, unidades } = useApp();
   // ⚠️ A ADMINISTRAÇÃO ABRE PARA QUEM O DONO LIBERAR (capacidade
   // `configurarSistema`), mas nem tudo aqui dentro é delegável. Assinatura,
   // contas da equipe, matriz de acessos e suporte remoto continuam SÓ da conta
@@ -43,6 +44,11 @@ export default function Ajustes() {
 
   const st = statusAssinatura(sessao);
   const prod = produtoDe(sessao);
+  // ⚠️ O MESMO VALOR DO QR (Pagamento.jsx): a parcela do contrato quando há;
+  // senão o plano mais 1/3 por unidade extra ativa (M46). Aqui era só o preço
+  // da tabela, e a conta com unidade lia um valor e pagava outro.
+  const extras = unidadesAtivas(unidades).length;
+  const parcela = Number(sessao?.parcelaContrato) || 0;
 
   const adicionarPessoa = () => {
     const n = novaPessoa.trim();
@@ -109,7 +115,11 @@ export default function Ajustes() {
           <p className="text-xs text-gray-500 mt-0.5">{sessao?.restauranteNome}</p>
         </div>
         <div className="text-xs text-gray-700 space-y-1">
-          <p>Plano: <strong>{prod.label}</strong> — R$ {fmtPreco(prod.precoMes)}/mês</p>
+          <p>
+            Plano: <strong>{prod.label}</strong> — {parcela
+              ? `parcela do contrato de R$ ${fmtPreco(parcela)}/mês`
+              : `R$ ${fmtPreco(mensalComUnidades(prod.id, extras))}/mês${extras ? `, com ${extras} unidade(s) extra(s)` : ''}`}
+          </p>
           <p>
             {st.tipo === 'assinatura' ? `Assinatura válida até ${fmtData(isoLocal(new Date(st.ate)))}`
               : st.tipo === 'atraso' ? `Pagamento em atraso desde ${fmtData(isoLocal(new Date(st.ate)))} — o acesso será suspenso em ${fmtData(isoLocal(new Date(st.suspendeEm)))}`

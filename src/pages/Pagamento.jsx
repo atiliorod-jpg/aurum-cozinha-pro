@@ -75,7 +75,12 @@ export default function Pagamento() {
   const prod = produtoDe(sessao);
   // ⚠️ UNIDADES ADICIONAIS (M46): cada unidade extra ativa soma 1/3 do plano
   // por mês, e o QR já sai com a soma. Arquivada não cobra.
-  const { unidades } = useApp();
+  // ⚠️ E CONFERE NA REDE AO ABRIR: a lista do aparelho só se atualiza na
+  // troca de conta ou quando a tela volta a ficar visível. No computador do
+  // escritório, aberto o dia todo, uma unidade criada pela Aurum de manhã
+  // ficaria fora do QR à tarde — e o valor não bateria com o do painel.
+  const { unidades, recarregarUnidades } = useApp();
+  useEffect(() => { recarregarUnidades(); }, [recarregarUnidades]);
   const extras = unidadesAtivas(unidades).length;
 
   // ⚠️ ENCARGO DE ATRASO (M45): só existe para quem tem contrato parcelado e

@@ -4,12 +4,12 @@ import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
-import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade } from '../utils/assinatura';
+import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades } from '../utils/assinatura';
 import { unidadesAtivas } from '../utils/unidades';
 import { calcularEncargo } from '../utils/encargos';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
-import { formatarCNPJ, formatarTelefone, UFS } from '../utils/documentos';
+import { formatarCNPJ, formatarCEP, formatarTelefone, UFS } from '../utils/documentos';
 
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
@@ -403,11 +403,18 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
       toast('Há juros lançados para este cliente. Marque como pagos ou dispense antes de encerrar o contrato.', 'aviso');
       return;
     }
+    // ⚠️ Com contrato, a parcela SUBSTITUI o preço da tabela no QR — inclusive
+    // o adicional das unidades. Se ela não inclui as unidades ativas, a
+    // confirmação diz, para o adicional não sumir da cobrança sem ninguém ver.
+    const extras = extrasDe(r);
+    const avisoUnidades = v !== null && extras > 0
+      ? `\n\nA conta tem ${extras} unidade(s) extra(s) ativa(s): com elas, o mês fica em R$ ${fmtPreco(mensalComUnidades(r.produto, extras))}. A parcela é o que o cliente paga — confira se ela inclui as unidades.`
+      : '';
     const ok = await confirm({
       titulo: v === null ? 'Encerrar contrato' : (r.parcela_contrato ? 'Alterar parcela do contrato' : 'Registrar contrato parcelado'),
       mensagem: v === null
         ? `Encerrar o contrato de "${r.nome}"?\n\nEle deixa de ter os 10 dias de tolerância e os juros de atraso. Faça isso quando o contrato terminar ou for rescindido.`
-        : `"${r.nome}" — parcela de R$ ${fmtPreco(v)} por mês.\n\nCom isso: 10 dias de tolerância antes de suspender o acesso (cláusula 7ª) e juros de atraso calculados sobre esta parcela (cláusula 6ª).`,
+        : `"${r.nome}" — parcela de R$ ${fmtPreco(v)} por mês.\n\nCom isso: 10 dias de tolerância antes de suspender o acesso (cláusula 7ª) e juros de atraso calculados sobre esta parcela (cláusula 6ª).${avisoUnidades}`,
       confirmar: v === null ? 'Encerrar' : 'Salvar',
       perigo: v === null,
     });
@@ -458,8 +465,33 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
   const abrirUnidade = (r, u = null) => setUnidadeForm({
     restId: r.id, id: u?.id || null,
     nome: u?.nome || '', cnpj: u?.cnpj ? formatarCNPJ(u.cnpj) : '',
-    endereco: u?.endereco || '', cidade: u?.cidade || '', uf: u?.uf || 'PE', cep: u?.cep || '',
+    endereco: u?.endereco || '', cidade: u?.cidade || '', uf: u?.uf || 'PE', cep: formatarCEP(u?.cep),
   });
+
+  // ⚠️ CONTRATO PARCELADO: no QR quem manda é a parcela do contrato, não o
+  // preço da tabela — e ela não muda sozinha. Criar ou reativar uma unidade
+  // sem subir a parcela deixa a unidade ativa e não cobrada; arquivar sem
+  // descer segue cobrando a que saiu (os Termos dizem que arquivada não
+  // cobra). Por isso os três caminhos oferecem o ajuste, e quem decide é a
+  // Aurum: o adicional pode ter ficado fora do contrato.
+  const oferecerAjusteParcela = async (r, delta, porque) => {
+    const atual = Number(r.parcela_contrato) || 0;
+    if (!atual) return;
+    const novaParcela = Math.round((atual + delta) * 100) / 100;
+    if (!(novaParcela > 0)) return;
+    const ok = await confirm({
+      titulo: 'Parcela do contrato',
+      mensagem: `Esta conta tem contrato parcelado de R$ ${fmtPreco(atual)}.
+
+Atualizar a parcela para R$ ${fmtPreco(novaParcela)}, ${porque}? Faça isso se o adicional da unidade ${delta > 0 ? 'entra no' : 'estava no'} contrato.`,
+      confirmar: 'Atualizar parcela',
+    });
+    if (!ok) return;
+    const { error: eP } = await supabase.rpc('definir_parcela_contrato', { p_restaurante: r.id, p_valor: novaParcela });
+    if (eP) { toast('A parcela não foi atualizada: ' + eP.message, 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => (x.id === r.id ? { ...x, parcela_contrato: novaParcela } : x)));
+    toast(`Parcela atualizada para R$ ${fmtPreco(novaParcela)}.`, 'sucesso');
+  };
 
   const salvarUnidade = async (r) => {
     const f = unidadeForm;
@@ -492,24 +524,7 @@ A unidade entra na conta de "${r.nome}", com a sua Cozinha de Produção. A part
     setUnidadeForm(null);
     toast(nova ? `Unidade "${data.nome}" criada.` : 'Unidade atualizada.', 'sucesso');
 
-    // ⚠️ CONTRATO PARCELADO: no QR quem manda é a parcela do contrato, não o
-    // preço da tabela. Se o adicional da unidade entrou no contrato, a parcela
-    // tem de subir junto — senão a unidade existe e não é cobrada.
-    if (nova && r.parcela_contrato) {
-      const novaParcela = Math.round((Number(r.parcela_contrato) + adicionalUnidade(r.produto)) * 100) / 100;
-      const ok = await confirm({
-        titulo: 'Parcela do contrato',
-        mensagem: `Esta conta tem contrato parcelado de R$ ${fmtPreco(r.parcela_contrato)}.
-
-Atualizar a parcela para R$ ${fmtPreco(novaParcela)}, somando a unidade nova? Faça isso se o adicional entrou no contrato.`,
-        confirmar: 'Atualizar parcela',
-      });
-      if (!ok) return;
-      const { error: eP } = await supabase.rpc('definir_parcela_contrato', { p_restaurante: r.id, p_valor: novaParcela });
-      if (eP) { toast('A parcela não foi atualizada: ' + eP.message, 'erro'); return; }
-      setRestaurantes(prev => prev.map(x => (x.id === r.id ? { ...x, parcela_contrato: novaParcela } : x)));
-      toast(`Parcela atualizada para R$ ${fmtPreco(novaParcela)}.`, 'sucesso');
-    }
+    if (nova) await oferecerAjusteParcela(r, adicionalUnidade(r.produto), 'somando a unidade nova');
   };
 
   // ⚠️ ARQUIVAR, NUNCA APAGAR: as etiquetas e os lançamentos da unidade
@@ -532,6 +547,9 @@ Ela sai do seletor de todos os aparelhos e deixa de ser cobrada. Nada é apagado
       ...x, unidades: (x.unidades || []).map(y => (y.id === u.id ? data : y)),
     })));
     toast(arquivar ? 'Unidade arquivada.' : 'Unidade reativada.', 'sucesso');
+    const adicional = adicionalUnidade(r.produto);
+    await oferecerAjusteParcela(r, arquivar ? -adicional : adicional,
+      arquivar ? 'tirando a unidade arquivada' : 'somando a unidade reativada');
   };
 
   const carregarPagamentos = async (r) => {
@@ -635,11 +653,15 @@ Ela sai do seletor de todos os aparelhos e deixa de ser cobrada. Nada é apagado
     const atual = r.produto || 'completo';
     if (novo === atual) return;
     const paraEtiquetas = novo === 'etiquetas';
+    // o adicional das unidades acompanha o plano (1/3 de cada um), então o
+    // valor do mês muda junto
+    const extras = extrasDe(r);
+    const mes = `R$ ${fmtPreco(mensalComUnidades(novo, extras))}/mês${extras ? `, com ${extras} unidade(s) extra(s)` : ''}`;
     const ok = await confirm({
       titulo: paraEtiquetas ? 'Mudar para Aurum Etiquetas' : 'Mudar para Aurum Cozinha Pro',
       mensagem: paraEtiquetas
-        ? `"${r.nome}" passa a ver só as telas de etiqueta (R$ ${fmtPreco(produtoDe('etiquetas').precoMes)}/mês).\n\nNENHUM dado é apagado: o estoque, as compras e o histórico continuam no banco e reaparecem inteiros se você voltar para o plano completo.`
-        : `"${r.nome}" passa a ver o app inteiro (R$ ${fmtPreco(produtoDe('completo').precoMes)}/mês).\n\nOs itens e as etiquetas que ele já cadastrou continuam onde estão — aparecem na Cozinha de Produção.`,
+        ? `"${r.nome}" passa a ver só as telas de etiqueta (${mes}).\n\nNENHUM dado é apagado: o estoque, as compras e o histórico continuam no banco e reaparecem inteiros se você voltar para o plano completo.`
+        : `"${r.nome}" passa a ver o app inteiro (${mes}).\n\nOs itens e as etiquetas que ele já cadastrou continuam onde estão — aparecem na Cozinha de Produção.`,
       confirmar: paraEtiquetas ? 'Mudar para Etiquetas' : 'Mudar para Completo',
     });
     if (!ok) return;
@@ -1145,10 +1167,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       </span>
                     </span>
                     {/* O valor já calculado poupa a conta de cabeça na hora de
-                        conferir o Pix — é o número que tem que bater no extrato. */}
+                        conferir o Pix — é o número que tem que bater no extrato.
+                        ⚠️ A MESMA conta do "Registrar pagamento" e do QR do
+                        cliente (parcela do contrato, unidades, juros): aqui era
+                        só o preço da tabela, e com contrato não batia. */}
                     {tipo === 'aviso' && (
                       <span className="text-xs font-bold text-polo-navy flex-shrink-0 tabular-nums">
-                        {brlAdmin(precoPlano(plano, r.produto, extrasDe(r)))}
+                        {brlAdmin(valorCobranca(r, plano, !!encargos[r.id]))}
                       </span>
                     )}
                     <span aria-hidden="true" className="text-gray-400 text-lg leading-none flex-shrink-0">›</span>
@@ -1955,7 +1980,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             Contrato pago <strong>à vista</strong> não precisa disto: basta registrar o pagamento
                             do plano anual em Financeiro.
                           </p>
-                          <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(produtoDe(r.produto).precoMes) })}
+                          <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(mensalComUnidades(r.produto, extrasDe(r))) })}
                             className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
                             📄 Registrar contrato parcelado
                           </button>

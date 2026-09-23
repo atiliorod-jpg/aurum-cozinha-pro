@@ -100,8 +100,15 @@ export default function Balanco() {
                       <th className="text-left font-semibold text-gray-500 px-3 py-2">Item</th>
                       {f.estoques.map(e => (
                         <th key={e.id} className="text-right font-semibold text-gray-500 px-2 py-2 whitespace-nowrap">
-                          {rotulo(e)}
-                          {e.arquivado && <span className="block text-[11px] font-normal text-gray-600">arquivado</span>}
+                          {/* ⚠️ Com várias unidades, o nome da unidade SOZINHO
+                              repetia a coluna: duas cozinhas de Produção da
+                              mesma casa ficavam com o mesmo título. A cozinha
+                              em cima, a unidade embaixo. */}
+                          {variasUnidades ? (<>
+                            {e.nome}
+                            <span className="block text-[11px] font-normal text-gray-600">{rotulo(e)}</span>
+                          </>) : rotulo(e)}
+                          {e.arquivado &&<span className="block text-[11px] font-normal text-gray-600">arquivado</span>}
                         </th>
                       ))}
                       <th className="text-right font-bold text-polo-navy px-3 py-2">Total</th>
