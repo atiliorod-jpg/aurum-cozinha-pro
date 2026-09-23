@@ -252,6 +252,11 @@ Deno.serve(async (req) => {
   if (cnpj) {
     const { data: jaTem } = await admin.from('restaurantes').select('id, nome').eq('cnpj', cnpj).maybeSingle();
     if (jaTem) return json({ erro: `Esse CNPJ já é de "${jaTem.nome}".` }, 400);
+    // ⚠️ E NÃO PODE SER UNIDADE DE OUTRA CONTA (M46). O gatilho do banco já
+    // recusa — mas só DEPOIS de a conta de acesso existir, e a mensagem sairia
+    // genérica. Aqui ela sai com o nome, antes de criar qualquer coisa.
+    const { data: ehUnidade } = await admin.from('unidades').select('nome').eq('cnpj', cnpj).maybeSingle();
+    if (ehUnidade) return json({ erro: `Esse CNPJ já é da unidade "${ehUnidade.nome}" de outra conta.` }, 400);
   }
 
   try {
