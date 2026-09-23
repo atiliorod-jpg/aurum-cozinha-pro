@@ -181,6 +181,69 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (24/09/2026, madrugada) — SEM INTERNET 72 h, LOGIN AO DESBLOQUEAR, JANELA DE IMPRIMIR, UNIDADES FASE 2 (M47/M48), 1.000 LINHAS
+
+Tudo publicado e com o deploy verde (robô incluso). 666 testes + 8 do robô.
+Migrações até a **48**.
+
+- **Uso sem internet (M47 + utils/semInternet.js)** — pedido do dono. Ao medir
+  apareceram 3 defeitos que atingiam quem PAGA: (1) abrir sem internet dava
+  "Cadastro incompleto" (busca do perfil falhava → "sem restaurante"); (2)
+  token vencido + sem internet: o Supabase insiste ~2×30 s e responde "sem
+  sessão" → LOGIN; (3) ⚠️ **o aviso INITIAL_SESSION sem sessão era tratado como
+  logout** (onAuthStateChange): APAGAVA o cache e mandava ao login — é o
+  "fechou o celular um pouco, tem que logar de novo" que o dono relatou
+  (Wi-Fi voltando no desbloqueio). Agora: só SIGNED_OUT é logout; cada leitura
+  boa da assinatura guarda cópia da sessão em `pe::_sessao::ultima` (3 partes:
+  some no "Sair") e mede o relógio contra `hora_do_servidor()` (M47); sem
+  internet abre com a cópia por até 72 h, nunca além do vencimento (comparado
+  com a hora corrigida `agoraConfiavel`) e desconfia de relógio que volta
+  (`pe::_relogio`, 2 partes, fica no aparelho); com cópia abre em 4 s, sem
+  cópia a tela "Conecte à internet" sai em 12 s; "Tentar de novo" responde em
+  ≤ 10 s; reconfere a cada 15 min / 'online' / volta à tela (e o pagamento
+  registrado libera sem fechar o app). A sessão guardada do Supabase é lida
+  por `supabase.auth.storageKey`. Robô: e2e/semInternet.pw.js monta sessão de
+  token vencido e corta só o banco (page.route) — 4 cenários.
+- **Janela de imprimir**: rodapé `sticky -bottom-4` dentro do Dialogo 'rolo'
+  com o resumo ("REFRIGERADO · vence … · 1 etiqueta"; âmbar se sem vencimento)
+  e os botões/pergunta. Conferido em 375×812.
+- **Unidades fase 2 (M48)**: `perfis.unidade_fixa/unidade_id` + GATILHO
+  `trg_unidade_da_conta` (perfis_upd_v4 deixa cada um editar o próprio perfil —
+  sem a trava o cozinheiro se soltaria); `definir_unidade_da_conta` (só
+  diretoria, não prende diretoria); `registrar_impressoes` grava a unidade da
+  conta presa; `relatorio_etiquetas` filtra. App: `unidadeFixa` e
+  `estoquesPermitidos` no AppContext, `bloqueioDaFixa` trava a etiqueta até
+  conhecer a unidade (e com unidade arquivada). Cartão "Equipe por unidade"
+  (Ajustes do Etiquetas e Estoques do Pro). **Catálogo por unidade**:
+  `unidades.catalogo_proprio`, `definir_catalogo_da_unidade` (super-admin, no
+  painel "lista própria") COPIA 'produtos/categorias/fichas' (+ seco::) para
+  '<cozinha da unidade>::…' / 'seco#<sufixo>::…'; o app lê pela
+  `baseDoCatalogo` (kc usa `catalogoRef`; `baseCatalogo` nas deps da
+  hidratação); balanço lê a base de cada cozinha. Banco conferido em transação
+  desfeita (m48-conferir.mjs no scratchpad da sessão).
+- ⚠️ **LIMITE DE 1.000 LINHAS** (max_rows do projeto, conferido): a abertura do
+  Pro baixava os registros numa consulta só (conta com >1.000 lançamentos
+  recebia pedaço — saldo errado sem aviso) e a CÓPIA DO CLIENTE antes de apagar
+  a conta também. Agora em páginas (`lib/paginar.js`, ordem por id). Qualquer
+  leitura nova que possa passar de 1.000 linhas tem de usar `buscarTodas`.
+
+**Análise "engenharia de software" pedida pelo dono (foto com API Gateway,
+Services, Databases, Cache, Load Balancer, Monitoring, Logging, Security):**
+respondida no chat. Fatos medidos: plano **FREE** do Supabase, região
+**us-east-1** (~150 ms de Recife), banco 14 MB, 2 contas, RLS em 17/17 tabelas,
+senha mín. 8, MFA TOTP liberado mas não exigido, HIBP e captcha desligados.
+**Gargalo nº 1 de escala: a lista de Impressas como UM documento** (0,6–1,5 MB
+depois de um mês) regravado a cada etiqueta e reenviado pelo tempo real aos
+outros aparelhos — estoura o tráfego do plano grátis com poucos clientes.
+Recomendado: levar para linhas (estender etiquetas_impressoes), plano Pro do
+Supabase no 1º pagante (backup diário), erros no painel, MFA no super-admin.
+
+**Pendente de confirmação do dono:** ele escreveu duas vezes "Janela de
+imprimir com o botão sempre visível" — perguntei se a segunda era
+"Responsável escolhido com um toque".
+
+---
+
 ## Onde paramos (23/09/2026, noite) — IMPRESSAS COM 2 APARELHOS, BUSCA, MAIS USADOS, IMPRESSORA À VISTA, ROBÔ
 
 O dono aprovou do roteiro: a correção das Impressas, impressora à vista,
