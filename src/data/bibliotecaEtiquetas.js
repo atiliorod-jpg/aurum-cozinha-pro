@@ -53,6 +53,8 @@
 //  fabricante, e inventar um prazo seria pior que não ter nenhum.
 // =====================================================================
 
+import { casaBusca } from '../utils/busca';
+
 // A ORDEM importa: é a ordem em que os grupos aparecem na tela. Proteína
 // primeiro porque é o que mais se etiqueta e o que mais dá problema sanitário.
 export const CATEGORIAS_BIBLIOTECA = [
@@ -402,14 +404,10 @@ export const BIBLIOTECA_ETIQUETAS = [
   it('Cebola caramelizada', 'MOLHOS E PREPARADOS', 'kg', 'refrigerado', { refrigerado: 7 }),
 ];
 
-/** Busca por nome, sem acento e sem caso — o cozinheiro digita "acem". */
-const semAcento = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-
+/** Busca por nome ou categoria, sem acento e sem caso — o cozinheiro digita "acem". */
 export function buscarNaBiblioteca(termo) {
-  const t = semAcento(termo).trim();
-  if (!t) return BIBLIOTECA_ETIQUETAS;
-  return BIBLIOTECA_ETIQUETAS.filter(i =>
-    semAcento(i.nome).includes(t) || semAcento(i.categoria).includes(t));
+  if (!String(termo || '').trim()) return BIBLIOTECA_ETIQUETAS;
+  return BIBLIOTECA_ETIQUETAS.filter(i => casaBusca(termo, i.nome, i.categoria));
 }
 
 /**

@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { hoje, fmtData } from '../../utils/formatters';
 import { statusEtiqueta, STATUS_ETIQUETA, medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
 import { prazosDoProduto } from '../../utils/armazenamento';
+import { casaBusca } from '../../utils/busca';
 
 /**
  * O que já saiu no rolo — e o botão de fazer de novo.
@@ -45,9 +46,8 @@ export default function Impressas() {
   // hora), então o dia é o agrupamento natural — e é como a cozinha procura:
   // "aquela que eu fiz hoje de manhã".
   const dias = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
     const lista = (etiquetasImpressas || [])
-      .filter(e => !termo || (e.nome || '').toLowerCase().includes(termo));
+      .filter(e => casaBusca(busca, e.nome, e.responsavel));
     const porDia = new Map();
     for (const e of lista) {
       const d = e.impressoEm || '';

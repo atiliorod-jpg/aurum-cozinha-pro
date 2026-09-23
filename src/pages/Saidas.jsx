@@ -9,6 +9,7 @@ import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, diasAte } from '../utils/datas';
 import { calcLotes } from '../utils/lotes';
+import { casaBusca } from '../utils/busca';
 
 
 export default function Saidas() {
@@ -33,7 +34,7 @@ export default function Saidas() {
   const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio, produtos), [entradas, saidas, desperdicio, produtos]);
   const buscando = busca.trim().length > 0;
   const produtosVisiveis = buscando
-    ? produtosAtivos.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()))
+    ? produtosAtivos.filter(p => casaBusca(busca, p.nome))
     : catAtiva === ''
       ? produtosAtivos
       : produtosAtivos.filter(p => p.categoria === catAtiva);
@@ -120,7 +121,7 @@ export default function Saidas() {
     .filter(s => s.destino !== 'producao')
     .sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.hora || '').localeCompare(a.hora || ''))
     .filter(s => !buscaHist ||
-      `${s.responsavel || ''} ${(s.itens || []).map(i => nomeProduto(produtos, i.produtoId)).join(' ')}`.toLowerCase().includes(buscaHist.toLowerCase())),
+      casaBusca(buscaHist, s.responsavel, ...(s.itens || []).map(i => nomeProduto(produtos, i.produtoId)))),
     [saidas, buscaHist, produtos]);
 
   return (

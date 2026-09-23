@@ -11,6 +11,7 @@ import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazenamento';
+import { casaBusca } from '../utils/busca';
 
 export default function Entradas() {
   const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo, permissoes, rid } = useApp();
@@ -40,7 +41,7 @@ export default function Entradas() {
   const produtosAtivos = produtos.filter(p => p.ativo && !producoes.some(r => r.produtoFinalId === p.id));
   const buscando = busca.trim().length > 0;
   const produtosVisiveis = buscando
-    ? produtosAtivos.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()))
+    ? produtosAtivos.filter(p => casaBusca(busca, p.nome))
     : catAtiva === ''
       ? produtosAtivos
       : produtosAtivos.filter(p => p.categoria === catAtiva);
@@ -119,7 +120,7 @@ export default function Entradas() {
   const entradasOrdenadas = useMemo(() => [...entradas]
     .sort((a, b) => (b.data || '').localeCompare(a.data || '') || (b.hora || '').localeCompare(a.hora || ''))
     .filter(e => !buscaHist ||
-      `${e.responsavel || ''} ${(e.itens || []).map(i => nomeProduto(produtos, i.produtoId)).join(' ')}`.toLowerCase().includes(buscaHist.toLowerCase())),
+      casaBusca(buscaHist, e.responsavel, ...(e.itens || []).map(i => nomeProduto(produtos, i.produtoId)))),
     [entradas, buscaHist, produtos]);
 
   return (

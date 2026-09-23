@@ -201,6 +201,35 @@ export function podarEtiquetas(lista = [], hojeISO, diasHistorico = 120) {
 }
 
 /**
+ * MAIS USADOS — o atalho do topo da tela Etiquetar (23/09/2026, pedido do dono).
+ *
+ * A cozinha etiqueta quase sempre os mesmos 10 a 15 itens, espalhados numa
+ * lista de 60 a 200. Aqui: os itens ATIVOS mais etiquetados nos últimos
+ * `dias` (contando o papel: `copias`), até `max`. Entre os escolhidos, ordem
+ * ALFABÉTICA — se a ordem seguisse a contagem, os blocos trocariam de lugar
+ * ao longo do dia e a mão erraria o item. Com menos de `minimo`, nada: um
+ * atalho de um item só não poupa toque nenhum.
+ */
+export function maisUsados(impressas, produtosAtivos, hojeISO, { dias = 14, max = 8, minimo = 2 } = {}) {
+  if (!hojeISO) return [];
+  const desde = new Date(new Date(hojeISO).getTime() - (dias - 1) * 86400000).toISOString().slice(0, 10);
+  const ativos = new Map((produtosAtivos || []).filter(p => p && p.id && p.ativo !== false).map(p => [p.id, p]));
+  const conta = new Map();
+  for (const e of impressas || []) {
+    if (!e || !ativos.has(e.produtoId)) continue;
+    const dia = e.impressoEm || '';
+    if (dia < desde || dia > hojeISO) continue;
+    conta.set(e.produtoId, (conta.get(e.produtoId) || 0) + (Number(e.copias) || 1));
+  }
+  const porNome = (a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' });
+  const escolhidos = [...conta.entries()]
+    .sort((a, b) => b[1] - a[1] || porNome(ativos.get(a[0]), ativos.get(b[0])))
+    .slice(0, max)
+    .map(([id]) => ativos.get(id));
+  return escolhidos.length < minimo ? [] : escolhidos.sort(porNome);
+}
+
+/**
  * Quanto a casa imprimiu — hoje, nos últimos 7 dias e no mês do calendário.
  *
  * ⚠️ CONTA ETIQUETAS DE PAPEL, NÃO LINHAS. Uma linha pode valer N etiquetas: o

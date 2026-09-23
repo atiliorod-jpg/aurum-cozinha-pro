@@ -13,6 +13,7 @@ import AutocompleteInput from '../components/AutocompleteInput';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
 import { listaDeCompras, agruparListaPorMateriaPrima, fcEfetivo, preparacoesDoItem } from '../utils/analise';
+import { casaBusca } from '../utils/busca';
 
 // Faixas de boas práticas no recebimento. Não bloqueia nada — só avisa, porque
 // a decisão de aceitar ou recusar a carga é de quem está na doca.
@@ -43,15 +44,12 @@ export default function Compras() {
   );
 
   // Filtro de busca (por nome do produto / categoria / matéria-prima)
-  const b = busca.trim().toLowerCase();
+  const b = busca.trim();
   const lista = b
-    ? listaCompleta.filter(({ p }) =>
-        (p.nome || '').toLowerCase().includes(b) ||
-        (p.categoria || '').toLowerCase().includes(b) ||
-        (p.materiaPrima || '').toLowerCase().includes(b))
+    ? listaCompleta.filter(({ p }) => casaBusca(b, p.nome, p.categoria, p.materiaPrima))
     : listaCompleta;
   const manualFiltrada = b
-    ? listaManual.filter(m => (m.nome || '').toLowerCase().includes(b))
+    ? listaManual.filter(m => casaBusca(b, m.nome))
     : listaManual;
 
   // Linhas para exibir: produtos da mesma matéria-prima viram uma linha só (somada)

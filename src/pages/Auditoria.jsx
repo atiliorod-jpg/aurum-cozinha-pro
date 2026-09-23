@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
+import { casaBusca } from '../utils/busca';
 
 const fmtQuando = (ts) => {
   const d = new Date(ts);
@@ -28,7 +29,7 @@ export default function Auditoria() {
       .reverse()
       .filter(a => corte === 0 || (a.ts || 0) >= corte)
       .filter(a => filtroUsuario === 'TODOS' || a.usuario === filtroUsuario)
-      .filter(a => !busca || `${a.acao} ${a.detalhe}`.toLowerCase().includes(busca.toLowerCase()))
+      .filter(a => casaBusca(busca, a.acao, a.detalhe))
       .slice(0, 300);
   }, [auditoria, filtroUsuario, busca, periodo]);
 

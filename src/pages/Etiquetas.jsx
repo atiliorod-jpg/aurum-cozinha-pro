@@ -9,9 +9,10 @@ import { hoje } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
 import { armazenamentoInicial } from '../utils/etiquetas';
-import { medidaDoProduto } from '../utils/etiquetas';
+import { medidaDoProduto, maisUsados } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
+import { casaBusca } from '../utils/busca';
 
 // Guia da impressora — duas situações, passo a passo curto. Imprimível.
 //
@@ -126,7 +127,7 @@ function GuiaImpressora() {
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
 export default function Etiquetas() {
-  const { produtos, categorias, prefs, modulo } = useApp();
+  const { produtos, categorias, prefs, modulo, etiquetasImpressas } = useApp();
   const { abrirEtiquetas } = useUI();
 
   const { sessao, impersonando } = useAuth();
@@ -157,7 +158,7 @@ export default function Etiquetas() {
   const produtosAtivos = produtos.filter(p => p.ativo);
   const buscando = busca.trim().length > 0;
   const produtosVisiveis = buscando
-    ? produtosAtivos.filter(p => p.nome.toLowerCase().includes(busca.toLowerCase()))
+    ? produtosAtivos.filter(p => casaBusca(busca, p.nome, p.categoria))
     : catAtiva === ''
       ? produtosAtivos
       : produtosAtivos.filter(p => p.categoria === catAtiva);
@@ -175,6 +176,12 @@ export default function Etiquetas() {
     const extras = categorias.filter(c => !CATEGORIAS_BIBLIOTECA.includes(c));
     return [...CATEGORIAS_BIBLIOTECA, ...extras];
   }, [categorias]);
+
+  // Os mais etiquetados dos últimos 14 dias NESTA cozinha (a lista de
+  // impressas é por cozinha — com unidades, por unidade). Ver maisUsados.
+  const atalhos = useMemo(
+    () => maisUsados(etiquetasImpressas, produtos.filter(p => p.ativo), hoje()),
+    [etiquetasImpressas, produtos]);
 
   const gruposVisiveis = useMemo(() => {
     const ordenados = [...produtosVisiveis].sort((a, b) =>
@@ -255,6 +262,28 @@ export default function Etiquetas() {
           <p className="text-xs text-gray-600 px-1">
             Toque em Imprimir no item. A validade sai calculada pelo prazo que você cadastrou em Meus itens.
           </p>
+          {/* ⚠️ MAIS USADOS NO TOPO (pedido do dono, 23/09/2026): cada etiqueta
+              começava rolando uma lista de 60 a 200 itens. Um toque no bloco
+              abre a MESMA impressão do botão da lista. Some enquanto a pessoa
+              busca ou filtra — aí ela já sabe o que procura. */}
+          {!buscando && catAtiva === '' && atalhos.length > 0 && (
+            <section aria-label="Mais usados">
+              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide px-1 mb-1.5">
+                Mais usados <span className="font-normal normal-case text-gray-600">· últimos 14 dias</span>
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {atalhos.map(p => (
+                  <button key={p.id} onClick={() => imprimirProduto(p)}
+                    aria-label={`Imprimir etiqueta de ${p.nome}`}
+                    className="min-h-14 text-left bg-white border-2 border-polo-navy/15 rounded-xl px-3 py-2
+                               active:scale-95 transition-transform flex flex-col justify-center">
+                    <span className="text-sm font-bold text-polo-navy leading-tight line-clamp-2">{p.nome}</span>
+                    <span className="text-[11px] text-gray-600 truncate">{resumoDePrazos(p)}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto..." aria-label="Buscar produto"
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />

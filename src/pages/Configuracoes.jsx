@@ -17,6 +17,7 @@ import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas, CartaoConta
 import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../utils/armazenamento';
+import { casaBusca } from '../utils/busca';
 
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
 // a conversão para número acontece só no salvar.
@@ -1133,7 +1134,7 @@ export default function Configuracoes() {
 
   const produtosFiltrados = produtos.filter(p => {
     const matchCat = catAtiva === 'TODOS' || p.categoria === catAtiva;
-    const matchBusca = p.nome.toLowerCase().includes(busca.toLowerCase());
+    const matchBusca = casaBusca(busca, p.nome);
     return matchCat && matchBusca;
   });
 

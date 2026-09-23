@@ -7,6 +7,7 @@ import { useUI } from '../store/UIContext';
 import { fmtData, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
 import { pode } from '../utils/permissoes';
+import { casaBusca } from '../utils/busca';
 
 export default function Historico() {
   const {
@@ -77,7 +78,7 @@ export default function Historico() {
   const filtroAtivo = (filtro === 'todas' || eventos.some(e => e.grupo === filtro)) ? filtro : 'todas';
   const filtrados = eventos
     .filter(e => filtroAtivo === 'todas' || e.grupo === filtroAtivo)
-    .filter(e => !busca || `${e.resumo} ${e.r.responsavel || ''}`.toLowerCase().includes(busca.toLowerCase()))
+    .filter(e => casaBusca(busca, e.resumo, e.r.responsavel))
     .sort((a, b) => (b.r.ts || 0) - (a.r.ts || 0));
 
   // Chip só aparece quando existe evento daquele grupo — senão a Finalização

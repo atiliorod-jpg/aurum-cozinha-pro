@@ -10,6 +10,7 @@ import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPraz
 import { medidaDoProduto, gramasDeMedida } from '../../utils/etiquetas';
 import { useAuth } from '../../store/AuthContext';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../../utils/produto';
+import { casaBusca } from '../../utils/busca';
 
 // Campo numérico fica como texto enquanto edita (apagar funciona); converte ao salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
@@ -48,8 +49,7 @@ export default function Itens() {
 
   const meus = useMemo(() => produtos.filter(p => p.ativo !== false), [produtos]);
   const meusFiltrados = useMemo(() => {
-    const t = busca.trim().toLowerCase();
-    return t ? meus.filter(p => (p.nome || '').toLowerCase().includes(t)) : meus;
+    return busca.trim() ? meus.filter(p => casaBusca(busca, p.nome, p.categoria)) : meus;
   }, [meus, busca]);
 
   // ⚠️ Agrupado por categoria, sempre — nas duas abas, com a MESMA ordem.

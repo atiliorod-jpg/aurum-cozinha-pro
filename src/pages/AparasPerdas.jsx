@@ -11,6 +11,7 @@ import OrigemCorrecao from '../components/OrigemCorrecao';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
+import { casaBusca } from '../utils/busca';
 
 const TURNOS = ['Manhã', 'Tarde', 'Noite'];
 
@@ -148,7 +149,7 @@ export default function AparasPerdas() {
     ...desperdicio.map(d => ({ ...d, _tipo: 'perda' })),
   ].sort((a, b) => (b.ts || 0) - (a.ts || 0)), [aparas, desperdicio]);
   const historico = useMemo(() =>
-    buscaHist ? historicoOrdenado.filter(r => `${r.item} ${r.responsavel || ''}`.toLowerCase().includes(buscaHist.toLowerCase())) : historicoOrdenado,
+    buscaHist ? historicoOrdenado.filter(r => casaBusca(buscaHist, r.item, r.responsavel)) : historicoOrdenado,
     [historicoOrdenado, buscaHist]);
 
   const removerRegistro = async (r) => {
