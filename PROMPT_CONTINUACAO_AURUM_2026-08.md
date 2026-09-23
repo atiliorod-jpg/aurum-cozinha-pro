@@ -181,6 +181,79 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (23/09/2026, tarde) — REVISÃO DAS UNIDADES + ROTEIRO DE EVOLUÇÕES
+
+Pedido: "confira se está funcionando perfeitamente e depois faça uma análise
+das próximas evoluções". A revisão por agentes morreu DUAS vezes no limite de
+sessão (29 agentes em paralelo esgotam a cota) — só 2 terminaram. O resto foi
+revisado à mão. **Lição: neste plano, workflow com poucos agentes (≤ 4), ou
+revisão direta.** Commits `e353daf` e `33fdd97`, publicados. 585 testes, lint 0
+erros, build ok.
+
+**Banco (M46), troca de unidade, etiqueta, relatório e telas: sem defeito.**
+Os defeitos eram quase todos de COBRANÇA — o número não batia entre as telas:
+- arquivar/reativar unidade não mexia na parcela do contrato (só a criação
+  oferecia) → `oferecerAjusteParcela` nos três caminhos (Admin.jsx);
+- "Registrar contrato parcelado" vinha com o preço sem as unidades → vem com
+  `mensalComUnidades`, e a confirmação avisa quando há unidades;
+- a fila do painel mostrava o preço da tabela → usa `valorCobranca`, a mesma
+  conta do "Registrar pagamento" e do QR (parcela, unidades, juros);
+- a troca de plano no painel diz o mês com as unidades;
+- Pagamento chama `recarregarUnidades()` ao abrir (a lista do aparelho só se
+  atualizava na troca de conta ou ao voltar à tela — PC aberto o dia todo
+  cobrava sem a unidade criada de manhã);
+- Ajustes (Etiquetas) "Sua conta": parcela do contrato, ou plano + unidades;
+- CEP da unidade extra saía "50000000" no papel → `formatarCEP` (00000-000);
+  o da principal continua exatamente como o dono digitou;
+- Balanço com várias unidades: a coluna tem a cozinha E a unidade.
+
+**Dois defeitos ANTIGOS achados no caminho (não eram das unidades):**
+- ⚠️ **Fila offline enchia o localStorage.** Cada etiqueta impressa sem
+  internet enfileirava uma cópia INTEIRA da lista de impressas (passa de 1 MB
+  com o uso); poucas etiquetas enchiam a cota e a fila parava de gravar
+  QUALQUER coisa, em silêncio (lançamentos e linhas do relatório). Agora
+  `comItemNovo` (utils/outbox.js) guarda só a última cópia de cada documento
+  — o replay já gravava por cima com versão -1, então o resultado é o mesmo.
+- **Reimpressão trocava o responsável lembrado** do aparelho pelo de quem
+  assinou a etiqueta original, e as NOVAS seguintes saíam assinadas por ele.
+
+### ⚠️ DEFEITO CONFIRMADO E NÃO CORRIGIDO (esperando o dono): Impressas com 2 aparelhos
+
+`etiquetasImpressas` é UM documento por cozinha, regravado inteiro a cada
+etiqueta, com controle de versão (M8). O tempo real atualiza a versão, mas
+**nada rebusca os documentos quando o tablet volta do descanso** (o canal
+reconecta sem repor o que perdeu). Tablet A dorme → B imprime → A acorda e
+imprime → CONFLITO → `aplicarServidor` SUBSTITUI a lista de A pela do servidor:
+a etiqueta de A some da aba Impressas (e da Validades do Pro) e aparece "Outro
+aparelho alterou este catálogo. Refaça sua alteração" → a pessoa reimprime →
+pote com etiqueta em dobro e contada 2× no relatório. Correção proposta: no
+conflito DESTA chave, juntar por id (servidor + as NOVAS deste aparelho,
+guardadas num ref até a gravação dar certo — para não ressuscitar etiqueta
+apagada pela M44), regravar com a versão nova, sem toast; e no replay offline
+buscar e juntar antes de gravar por cima. Estrutural, depois: levar a lista
+para linhas no banco (estender `etiquetas_impressoes` da M43).
+
+### Roteiro entregue ao dono (ele escolhe por onde seguir)
+
+AGORA: (1) Impressas com 2 aparelhos, acima; (2) erro de tela chegando na Aurum
+— a `BarreiraDeErro` só grava no localStorage do cliente; tabela + RPC com
+limite e lista no painel (o "Sentry grátis"), com versão do app e itens mortos
+da fila; (3) impressora à vista: etiqueta de teste que não conta no relatório,
+"trocar impressora", "copiar diagnóstico", status na tela de etiquetar
+(`nomeImpressora()` existe e nenhuma tela usa); (4) busca sem acento e por
+palavras (só a biblioteca usa `semAcento`); (5) janela de imprimir com botão
+fixo no rodapé + resumo do que sai, +/− com 44 px; (6) robô que abre a
+demonstração dos dois planos a cada publicação (hoje nenhum teste abre tela).
+PRÓXIMO: mais usados no topo; kits por tipo de cozinha + adicionar vários da
+biblioteca; "imprimir só desta vez" item fora da lista; Pix confirmado sozinho
+(Asaas/Mercado Pago/Efí); verificação em 2 etapas na conta super-admin;
+responsável em botões com "desde 07:12". DEPOIS: piloto do Pro numa cozinha
+real; unidades fase 2 (equipe por unidade, catálogo por unidade, unidade vira
+conta); Controlados; iPhone via Bluefy; dividir Admin/AppContext aos poucos;
+baixar só os registros do estoque aberto.
+
+---
+
 ## Onde paramos (23/09/2026) — UNIDADES: VÁRIOS CNPJs NA MESMA CONTA (M46)
 
 Pedido do dono: um grupo usar a mesma conta para outro restaurante/CNPJ, nos
