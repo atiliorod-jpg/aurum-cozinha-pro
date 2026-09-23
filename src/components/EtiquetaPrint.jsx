@@ -769,6 +769,12 @@ export default function EtiquetaPrint() {
       });
       registrarImpressoes(eventos);
     }
+    // ⚠️ REIMPRESSÃO NÃO TROCA QUEM ESTÁ LEMBRADO. Ela abre com o nome de quem
+    // assinou a etiqueta ORIGINAL (o papel de reposição sai igual ao que
+    // estragou) — e gravar esse nome aqui fazia as etiquetas NOVAS seguintes
+    // saírem assinadas por quem talvez nem esteja no turno. O RESP. é o campo
+    // que a fiscalização cobra.
+    const soReimpressao = lista.length > 0 && lista.every(i => i.reimpressao);
     // ⚠️ `setPrefs` (plural) para gravar as duas de uma vez. Dois `setPref`
     // seguidos leriam as prefs pelo ref, que só é atualizado no efeito
     // seguinte — o segundo apagaria o primeiro.
@@ -783,7 +789,7 @@ export default function EtiquetaPrint() {
       // ninguém: a pessoa escolhia o nome a cada pote, o dia inteiro.
       // Só grava quando alguém foi escolhido — imprimir sem responsável não
       // pode apagar quem estava lembrado.
-      ...(responsavel.trim() ? { responsavel } : {}),
+      ...(responsavel.trim() && !soReimpressao ? { responsavel } : {}),
     });
   };
 

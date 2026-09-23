@@ -1,7 +1,7 @@
 // Cache offline em localStorage, isolado por restaurante.
 // Permite o app funcionar sem internet e sincronizar ao reconectar.
 
-import { contarVivos, contarMortos } from '../utils/outbox';
+import { contarVivos, contarMortos, comItemNovo } from '../utils/outbox';
 
 const ns = (rid, chave) => `pe::${rid}::${chave}`;
 
@@ -32,10 +32,9 @@ export const outboxSet = (rid, fila) => { cacheSet(rid, '_outbox', fila); avisaO
 let seq = 0;
 export const outboxUid = () => `${Date.now().toString(36)}_${(seq++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
+// Documento repetido substitui a cópia anterior da mesma chave — ver comItemNovo.
 export const outboxAdd = (rid, item) => {
-  const fila = outboxGet(rid);
-  fila.push({ ...item, _uid: outboxUid(), _enfileiradoEm: Date.now() });
-  outboxSet(rid, fila);
+  outboxSet(rid, comItemNovo(outboxGet(rid), { ...item, _uid: outboxUid(), _enfileiradoEm: Date.now() }));
 };
 
 // Garante _uid em itens antigos (enfileirados antes desta versão) — chamado

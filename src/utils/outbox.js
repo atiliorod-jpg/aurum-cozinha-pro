@@ -33,6 +33,29 @@ export function ressuscitar(item) {
   return resto;
 }
 
+/**
+ * A fila com um item novo no fim.
+ *
+ * ⚠️ DOCUMENTO SÓ PRECISA DA ÚLTIMA VERSÃO. Cada gravação de catálogo manda o
+ * documento INTEIRO, e o replay grava por cima (versão -1) — então as cópias
+ * antigas da mesma chave na fila não mudam o resultado, só ocupam espaço. E
+ * ocupavam muito: a lista de etiquetas impressas passa de 1 MB com o uso, e
+ * cada etiqueta impressa sem internet enfileirava mais uma cópia dela. Poucas
+ * etiquetas enchiam o localStorage, e daí em diante a fila não conseguia mais
+ * gravar NADA — lançamento e linha do relatório perdidos em silêncio.
+ * Registros, impressões e auditoria continuam um por um: esses são eventos,
+ * não estado.
+ */
+export function comItemNovo(fila, item) {
+  const base = Array.isArray(fila) ? fila : [];
+  const ehDoc = (i) => i?.kind === 'doc' && i.op === 'upsert' && !!i.payload?.chave;
+  if (!ehDoc(item)) return [...base, item];
+  const mesmaChave = (i) => ehDoc(i)
+    && i.payload.chave === item.payload.chave
+    && i.payload.restaurante_id === item.payload.restaurante_id;
+  return [...base.filter(i => !mesmaChave(i)), item];
+}
+
 export const estaMorto = (item) => !!item._morto;
 export const contarVivos = (fila) => (fila || []).filter(i => !i._morto).length;
 export const contarMortos = (fila) => (fila || []).filter(i => i._morto).length;

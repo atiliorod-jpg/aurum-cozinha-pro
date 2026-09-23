@@ -11,10 +11,11 @@
 // =====================================================================
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque } from '../visaoEstoque';
 import { montarCamposEtiqueta } from '../etiquetas';
 import { pode, permissoesEfetivas, PERMISSOES_PADRAO, capacidadesDoProduto } from '../permissoes';
-import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo } from '../outbox';
+import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_OUTBOX, ehErroDefinitivo, comItemNovo } from '../outbox';
 import { conciliarAuditoria } from '../auditoria';
 import { listarEstoques, estoquesAtivos, acharEstoque, salvarEstoque, moduloUtilizavel } from '../instancias';
 import { limparCacheLocal, pendenciasNaoSincronizadas, outboxUid } from '../../lib/cache';
@@ -91,6 +92,62 @@ describe('outbox — identidade estável dos itens', () => {
   it('outboxUid não repete em chamadas seguidas no mesmo milissegundo', () => {
     const ids = Array.from({ length: 500 }, () => outboxUid());
     expect(new Set(ids).size).toBe(500);
+  });
+});
+
+// Revisão de 23/09/2026: cada etiqueta impressa sem internet enfileirava uma
+// cópia INTEIRA da lista de impressas (passa de 1 MB com o uso). Poucas
+// etiquetas enchiam o localStorage e a fila parava de gravar qualquer coisa.
+describe('outbox — documento guarda só a última versão', () => {
+  const doc = (chave, dados, rid = 'r1', extra = {}) => ({
+    kind: 'doc', op: 'upsert', _uid: `${chave}-${dados}`, payload: { restaurante_id: rid, chave, dados }, ...extra,
+  });
+  const reg = (id) => ({ kind: 'registro', op: 'insert', _uid: `reg-${id}`, payload: { id } });
+  const imp = (id) => ({ kind: 'impressao', op: 'rpc', _uid: `imp-${id}`, payload: { itens: [{ id }] } });
+
+  it('50 etiquetas offline = 1 cópia da lista na fila, não 50', () => {
+    let fila = [];
+    for (let n = 1; n <= 50; n++) {
+      fila = comItemNovo(fila, doc('etiquetasImpressas', n));
+      fila = comItemNovo(fila, imp(n));
+    }
+    expect(fila.filter(i => i.kind === 'doc')).toHaveLength(1);
+    expect(fila.find(i => i.kind === 'doc').payload.dados).toBe(50); // a mais nova
+    expect(fila.filter(i => i.kind === 'impressao')).toHaveLength(50); // eventos: todos
+  });
+
+  it('chaves diferentes, e a mesma chave de OUTRA conta, não se substituem', () => {
+    let fila = comItemNovo([], doc('etiquetasImpressas', 1));
+    fila = comItemNovo(fila, doc('seco::etiquetasImpressas', 1));
+    fila = comItemNovo(fila, doc('etiquetasImpressas', 1, 'r2'));
+    expect(fila).toHaveLength(3);
+  });
+
+  it('registros continuam todos, na ordem; a versão nova do documento vai para o fim', () => {
+    let fila = comItemNovo([], doc('produtos', 1));
+    fila = comItemNovo(fila, reg('a'));
+    fila = comItemNovo(fila, reg('b'));
+    fila = comItemNovo(fila, doc('produtos', 2));
+    expect(fila.map(i => i._uid)).toEqual(['reg-a', 'reg-b', 'produtos-2']);
+  });
+
+  it('a cópia morta da mesma chave dá lugar à nova (que traz o estado atual)', () => {
+    const fila = comItemNovo([doc('prefs', 1, 'r1', { _morto: true, _tentativas: 8 })], doc('prefs', 2));
+    expect(fila).toHaveLength(1);
+    expect(fila[0]._morto).toBeUndefined();
+  });
+
+  it('a fila do aparelho usa essa regra', () => {
+    const cache = readFileSync(new URL('../../lib/cache.js', import.meta.url), 'utf8');
+    expect(cache).toMatch(/outboxSet\(rid, comItemNovo\(outboxGet\(rid\),/);
+  });
+});
+
+describe('etiqueta — reimpressão não troca quem assina as próximas', () => {
+  it('só grava o responsável lembrado quando o lote NÃO é só reimpressão', () => {
+    const src = readFileSync(new URL('../../components/EtiquetaPrint.jsx', import.meta.url), 'utf8');
+    expect(src).toMatch(/const soReimpressao = lista\.length > 0 && lista\.every\(i => i\.reimpressao\)/);
+    expect(src).toMatch(/\.\.\.\(responsavel\.trim\(\) && !soReimpressao \? \{ responsavel \} : \{\}\)/);
   });
 });
 
