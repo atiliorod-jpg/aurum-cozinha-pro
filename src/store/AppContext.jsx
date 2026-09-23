@@ -1246,8 +1246,24 @@ export function AppProvider({ children }) {
         }
       }
 
-      const { data: regs, error: errRegs } = await supabase.from('registros').select('*').eq('restaurante_id', rid).eq('deleted', false);
-      if (!ativo) return;
+      // ⚠️ EM PÁGINAS DE 1.000 (23/09/2026). O Supabase entrega no MÁXIMO
+      // 1.000 linhas por consulta (max_rows do projeto) e esta busca era uma
+      // só: uma conta do Pro com mais de 1.000 lançamentos recebia um pedaço
+      // qualquer deles — saldo, validades e relatórios calculados com dados
+      // faltando, sem erro nenhum na tela. Ordena pelo id para as páginas não
+      // se sobreporem. Falhou no meio: vale como falha (o cache fica).
+      const TAMANHO_PAGINA = 1000;
+      let regs = [];
+      let errRegs = null;
+      for (let de = 0; ; de += TAMANHO_PAGINA) {
+        const { data: pagina, error } = await supabase.from('registros').select('*')
+          .eq('restaurante_id', rid).eq('deleted', false)
+          .order('id').range(de, de + TAMANHO_PAGINA - 1);
+        if (!ativo) return;
+        if (error) { errRegs = error; regs = null; break; }
+        regs.push(...(pagina || []));
+        if (!pagina || pagina.length < TAMANHO_PAGINA) break;
+      }
       // Guarda o BRUTO: a Administração precisa mostrar o relatório de outro
       // estoque sem trocar o que está aberto, e o balanço consolidado precisa de
       // todos. O cliente já baixou tudo — antes isto era descartado.

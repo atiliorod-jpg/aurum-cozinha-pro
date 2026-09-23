@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
+import { buscarTodas } from '../lib/paginar';
 import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades } from '../utils/assinatura';
 import { unidadesAtivas } from '../utils/unidades';
 import { calcularEncargo } from '../utils/encargos';
@@ -821,10 +822,15 @@ O login e a recuperação de senha passam a usar o e-mail novo. A senha continua
   // Baixa TUDO que o banco tem daquele restaurante, num arquivo só.
   const baixarCopiaDoCliente = async (r) => {
     try {
+      // ⚠️ EM PÁGINAS: sem isto a cópia parava nos 1.000 primeiros lançamentos
+      // (limite do Supabase) — e é a cópia que se guarda ANTES DE APAGAR a
+      // conta. Meia cópia não pode passar por inteira: erro em qualquer página
+      // cai no catch e o painel avisa.
       const [docs, regs] = await Promise.all([
-        supabase.from('documentos').select('chave, dados').eq('restaurante_id', r.id),
-        supabase.from('registros').select('*').eq('restaurante_id', r.id),
+        buscarTodas(() => supabase.from('documentos').select('chave, dados').eq('restaurante_id', r.id).order('chave')),
+        buscarTodas(() => supabase.from('registros').select('*').eq('restaurante_id', r.id).order('id')),
       ]);
+      if (docs.error || regs.error) throw docs.error || regs.error;
       const pacote = {
         aviso: 'Cópia gerada pela Aurum antes de apagar a conta. Guarde este arquivo.',
         restaurante: r, geradoEm: new Date().toISOString(),
