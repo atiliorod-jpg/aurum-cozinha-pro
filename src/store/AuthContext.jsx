@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { emailDeLogin } from '../utils/contas';
 import { limparCacheLocal, cacheGet, cacheSet } from '../lib/cache';
 import { desvioDoRelogio, horaConfiavel } from '../utils/semInternet';
+import { unidadeFixaDe } from '../utils/unidades';
 import { statusAssinatura } from '../utils/assinatura';
 
 // ⚠️ ESTES TRÊS SÃO NÍVEIS DE SEGURANÇA, não rótulos. Estão numa trava da
@@ -358,6 +359,9 @@ export function AuthProvider({ children }) {
         // sendo o nível de segurança que o banco reconhece.
         cargoRotulo:      perfil.cargo_rotulo || null,
         restauranteId:    perfil.restaurante_id,
+        // Conta presa a uma unidade (M48): null = todas; { id } = só aquela
+        // (id nulo = a principal). Quem define é a conta dona.
+        unidadeFixa:      unidadeFixaDe(perfil),
         ...doRestaurante,
         eSuperAdmin:      email === 'atiliopinpolho@gmail.com',
         ts:               Date.now(),
@@ -365,7 +369,7 @@ export function AuthProvider({ children }) {
       setSessao(sessaoNova);
       const { data: todos } = await supabase
         .from('perfis')
-        .select('id, nome, cargo, ativo, usuario, cargo_rotulo')
+        .select('id, nome, cargo, ativo, usuario, cargo_rotulo, unidade_fixa, unidade_id')
         .eq('restaurante_id', perfil.restaurante_id);
       setUsuarios(todos || []);
       if (rest) await confirmarAgora(userId, sessaoNova, todos || []);
@@ -379,6 +383,19 @@ export function AuthProvider({ children }) {
     setCarregando(false);
     return true;
   }, [registrarSessaoAtiva, semearEstabelecimento, confirmarAgora, entrarSemInternet]);
+
+  // A conta dona prende (ou solta) uma conta da equipe numa unidade (M48).
+  // Devolve a mensagem de erro, ou null. `unidade`: 'todas' | 'principal' | id.
+  const definirUnidadeDaConta = useCallback(async (usuarioId, unidade) => {
+    const fixa = unidade !== 'todas';
+    const { data, error } = await supabase.rpc('definir_unidade_da_conta', {
+      p_usuario: usuarioId, p_fixa: fixa, p_unidade: fixa && unidade !== 'principal' ? unidade : null,
+    });
+    if (error) return error.message || 'Não foi possível salvar.';
+    setUsuarios(prev => prev.map(u => (u.id === usuarioId
+      ? { ...u, unidade_fixa: data?.unidade_fixa ?? fixa, unidade_id: data?.unidade_id ?? null } : u)));
+    return null;
+  }, []);
 
   // ── Reconfirmar a assinatura com o app ABERTO ──────────────────────
   // ⚠️ Antes a assinatura só era lida ao ABRIR o app. Um aparelho que fica
@@ -405,6 +422,10 @@ export function AuthProvider({ children }) {
       return false;
     }
     const campos = camposDoRestaurante(rest);
+    // a conta dona pode ter prendido (ou soltado) esta conta numa unidade: vale
+    // sem precisar entrar de novo
+    const { data: meuPerfil } = await supabase.from('perfis').select('unidade_fixa, unidade_id').eq('id', s.usuarioId).maybeSingle();
+    if (meuPerfil) campos.unidadeFixa = unidadeFixaDe(meuPerfil);
     const mudou = Object.keys(campos).some(k => JSON.stringify(campos[k]) !== JSON.stringify(s[k]));
     const nova = mudou ? { ...s, ...campos } : s;
     if (mudou) setSessao(prev => (prev && prev.usuarioId === s.usuarioId ? { ...prev, ...campos } : prev));
@@ -985,7 +1006,7 @@ export function AuthProvider({ children }) {
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,
-      confirmacao, reconfirmar,
+      confirmacao, reconfirmar, definirUnidadeDaConta,
     }), [
     // `erroNaURL` fica de fora de propósito: é constante de MÓDULO, lida uma
     // vez do endereço quando o arquivo carrega. Pôr uma variável de fora do
@@ -996,7 +1017,7 @@ export function AuthProvider({ children }) {
     cadastroPendenteErro, criarConvite, usarConvite, alterarCargo, desativarUsuario,
     reativarUsuario, avisarPagamento, criarConta, trocarSenhaDe, removerConta,
     definirApelido, temPermissao, impersonando, verComoRestaurante, sairImpersonacao,
-    derrubado, limparDerrubado, confirmacao, reconfirmar,
+    derrubado, limparDerrubado, confirmacao, reconfirmar, definirUnidadeDaConta,
   ]);
 
   return (

@@ -15,7 +15,7 @@ import Icon from './Icons';
  * A escolha fica no aparelho: quem só trabalha no seco já abre no seco.
  */
 export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades = false }) {
-  const { modulo, setModulo, permissoes, estoques, unidades } = useApp();
+  const { modulo, setModulo, permissoes, estoques, unidades, estoquesPermitidos, unidadeFixa } = useApp();
   const { sessao, impersonando } = useAuth();
   const { confirm } = useUI();
   // No modo suporte a conta é a do cliente, e o nome também
@@ -58,7 +58,8 @@ export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades
 
   // Só os ativos: estoque arquivado sai do seletor, mas os lançamentos dele
   // continuam no histórico e no balanço.
-  const visiveis = estoquesAtivos(estoques);
+  // ⚠️ CONTA PRESA A UMA UNIDADE (M48): só as cozinhas dela aparecem
+  const visiveis = estoquesAtivos(estoquesPermitidos || estoques);
 
   // ⚠️ PLANO ETIQUETAS: a pessoa escolhe a UNIDADE, não a cozinha — cozinha é
   // um conceito que este produto não mostra. Cada unidade abre a Produção
@@ -67,7 +68,9 @@ export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades
     const unidadeAberta = unidadeDaCozinha(estoques, modulo);
     return (
       <div className="space-y-3">
-        {opcoesDeUnidade(unidades, nomeConta).map(u => {
+        {opcoesDeUnidade(unidades, nomeConta)
+          .filter(u => !unidadeFixa || (u.id || null) === (unidadeFixa.id || null))
+          .map(u => {
           const ativa = u.id === unidadeAberta;
           return (
             <button key={u.id || 'principal'} onClick={() => escolher(cozinhaPrincipalDa(estoques, u.id))}

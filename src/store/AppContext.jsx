@@ -12,7 +12,7 @@ import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outbo
 import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
-import { cozinhaDeEtiquetas, acharUnidade } from '../utils/unidades';
+import { cozinhaDeEtiquetas, acharUnidade, baseDoCatalogo, cozinhaDaFixa, cozinhasDaFixa } from '../utils/unidades';
 import {
   ehChaveImpressas, chavePendencias, PENDENCIAS_VAZIAS, semPendencias, diferencaImpressas,
   acumularPendencias, aplicarPendencias, limparConfirmadas, unirImpressas,
@@ -220,9 +220,22 @@ export function AppProvider({ children }) {
   // usa a Produção principal da UNIDADE do aparelho. A correção acima continua
   // valendo — um 'seco' guardado é da unidade principal e cai em 'producao',
   // exatamente como antes. Ver cozinhaDeEtiquetas (utils/unidades.js).
-  const moduloEfetivo = useMemo(
-    () => (soEtiq ? cozinhaDeEtiquetas(estoques, modulo) : moduloUtilizavel(estoques, modulo)),
-    [estoques, modulo, soEtiq]);
+  //
+  // ⚠️ CONTA PRESA A UMA UNIDADE (M48): só as cozinhas dela. A guardada no
+  // aparelho vale se for de lá; senão, a Produção principal da unidade. O modo
+  // suporte (super-admin vendo o cliente) nunca fica preso.
+  const chaveFixa = impersonando || !sessao?.unidadeFixa ? '' : (sessao.unidadeFixa.id || 'principal');
+  const unidadeFixa = useMemo(() => (chaveFixa ? { id: chaveFixa === 'principal' ? null : chaveFixa } : null), [chaveFixa]);
+  const moduloEfetivo = useMemo(() => {
+    const livre = soEtiq ? cozinhaDeEtiquetas(estoques, modulo) : moduloUtilizavel(estoques, modulo);
+    return unidadeFixa ? cozinhaDaFixa(estoques, unidadeFixa, livre) : livre;
+  }, [estoques, modulo, soEtiq, unidadeFixa]);
+  // as cozinhas que ESTA conta pode abrir (seletor, balanço, relatórios)
+  const estoquesPermitidos = useMemo(() => cozinhasDaFixa(estoques, unidadeFixa), [estoques, unidadeFixa]);
+  // ⚠️ DE ONDE VEM A LISTA DE ITENS (M48): por tipo, como sempre — ou a da
+  // unidade, quando ela tem lista própria. É uma STRING nas deps da
+  // hidratação: ligar a lista própria recarrega os catálogos na hora.
+  const baseCatalogo = useMemo(() => baseDoCatalogo(estoques, unidades, moduloEfetivo), [estoques, unidades, moduloEfetivo]);
   const estoqueAtual = useMemo(() => acharEstoque(estoques, moduloEfetivo), [estoques, moduloEfetivo]);
   // A unidade da cozinha aberta: a linha da extra, ou `null` (principal). É
   // dela que a etiqueta tira nome, CNPJ e endereço.
@@ -246,6 +259,7 @@ export function AppProvider({ children }) {
   const unidadesRef = useRef(unidades); unidadesRef.current = unidades;
 
   const moduloRef = useRef(moduloEfetivo); moduloRef.current = moduloEfetivo;
+  const catalogoRef = useRef(baseCatalogo); catalogoRef.current = baseCatalogo;
   // Mesmo padrao do moduloRef: o produto so muda com troca de sessao, e por-lo
   // nas deps da hidratacao faria o app re-hidratar a toa.
   const soEtiqRef = useRef(soEtiq); soEtiqRef.current = soEtiq;
@@ -266,8 +280,9 @@ export function AppProvider({ children }) {
     []);
   // kc() = chave de CATÁLOGO. A finalização não cadastra produto: ela lê o
   // catálogo da produção, senão o mesmo semiacabado teria ids diferentes dos
-  // dois lados e a ponte nunca casaria.
-  const kc = useCallback((chave) => chaveModulo(catalogoDe(moduloRef.current), chave), []);
+  // dois lados e a ponte nunca casaria. Com lista própria da unidade (M48), a
+  // base é a da unidade — ver baseDoCatalogo.
+  const kc = useCallback((chave) => chaveModulo(catalogoRef.current, chave), []);
   const t = useCallback((tipo) => tipoModulo(moduloRef.current, tipo), []);
   // ── O que o app inteiro enxerga como `produtos` ────────────
   // Catálogo COMPARTILHADO entre estoques do mesmo tipo + as METAS deste
@@ -373,7 +388,7 @@ export function AppProvider({ children }) {
     const r = nuvemDe(ridRef.current);
     if (!r) return;
     const { data, error } = await supabase.from('unidades')
-      .select('id, nome, cnpj, endereco, cidade, uf, cep, cozinha, arquivada_em, criada_em')
+      .select('id, nome, cnpj, endereco, cidade, uf, cep, cozinha, arquivada_em, criada_em, catalogo_proprio')
       .eq('restaurante_id', r).order('criada_em');
     if (error || ridRef.current !== r) return;
     setUnidadesRaw(data || []);
@@ -1418,7 +1433,7 @@ export function AppProvider({ children }) {
     // `moduloEfetivo` nas deps: trocar de estoque re-hidrata tudo daquele
     // estoque. É o EFETIVO, não o do localStorage: um id arquivado precisa
     // hidratar a raiz, não continuar carregando o estoque escondido.
-  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc]);
+  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Administração de dados ─────────────────────────────────
@@ -1461,13 +1476,15 @@ export function AppProvider({ children }) {
         docs: brutos.docs,
         registrosFatiados: fatiado,
         padroes: catalogosPadrao(tipoBase(id), soEtiq),
+        // a lista de itens de CADA cozinha (a da unidade, se tiver própria)
+        baseCatalogo: baseDoCatalogo(estoques, unidades, id),
         aplicarMetas: comMetas,
       });
     });
     return saida;
     // soEtiq entra nas deps de verdade (nao via ref): isto e derivacao pura de
     // render, e ler ref durante o render devolveria valor defasado.
-  }, [estoques, brutos, soEtiq]);
+  }, [estoques, brutos, soEtiq, unidades]);
 
   const resetarProdutos = useCallback(
     () => persistCatalogo('produtos', setProdutosRaw, catalogosPadrao(catalogoDe(moduloRef.current), soEtiqRef.current).produtos),
@@ -1621,6 +1638,8 @@ export function AppProvider({ children }) {
       registrarImpressoes,
       // unidades extras da conta (M46) e a da cozinha aberta (null = principal)
       unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,
+      // conta presa a uma unidade (M48) e as cozinhas que ela pode abrir
+      unidadeFixa, estoquesPermitidos,
     }), [
     produtos, setProdutos, compras, addCompra, removeCompra, entradas,
     addEntrada, removeEntrada, saidas, addSaida, removeSaida, aparas,
@@ -1636,6 +1655,7 @@ export function AppProvider({ children }) {
     rid, pendencias, online, mortos, retentarMortos, descartarMortos,
     registrarImpressoes,
     unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,
+    unidadeFixa, estoquesPermitidos,
   ]);
 
   return (

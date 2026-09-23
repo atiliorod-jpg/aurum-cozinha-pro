@@ -25,7 +25,7 @@ const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
  */
 export default function Layout({ title, children, actions, area = 'estoque' }) {
   const { sessao, logout, impersonando } = useAuth();
-  const { pendencias, online, estoqueAtual, unidades, unidadeAtual } = useApp();
+  const { pendencias, online, estoqueAtual, unidades, unidadeAtual, unidadeFixa } = useApp();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const emAdmin = area === 'admin';
@@ -132,7 +132,8 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
             Administração: é a única saída de lá desde que a barra do rodapé
             saiu, e num PWA em tablet não existe botão de voltar do navegador.
             No plano Etiquetas vira etiqueta fixa: não há outra área para onde ir. */}
-        {(soEtiq && !variasUnidades) || semCozinhas ? (
+        {/* conta presa a uma unidade (M48): o selo da unidade não troca nada */}
+        {(soEtiq && (!variasUnidades || unidadeFixa)) || semCozinhas ? (
           <span className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1 min-h-11">
             <Icon name={mod.icone} size={18} />
             <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>

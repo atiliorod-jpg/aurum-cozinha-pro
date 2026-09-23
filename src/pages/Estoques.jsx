@@ -8,6 +8,7 @@ import { MODULOS, gerarIdInstancia } from '../utils/modulos';
 import { salvarEstoque } from '../utils/instancias';
 import { nomeDaUnidade, cidadeUf } from '../utils/unidades';
 import { formatarCNPJ } from '../utils/documentos';
+import { CartaoEquipeDasUnidades } from '../components/config/CartoesConfig';
 
 /**
  * UNIDADES E COZINHAS — onde a conta trabalha (era "Estoques da conta").
@@ -65,6 +66,8 @@ export default function Estoques() {
     ...(unidades || []).map(u => ({
       id: u.id, principal: false, nome: u.nome, cnpj: u.cnpj,
       local: cidadeUf(u.cidade, u.uf), arquivada: !!u.arquivada_em,
+      // lista de itens própria (M48): quem liga é a Aurum, no painel
+      listaPropria: !!u.catalogo_proprio,
     })),
   ];
 
@@ -126,7 +129,8 @@ export default function Estoques() {
         <p className="text-[11px] text-gray-500 px-1 leading-relaxed">
           Cada <strong>unidade</strong> é um estabelecimento, com o seu CNPJ — é o que sai na etiqueta.
           Dentro de cada uma ficam as <strong>cozinhas</strong>, com saldo e mín/máx próprios. Os itens
-          são cadastrados uma vez e aparecem em todas as cozinhas do mesmo tipo.
+          são cadastrados uma vez e aparecem em todas as cozinhas do mesmo tipo — menos na unidade com
+          lista de itens própria, que tem a sua.
         </p>
 
         {grupos.map(g => {
@@ -146,6 +150,7 @@ export default function Estoques() {
                   <p className="text-[11px] text-white/80">
                     {g.cnpj ? `CNPJ ${formatarCNPJ(g.cnpj)}` : 'Sem CNPJ cadastrado'}
                     {g.local ? ` · ${g.local}` : ''}
+                    {g.listaPropria ? ' · lista de itens própria' : ''}
                   </p>
                 </div>
               </div>
@@ -244,6 +249,9 @@ export default function Estoques() {
             </section>
           );
         })}
+
+        {/* quem trabalha em cada unidade (M48) — só aparece com mais de uma */}
+        <CartaoEquipeDasUnidades />
 
         {/* ⚠️ A UNIDADE NOVA NÃO SE CRIA AQUI: o CNPJ é o que identifica quem
             manipulou o alimento, e passa pela Aurum — que também combina o

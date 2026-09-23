@@ -23,7 +23,7 @@ export const TODOS = 'todos';
 const OPCAO_TODOS = { id: TODOS, icone: 'relatorio', nome: 'Todas as cozinhas', estabelecimento: '' };
 
 export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
-  const { estoques, unidades } = useApp();
+  const { estoques, unidades, estoquesPermitidos } = useApp();
   const { sessao, impersonando } = useAuth();
   const [aberto, setAberto] = useState(false);
   // Com várias unidades (M46), cada cozinha diz de QUAL casa é — duas
@@ -31,7 +31,8 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
   const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
   const subtitulo = (e) => (temUnidadesExtras(unidades) && e.tipo
     ? nomeDaUnidade(unidades, e.unidade, nomeConta) : e.estabelecimento);
-  const ativos = estoquesAtivos(estoques);
+  // conta presa a uma unidade (M48): só as cozinhas dela
+  const ativos = estoquesAtivos(estoquesPermitidos || estoques);
   if (ativos.length <= 1) return null;
 
   const visiveis = comTodos ? [OPCAO_TODOS, ...ativos] : ativos;

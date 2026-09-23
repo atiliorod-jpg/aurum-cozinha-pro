@@ -11,7 +11,7 @@ import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
 import { formatarCNPJ, formatarCEP } from '../../utils/documentos';
 import { CAPACIDADES, PERMISSOES_PADRAO, cargosDaCasa, capacidadesDoProduto } from '../../utils/permissoes';
-import { temUnidadesExtras, opcoesDeUnidade } from '../../utils/unidades';
+import { temUnidadesExtras, opcoesDeUnidade, acharUnidade } from '../../utils/unidades';
 import { useApp } from '../../store/AppContext';
 import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
@@ -991,6 +991,89 @@ export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm
         Vale guardar uma cópia depois de cadastrar seus itens. Se trocar de aparelho ou
         precisar voltar atrás, é por aqui que tudo volta.
       </p>
+    </div>
+  );
+}
+
+/**
+ * Equipe por unidade (M48) — onde cada conta da equipe trabalha.
+ *
+ * ⚠️ PRESA A UMA UNIDADE, a conta só abre as cozinhas dela e a etiqueta sai
+ * sempre com o CNPJ dela — o cozinheiro da casa do Centro não imprime mais,
+ * nem por engano, com o CNPJ de outra casa. "Todas as unidades" é como sempre
+ * foi. A diretoria não aparece: ela trabalha em todas.
+ *
+ * ⚠️ QUEM MUDA É A CONTA DONA, e o banco confere (a pessoa não se solta
+ * sozinha). Precisa de internet. Aparece nos dois planos: na Administração do
+ * Etiquetas e em "Unidades e cozinhas" do Pro.
+ */
+export function CartaoEquipeDasUnidades() {
+  const { unidades } = useApp();
+  const { sessao, impersonando, usuarios, definirUnidadeDaConta } = useAuth();
+  const { toast } = useUI();
+  const [salvando, setSalvando] = useState('');
+  if (!temUnidadesExtras(unidades)) return null;
+
+  const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
+  const podeMudar = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && !impersonando;
+  const equipe = (usuarios || []).filter(u => u.ativo !== false && u.cargo !== 'diretoria');
+  const opcoes = opcoesDeUnidade(unidades, nomeConta);
+  const valorDe = (u) => (!u.unidade_fixa ? 'todas' : (u.unidade_id || 'principal'));
+  // presa a uma unidade que depois foi arquivada: a etiqueta fica travada
+  const arquivadaDe = (u) => !!(u.unidade_fixa && u.unidade_id && acharUnidade(unidades, u.unidade_id)?.arquivada_em);
+
+  const mudar = async (u, valor) => {
+    setSalvando(u.id);
+    const erro = await definirUnidadeDaConta(u.id, valor);
+    setSalvando('');
+    toast(erro ? `Não salvou: ${erro}` : 'Unidade da conta atualizada.', erro ? 'erro' : 'sucesso');
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-bold text-polo-navy">Equipe por unidade</h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Presa a uma unidade, a conta só abre as cozinhas dela e a etiqueta sai sempre com o CNPJ
+          dela. A diretoria trabalha em todas.
+        </p>
+      </div>
+      {equipe.length === 0 ? (
+        <p className="text-xs text-gray-600">Ainda não há contas da equipe.</p>
+      ) : (
+        <ul className="space-y-2">
+          {equipe.map(u => (
+            <li key={u.id} className="bg-gray-50 rounded-lg px-3 py-2 space-y-1">
+              <label className="flex items-center justify-between gap-2">
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-polo-navy truncate">{u.nome || u.usuario}</span>
+                  {u.usuario && <span className="block text-[11px] text-gray-600 truncate">{u.usuario}</span>}
+                </span>
+                <select value={valorDe(u)} disabled={!podeMudar || salvando === u.id}
+                  onChange={e => mudar(u, e.target.value)}
+                  aria-label={`Unidade de ${u.nome || u.usuario}`}
+                  className="min-h-11 border border-gray-200 rounded-lg px-2 text-xs bg-white max-w-[55%] disabled:opacity-60">
+                  <option value="todas">Todas as unidades</option>
+                  {opcoes.map(o => (
+                    <option key={o.id || 'principal'} value={o.id || 'principal'}>Só {o.nome}</option>
+                  ))}
+                  {/* a arquivada não é opção nova, mas é o valor de hoje: sem ela
+                      a lista mostraria "Todas as unidades", que seria mentira */}
+                  {arquivadaDe(u) && (
+                    <option value={u.unidade_id}>Só {acharUnidade(unidades, u.unidade_id)?.nome} (arquivada)</option>
+                  )}
+                </select>
+              </label>
+              {arquivadaDe(u) && (
+                <p className="text-[11px] text-amber-900">
+                  A unidade desta conta foi arquivada: ela não imprime até você escolher outra.
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!podeMudar && <p className="text-[11px] text-gray-600">Só a conta dona muda a unidade da equipe.</p>}
     </div>
   );
 }

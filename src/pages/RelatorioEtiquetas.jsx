@@ -58,7 +58,7 @@ function Barra({ rotulo, valor, maximo }) {
  * filtro.
  */
 export default function RelatorioEtiquetas() {
-  const { rid, online, unidades } = useApp();
+  const { rid, online, unidades, unidadeFixa } = useApp();
   const { sessao, impersonando } = useAuth();
   const { toast } = useUI();
   const soEtiquetas = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
@@ -99,7 +99,9 @@ export default function RelatorioEtiquetas() {
   // unidade principal. O filtro só aparece quando a conta tem mais de uma
   // casa, ou quando há linha de alguma extra (unidade arquivada inclusive).
   const [filtroUnidade, setFiltroUnidade] = useState('todas');
-  const comUnidades = temUnidadesExtras(unidades) || todasAsLinhas.some(l => l?.unidade_id);
+  // ⚠️ Conta presa a uma unidade (M48): o banco já entrega só a unidade dela,
+  // e o filtro some — não há o que escolher.
+  const comUnidades = !unidadeFixa && (temUnidadesExtras(unidades) || todasAsLinhas.some(l => l?.unidade_id));
   const linhas = useMemo(
     () => linhasDaUnidade(todasAsLinhas, comUnidades ? filtroUnidade : 'todas'),
     [todasAsLinhas, filtroUnidade, comUnidades]);
@@ -153,7 +155,8 @@ export default function RelatorioEtiquetas() {
       <div className="relatorio-print-cabecalho mb-4">
         <p className="text-lg font-bold text-polo-navy">
           Relatório de etiquetas — {nomeCasa || 'Aurum'}
-          {comUnidades && filtroUnidade !== 'todas' ? ` · ${nomeDaUnidade(unidades, filtroUnidade, nomeCasa)}` : ''}
+          {unidadeFixa && temUnidadesExtras(unidades) ? ` · ${nomeDaUnidade(unidades, unidadeFixa.id, nomeCasa)}`
+            : comUnidades && filtroUnidade !== 'todas' ? ` · ${nomeDaUnidade(unidades, filtroUnidade, nomeCasa)}` : ''}
         </p>
         <p className="text-xs text-gray-600">
           {fmtData(periodo.de)} a {fmtData(periodo.ate)} · comparado com {fmtData(anterior.de)} a {fmtData(anterior.ate)}

@@ -6,7 +6,7 @@ import { useApp } from '../../store/AppContext';
 import { useAuth, CARGOS } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos,
-         CartaoMeusDados, CartaoUnidades } from '../../components/config/CartoesConfig';
+         CartaoMeusDados, CartaoUnidades, CartaoEquipeDasUnidades } from '../../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../../components/config/CartaoMinhaSenha';
 import { statusAssinatura, produtoDe, PRODUTOS, fmtPreco, mensalComUnidades } from '../../utils/assinatura';
 import { unidadesAtivas } from '../../utils/unidades';
@@ -151,6 +151,7 @@ export default function Ajustes() {
           assinatura. No plano completo a mesma lista é a tela "Unidades e
           cozinhas" da Administração. */}
       <CartaoUnidades />
+      <CartaoEquipeDasUnidades />
 
       {/* Upgrade — some quando a conta já é completa.
           ⚠️ DUAS TELAS DIZIAM COISAS DIFERENTES SOBRE O MESMO PLANO: o cadastro

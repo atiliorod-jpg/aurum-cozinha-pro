@@ -19,17 +19,19 @@ import { temUnidadesExtras, opcoesDeUnidade, nomeDaUnidade } from '../utils/unid
  * sozinho é repetir a tela dele com outro título.
  */
 export default function Balanco() {
-  const { estoques, visoesPorEstoque, unidades } = useApp();
+  const { estoques, visoesPorEstoque, unidades, unidadeFixa, estoquesPermitidos } = useApp();
   const { sessao, impersonando } = useAuth();
   // ⚠️ UNIDADES (M46): o balanço pode somar o grupo inteiro ou uma casa só.
   // 'todas' é o grupo; `null` é a unidade principal. Sem unidade extra, o
   // filtro nem aparece e a soma é a de sempre.
-  const variasUnidades = temUnidadesExtras(unidades);
+  // conta presa a uma unidade (M48): só as cozinhas dela, sem filtro para escolher
+  const variasUnidades = temUnidadesExtras(unidades) && !unidadeFixa;
   const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
   const [filtro, setFiltro] = useState('todas');
   const doFiltro = useMemo(
-    () => (!variasUnidades || filtro === 'todas' ? estoques : estoques.filter(e => (e.unidade || null) === filtro)),
-    [estoques, filtro, variasUnidades]);
+    () => (unidadeFixa ? estoquesPermitidos
+      : !variasUnidades || filtro === 'todas' ? estoques : estoques.filter(e => (e.unidade || null) === filtro)),
+    [estoques, filtro, variasUnidades, unidadeFixa, estoquesPermitidos]);
   const familias = useMemo(
     () => balancoConsolidado(doFiltro, visoesPorEstoque),
     [doFiltro, visoesPorEstoque],

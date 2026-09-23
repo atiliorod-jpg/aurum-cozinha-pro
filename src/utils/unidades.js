@@ -15,7 +15,7 @@
 //  Funções PURAS: sem React, sem rede (o projeto não tem jsdom).
 // =====================================================================
 
-import { MODULO_PADRAO } from './modulos';
+import { MODULO_PADRAO, catalogoDe } from './modulos';
 import { estabelecimentoDe } from './instancias';
 import { formatarCEP } from './documentos';
 
@@ -109,4 +109,63 @@ export function dadosDaEtiqueta({ unidade, estoque, nomeConta, cnpjConta, estabe
     nome: estabelecimentoDe(estoque, nomeConta),
     estabelecimento: { ...est, cnpj: texto(cnpjConta) || texto(est.cnpj) },
   };
+}
+
+// ── Segunda fase (M48, 23/09/2026) ────────────────────────────────────
+
+/**
+ * De onde a cozinha lê a LISTA DE ITENS (produtos, categorias, fichas).
+ *
+ * Sem lista própria é o de sempre, por tipo (`catalogoDe`): toda Produção
+ * (e toda Finalização) lê 'produtos', todo Seco lê 'seco::produtos'. Numa
+ * unidade com `catalogo_proprio`, a base é a Produção principal DELA
+ * ('producao#ab12' → 'producao#ab12::produtos') e, para o Seco, o mesmo
+ * sufixo ('seco#ab12::produtos') — as chaves que a M48 copia ao ligar.
+ *
+ * ⚠️ Unidade ARQUIVADA mantém a base própria: o histórico dela continua
+ * legível com os itens dela.
+ */
+export function baseDoCatalogo(estoques, unidades, cozinhaId) {
+  const padrao = catalogoDe(cozinhaId);
+  const u = acharUnidade(unidades, unidadeDaCozinha(estoques, cozinhaId));
+  if (!u || !u.catalogo_proprio || !u.cozinha) return padrao;
+  const sufixo = String(u.cozinha).split('#')[1];
+  if (!sufixo) return padrao;
+  return padrao === MODULO_PADRAO ? u.cozinha : `${padrao}#${sufixo}`;
+}
+
+/**
+ * A conta presa a uma unidade (M48): `null` = livre (todas as unidades);
+ * `{ id }` = presa, com `id` nulo para a principal.
+ */
+export const unidadeFixaDe = (perfil) => (perfil?.unidade_fixa ? { id: perfil.unidade_id || null } : null);
+
+/** As cozinhas que uma conta presa enxerga: só as da unidade dela. */
+export function cozinhasDaFixa(estoques, fixa) {
+  if (!fixa) return estoques || [];
+  return (estoques || []).filter(e => (e.unidade || null) === (fixa.id || null));
+}
+
+/**
+ * A cozinha em que a conta presa trabalha: a guardada no aparelho, se for da
+ * unidade dela e estiver ativa; senão a Produção principal da unidade.
+ */
+export function cozinhaDaFixa(estoques, fixa, guardada) {
+  const e = (estoques || []).find(x => x.id === guardada);
+  if (e && !e.arquivado && (e.unidade || null) === (fixa?.id || null)) return e.id;
+  return cozinhaPrincipalDa(estoques, fixa?.id || null);
+}
+
+/**
+ * A etiqueta de uma conta presa só pode sair quando o aparelho JÁ SABE qual é
+ * a unidade dela. Sem isto, no primeiro segundo (unidades ainda chegando) —
+ * ou com a unidade arquivada — a etiqueta sairia com o CNPJ da principal.
+ * Devolve '' (pode imprimir) ou o motivo.
+ */
+export function bloqueioDaFixa(fixa, unidades, unidadeAtualId) {
+  if (!fixa || !fixa.id) return '';
+  const u = acharUnidade(unidades, fixa.id);
+  if (!u) return 'Carregando os dados da unidade desta conta…';
+  if (u.arquivada_em) return 'A unidade desta conta foi arquivada. Peça à conta dona para escolher outra unidade para esta conta.';
+  return unidadeAtualId === fixa.id ? '' : 'Carregando os dados da unidade desta conta…';
 }

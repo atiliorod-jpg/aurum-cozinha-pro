@@ -233,7 +233,7 @@ export default function Admin() {
     // Unidades extras (M46) — o super-admin lê todas pela policy de leitura.
     // Falhar aqui (banco sem a M46) não derruba o painel: fica sem unidades.
     const { data: todasUnidades } = await supabase.from('unidades')
-      .select('id, restaurante_id, nome, cnpj, endereco, cidade, uf, cep, cozinha, arquivada_em, criada_em')
+      .select('id, restaurante_id, nome, cnpj, endereco, cidade, uf, cep, cozinha, arquivada_em, criada_em, catalogo_proprio')
       .order('criada_em');
     const unidadesPorRest = {};
     (todasUnidades || []).forEach(u => { (unidadesPorRest[u.restaurante_id] ||= []).push(u); });
@@ -550,6 +550,32 @@ Ela sai do seletor de todos os aparelhos e deixa de ser cobrada. Nada é apagado
     const adicional = adicionalUnidade(r.produto);
     await oferecerAjusteParcela(r, arquivar ? -adicional : adicional,
       arquivar ? 'tirando a unidade arquivada' : 'somando a unidade reativada');
+  };
+
+  // ⚠️ LISTA DE ITENS PRÓPRIA (M48): para grupo com conceitos diferentes
+  // (pizzaria e hamburgueria). Ao ligar, o banco COPIA a lista atual da conta
+  // para a unidade — ela não nasce vazia, e as etiquetas já impressas seguem
+  // apontando para os mesmos itens. Desligar volta a unidade para a lista da
+  // conta; a própria fica guardada e volta se religar.
+  const mudarCatalogoDaUnidade = async (r, u, proprio) => {
+    const ok = await confirm({
+      titulo: proprio ? 'Lista de itens própria' : 'Usar a lista da conta',
+      mensagem: proprio
+        ? `"${u.nome}" passa a ter a SUA lista de itens (prazos, categorias, fichas).
+
+Ela começa como cópia da lista de hoje de "${r.nome}" e, dali em diante, o que mudar numa não muda na outra. Use quando as casas trabalham com cardápios diferentes.`
+        : `"${u.nome}" volta a usar a lista de itens de "${r.nome}".
+
+A lista própria dela fica guardada: se você religar, ela volta como estava.`,
+      confirmar: proprio ? 'Ligar lista própria' : 'Usar a lista da conta',
+    });
+    if (!ok) return;
+    const { data, error } = await supabase.rpc('definir_catalogo_da_unidade', { p_id: u.id, p_proprio: proprio });
+    if (error || !data) { toast('Não salvou: ' + (error?.message || 'sem resposta'), 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => (x.id !== r.id ? x : {
+      ...x, unidades: (x.unidades || []).map(y => (y.id === u.id ? data : y)),
+    })));
+    toast(proprio ? 'Lista própria ligada. Os aparelhos da unidade passam a usá-la ao abrir o app ou voltar à tela.' : 'A unidade voltou para a lista da conta.', 'sucesso');
   };
 
   const carregarPagamentos = async (r) => {
@@ -1709,11 +1735,18 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             {` · CNPJ ${formatarCNPJ(u.cnpj)}`}
                             {u.cidade ? ` · ${u.cidade}${u.uf ? `/${u.uf}` : ''}` : ''}
                             {u.arquivada_em ? ' · arquivada' : ''}
+                            {u.catalogo_proprio ? ' · lista de itens própria' : ''}
                           </span>
                           <span className="flex items-center gap-2 flex-shrink-0">
                             {!u.arquivada_em && (
                               <button onClick={() => abrirUnidade(r, u)}
                                 className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">editar</button>
+                            )}
+                            {!u.arquivada_em && (
+                              <button onClick={() => mudarCatalogoDaUnidade(r, u, !u.catalogo_proprio)}
+                                className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">
+                                {u.catalogo_proprio ? 'usar lista da conta' : 'lista própria'}
+                              </button>
                             )}
                             <button onClick={() => arquivarUnidade(r, u, !u.arquivada_em)}
                               className={`text-[11px] font-semibold underline underline-offset-2 ${u.arquivada_em ? 'text-green-700' : 'text-red-700'}`}>

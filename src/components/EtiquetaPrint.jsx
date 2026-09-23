@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import { useUI } from '../store/UIContext';
 import { useAuth } from '../store/AuthContext';
 import { useApp } from '../store/AppContext';
-import { dadosDaEtiqueta, temUnidadesExtras } from '../utils/unidades';
+import { dadosDaEtiqueta, temUnidadesExtras, bloqueioDaFixa } from '../utils/unidades';
 import { formatarCNPJ } from '../utils/documentos';
 import { erroEmPortugues } from '../utils/erros';
 import ResponsavelSelect from './ResponsavelSelect';
@@ -263,7 +263,7 @@ export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao, impersonando } = useAuth();
   const { prefs, setPrefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas,
-          registrarImpressoes, unidades, unidadeAtual } = useApp();
+          registrarImpressoes, unidades, unidadeAtual, unidadeFixa } = useApp();
   // ⚠️ O QUE SAI IMPRESSO NO POTE — nome no topo, CNPJ e endereço no rodapé —
   // é o da UNIDADE da cozinha aberta (M46). Na unidade principal é o de
   // sempre: o nome do estoque (texto antigo) ou o da conta, o CNPJ da CONTA
@@ -276,6 +276,10 @@ export default function EtiquetaPrint() {
   }), [unidadeAtual, estoqueAtual, sessao?.restauranteNome, sessao?.cnpj, prefs.estabelecimento]);
   // Com mais de uma casa na conta, a janela diz de qual unidade vai sair
   const variasUnidades = temUnidadesExtras(unidades);
+  // ⚠️ CONTA PRESA A UMA UNIDADE (M48): a etiqueta só sai quando o aparelho
+  // já sabe qual é a unidade dela — no primeiro segundo (unidades ainda
+  // chegando) ou com a unidade arquivada, sairia o CNPJ da principal.
+  const bloqueioUnidade = bloqueioDaFixa(unidadeFixa, unidades, unidadeAtual?.id || null);
   // despensa não tem congelado/resfriado: a etiqueta do seco não pergunta isso
   const comArmazenamento = temRecurso(modulo, 'armazenamento');
   const config = configEtiqueta(prefs);
@@ -837,6 +841,7 @@ export default function EtiquetaPrint() {
   };
 
   const imprimir = () => {
+    if (bloqueioUnidade) return;
     window.print();
     // No Chrome do computador `print()` só volta quando a janela fecha, então
     // a pergunta aparece DEPOIS de a pessoa imprimir ou cancelar.
@@ -849,6 +854,7 @@ export default function EtiquetaPrint() {
   // todos os problemas de impressão. O que o app manda é o que sai no papel.
   // Só no Chrome do Android/desktop: o Safari não implementa Web Bluetooth.
   const imprimirDireto = async () => {
+    if (bloqueioUnidade) return;
     avisarBLE(null); setEnviando(true);
     // ⚠️ UM ITEM POR ENVIO, e não o lote inteiro numa tacada. Antes tudo ia
     // numa chamada só: se a impressora desligasse ou saísse de alcance no meio,
@@ -954,6 +960,7 @@ export default function EtiquetaPrint() {
             </div>
           )}
           <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+          {bloqueioUnidade && <Aviso tom="atencao">{bloqueioUnidade}</Aviso>}
           {faltaResponsavel && (
             <Aviso tom="atencao">Escolha quem assina antes de imprimir.</Aviso>
           )}
@@ -1230,7 +1237,7 @@ export default function EtiquetaPrint() {
           )}
           {mostrarDireto && (
             <div className="space-y-2">
-              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel}>
+              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel || !!bloqueioUnidade}>
                 {enviando
                   ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
                   : conectada ? 'Imprimir na impressora'
@@ -1273,7 +1280,7 @@ export default function EtiquetaPrint() {
               {mostrarDialogo ? 'Agora não' : 'Fechar'}
             </button>
             {mostrarDialogo && (
-              <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente || faltaResponsavel}
+              <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente || faltaResponsavel || !!bloqueioUnidade}
                 className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
                 {qrPendente
                   ? 'Gerando QR…'

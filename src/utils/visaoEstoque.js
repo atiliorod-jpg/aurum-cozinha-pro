@@ -101,8 +101,10 @@ export function comprasQueEntram(idEstoque, compras) {
  * `metas` sobrepõe o mín/máx do catálogo compartilhado — é o que faz cada
  * estoque ter a sua própria meta para o mesmo produto.
  */
-export function visaoDoEstoque({ id, docs, registrosFatiados, padroes, aplicarMetas }) {
-  const chaveCat = (nome) => chaveModulo(catalogoDe(id), nome);
+export function visaoDoEstoque({ id, docs, registrosFatiados, padroes, aplicarMetas, baseCatalogo }) {
+  // `baseCatalogo`: a lista da UNIDADE, quando ela tem lista própria (M48);
+  // sem ele, a de sempre, por tipo
+  const chaveCat = (nome) => chaveModulo(baseCatalogo || catalogoDe(id), nome);
   const chaveMod = (nome) => chaveModulo(id, nome);
 
   const catalogo = docs?.[chaveCat('produtos')] ?? padroes?.produtos ?? [];
