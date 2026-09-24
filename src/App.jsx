@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react
 import { AuthProvider, useAuth, lerMaiorHora } from './store/AuthContext';
 import { portaoSemInternet, agoraConfiavel } from './utils/semInternet';
 import ConecteInternet from './components/ConecteInternet';
+import DuasEtapas from './components/DuasEtapas';
 import { statusAssinatura, produtoDe } from './utils/assinatura';
 import SeletorModulo from './components/SeletorModulo';
 import { temRecurso } from './utils/modulos';
@@ -161,7 +162,7 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, onSair }) {
 
 function Rotas() {
   const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao, cadastroPendenteErro,
-          confirmacao, reconfirmar } = useAuth();
+          confirmacao, reconfirmar, nivelLogin, verificarNivel } = useAuth();
   // marca de que este aparelho já escolheu o estoque de trabalho
   const [escolheuModulo, setEscolheuModulo] = useState(() => {
     try { return !!localStorage.getItem('pe::modulo'); } catch { return true; }
@@ -227,6 +228,14 @@ function Rotas() {
     );
   }
   if (!sessao) return <Login />;
+
+  // ⚠️ VERIFICAÇÃO EM DUAS ETAPAS DO SUPER-ADMIN (M51, pedido do dono): o
+  // painel abre TODAS as contas. Antes dele, o código do aplicativo
+  // autenticador — e o banco só reconhece o super-admin com ele (aal2).
+  if (sessao.eSuperAdmin && !sessao.demo) {
+    if (nivelLogin === null) return <Splash />;
+    if (nivelLogin !== 'aal2') return <DuasEtapas aoConcluir={verificarNivel} aoSair={logout} />;
+  }
 
   // Acesso revogado: some do app com explicação, em vez de deixar a pessoa
   // navegando numa conta que o banco recusa em toda operação.

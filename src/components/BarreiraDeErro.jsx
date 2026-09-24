@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { CHAVE_ULTIMO_ERRO } from '../utils/erros';
+import { relatarErro } from '../lib/relatarErro';
 
 // =====================================================================
 //  Barreira de erro — o que aparece quando uma tela quebra
@@ -44,6 +45,12 @@ export default class BarreiraDeErro extends Component {
         tela: window.location.hash || window.location.pathname,
       }));
     } catch { /* aparelho sem storage — o console já tem o erro */ }
+    // e chega no painel da Aurum (M50) — antes só o aparelho sabia
+    relatarErro({
+      tipo: 'tela',
+      mensagem: String(erro?.message || erro),
+      onde: String(info?.componentStack || '').split('\n').slice(0, 4).join(' | '),
+    });
   }
 
   render() {

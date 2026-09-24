@@ -4,6 +4,10 @@ import './index.css'
 import './lib/pwaInstall.js' // registra o listener de instalação cedo
 import App from './App.jsx'
 import BarreiraDeErro from './components/BarreiraDeErro.jsx'
+import { ouvirErrosGlobais } from './lib/relatarErro.js'
+
+// os erros dos aparelhos chegam no painel da Aurum (M50)
+ouvirErrosGlobais()
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

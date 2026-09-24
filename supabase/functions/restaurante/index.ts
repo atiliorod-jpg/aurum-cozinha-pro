@@ -122,6 +122,16 @@ Deno.serve(async (req) => {
     return json({ erro: 'Apenas a Aurum abre contas por aqui.' }, 403);
   }
 
+  // ── 2b. com a verificação em duas etapas (M51, 24/09/2026) ────
+  // ⚠️ A mesma régua do banco (`sou_super_admin()` exige aal2): só a senha
+  // não abre conta de cliente. O token já foi validado acima pelo getUser;
+  // aqui só se lê o nível que ele carrega.
+  let aal = 'aal1';
+  try { aal = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).aal || 'aal1'; } catch { /* token sem nível */ }
+  if (aal !== 'aal2') {
+    return json({ erro: 'Confirme a verificação em duas etapas (código do aplicativo) para usar o painel.' }, 403);
+  }
+
   let corpo: Record<string, unknown> = {};
   try { corpo = await req.json(); } catch { /* corpo vazio */ }
 

@@ -5,6 +5,7 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import { buscarTodas } from '../lib/paginar';
+import ErrosDosAparelhos from '../components/ErrosDosAparelhos';
 import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades } from '../utils/assinatura';
 import { unidadesAtivas } from '../utils/unidades';
 import { calcularEncargo } from '../utils/encargos';
@@ -1215,6 +1216,11 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
             </div>
           </div>
         )}
+
+        {/* ══ OS ERROS DOS APARELHOS (M50) ═══════════════════════════════
+            Tela que trava no cliente chega aqui sozinha — antes só o aparelho
+            dele sabia. Fechado por padrão: a fila do dia vem antes. */}
+        {!carregando && <ErrosDosAparelhos restaurantes={restaurantes} />}
 
         {/* ══ OS NÚMEROS ═════════════════════════════════════════════ */}
         {!carregando && restaurantes.length > 0 && (

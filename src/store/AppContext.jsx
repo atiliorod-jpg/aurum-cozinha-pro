@@ -18,6 +18,7 @@ import {
   juntarNaLista, aplicarLinhaNaLista, emLotes,
 } from '../utils/etiquetasLinhas';
 import { buscarTodas } from '../lib/paginar';
+import { relatarErro } from '../lib/relatarErro';
 import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
@@ -1151,7 +1152,13 @@ export function AppProvider({ children }) {
               .eq('restaurante_id', rid)
               .in('tipo', item.payload?.tipos?.length ? item.payload.tipos : ['__nenhum__']));
           // sucesso → sai da fila; falha → conta a tentativa (vira morto no limite)
-          if (error) falhados.set(item._uid, registrarFalha({ ...item, _ultimoErro: error.message || 'erro' }));
+          if (error) {
+            const falhou = registrarFalha({ ...item, _ultimoErro: error.message || 'erro' });
+            // ⚠️ desistiu de vez (M50): o lançamento não vai subir sozinho — a
+            // Aurum precisa saber, não só o aparelho
+            if (falhou._morto && !item._morto) relatarErro({ tipo: 'fila', mensagem: `${item.kind}/${item.op}: ${falhou._ultimoErro}` });
+            falhados.set(item._uid, falhou);
+          }
           else sincronizados.add(item._uid);
         } catch (e) { falhados.set(item._uid, registrarFalha({ ...item, _ultimoErro: e?.message || 'erro' })); }
       }

@@ -4,6 +4,7 @@ import { emailDeLogin } from '../utils/contas';
 import { limparCacheLocal, cacheGet, cacheSet } from '../lib/cache';
 import { desvioDoRelogio, horaConfiavel } from '../utils/semInternet';
 import { unidadeFixaDe } from '../utils/unidades';
+import { enviarPendentes } from '../lib/relatarErro';
 import { statusAssinatura } from '../utils/assinatura';
 
 // ⚠️ ESTES TRÊS SÃO NÍVEIS DE SEGURANÇA, não rótulos. Estão numa trava da
@@ -142,6 +143,8 @@ export function AuthProvider({ children }) {
   // hora CONFIÁVEL em que aconteceu, a diferença do relógio deste aparelho
   // para o servidor, e se a última tentativa ficou sem internet.
   const [confirmacao, setConfirmacao] = useState({ confirmadoEm: null, desvioMs: 0, semInternet: false });
+  // Verificação em duas etapas do super-admin (M51): 'aal1' | 'aal2' | null (ainda não lido)
+  const [nivelLogin, setNivelLogin] = useState(null);
   const [carregando, setCarregando] = useState(true);
   const [usuarios,   setUsuarios]   = useState([]);
   const [convites,   setConvites]   = useState([]); // convites pendentes (não usados/não expirados)
@@ -226,6 +229,8 @@ export function AuthProvider({ children }) {
     marcarHora(agora, true);
     gravarInstantaneo({ usuarioId: userId, sessao: sessaoConfirmada, usuarios: usuariosDaConta, confirmadoEm, desvioMs });
     setConfirmacao({ confirmadoEm, desvioMs, semInternet: false });
+    // com internet e sessão boa: sobem os erros guardados sem conexão (M50)
+    enviarPendentes();
   }, []);
 
   // Abre SEM internet: com a última sessão confirmada desta mesma pessoa, ou
@@ -395,6 +400,26 @@ export function AuthProvider({ children }) {
     setUsuarios(prev => prev.map(u => (u.id === usuarioId
       ? { ...u, unidade_fixa: data?.unidade_fixa ?? fixa, unidade_id: data?.unidade_id ?? null } : u)));
     return null;
+  }, []);
+
+  // ── Verificação em duas etapas do super-admin (M51) ─────────────────
+  // O nível do login vem do próprio token (sem rede). 'aal2' = passou pelo
+  // código do aplicativo autenticador; o banco só reconhece o super-admin
+  // assim, e o App mostra a tela do código antes do painel.
+  useEffect(() => {
+    if (!sessao?.eSuperAdmin || sessao.demo) return undefined;
+    let vivo = true;
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      .then(({ data }) => { if (vivo) setNivelLogin(data?.currentLevel || 'aal1'); })
+      .catch(() => { if (vivo) setNivelLogin('aal1'); });
+    return () => { vivo = false; };
+  }, [sessao?.eSuperAdmin, sessao?.demo, sessao?.usuarioId]);
+  const verificarNivel = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      setNivelLogin(data?.currentLevel || 'aal1');
+      return data?.currentLevel === 'aal2';
+    } catch { setNivelLogin('aal1'); return false; }
   }, []);
 
   // ── Reconfirmar a assinatura com o app ABERTO ──────────────────────
@@ -1006,7 +1031,7 @@ export function AuthProvider({ children }) {
       temPermissao,
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,
-      confirmacao, reconfirmar, definirUnidadeDaConta,
+      confirmacao, reconfirmar, definirUnidadeDaConta, nivelLogin, verificarNivel,
     }), [
     // `erroNaURL` fica de fora de propósito: é constante de MÓDULO, lida uma
     // vez do endereço quando o arquivo carrega. Pôr uma variável de fora do
@@ -1017,7 +1042,7 @@ export function AuthProvider({ children }) {
     cadastroPendenteErro, criarConvite, usarConvite, alterarCargo, desativarUsuario,
     reativarUsuario, avisarPagamento, criarConta, trocarSenhaDe, removerConta,
     definirApelido, temPermissao, impersonando, verComoRestaurante, sairImpersonacao,
-    derrubado, limparDerrubado, confirmacao, reconfirmar, definirUnidadeDaConta,
+    derrubado, limparDerrubado, confirmacao, reconfirmar, definirUnidadeDaConta, nivelLogin, verificarNivel,
   ]);
 
   return (
