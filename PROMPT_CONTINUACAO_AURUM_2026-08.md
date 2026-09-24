@@ -181,6 +181,68 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (24/09/2026, tarde) — ETIQUETAS EM LINHAS (M49), ERROS NO PAINEL (M50), DUAS ETAPAS (M51), REVISÃO (M52)
+
+Tudo publicado. 691 testes + 9 do robô. Migrações até a **52**, todas no banco.
+
+- **Etiquetas impressas em linhas (M49)** — pedido do dono ("deixar mais
+  leve"). A lista de impressas de cada cozinha era UM documento regravado
+  inteiro a cada etiqueta (até 1,5 MB; ~1,5 GB/mês por cliente com 2
+  aparelhos). Agora: tabela `etiquetas` (PK restaurante_id+id, `cozinha`,
+  `dados` jsonb ≤ 8 KB), só policy de LEITURA; escrita por
+  `registrar_etiquetas` (≤ 400 por chamada, idempotente pelo id),
+  `mudar_status_etiqueta`, `apagar_impressao` (marca `apagada_em`, ⚠️ nunca
+  DELETE: o aviso de DELETE do tempo real não passa pela RLS). O app busca só a
+  janela (`janelaDaLista`: impressas 120 dias, vencidas 30) e assina
+  INSERT/UPDATE. Fila offline: kinds `etiquetas` e `etiquetaStatus`. O
+  documento antigo FICA (só leitura): o que um aparelho velho gravar nele é
+  absorvido — mas ⚠️ só o id que o banco NÃO tem de jeito nenhum (consulta
+  `.in('id', …)` sem filtro de apagada; senão a apagada voltava).
+- **Erros dos aparelhos no painel (M50)** — `erros_app` (só o super-admin
+  lê), `registrar_erro` (30/h por pessoa, soma repetido em 10 min, limpa > 60
+  dias). App: `lib/relatarErro.js` (tela/js/promessa/fila; ruído de rede fora;
+  guarda 10 sem internet), cartão `ErrosDosAparelhos` no Admin. (Sentry pago
+  foi recusado pelo dono.)
+- **Duas etapas no super-admin (M51, APLICADA)** — `sou_super_admin()` exige
+  `aal2` no token; a função `restaurante` (v7) confere o mesmo. App: tela
+  `DuasEtapas` (1ª vez: QR do aplicativo autenticador) ANTES de qualquer tela
+  do super-admin; `nivelLogin` 'aal1'|'aal2'|'sem-rede'|null ('sem-rede' =
+  não deu para ler → "Conecte à internet"). **O dono ainda NÃO cadastrou o
+  código** (0 fatores verificados em 24/09): na próxima abertura do painel
+  aparece o QR. ⚠️ **Perdeu o celular do autenticador?** Supabase → Authentication
+  → Users → a conta dele → apagar o fator (MFA); na próxima entrada o app
+  mostra um QR novo. Recuperar senha pelo e-mail NÃO serve para o
+  super-admin (M35 exige perfil + CNPJ).
+- **Revisão com verificação adversarial (workflow, 26 agentes)** — 7 defeitos
+  confirmados, todos corrigidos (M52 + app):
+  - ⚠️ "Sair" sem internet não apagava a sessão (o `signOut` do Supabase fala
+    com o servidor ANTES de apagar e desiste sem apagar): a conta voltava
+    sozinha com o Wi-Fi. Agora `sairDoSupabase()` apaga a sessão local em ≤ 3 s
+    (`_removeSession` + as chaves de `storageKey`). Robô cobre.
+  - entrada que terminava depois do "Sair" repunha a conta → `geracaoRef`.
+  - token válido sem internet: a busca do perfil insiste 1+2+4 s (postgrest
+    `retry` padrão em GET) → com cópia, abre em 4 s.
+  - apagar de novo descontava o relatório de novo → `apagar_impressao`
+    devolve 0 para a já apagada.
+  - mudar situação/apagar etiqueta ainda na fila se perdia → a situação vai no
+    item da fila; `etiquetaAindaSubindo` faz Impressas esperar.
+  - id de 8 caracteres único no HISTÓRICO: o contador de `gerarLoteId` fica em
+    `pe::_seqLote` (começa sorteado) e a linha que já saiu de todas as telas
+    (> 180 dias e vencida > 30) cede o lugar no `registrar_etiquetas`.
+  - unidade arquivada: a conta presa fica na cozinha DELA (antes caía na
+    principal) e o cartão "Equipe por unidade" continua aparecendo.
+  - diretoria nunca presa: `alterar_cargo` solta ao promover; soltar a
+    diretoria é aceito; relatório/impressão ignoram a trava dela.
+  - Ficou como está (limitação conhecida): ligar a "lista própria" de uma
+    unidade só chega ao aparelho sempre aceso quando a tela volta ou o app
+    reabre (o toast do painel avisa).
+
+**Pendentes (decisão do dono):** plano Pro do Supabase (US$ 25/mês — backup
+diário, sem pausa; recomendado no 1º pagante); mudar a região para São Paulo
+(projeto novo em sa-east-1, migrar 52 migrações + dados + usuários + funções +
+segredos, trocar os segredos do GitHub, refazer SMTP — todos entram de novo;
+melhor antes de ter clientes); APK e Stripe.
+
 ## Onde paramos (24/09/2026, madrugada) — SEM INTERNET 72 h, LOGIN AO DESBLOQUEAR, JANELA DE IMPRIMIR, UNIDADES FASE 2 (M47/M48), 1.000 LINHAS
 
 Tudo publicado e com o deploy verde (robô incluso). 666 testes + 8 do robô.
