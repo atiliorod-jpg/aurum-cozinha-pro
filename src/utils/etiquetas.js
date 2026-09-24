@@ -310,11 +310,28 @@ export const QR_MAX_CARACTERES = 106;
  *   • aleatório 2 chars → continua separando APARELHOS diferentes, inalterado
  * Medido depois: 0 colisões em 100.000 ids, inclusive 20.000 seguidos.
  * O tamanho não muda, então o orçamento apertado do QR fica intacto.
+ *
+ * ⚠️ O CONTADOR CONTINUA DE ONDE PAROU (24/09/2026, M49). Com as etiquetas
+ * guardadas como linhas PARA SEMPRE, o id tem de ser único no histórico
+ * inteiro da conta, não só na lista do mês. O contador voltava a 0 a cada
+ * abertura do app: a 1ª etiqueta de cada abertura só se diferenciava pelo
+ * relógio (46 s) e pelo sorteio — ~1 repetição por ano por cliente, e a
+ * etiqueta repetida não entrava no banco. Agora ele fica guardado no aparelho
+ * (e começa num ponto sorteado, para dois aparelhos não andarem juntos): o
+ * mesmo contador só volta depois de 46.656 etiquetas daquele aparelho.
  */
-let seqLote = 0;
+const CHAVE_SEQ_LOTE = 'pe::_seqLote'; // do aparelho (2 partes): sobrevive ao "Sair"
+let seqLote = (() => {
+  try {
+    const n = Number(localStorage.getItem(CHAVE_SEQ_LOTE));
+    if (Number.isInteger(n) && n > 0) return n % 46656;
+  } catch { /* sem storage (teste, aba privada) */ }
+  return Math.floor(Math.random() * 46656);
+})();
 export const gerarLoteId = () => {
   const t = Date.now().toString(36).slice(-3);
   const c = (seqLote = (seqLote + 1) % 46656).toString(36).padStart(3, '0');
+  try { localStorage.setItem(CHAVE_SEQ_LOTE, String(seqLote)); } catch { /* sem storage */ }
   const r = Math.random().toString(36).slice(2, 4).padEnd(2, '0');
   return `${t}${c}${r}`.toLowerCase();
 };

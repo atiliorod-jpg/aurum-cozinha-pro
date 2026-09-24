@@ -138,7 +138,10 @@ export function baseDoCatalogo(estoques, unidades, cozinhaId) {
  * A conta presa a uma unidade (M48): `null` = livre (todas as unidades);
  * `{ id }` = presa, com `id` nulo para a principal.
  */
-export const unidadeFixaDe = (perfil) => (perfil?.unidade_fixa ? { id: perfil.unidade_id || null } : null);
+// ⚠️ A DIRETORIA NUNCA FICA PRESA: quem foi promovido com a trava ligada
+// ficava preso para sempre (o cartão não lista a diretoria e o banco recusava
+// soltá-la). A M52 solta no banco; aqui o app também não prende.
+export const unidadeFixaDe = (perfil) => (perfil?.unidade_fixa && perfil.cargo !== 'diretoria' ? { id: perfil.unidade_id || null } : null);
 
 /** As cozinhas que uma conta presa enxerga: só as da unidade dela. */
 export function cozinhasDaFixa(estoques, fixa) {
@@ -153,6 +156,13 @@ export function cozinhasDaFixa(estoques, fixa) {
 export function cozinhaDaFixa(estoques, fixa, guardada) {
   const e = (estoques || []).find(x => x.id === guardada);
   if (e && !e.arquivado && (e.unidade || null) === (fixa?.id || null)) return e.id;
+  // ⚠️ UNIDADE ARQUIVADA: a conta continua na cozinha DELA (arquivada), onde
+  // a etiqueta fica travada (bloqueioDaFixa). Caía na Produção da principal —
+  // e a conta presa lançava entradas e perdas em outra casa.
+  if (fixa?.id) {
+    const daUnidade = (estoques || []).find(x => x.unidade === fixa.id && x.principalDaUnidade);
+    if (daUnidade) return daUnidade.id;
+  }
   return cozinhaPrincipalDa(estoques, fixa?.id || null);
 }
 

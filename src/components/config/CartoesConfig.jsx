@@ -1012,15 +1012,18 @@ export function CartaoEquipeDasUnidades() {
   const { sessao, impersonando, usuarios, definirUnidadeDaConta } = useAuth();
   const { toast } = useUI();
   const [salvando, setSalvando] = useState('');
-  if (!temUnidadesExtras(unidades)) return null;
+  // presa a uma unidade que depois foi arquivada: a etiqueta fica travada
+  const arquivadaDe = (u) => !!(u.unidade_fixa && u.unidade_id && acharUnidade(unidades, u.unidade_id)?.arquivada_em);
+  // ⚠️ A ÚLTIMA UNIDADE EXTRA FOI ARQUIVADA com alguém preso nela: o cartão
+  // continua aparecendo — é o único lugar de soltar a conta, senão ela nunca
+  // mais imprime.
+  if (!temUnidadesExtras(unidades) && !(usuarios || []).some(arquivadaDe)) return null;
 
   const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
   const podeMudar = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && !impersonando;
   const equipe = (usuarios || []).filter(u => u.ativo !== false && u.cargo !== 'diretoria');
   const opcoes = opcoesDeUnidade(unidades, nomeConta);
   const valorDe = (u) => (!u.unidade_fixa ? 'todas' : (u.unidade_id || 'principal'));
-  // presa a uma unidade que depois foi arquivada: a etiqueta fica travada
-  const arquivadaDe = (u) => !!(u.unidade_fixa && u.unidade_id && acharUnidade(unidades, u.unidade_id)?.arquivada_em);
 
   const mudar = async (u, valor) => {
     setSalvando(u.id);

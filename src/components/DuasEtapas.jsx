@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
+// sem rede o Supabase devolve 'Failed to fetch' — a tela fala a língua de quem lê
+const textoDoErro = (e, padrao) => (/fetch|network|load failed/i.test(e?.message || '')
+  ? 'Sem conexão com o servidor. Confira a internet e toque em Tentar de novo.'
+  : (e?.message || padrao));
+
 /**
  * VERIFICAÇÃO EM DUAS ETAPAS DO SUPER-ADMIN (M51, pedido do dono, 24/09/2026)
  *
@@ -22,13 +27,14 @@ export default function DuasEtapas({ aoConcluir, aoSair }) {
   const [codigo, setCodigo] = useState('');
   const [erro, setErro] = useState('');
   const [ocupado, setOcupado] = useState(false);
+  const [tentativa, setTentativa] = useState(0); // "Tentar de novo" relê
 
   useEffect(() => {
     let vivo = true;
     (async () => {
       const { data, error } = await supabase.auth.mfa.listFactors();
       if (!vivo) return;
-      if (error) { setErro(error.message || 'Não deu para ler a verificação. Confira a internet.'); setEtapa('erro'); return; }
+      if (error) { setErro(textoDoErro(error, 'Não deu para ler a verificação.')); setEtapa('erro'); return; }
       const pronto = (data?.totp || []).find(f => f.status === 'verified');
       if (pronto) { setFator({ id: pronto.id }); setEtapa('codigo'); return; }
       // cadastro começado e não terminado atrapalha o novo: sai antes
@@ -37,12 +43,12 @@ export default function DuasEtapas({ aoConcluir, aoSair }) {
       }
       const { data: novo, error: e2 } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Painel Aurum' });
       if (!vivo) return;
-      if (e2 || !novo) { setErro(e2?.message || 'Não deu para começar o cadastro.'); setEtapa('erro'); return; }
+      if (e2 || !novo) { setErro(textoDoErro(e2, 'Não deu para começar o cadastro.')); setEtapa('erro'); return; }
       setFator({ id: novo.id, qr: novo.totp?.qr_code, secret: novo.totp?.secret });
       setEtapa('cadastrar');
     })();
     return () => { vivo = false; };
-  }, []);
+  }, [tentativa]);
 
   const confirmar = async (ev) => {
     ev?.preventDefault?.();
@@ -54,7 +60,7 @@ export default function DuasEtapas({ aoConcluir, aoSair }) {
     if (error) {
       setErro(/invalid|expired|code/i.test(error.message || '')
         ? 'Código não confere. Confira se o relógio do celular está certo e digite o código que está na tela agora.'
-        : `Não deu certo: ${error.message}`);
+        : textoDoErro(error, 'Não deu certo.'));
       return;
     }
     await aoConcluir?.();
@@ -64,7 +70,15 @@ export default function DuasEtapas({ aoConcluir, aoSair }) {
     <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
       <p className="text-polo-gold font-bold text-lg">Verificação em duas etapas</p>
       {etapa === 'carregando' && <p className="text-white/80 text-sm">Carregando…</p>}
-      {etapa === 'erro' && <p className="text-white/85 text-sm max-w-xs">{erro}</p>}
+      {etapa === 'erro' && (
+        <>
+          <p className="text-white/85 text-sm max-w-xs">{erro}</p>
+          <button onClick={() => { setErro(''); setEtapa('carregando'); setTentativa(n => n + 1); }}
+            className="bg-polo-gold text-polo-navy font-bold px-6 py-3 rounded-xl min-h-11">
+            Tentar de novo
+          </button>
+        </>
+      )}
       {etapa === 'cadastrar' && (
         <div className="bg-white rounded-2xl p-4 max-w-xs w-full space-y-3 text-left">
           <p className="text-sm text-polo-navy font-bold">1. Cadastre no aplicativo autenticador</p>

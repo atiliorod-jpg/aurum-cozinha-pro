@@ -69,7 +69,7 @@ describe('verificação em duas etapas do super-admin', () => {
 
   it('o app pede o código ANTES de qualquer tela do super-admin', () => {
     const app = ler('../../App.jsx');
-    expect(app).toMatch(/if \(sessao\.eSuperAdmin && !sessao\.demo\) \{\s*if \(nivelLogin === null\) return <Splash \/>;\s*if \(nivelLogin !== 'aal2'\) return <DuasEtapas/);
+    expect(app).toMatch(/if \(sessao\.eSuperAdmin && !sessao\.demo\) \{\s*if \(nivelLogin === null\) return <Splash \/>;[\s\S]{0,300}?if \(nivelLogin !== 'aal2'\) return <DuasEtapas/);
     expect(app.indexOf("if (nivelLogin !== 'aal2')")).toBeLessThan(app.indexOf('const plano = impersonando'));
     const tela = ler('../../components/DuasEtapas.jsx');
     expect(tela).toMatch(/supabase\.auth\.mfa\.enroll\(\{ factorType: 'totp'/);

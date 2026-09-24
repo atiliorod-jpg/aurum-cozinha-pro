@@ -549,9 +549,35 @@ export function AppProvider({ children }) {
     });
     if (!nuvemDe(r)) return;
     const naFila = () => outboxAdd(r, { kind: 'etiquetaStatus', op: 'rpc', payload: { id, status } });
+    // ⚠️ A ETIQUETA AINDA ESTÁ NA FILA (impressa com a internet falhando): o
+    // banco ainda não tem a linha, então mudar direto não mudava nada — e,
+    // quando a fila subia, ela entrava como "válida" e o pote voltava a
+    // aparecer em Validades. Agora a cópia da fila já leva a situação nova, e
+    // a mudança vai para a fila DEPOIS dela (a fila sobe em ordem).
+    const fila = outboxGet(r);
+    const temNaFila = (i) => i.kind === 'etiquetas' && !i._morto && (i.payload?.itens || []).some(e => e.id === id);
+    if (fila.some(temNaFila)) {
+      outboxSet(r, fila.map(i => (temNaFila(i)
+        ? { ...i, payload: { ...i.payload, itens: i.payload.itens.map(e => (e.id === id ? { ...e, status } : e)) } }
+        : i)));
+      naFila();
+      return;
+    }
+    // `false` = o banco não achou a linha (outro aparelho ainda não subiu a
+    // dele): tenta de novo na próxima subida da fila
     supabase.rpc('mudar_status_etiqueta', { p_id: id, p_status: status })
-      .then(({ error }) => { if (error) naFila(); }, naFila);
+      .then(({ data, error }) => { if (error || data === false) naFila(); }, naFila);
   }, [k]);
+
+  // A etiqueta (ou a linha dela no relatório) ainda está na fila deste
+  // aparelho? Apagar agora não acharia nada no banco, e ela voltaria quando a
+  // fila subisse — Impressas.jsx espera a fila antes de apagar.
+  const etiquetaAindaSubindo = useCallback((e) => {
+    const r = nuvemDe(ridRef.current);
+    if (!r || !e?.id) return false;
+    return outboxGet(r).some(i => !i._morto && (i.kind === 'etiquetas' || i.kind === 'impressao')
+      && (i.payload?.itens || []).some(x => x.id === e.id || (e.impressaoId && x.id === e.impressaoId)));
+  }, []);
 
   // Só a tela: quem apaga no banco é `apagar_impressao` (conta dona, com
   // internet — Impressas.jsx chama antes). Na demonstração é só isto.
@@ -1272,8 +1298,23 @@ export function AppProvider({ children }) {
         if (!errEtq) {
           const daNuvem = (linhasEtq || []).map(linhaParaEtiqueta);
           // aparelho com a versão velha gravou no documento depois da M49?
-          const antigas = etiquetasDoDocumentoAntigo(mapaDocs?.[k('etiquetasImpressas')],
+          let antigas = etiquetasDoDocumentoAntigo(mapaDocs?.[k('etiquetasImpressas')],
             new Set(daNuvem.map(e => e.id)), hojeISO);
+          // ⚠️ SÓ É NOVA A QUE O BANCO NÃO TEM DE JEITO NENHUM. A busca acima
+          // traz só as não apagadas da janela: a etiqueta que a conta dona
+          // APAGOU continuava no documento antigo, passava por nova e voltava
+          // para a lista (e apagar de novo descontava o relatório outra vez).
+          if (antigas.length) {
+            const jaNoBanco = new Set();
+            let falhou = false;
+            for (let i = 0; i < antigas.length && !falhou; i += 100) {
+              const { data, error } = await supabase.from('etiquetas').select('id')
+                .eq('restaurante_id', rid).in('id', antigas.slice(i, i + 100).map(e => e.id));
+              if (error) falhou = true; else (data || []).forEach(l => jaNoBanco.add(l.id));
+            }
+            if (!ativo) return;
+            antigas = falhou ? [] : antigas.filter(e => !jaNoBanco.has(e.id));
+          }
           if (antigas.length && !soLeituraRef.current) {
             const itens = antigas.map(e => ({ ...e, cozinha: moduloEfetivo }));
             for (const lote of emLotes(itens)) {
@@ -1688,7 +1729,7 @@ export function AppProvider({ children }) {
       locais, setLocais,
       listaManual, setListaManual,
       etiquetasAvulsas, setEtiquetasAvulsas,
-      etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista,
+      etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo,
       permissoes, setPermissoes,
       precos, setPrecos,
       estoques, estoqueAtual, estoquesDoc, setEstoquesDoc, visoesPorEstoque,
@@ -1719,7 +1760,7 @@ export function AppProvider({ children }) {
     addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, ajustes,
     addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, fichas,
     setFichas, producoes, setProducoes, locais, setLocais, listaManual,
-    setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, permissoes,
+    setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, permissoes,
     setPermissoes, precos, setPrecos, estoques, estoqueAtual, estoquesDoc,
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,

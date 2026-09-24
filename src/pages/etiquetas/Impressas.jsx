@@ -28,7 +28,7 @@ import { casaBusca } from '../../utils/busca';
  * impedir.
  */
 export default function Impressas() {
-  const { etiquetasImpressas, tirarEtiquetaDaLista, produtos, permissoes, rid } = useApp();
+  const { etiquetasImpressas, tirarEtiquetaDaLista, etiquetaAindaSubindo, produtos, permissoes, rid } = useApp();
   const { sessao } = useAuth();
   const { abrirEtiquetas, confirm, toast } = useUI();
   const verRelatorio = pode(sessao, permissoes, 'verRelatorioEtiquetas');
@@ -109,6 +109,14 @@ export default function Impressas() {
       perigo: true, confirmar: 'Apagar',
     });
     if (!ok) return;
+    // ⚠️ IMPRESSA COM A INTERNET FALHANDO E AINDA NA FILA: o banco não tem a
+    // etiqueta, apagar não acharia nada — e ela voltaria (e seria contada no
+    // relatório) quando a fila subisse. Manda a fila subir e pede um instante.
+    if (etiquetaAindaSubindo?.(e)) {
+      try { window.dispatchEvent(new Event('forcar-sync')); } catch { /* sem window */ }
+      toast('Esta etiqueta ainda está subindo para o servidor. Confira a internet e tente apagar de novo em alguns segundos.', 'aviso');
+      return;
+    }
     setApagando(e.id);
     if (rid && rid !== 'demo') {
       let erro;

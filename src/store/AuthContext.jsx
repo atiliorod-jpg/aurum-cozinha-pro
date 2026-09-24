@@ -100,7 +100,35 @@ const usuarioGuardadoNoAparelho = () => {
   } catch { return { id: null, email: '' }; }
 };
 
-const COLUNAS_RESTAURANTE = 'nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate, parcela_contrato';
+// Nível do login (M51): 'aal1' | 'aal2' | 'sem-rede' (não deu para ler).
+const lerNivelDoLogin = async () => {
+  try {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || !data) return 'sem-rede';
+    return data.currentLevel || 'aal1';
+  } catch { return 'sem-rede'; }
+};
+
+// ⚠️ "SAIR" SEM INTERNET SAI DE VERDADE (24/09/2026). O signOut do Supabase
+// fala com o servidor antes de apagar: sem internet ele insiste ~30 s e
+// desiste SEM apagar a sessão guardada. A conta de quem saiu voltava sozinha
+// quando o Wi-Fi voltasse (o Supabase renova o token e avisa), num aparelho
+// compartilhado, na mão do próximo. Agora a sessão DESTE aparelho sai de
+// qualquer jeito em até 3 s; o aviso ao servidor vai se der.
+async function sairDoSupabase() {
+  const resposta = await Promise.race([
+    supabase.auth.signOut().catch(e => ({ error: e || 'falhou' })),
+    new Promise(r => setTimeout(() => r({ error: 'sem resposta' }), 3000)),
+  ]);
+  if (!resposta?.error) return;
+  // o método interno também descarta um token que esteja renovando agora
+  try { await supabase.auth._removeSession?.(); } catch { /* versão sem o método: o bloco abaixo resolve */ }
+  ['', '-user', '-code-verifier'].forEach(s => {
+    try { localStorage.removeItem(supabase.auth.storageKey + s); } catch { /* sem storage */ }
+  });
+}
+
+const COLUNAS_RESTAURANTE ='nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate, parcela_contrato';
 
 /**
  * O endereço já traz a recuperação de senha?
@@ -143,8 +171,14 @@ export function AuthProvider({ children }) {
   // hora CONFIÁVEL em que aconteceu, a diferença do relógio deste aparelho
   // para o servidor, e se a última tentativa ficou sem internet.
   const [confirmacao, setConfirmacao] = useState({ confirmadoEm: null, desvioMs: 0, semInternet: false });
-  // Verificação em duas etapas do super-admin (M51): 'aal1' | 'aal2' | null (ainda não lido)
+  // Verificação em duas etapas do super-admin (M51): 'aal1' | 'aal2' |
+  // 'sem-rede' (não deu para ler) | null (ainda não lido)
   const [nivelLogin, setNivelLogin] = useState(null);
+  // ⚠️ CADA "SAIR" SOMA 1. Uma entrada que ainda estava a caminho (a
+  // conferência que voltou com a internet, o "Tentar de novo") termina DEPOIS
+  // do "Sair" e punha a conta de volta na tela e a cópia de volta no aparelho.
+  // Quem começou numa rodada antiga não grava mais nada.
+  const geracaoRef = useRef(0);
   const [carregando, setCarregando] = useState(true);
   const [usuarios,   setUsuarios]   = useState([]);
   const [convites,   setConvites]   = useState([]); // convites pendentes (não usados/não expirados)
@@ -218,11 +252,13 @@ export function AuthProvider({ children }) {
   // A assinatura acabou de ser lida do servidor: mede o relógio, guarda a
   // cópia da sessão para abrir sem internet e zera a contagem das 72 h.
   const confirmarAgora = useCallback(async (userId, sessaoConfirmada, usuariosDaConta) => {
+    const geracao = geracaoRef.current;
     let desvioMs = 0;
     try {
       const { data: hora } = await supabase.rpc('hora_do_servidor');
       desvioMs = desvioDoRelogio(hora, Date.now());
     } catch { /* sem a M47: conta com o relógio do aparelho */ }
+    if (geracaoRef.current !== geracao) return; // saiu da conta no meio
     const agora = Date.now();
     const confirmadoEm = horaConfiavel(agora, desvioMs);
     // o servidor confirmou: a hora deste aparelho volta a valer como referência
@@ -250,6 +286,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const carregarPerfil = useCallback(async (userId) => {
+    const geracao = geracaoRef.current;
+    const saiu = () => geracaoRef.current !== geracao;
     let { data: perfil, error: errPerfil } = await supabase
       .from('perfis')
       .select('*')
@@ -262,6 +300,7 @@ export function AuthProvider({ children }) {
     if (!email) {
       try { email = (await supabase.auth.getSession()).data?.session?.user?.email || ''; } catch { /* sem sessão */ }
     }
+    if (saiu()) return false;
 
     // ⚠️ SEM INTERNET NÃO É "CADASTRO INCOMPLETO" (23/09/2026). A busca do
     // perfil falhava por falta de rede e o app concluía que a conta não tinha
@@ -308,6 +347,7 @@ export function AuthProvider({ children }) {
         setCadastroPendenteErro(errPend.message);
       }
     }
+    if (saiu()) return false;
 
     if (perfil) {
       // select completo → fallback progressivo p/ bancos sem as colunas novas
@@ -371,11 +411,13 @@ export function AuthProvider({ children }) {
         eSuperAdmin:      email === 'atiliopinpolho@gmail.com',
         ts:               Date.now(),
       };
+      if (saiu()) return false;
       setSessao(sessaoNova);
       const { data: todos } = await supabase
         .from('perfis')
         .select('id, nome, cargo, ativo, usuario, cargo_rotulo, unidade_fixa, unidade_id')
         .eq('restaurante_id', perfil.restaurante_id);
+      if (saiu()) return false;
       setUsuarios(todos || []);
       if (rest) await confirmarAgora(userId, sessaoNova, todos || []);
       else if (usarInst) setConfirmacao({ confirmadoEm: usarInst.confirmadoEm || null, desvioMs: usarInst.desvioMs || 0, semInternet: true });
@@ -403,23 +445,25 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ── Verificação em duas etapas do super-admin (M51) ─────────────────
-  // O nível do login vem do próprio token (sem rede). 'aal2' = passou pelo
-  // código do aplicativo autenticador; o banco só reconhece o super-admin
-  // assim, e o App mostra a tela do código antes do painel.
+  // O nível do login vem do próprio token. 'aal2' = passou pelo código do
+  // aplicativo autenticador; o banco só reconhece o super-admin assim, e o App
+  // mostra a tela do código antes do painel.
+  // ⚠️ "NÃO DEU PARA LER" NÃO É "AAL1": com o token vencido e o Wi-Fi voltando,
+  // a leitura falha — e virava a tela do código, que também falhava sem rede e
+  // ficava parada no erro até fechar o app. Agora é 'sem-rede' (tela "Conecte
+  // à internet", com "Tentar de novo"), e o nível é relido quando o token
+  // renova (onAuthStateChange, abaixo).
   useEffect(() => {
     if (!sessao?.eSuperAdmin || sessao.demo) return undefined;
     let vivo = true;
-    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-      .then(({ data }) => { if (vivo) setNivelLogin(data?.currentLevel || 'aal1'); })
-      .catch(() => { if (vivo) setNivelLogin('aal1'); });
+    lerNivelDoLogin().then(n => { if (vivo) setNivelLogin(n); });
     return () => { vivo = false; };
   }, [sessao?.eSuperAdmin, sessao?.demo, sessao?.usuarioId]);
+  // Devolve true quando conseguiu ler (o App decide a tela pelo nível)
   const verificarNivel = useCallback(async () => {
-    try {
-      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      setNivelLogin(data?.currentLevel || 'aal1');
-      return data?.currentLevel === 'aal2';
-    } catch { setNivelLogin('aal1'); return false; }
+    const n = await lerNivelDoLogin();
+    setNivelLogin(n);
+    return n !== 'sem-rede';
   }, []);
 
   // ── Reconfirmar a assinatura com o app ABERTO ──────────────────────
@@ -439,8 +483,10 @@ export function AuthProvider({ children }) {
     // refaz a entrada inteira — perfil, equipe, sessão única, confirmação.
     if (s.semConexao || s.restauradaSemInternet) return carregarPerfil(s.usuarioId);
     if (!s.restauranteId) return false;
+    const geracao = geracaoRef.current;
     const { data: rest, error } = await supabase
       .from('restaurantes').select(COLUNAS_RESTAURANTE).eq('id', s.restauranteId).maybeSingle();
+    if (geracaoRef.current !== geracao) return false; // saiu da conta no meio
     if (error || !rest) {
       // tentativa registrada: a tela recalcula o limite das 72 h
       setConfirmacao(c => ({ ...c, semInternet: true, tentativaEm: Date.now() }));
@@ -449,8 +495,9 @@ export function AuthProvider({ children }) {
     const campos = camposDoRestaurante(rest);
     // a conta dona pode ter prendido (ou soltado) esta conta numa unidade: vale
     // sem precisar entrar de novo
-    const { data: meuPerfil } = await supabase.from('perfis').select('unidade_fixa, unidade_id').eq('id', s.usuarioId).maybeSingle();
+    const { data: meuPerfil } = await supabase.from('perfis').select('cargo, unidade_fixa, unidade_id').eq('id', s.usuarioId).maybeSingle();
     if (meuPerfil) campos.unidadeFixa = unidadeFixaDe(meuPerfil);
+    if (geracaoRef.current !== geracao) return false;
     const mudou = Object.keys(campos).some(k => JSON.stringify(campos[k]) !== JSON.stringify(s[k]));
     const nova = mudou ? { ...s, ...campos } : s;
     if (mudou) setSessao(prev => (prev && prev.usuarioId === s.usuarioId ? { ...prev, ...campos } : prev));
@@ -536,7 +583,21 @@ export function AuthProvider({ children }) {
       : null;
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       respondeu = true; if (atalho) clearTimeout(atalho);
-      if (session?.user) { carregadoRef.current = session.user.id; carregarPerfil(session.user.id); return; }
+      if (session?.user) {
+        const uid = session.user.id;
+        carregadoRef.current = uid;
+        // ⚠️ TOKEN AINDA VÁLIDO + SEM INTERNET: o getSession responde na hora,
+        // mas a busca do perfil insiste 3 vezes (1 s + 2 s + 4 s) antes de
+        // desistir — e com o Wi-Fi ligado sem saída, cada tentativa pode
+        // pendurar. Com a cópia confirmada da mesma pessoa, em 4 s abre com
+        // ela; a entrada completa, se chegar, é refeita por cima.
+        let pronto = false;
+        const atalhoPerfil = lerInstantaneo()?.usuarioId === uid
+          ? setTimeout(() => { if (!pronto) entrarSemInternet(uid, session.user.email || ''); }, 4000)
+          : null;
+        carregarPerfil(uid).finally(() => { pronto = true; if (atalhoPerfil) clearTimeout(atalhoPerfil); });
+        return;
+      }
       // ⚠️ TOKEN VENCIDO + SEM INTERNET (o caso de toda manhã: app fechado à
       // noite, aberto com o Wi-Fi fora). O Supabase não conseguiu renovar e
       // respondeu "sem sessão" — mas a sessão segue guardada. Abre com a cópia
@@ -574,6 +635,11 @@ export function AuthProvider({ children }) {
       if (!uid && event === 'INITIAL_SESSION') return;
       setTimeout(() => {
         if (uid) {
+          // o token renovou (ou o código foi confirmado): o nível do login
+          // do super-admin pode ter mudado — relê (M51)
+          if (sessaoRef.current?.eSuperAdmin && ['TOKEN_REFRESHED', 'SIGNED_IN', 'MFA_CHALLENGE_VERIFIED'].includes(event)) {
+            verificarNivel();
+          }
           if (carregadoRef.current === uid) return; // já carregado — ignora eventos repetidos
           carregadoRef.current = uid;
           carregarPerfil(uid);
@@ -582,7 +648,7 @@ export function AuthProvider({ children }) {
           // outra aba, revogação no servidor. Todos passavam longe da limpeza.
           carregadoRef.current = null;
           limparCacheLocal();
-          setSessao(null); setUsuarios([]); setCarregando(false);
+          setSessao(null); setUsuarios([]); setCarregando(false); setNivelLogin(null);
         }
       }, 0);
     });
@@ -591,7 +657,7 @@ export function AuthProvider({ children }) {
       subscription.unsubscribe();
       window.removeEventListener('storage', aoTrocarEmOutraAba);
     };
-  }, [carregarPerfil, entrarSemInternet]);
+  }, [carregarPerfil, entrarSemInternet, verificarNivel]);
 
   // ── Login: e-mail OU usuário da casa ─────────────────────────
   //
@@ -642,13 +708,14 @@ export function AuthProvider({ children }) {
 
   // ── Logout ───────────────────────────────────────────────────
   const logout = useCallback(async () => {
+    geracaoRef.current += 1; // o que ainda estava entrando não grava mais nada
     if (sessao?.demo) {
       // reset do demo: apaga o rascunho local para o próximo visitante começar limpo
       try {
         Object.keys(localStorage).filter(k => k.startsWith('pe::demo::')).forEach(k => localStorage.removeItem(k));
       } catch { /* storage indisponível — ignora */ }
     } else {
-      await supabase.auth.signOut();
+      await sairDoSupabase();
     }
     // ⚠️ SEGURANÇA: antes daqui o logout de uma conta REAL não apagava nada —
     // produtos, entradas, saídas, histórico e auditoria continuavam no
@@ -659,10 +726,13 @@ export function AuthProvider({ children }) {
     // A fila do outbox com item vivo é preservada de propósito: é trabalho que
     // o servidor ainda não recebeu. Quem chama avisa antes (ver Layout.sair).
     limparCacheLocal();
+    carregadoRef.current = null;
     setSessao(null);
     setUsuarios([]);
     setImpersonando(null);
     setDerrubado(false);
+    setConfirmacao({ confirmadoEm: null, desvioMs: 0, semInternet: false });
+    setNivelLogin(null);
   }, [sessao]);
 
   // ── Contas da equipe: criar, trocar senha, remover ───────────

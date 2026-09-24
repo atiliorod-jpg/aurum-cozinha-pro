@@ -234,6 +234,8 @@ function Rotas() {
   // autenticador — e o banco só reconhece o super-admin com ele (aal2).
   if (sessao.eSuperAdmin && !sessao.demo) {
     if (nivelLogin === null) return <Splash />;
+    // não deu para ler o nível (token vencido, internet voltando): pede internet
+    if (nivelLogin === 'sem-rede') return <ConecteInternet motivo="painel" aoTentar={verificarNivel} aoSair={logout} />;
     if (nivelLogin !== 'aal2') return <DuasEtapas aoConcluir={verificarNivel} aoSair={logout} />;
   }
 

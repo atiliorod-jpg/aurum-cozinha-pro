@@ -73,6 +73,12 @@ export function traduzErroAuth(msg) {
     return 'Sem conexão com a internet.';
   }
 
+  // Conta com verificação em duas etapas (M51): trocar a senha exige ter
+  // entrado com o código — não é a senha que está curta.
+  if (m.includes('aal2') || m.includes('insufficient_aal')) {
+    return 'Esta conta usa verificação em duas etapas: entre com o código do aplicativo autenticador antes de trocar a senha.';
+  }
+
   // ⚠️ Genérica de senha por ÚLTIMO, depois de todas as específicas.
   if (m.includes('password')) return 'Senha inválida (mínimo 8 caracteres).';
 

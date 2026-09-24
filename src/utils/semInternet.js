@@ -74,6 +74,9 @@ export function textoDoBloqueio(motivo) {
   if (motivo === 'relogio') {
     return 'A data e a hora deste aparelho estão atrasadas. Acerte o relógio (automático, pela rede) e conecte à internet para continuar.';
   }
+  if (motivo === 'painel') {
+    return 'O painel da Aurum precisa de internet para conferir a verificação em duas etapas. Conecte e tente de novo.';
+  }
   if (motivo === 'nunca') {
     return 'Neste aparelho, a primeira entrada precisa de internet. Conecte e tente de novo.';
   }

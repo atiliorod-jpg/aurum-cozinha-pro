@@ -32,6 +32,9 @@ async function abrirSemInternet(page, { horasDaCopia = null, assinaturaAte = nul
   const agora = Date.now();
   await page.addInitScript(({ chave, copia, agora }) => {
     window.open = () => null; window.print = () => {};
+    // só na primeira abertura: recarregar tem de ver o que o app deixou
+    if (sessionStorage.getItem('robo-montado')) return;
+    sessionStorage.setItem('robo-montado', '1');
     localStorage.setItem(chave, JSON.stringify({
       access_token: 'robo', refresh_token: 'robo', token_type: 'bearer', expires_in: 3600,
       expires_at: Math.floor(agora / 1000) - 3600, // vencido há 1 hora
@@ -89,5 +92,19 @@ test('sem internet com a cópia recente mas a assinatura já vencida: não liber
   const erros = await abrirSemInternet(page, { horasDaCopia: 2, assinaturaAte: new Date(Date.now() - 24 * H).toISOString() });
   await expect(page.locator('body')).toContainText(/Assine|assinatura|venc|terminou/i, { timeout: 20_000 });
   await expect(page.getByRole('button', { name: 'Etiquetar' })).toHaveCount(0);
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('sem internet: "Sair da conta" apaga a sessão do aparelho (antes: a conta voltava sozinha)', async ({ page }) => {
+  const erros = await abrirSemInternet(page);
+  await expect(page.getByText('Conecte à internet para continuar', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Sair da conta' }).click();
+  // em poucos segundos (antes: ~30 s de botão parado) cai no login
+  await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible({ timeout: 10_000 });
+  // e a sessão guardada saiu mesmo: sem ela, a conta não volta com a internet
+  expect(await page.evaluate((c) => localStorage.getItem(c), CHAVE_SESSAO)).toBeNull();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Conecte à internet para continuar', { exact: true })).toHaveCount(0);
   expect(erros, erros.join('\n')).toEqual([]);
 });
