@@ -28,7 +28,7 @@ import { casaBusca } from '../../utils/busca';
  * impedir.
  */
 export default function Impressas() {
-  const { etiquetasImpressas, setEtiquetasImpressas, produtos, permissoes, rid } = useApp();
+  const { etiquetasImpressas, tirarEtiquetaDaLista, produtos, permissoes, rid } = useApp();
   const { sessao } = useAuth();
   const { abrirEtiquetas, confirm, toast } = useUI();
   const verRelatorio = pode(sessao, permissoes, 'verRelatorioEtiquetas');
@@ -131,7 +131,8 @@ export default function Impressas() {
         return;
       }
     }
-    setEtiquetasImpressas((etiquetasImpressas || []).filter(x => x.id !== e.id));
+    // o banco já tirou (apagar_impressao marca a linha, M49); aqui é a tela
+    tirarEtiquetaDaLista(e.id);
     setApagando('');
     toast('Etiqueta apagada da lista e do relatório.', 'sucesso');
   };

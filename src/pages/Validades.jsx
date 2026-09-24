@@ -28,7 +28,7 @@ const FILTROS = [
  * permite achar o pote específico na prateleira.
  */
 export default function Validades() {
-  const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, setEtiquetasImpressas, modulo } = useApp();
+  const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, mudarStatusEtiqueta, modulo } = useApp();
   const { toast, confirm } = useUI();
   const { sessao, impersonando } = useAuth();
   const [filtro, setFiltro] = useState('7d');
@@ -92,7 +92,8 @@ export default function Validades() {
       confirmar: `Marcar ${rotulo}`,
     });
     if (!ok) return;
-    setEtiquetasImpressas((etiquetasImpressas || []).map(e => e.id === etq.id ? { ...e, status } : e));
+    // só a situação desta etiqueta vai ao banco (M49)
+    mudarStatusEtiqueta(etq.id, status);
     toast(`Etiqueta marcada como ${rotulo}.`, 'sucesso');
   };
 

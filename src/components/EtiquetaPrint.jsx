@@ -11,7 +11,7 @@ import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
 import Aviso from './Aviso';
-import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId, podarEtiquetas,
+import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId,
          DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo,
          diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura,
          lembrarArmazenamentos } from '../utils/etiquetas';
@@ -262,7 +262,7 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
 export default function EtiquetaPrint() {
   const { etiquetaState, fecharEtiquetas } = useUI();
   const { sessao, impersonando } = useAuth();
-  const { prefs, setPrefs, produtos, modulo, estoqueAtual, etiquetasImpressas, setEtiquetasImpressas,
+  const { prefs, setPrefs, produtos, modulo, estoqueAtual, adicionarEtiquetas,
           registrarImpressoes, unidades, unidadeAtual, unidadeFixa } = useApp();
   // ⚠️ O QUE SAI IMPRESSO NO POTE — nome no topo, CNPJ e endereço no rodapé —
   // é o da UNIDADE da cozinha aberta (M46). Na unidade principal é o de
@@ -705,7 +705,9 @@ export default function EtiquetaPrint() {
       }
     });
     if (novas.length) {
-      setEtiquetasImpressas(podarEtiquetas([...etiquetasImpressas, ...novas], hojeISO));
+      // só as NOVAS vão ao banco, uma linha cada (M49) — a lista inteira não
+      // viaja mais a cada etiqueta
+      adicionarEtiquetas(novas);
     }
   };
 

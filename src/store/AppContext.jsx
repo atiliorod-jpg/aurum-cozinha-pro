@@ -14,9 +14,10 @@ import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGl
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
 import { cozinhaDeEtiquetas, acharUnidade, baseDoCatalogo, cozinhaDaFixa, cozinhasDaFixa } from '../utils/unidades';
 import {
-  ehChaveImpressas, chavePendencias, PENDENCIAS_VAZIAS, semPendencias, diferencaImpressas,
-  acumularPendencias, aplicarPendencias, limparConfirmadas, unirImpressas,
-} from '../utils/impressasSync';
+  ehChaveImpressas, cozinhaDaChaveImpressas, linhaParaEtiqueta, janelaDaLista, etiquetasDoDocumentoAntigo,
+  juntarNaLista, aplicarLinhaNaLista, emLotes,
+} from '../utils/etiquetasLinhas';
+import { buscarTodas } from '../lib/paginar';
 import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
@@ -121,11 +122,6 @@ const avisaErroDefinitivo = (msg) => {
 // Modo demonstração: rid 'demo' NUNCA fala com o Supabase — tudo fica só no
 // cache local do navegador (apagado ao sair). Retorna o rid quando é de nuvem.
 const nuvemDe = (r) => (r && r !== 'demo' ? r : null);
-// Mudanças deste aparelho na lista de impressas que o servidor ainda não
-// confirmou — ver utils/impressasSync.js. Ficam no aparelho (sobrevivem a
-// fechar o app sem internet).
-const lerPend = (r, chave) => cacheGet(r, chavePendencias(chave), PENDENCIAS_VAZIAS);
-const gravarPend = (r, chave, pend) => cacheSet(r, chavePendencias(chave), pend);
 
 const AppContext = createContext(null);
 
@@ -441,9 +437,7 @@ export function AppProvider({ children }) {
   // Gravação versionada: o servidor compara a versão que ESTE aparelho conhece.
   // Conflito (outro tablet gravou antes) → aplicamos o conteúdo vigente aqui e
   // avisamos, em vez de sobrescrever o trabalho do outro em silêncio.
-  // a regravação depois de juntar chama a si mesma por aqui (identidade fixa)
-  const salvarDocRef = useRef(null);
-  const salvarDocNuvem = useCallback((r, chave, dadosDoc, aplicarServidor, tentativa = 0) => {
+  const salvarDocNuvem = useCallback((r, chave, dadosDoc, aplicarServidor) => {
     const payload = { restaurante_id: r, chave, dados: dadosDoc, updated_at: new Date().toISOString() };
     supabase.rpc('salvar_documento', { p_restaurante: r, p_chave: chave, p_dados: dadosDoc, p_versao: versoesRef.current[chave] ?? 0 })
       .then(({ data, error }) => {
@@ -454,36 +448,18 @@ export function AppProvider({ children }) {
               if (e2) outboxAdd(r, { kind: 'doc', op: 'upsert', payload });
             });
           } else {
-            // a lista de impressas vai marcada: o replay junta com a do servidor
-            // em vez de gravar por cima (ver `regravarImpressas` no flush)
-            outboxAdd(r, { kind: 'doc', op: 'upsert', payload, ...(ehChaveImpressas(chave) ? { _comPendencias: true } : {}) });
+            outboxAdd(r, { kind: 'doc', op: 'upsert', payload });
           }
           return;
         }
-        if (data?.ok) {
-          versoesRef.current[chave] = data.versao;
-          if (ehChaveImpressas(chave)) gravarPend(r, chave, limparConfirmadas(lerPend(r, chave), dadosDoc));
-          return;
-        }
+        if (data?.ok) { versoesRef.current[chave] = data.versao; return; }
         if (data?.conflito) {
           versoesRef.current[chave] = data.versao;
-          // ⚠️ IMPRESSAS: JUNTAR, NUNCA SUBSTITUIR. Trocar a lista deste
-          // aparelho pela do servidor apagava da aba Impressas a etiqueta que
-          // acabou de sair no papel (tablet que volta do descanso e imprime).
-          // A lista do servidor recebe as mudanças deste aparelho por cima e é
-          // gravada de novo — sem aviso, porque não há nada para refazer.
-          if (ehChaveImpressas(chave) && tentativa < 3) {
-            const junta = aplicarPendencias(data.dados, lerPend(r, chave));
-            aplicarServidor?.(junta);
-            if (junta !== data.dados) salvarDocRef.current?.(r, chave, junta, aplicarServidor, tentativa + 1);
-            return;
-          }
           aplicarServidor?.(data.dados);
           try { window.dispatchEvent(new CustomEvent('catalogo-conflito', { detail: { chave } })); } catch { /* sem window */ }
         }
       });
   }, []);
-  useEffect(() => { salvarDocRef.current = salvarDocNuvem; }, [salvarDocNuvem]);
 
   const persistCatalogo = useCallback((chaveBase, setRaw, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -502,10 +478,6 @@ export function AppProvider({ children }) {
       : COMPARTILHADOS.includes(chaveBase) ? kc(chaveBase)
       : k(chaveBase));
     const chave = chaveDe();
-    // o que ESTE aparelho mudou na lista de impressas, até o servidor confirmar
-    if (nuvemDe(r) && ehChaveImpressas(chave)) {
-      gravarPend(r, chave, acumularPendencias(lerPend(r, chave), diferencaImpressas(cacheGet(r, chave, []), valor)));
-    }
     cacheSet(r, chave, valor);
     if (!nuvemDe(r)) return;
     salvarDocNuvem(r, chave, valor, (dadosSrv) => {
@@ -541,7 +513,56 @@ export function AppProvider({ children }) {
   const setLocais     = useCallback((v) => persistCatalogo('locais',     setLocaisRaw,     v), [persistCatalogo]);
   const setListaManual = useCallback((v) => persistCatalogo('listaManual', setListaManualRaw, v), [persistCatalogo]);
   const setEtiquetasAvulsas = useCallback((v) => persistCatalogo('etiquetasAvulsas', setEtiquetasAvulsasRaw, v), [persistCatalogo]);
-  const setEtiquetasImpressas = useCallback((v) => persistCatalogo('etiquetasImpressas', setEtiquetasImpressasRaw, v), [persistCatalogo]);
+  // ── ETIQUETAS IMPRESSAS (M49): uma linha por etiqueta ───────────────
+  // ⚠️ NÃO EXISTE MAIS "GRAVAR A LISTA INTEIRA". Eram três gestos, e cada um
+  // regravava até 1,5 MB: imprimir, mudar a situação (Validades) e a conta
+  // dona apagar. Agora cada um manda só o que mudou. Sem internet, vai para a
+  // fila (idempotente pelo id) e a tela já mostra na hora.
+  const adicionarEtiquetas = useCallback((novas) => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; }
+    if (!novas?.length) return;
+    const r = ridRef.current;
+    const cozinha = moduloRef.current;
+    const chave = k('etiquetasImpressas');
+    setEtiquetasImpressasRaw(prev => {
+      const lista = juntarNaLista(prev, novas, hoje());
+      cacheSet(r, chave, lista);
+      return lista;
+    });
+    if (!nuvemDe(r)) return;
+    for (const lote of emLotes(novas.map(e => ({ ...e, cozinha })))) {
+      const naFila = () => outboxAdd(r, { kind: 'etiquetas', op: 'rpc', payload: { itens: lote } });
+      supabase.rpc('registrar_etiquetas', { p_itens: lote })
+        .then(({ error }) => { if (error) naFila(); }, naFila);
+    }
+  }, [k]);
+
+  const mudarStatusEtiqueta = useCallback((id, status) => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; }
+    const r = ridRef.current;
+    const chave = k('etiquetasImpressas');
+    setEtiquetasImpressasRaw(prev => {
+      const lista = (prev || []).map(e => (e.id === id ? { ...e, status } : e));
+      cacheSet(r, chave, lista);
+      return lista;
+    });
+    if (!nuvemDe(r)) return;
+    const naFila = () => outboxAdd(r, { kind: 'etiquetaStatus', op: 'rpc', payload: { id, status } });
+    supabase.rpc('mudar_status_etiqueta', { p_id: id, p_status: status })
+      .then(({ error }) => { if (error) naFila(); }, naFila);
+  }, [k]);
+
+  // Só a tela: quem apaga no banco é `apagar_impressao` (conta dona, com
+  // internet — Impressas.jsx chama antes). Na demonstração é só isto.
+  const tirarEtiquetaDaLista = useCallback((id) => {
+    const r = ridRef.current;
+    const chave = k('etiquetasImpressas');
+    setEtiquetasImpressasRaw(prev => {
+      const lista = (prev || []).filter(e => e.id !== id);
+      cacheSet(r, chave, lista);
+      return lista;
+    });
+  }, [k]);
   const setPermissoes = useCallback((v) => persistCatalogo('permissoes', setPermissoesRaw, v), [persistCatalogo]);
   const setPrecos = useCallback((v) => persistCatalogo('precos', setPrecosRaw, v), [persistCatalogo]);
   const setEstoquesDoc = useCallback((v) => persistCatalogo('estoques', setEstoquesDocRaw, v), [persistCatalogo]);
@@ -1056,39 +1077,18 @@ export function AppProvider({ children }) {
     setRecebimentosRaw(cacheGet(rid, k('recebimentos'), []));
     setAuditoriaRaw(cacheGet(rid, 'auditoria', [])); // auditoria é do restaurante
 
-    // ⚠️ IMPRESSAS SEM INTERNET: o replay comum grava por cima (versão -1), e
-    // isso apagava as etiquetas que OUTRO aparelho imprimiu enquanto este
-    // estava offline. Aqui lê a lista do servidor, junta e grava na versão
-    // dela; se alguém gravar no meio, lê de novo.
-    const regravarImpressas = async (item) => {
-      const { restaurante_id: r, chave, dados } = item.payload;
-      for (let t = 0; t < 3; t++) {
-        const { data: atual, error: eLer } = await supabase.from('documentos')
-          .select('dados, versao').eq('restaurante_id', r).eq('chave', chave).maybeSingle();
-        if (eLer) return { error: eLer };
-        const pend = lerPend(r, chave);
-        const junta = !atual ? dados
-          // item de antes desta versão não tem pendências guardadas: junta sem apagar
-          : !item._comPendencias ? unirImpressas(atual.dados, dados)
-          : aplicarPendencias(atual.dados, pend);
-        // nada deste aparelho faltando no servidor → não há o que gravar
-        if (atual && junta === atual.dados) {
-          versoesRef.current[chave] = atual.versao || 0;
-          return { error: null };
-        }
-        const { data: res, error } = await supabase.rpc('salvar_documento', {
-          p_restaurante: r, p_chave: chave, p_dados: junta, p_versao: atual ? (atual.versao || 0) : -1,
-        });
+    // ⚠️ ITEM ANTIGO DA FILA (antes da M49): a lista de impressas inteira,
+    // como documento. Não se grava mais o documento — as etiquetas dele viram
+    // linhas (id repetido é ignorado no banco, então nada duplica).
+    const absorverImpressas = async (item) => {
+      const cozinha = cozinhaDaChaveImpressas(item.payload?.chave);
+      const itens = (Array.isArray(item.payload?.dados) ? item.payload.dados : [])
+        .filter(e => e && e.id).map(e => ({ ...e, cozinha }));
+      for (const lote of emLotes(itens)) {
+        const { error } = await supabase.rpc('registrar_etiquetas', { p_itens: lote });
         if (error) return { error };
-        if (res?.ok) {
-          versoesRef.current[chave] = res.versao;
-          if (!semPendencias(pend)) gravarPend(r, chave, limparConfirmadas(pend, junta));
-          cacheSet(r, chave, junta);
-          if (chave === k('etiquetasImpressas')) setEtiquetasImpressasRaw(junta);
-          return { error: null };
-        }
       }
-      return { error: { message: 'A lista de impressas mudou em outro aparelho durante o envio.' } };
+      return { error: null };
     };
 
     // sobe pendências acumuladas offline
@@ -1115,7 +1115,12 @@ export function AppProvider({ children }) {
           else if (item.kind === 'registro' && item.op === 'delete')
             ({ error } = await supabase.from('registros').update({ deleted: true }).eq('id', item.payload.id));
           else if (item.kind === 'doc' && item.op === 'upsert' && ehChaveImpressas(item.payload?.chave))
-            ({ error } = await regravarImpressas(item));
+            ({ error } = await absorverImpressas(item));
+          // etiquetas impressas sem internet (M49): idempotente pelo id
+          else if (item.kind === 'etiquetas' && item.op === 'rpc')
+            ({ error } = await supabase.rpc('registrar_etiquetas', { p_itens: item.payload?.itens || [] }));
+          else if (item.kind === 'etiquetaStatus' && item.op === 'rpc')
+            ({ error } = await supabase.rpc('mudar_status_etiqueta', { p_id: item.payload?.id, p_status: item.payload?.status }));
           else if (item.kind === 'doc' && item.op === 'upsert') {
             // replay offline: RPC com versão -1 (força com bump — mantém o
             // contador coerente); fallback pro upsert se a migração 8 faltar
@@ -1210,10 +1215,9 @@ export function AppProvider({ children }) {
         aplicaCat(k('locais'), setLocaisRaw, LOC, (d) => mesclarFixos(d, LOC));
         aplicaCat(k('listaManual'), setListaManualRaw, P.listaManual);
         aplicaCat(k('etiquetasAvulsas'), setEtiquetasAvulsasRaw, P.etiquetasAvulsas);
-        // pendências deste aparelho por cima (gravação que não chegou a ser
-        // confirmada antes de o app fechar) — `aplicaCat` regrava se mudou
-        aplicaCat(k('etiquetasImpressas'), setEtiquetasImpressasRaw, P.etiquetasImpressas,
-          (d) => aplicarPendencias(d, lerPend(rid, k('etiquetasImpressas'))));
+        // ⚠️ A LISTA DE IMPRESSAS NÃO VEM MAIS DAQUI (M49): vem das linhas de
+        // `etiquetas`, logo abaixo. O documento antigo só é lido para absorver
+        // o que um aparelho com a versão velha do app tenha gravado nele.
         // Compatibilidade: contas antigas têm a matriz dentro de prefs. Lê de lá
         // enquanto a chave nova não existir — sem exigir migração de dados.
         // `precos` pode simplesmente NÃO VIR: a policy da migração 20 não
@@ -1243,6 +1247,40 @@ export function AppProvider({ children }) {
           }
           cacheSet(rid, 'prefs', prefsNuvem);
           setPrefsRaw({ ...prefsNuvem, ...cacheGet(rid, '_prefs_device', {}) });
+        }
+      }
+
+      // ── ETIQUETAS IMPRESSAS, EM LINHAS (M49) ─────────────────────────
+      // Só as desta cozinha e só o recorte que a tela usa (janelaDaLista).
+      // Falhou (sem internet): fica a lista do cache, como antes.
+      {
+        const hojeISO = hoje();
+        const { impressasDesde, vencidasDesde } = janelaDaLista(hojeISO);
+        const { data: linhasEtq, error: errEtq } = await buscarTodas(() => supabase.from('etiquetas')
+          .select('id, status, dados, apagada_em')
+          .eq('restaurante_id', rid).eq('cozinha', moduloEfetivo).is('apagada_em', null)
+          .or(`impresso_em.gte.${impressasDesde},validade.gte.${vencidasDesde}`)
+          .order('impresso_em').order('id'));
+        if (!ativo) return;
+        if (!errEtq) {
+          const daNuvem = (linhasEtq || []).map(linhaParaEtiqueta);
+          // aparelho com a versão velha gravou no documento depois da M49?
+          const antigas = etiquetasDoDocumentoAntigo(mapaDocs?.[k('etiquetasImpressas')],
+            new Set(daNuvem.map(e => e.id)), hojeISO);
+          if (antigas.length && !soLeituraRef.current) {
+            const itens = antigas.map(e => ({ ...e, cozinha: moduloEfetivo }));
+            for (const lote of emLotes(itens)) {
+              supabase.rpc('registrar_etiquetas', { p_itens: lote })
+                .then(({ error }) => { if (error) outboxAdd(rid, { kind: 'etiquetas', op: 'rpc', payload: { itens: lote } }); });
+            }
+          }
+          // o que este aparelho imprimiu sem internet e ainda está na fila
+          const naFila = outboxGet(rid).filter(i => i.kind === 'etiquetas' && !i._morto)
+            .flatMap(i => i.payload?.itens || []).filter(e => e.cozinha === moduloEfetivo)
+            .map(({ cozinha: _cozinha, ...e }) => e);
+          const lista = juntarNaLista(juntarNaLista(daNuvem, antigas, hojeISO), naFila, hojeISO);
+          setEtiquetasImpressasRaw(lista);
+          cacheSet(rid, k('etiquetasImpressas'), lista);
         }
       }
 
@@ -1351,15 +1389,22 @@ export function AppProvider({ children }) {
       [k('locais')]:      setLocaisRaw,
       [k('listaManual')]: setListaManualRaw,
       [k('etiquetasAvulsas')]:   setEtiquetasAvulsasRaw,
-      [k('etiquetasImpressas')]: setEtiquetasImpressasRaw,
       permissoes: setPermissoesRaw, // matriz da equipe: do restaurante, sem namespace
       precos: setPrecosRaw,          // tabela de custos: idem, e só chega a quem pode
       estoques: setEstoquesDocRaw,   // registro dos estoques da conta
     };
-    const reparoDoc = {
-      [k('locais')]: (d) => mesclarFixos(d, LOC),
-      // a lista que outro aparelho gravou, com o que ESTE ainda não enviou por cima
-      [k('etiquetasImpressas')]: (d) => aplicarPendencias(d, lerPend(rid, k('etiquetasImpressas'))),
+    const reparoDoc = { [k('locais')]: (d) => mesclarFixos(d, LOC) };
+    // ⚠️ ETIQUETAS EM LINHAS (M49): chega SÓ a linha nova ou alterada — antes
+    // era a lista inteira (até 1,5 MB) a cada etiqueta de outro aparelho.
+    // Apagar pela conta dona chega como alteração (apagada_em), porque o aviso
+    // de linha apagada do Supabase não respeita a policy de leitura.
+    const aplicaEtiquetaRT = (linha) => {
+      if (!linha || linha.cozinha !== moduloEfetivo) return;
+      setEtiquetasImpressasRaw(prev => {
+        const lista = aplicarLinhaNaLista(prev, linha);
+        if (lista !== prev) cacheSet(rid, k('etiquetasImpressas'), lista);
+        return lista;
+      });
     };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
@@ -1433,6 +1478,11 @@ export function AppProvider({ children }) {
         p => aplicaRegistroRT(p.new && Object.keys(p.new).length ? p.new : p.old))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'documentos', filter: `restaurante_id=eq.${rid}` },
         p => aplicaDocRT(p.new))
+      // só INSERT e UPDATE: DELETE do tempo real não passa pela policy (ver acima)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'etiquetas', filter: `restaurante_id=eq.${rid}` },
+        p => aplicaEtiquetaRT(p.new))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'etiquetas', filter: `restaurante_id=eq.${rid}` },
+        p => aplicaEtiquetaRT(p.new))
       .subscribe();
 
     // 4) reconexão / retry manual → sobe pendências
@@ -1631,7 +1681,7 @@ export function AppProvider({ children }) {
       locais, setLocais,
       listaManual, setListaManual,
       etiquetasAvulsas, setEtiquetasAvulsas,
-      etiquetasImpressas, setEtiquetasImpressas,
+      etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista,
       permissoes, setPermissoes,
       precos, setPrecos,
       estoques, estoqueAtual, estoquesDoc, setEstoquesDoc, visoesPorEstoque,
@@ -1662,7 +1712,7 @@ export function AppProvider({ children }) {
     addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, ajustes,
     addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, fichas,
     setFichas, producoes, setProducoes, locais, setLocais, listaManual,
-    setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, setEtiquetasImpressas, permissoes,
+    setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, permissoes,
     setPermissoes, precos, setPrecos, estoques, estoqueAtual, estoquesDoc,
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,
