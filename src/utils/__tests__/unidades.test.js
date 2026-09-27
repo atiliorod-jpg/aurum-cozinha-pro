@@ -233,8 +233,10 @@ describe('unidades nos dois planos (o Etiquetas é um recorte do Pro)', () => {
   it('o Etiquetas tem o cartão Unidades e o seletor de unidade; o Pro tem "Unidades e cozinhas"', () => {
     expect(ler('../../pages/etiquetas/Ajustes.jsx')).toMatch(/<CartaoUnidades \/>/);
     expect(ler('../../components/Layout.jsx')).toMatch(/<SeletorModulo soUnidades=\{soEtiq\}/);
-    expect(ler('../../pages/Estoques.jsx')).toMatch(/Preciso de outra unidade/);
-    expect(ler('../../components/config/CartoesConfig.jsx')).toMatch(/Preciso de outra unidade/);
+    // o pedido de unidade nova mora em Planos e pagamento (27/09/2026), nos dois planos
+    expect(ler('../../pages/Estoques.jsx')).toMatch(/to="\/pagamento#unidades"/);
+    expect(ler('../../components/config/CartoesConfig.jsx')).toMatch(/to="\/pagamento#unidades"/);
+    expect(ler('../../pages/Pagamento.jsx')).toMatch(/<SecaoUnidades \/>/);
     expect(ler('../../pages/Administracao.jsx')).toMatch(/titulo: 'Unidades e cozinhas'/);
   });
 
@@ -333,11 +335,11 @@ describe('cobrança com unidades: um número só em todas as telas', () => {
     expect(pag).toMatch(/useEffect\(\(\) => \{ recarregarUnidades\(\); \}, \[recarregarUnidades\]\)/);
   });
 
-  it('Ajustes mostra o que o cliente paga: parcela do contrato, ou plano + unidades', () => {
-    const aj = ler('../../pages/etiquetas/Ajustes.jsx');
-    expect(aj).toMatch(/mensalComUnidades\(prod\.id, extras\)/);
+  it('a linha do plano na Administração mostra o que o cliente paga: parcela do contrato, ou plano + unidades', () => {
+    expect(ler('../../pages/etiquetas/Ajustes.jsx')).toMatch(/<ResumoDoPlano \/>/);
+    const aj = ler('../../components/PlanoExtras.jsx');
+    expect(aj).toMatch(/const valor = parcela \? brl\(parcela\) : brl\(mensalComUnidades\(prod\.id, extras\)\);/);
     expect(aj).toMatch(/const parcela = Number\(sessao\?\.parcelaContrato\) \|\| 0/);
-    expect(aj).not.toMatch(/R\$ \{fmtPreco\(prod\.precoMes\)\}\/mês/);
     expect(mensalComUnidades('etiquetas', 1)).toBe(373.2);
   });
 });

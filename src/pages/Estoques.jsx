@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Icon from '../components/Icons';
 import { useApp } from '../store/AppContext';
@@ -35,7 +36,7 @@ import { CartaoEquipeDasUnidades } from '../components/config/CartoesConfig';
 export default function Estoques() {
   const { estoques, estoquesDoc, setEstoquesDoc, unidades } = useApp();
   const { sessao, impersonando } = useAuth();
-  const { toast, confirm, abrirAjuda } = useUI();
+  const { toast, confirm } = useUI();
   const [criando, setCriando] = useState(null);   // { unidade, tipo }
   const [nomeNovo, setNomeNovo] = useState('');
   const [editando, setEditando] = useState(null); // id em edição
@@ -263,10 +264,10 @@ export default function Estoques() {
               A equipe Aurum cria a unidade nesta mesma conta: os itens continuam os mesmos, e cada casa
               imprime a etiqueta com o seu CNPJ.
             </p>
-            <button onClick={() => abrirAjuda('pedido')}
-              className="w-full border-2 border-polo-navy text-polo-navy font-bold rounded-xl py-2.5 text-sm">
-              Preciso de outra unidade
-            </button>
+            <Link to="/pagamento#unidades"
+              className="block w-full border-2 border-polo-navy text-polo-navy font-bold rounded-xl py-2.5 text-sm text-center">
+              Ver preço e pedir em Planos e pagamento
+            </Link>
           </div>
         )}
       </div>

@@ -78,8 +78,8 @@ export default function Administracao() {
       desc: 'Etiqueta, preferências, exportar e importar',
     },
     eDiretoria && {
-      to: '/pagamento', icone: 'cartao', titulo: 'Assinatura',
-      desc: 'Plano, vencimento e pagamento',
+      to: '/pagamento', icone: 'cartao', titulo: 'Planos e pagamento',
+      desc: 'Plano, vencimento, unidades e contas a mais',
     },
   ].filter(Boolean);
 

@@ -126,6 +126,8 @@ export default function Admin() {
   const [diasLivres, setDiasLivres] = useState({});
   // Criar/editar unidade (M46): { restId, id|null, nome, cnpj, endereco, cidade, uf, cep }
   const [unidadeForm, setUnidadeForm] = useState(null);
+  // "+ Unidade para um cliente": escolhendo de qual cliente
+  const [escolhendoCliente, setEscolhendoCliente] = useState(false);
   const [salvandoUnidade, setSalvandoUnidade] = useState(false);
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
   // viram uma parede de rolagem e o painel deixa de ser consultável.
@@ -1359,7 +1361,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   const linhas = fb.tipo === 'bug'
                     ? [['Onde', d.onde], ['Esperava', d.esperava], ['Aconteceu', d.aconteceu], ['Repetir', d.repetir]]
                     : fb.tipo === 'pedido'
-                      ? [['Pedido', d.pedido], ['Hoje é', d.de], ['Deve ficar', d.para], ['Motivo', d.motivo]]
+                      ? [['Pedido', d.pedido], ['Hoje é', d.de], ['Deve ficar', d.para], ['Motivo', d.motivo],
+                         ['Plano', d.plano]]
                       : [['Quer', d.ideia], ['Por quê', d.porque]];
                   return (
                     <div key={fb.id} className={`px-4 py-3 ${fb.status === 'resolvido' ? 'opacity-50' : ''}`}>
@@ -1419,6 +1422,31 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </div>
                       ) : (
                         <div className="flex flex-wrap gap-2 mt-2">
+                          {/* ⚠️ PEDIDO DE PLANOS E PAGAMENTO (27/09/2026): vem com
+                              os dados prontos. "Criar esta unidade" abre o cliente
+                              com o formulário preenchido — ninguém redigita CNPJ;
+                              "contas" leva ao cartão, onde se muda o limite. */}
+                          {fb.status !== 'resolvido' && d.tipoPedido === 'unidade' && fb.restaurante_id && (
+                            <button onClick={() => {
+                              const r = restaurantes.find(x => x.id === fb.restaurante_id);
+                              if (!r) { toast('Cliente não encontrado na lista.', 'erro'); return; }
+                              irAoRestaurante(r.id);
+                              setUnidadeForm({
+                                restId: r.id, id: null, nome: d.unidadeNome || '',
+                                cnpj: formatarCNPJ(d.unidadeCnpj || ''), endereco: '',
+                                cidade: d.unidadeCidade || '', uf: d.unidadeUf || 'PE', cep: '',
+                              });
+                            }}
+                              className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
+                              Criar esta unidade
+                            </button>
+                          )}
+                          {fb.status !== 'resolvido' && d.tipoPedido === 'contas' && fb.restaurante_id && (
+                            <button onClick={() => irAoRestaurante(fb.restaurante_id)}
+                              className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
+                              Abrir o cliente (limite de contas)
+                            </button>
+                          )}
                           <button onClick={() => setRespondendo({ id: fb.id, texto: '' })}
                             className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
                             {Array.isArray(fb.mensagens) && fb.mensagens.length ? 'Responder de novo' : 'Responder'}
@@ -1523,21 +1551,63 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 </div>
               </div>
             )}
-            {!novaConta ? (
-              <button onClick={() => setNovaConta({
-                nomeRestaurante: '', nomeDono: '', email: '',
-                produto: 'etiquetas', cnpj: '', whatsapp: '', cidade: '', uf: 'PE',
-              })}
-                className="w-full border-2 border-dashed border-polo-navy/30 text-polo-navy font-bold text-xs rounded-xl py-2.5">
-                + Abrir conta de cliente
-              </button>
-            ) : (
+            {/* ⚠️ OUTRO CNPJ DO MESMO CLIENTE NÃO É CONTA NOVA (27/09/2026: o dono
+                não achou onde criar). A unidade fica DENTRO da conta: paga junto
+                (1/3 do plano), divide itens e equipe, e cada casa imprime com o
+                seu CNPJ. O botão escolhe o cliente e já abre o formulário. */}
+            {!novaConta && (
+              escolhendoCliente ? (
+                <div className="bg-white rounded-xl p-3 space-y-2 border border-polo-gold/50">
+                  <p className="text-xs font-bold text-polo-navy">Nova unidade (outro CNPJ) — de qual cliente?</p>
+                  <p className="text-[11px] text-gray-600">
+                    A unidade entra na conta do cliente, é paga junto com o plano dele (1/3 do plano por mês)
+                    e usa os mesmos itens e a mesma equipe. Não precisa abrir conta nova.
+                  </p>
+                  <select defaultValue="" aria-label="Cliente da nova unidade"
+                    onChange={e => {
+                      const r = restaurantes.find(x => x.id === e.target.value);
+                      if (!r) return;
+                      setEscolhendoCliente(false);
+                      irAoRestaurante(r.id);
+                      abrirUnidade(r);
+                    }}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white min-h-11">
+                    <option value="" disabled>Escolha o cliente…</option>
+                    {[...restaurantes].sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(r => (
+                      <option key={r.id} value={r.id}>{r.nome}{r.cnpj ? ` · ${formatarCNPJ(r.cnpj)}` : ''}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => setEscolhendoCliente(false)}
+                    className="w-full border border-gray-200 text-gray-600 font-semibold text-xs py-2.5 rounded-lg">Cancelar</button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={() => setNovaConta({
+                    nomeRestaurante: '', nomeDono: '', email: '',
+                    produto: 'etiquetas', cnpj: '', whatsapp: '', cidade: '', uf: 'PE',
+                  })}
+                    className="flex-1 border-2 border-dashed border-polo-navy/30 text-polo-navy font-bold text-xs rounded-xl py-2.5">
+                    + Abrir conta de cliente
+                  </button>
+                  <button onClick={() => setEscolhendoCliente(true)}
+                    className="flex-1 border-2 border-dashed border-polo-navy/30 text-polo-navy font-bold text-xs rounded-xl py-2.5">
+                    + Unidade para um cliente (outro CNPJ)
+                  </button>
+                </div>
+              )
+            )}
+            {novaConta && (
               <div className="bg-white rounded-xl p-3 space-y-2 border border-polo-gold/50">
                 <p className="text-xs font-bold text-polo-navy">Abrir conta de cliente</p>
                 <p className="text-[11px] text-gray-600">
                   A conta nasce SEM acesso — libere o teste no cartão dela depois de criar.
                   A senha é sorteada e aparece aqui uma vez; nenhum e-mail é enviado.
                   O dono troca a senha dele depois, em Administração.
+                </p>
+                <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  Outra casa de um cliente que já existe? Não abra conta nova: cancele e use
+                  <strong> + Unidade para um cliente</strong>. Conta nova é outro contrato, outra cobrança
+                  e outra lista de itens.
                 </p>
 
                 {[['nomeRestaurante', 'Nome do restaurante'], ['nomeDono', 'Nome do responsável'], ['email', 'E-mail do responsável']].map(([k, l]) => (
@@ -1732,6 +1802,17 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </p>
                       )}
                     </div>
+                    {/* ⚠️ QUEM PAGA O ADICIONAL: esta conta (a principal), junto
+                        com o plano — a unidade não tem cobrança própria. Com
+                        contrato, vale a parcela (o painel oferece atualizar). */}
+                    <p className="text-[11px] text-gray-600">
+                      {extrasDe(r) > 0
+                        ? <>Tudo é pago nesta conta: plano R$ {fmtPreco(produtoDe(r.produto).precoMes)} + {extrasDe(r)} × R$ {fmtPreco(adicionalUnidade(r.produto))}
+                          {' '}= <strong>R$ {fmtPreco(mensalComUnidades(r.produto, extrasDe(r)))}/mês</strong>
+                          {Number(r.parcela_contrato) > 0 ? ` (contrato: parcela de R$ ${fmtPreco(r.parcela_contrato)})` : ''}.</>
+                        : <>Outra casa deste cliente, com outro CNPJ? Crie a unidade aqui — ela é paga nesta conta,
+                          R$ {fmtPreco(adicionalUnidade(r.produto))}/mês a mais (1/3 do plano).</>}
+                    </p>
                     <ul className="space-y-1">
                       <li className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
                         <span className="min-w-0 text-[11px] text-gray-700">

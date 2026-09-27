@@ -234,7 +234,8 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
                   escolha, porque CNPJ e CEP na mesma linha passam dos ~36
                   caracteres da fonte 2 e cortam justo o número que identifica a
                   cozinha. Quem tinha de ceder era a prévia. */}
-              {est.cnpj && <div>CNPJ: {est.cnpj}</div>}
+              {/* com a pontuação: o banco guarda só os dígitos (27/09/2026) */}
+              {est.cnpj && <div>CNPJ: {formatarCNPJ(est.cnpj)}</div>}
               {est.endereco && (
                 <div className={nivel.linhasEndereco > 1 ? '' : 'truncate'}>{est.endereco}</div>
               )}

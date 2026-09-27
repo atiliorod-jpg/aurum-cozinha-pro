@@ -6,6 +6,7 @@
 // defeito ja registrado nas abas daquele arquivo (a lista de botoes era
 // escrita de novo la embaixo, e as duas divergiram).
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Botao from '../Botao';
 import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
@@ -424,9 +425,12 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
 export function CartaoUnidades() {
   const { unidades, unidadeAtual } = useApp();
   const { sessao, impersonando } = useAuth();
-  const { abrirAjuda } = useUI();
   const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
   const atual = unidadeAtual?.id || null;
+  // ⚠️ SÓ COM MAIS DE UMA UNIDADE (27/09/2026): com uma casa só, o cartão
+  // repetia o CNPJ da conta e servia de anúncio. O pedido de unidade nova
+  // mora em Planos e pagamento, com o preço e o passo a passo.
+  if (!temUnidadesExtras(unidades)) return null;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
@@ -454,10 +458,9 @@ export function CartaoUnidades() {
         ))}
       </ul>
       {!sessao?.eSuperAdmin && (
-        <button onClick={() => abrirAjuda('pedido')}
-          className="w-full border-2 border-polo-navy text-polo-navy font-bold rounded-xl py-2.5 text-sm">
-          Preciso de outra unidade
-        </button>
+        <Link to="/pagamento#unidades" className="block text-xs font-semibold text-polo-navy underline underline-offset-2 min-h-11 pt-2">
+          Mais uma unidade? Veja em Planos e pagamento
+        </Link>
       )}
     </div>
   );
@@ -645,11 +648,17 @@ export function CartaoContas({
       </div>
 
       <div className="border-t border-gray-100 pt-3">
-        {!criando ? (
+        {!criando ? (<>
           <Botao onClick={() => setCriando(true)} disabled={!casa || vagas <= 0} tamanho="sm">
             + Criar conta {vagas > 0 ? `(${vagas} vaga${vagas > 1 ? 's' : ''})` : '— sem vagas'}
           </Botao>
-        ) : (
+          {/* sem vagas não é beco sem saída: o pedido (sem custo) mora em Planos e pagamento */}
+          {vagas <= 0 && !sessao?.eSuperAdmin && (
+            <Link to="/pagamento#contas" className="block text-xs font-semibold text-polo-navy underline underline-offset-2 min-h-11 pt-2">
+              Precisa de mais contas? Peça em Planos e pagamento
+            </Link>
+          )}
+        </>) : (
           <div className="space-y-2">
             <div>
               <input value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))}

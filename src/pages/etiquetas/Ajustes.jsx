@@ -1,16 +1,13 @@
 import { useState } from 'react';
 import Layout from '../../components/Layout';
 import Botao from '../../components/Botao';
-import { Link } from 'react-router-dom';
 import { useApp } from '../../store/AppContext';
 import { useAuth, CARGOS } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { CartaoArmazenamentos, CartaoEtiquetas, CartaoSuporteRemoto, CartaoContas, CartaoCargos,
          CartaoMeusDados, CartaoUnidades, CartaoEquipeDasUnidades } from '../../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../../components/config/CartaoMinhaSenha';
-import { statusAssinatura, produtoDe, PRODUTOS, fmtPreco, mensalComUnidades } from '../../utils/assinatura';
-import { unidadesAtivas } from '../../utils/unidades';
-import { fmtData, isoLocal } from '../../utils/formatters';
+import { ResumoDoPlano } from '../../components/PlanoExtras';
 
 /**
  * Administração do plano Aurum Etiquetas.
@@ -29,7 +26,7 @@ import { fmtData, isoLocal } from '../../utils/formatters';
  */
 export default function Ajustes() {
   const { prefs, setPref, setPrefs, pessoas, addPessoa, removePessoa,
-          permissoes, setPermissoes, exportarBackup, importarBackup, unidades } = useApp();
+          permissoes, setPermissoes, exportarBackup, importarBackup } = useApp();
   // ⚠️ A ADMINISTRAÇÃO ABRE PARA QUEM O DONO LIBERAR (capacidade
   // `configurarSistema`), mas nem tudo aqui dentro é delegável. Assinatura,
   // contas da equipe, matriz de acessos e suporte remoto continuam SÓ da conta
@@ -39,16 +36,8 @@ export default function Ajustes() {
   const { sessao, logout, usuarios, criarConta, trocarSenhaDe, removerConta,
           desativarUsuario, reativarUsuario, definirApelido, temPermissao } = useAuth();
   const ehDono = temPermissao('diretoria');
-  const { toast, confirm, abrirAjuda } = useUI();
+  const { toast, confirm } = useUI();
   const [novaPessoa, setNovaPessoa] = useState('');
-
-  const st = statusAssinatura(sessao);
-  const prod = produtoDe(sessao);
-  // ⚠️ O MESMO VALOR DO QR (Pagamento.jsx): a parcela do contrato quando há;
-  // senão o plano mais 1/3 por unidade extra ativa (M46). Aqui era só o preço
-  // da tabela, e a conta com unidade lia um valor e pagava outro.
-  const extras = unidadesAtivas(unidades).length;
-  const parcela = Number(sessao?.parcelaContrato) || 0;
 
   const adicionarPessoa = () => {
     const n = novaPessoa.trim();
@@ -72,6 +61,9 @@ export default function Ajustes() {
 
   return (
     <Layout title="Administração">
+      {/* uma linha: plano, situação e o caminho para Planos e pagamento */}
+      {ehDono && <ResumoDoPlano />}
+
       {/* Armazenamento vem primeiro: define o que a etiqueta imprime */}
       <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
 
@@ -107,88 +99,19 @@ export default function Ajustes() {
         </div>
       </div>
 
-      {/* Conta e plano — contrato, só a conta dona */}
+      {/* ⚠️ A CONTA E O DINHEIRO MORAM EM "PLANOS E PAGAMENTO" (pedido do dono,
+          27/09/2026: "tem muita informação"). Aqui ficou só a senha e, para
+          quem já tem mais de uma casa, as unidades — assunto do dia a dia.
+          Plano, unidade nova, contas a mais e o Pro: ResumoDoPlano (no topo)
+          leva para lá. */}
       {ehDono && (<>
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
-        <div>
-          <p className="text-sm font-bold text-polo-navy">Sua conta</p>
-          <p className="text-xs text-gray-500 mt-0.5">{sessao?.restauranteNome}</p>
-        </div>
-        <div className="text-xs text-gray-700 space-y-1">
-          <p>
-            Plano: <strong>{prod.label}</strong> — {parcela
-              ? `parcela do contrato de R$ ${fmtPreco(parcela)}/mês`
-              : `R$ ${fmtPreco(mensalComUnidades(prod.id, extras))}/mês${extras ? `, com ${extras} unidade(s) extra(s)` : ''}`}
-          </p>
-          <p>
-            {st.tipo === 'assinatura' ? `Assinatura válida até ${fmtData(isoLocal(new Date(st.ate)))}`
-              : st.tipo === 'atraso' ? `Pagamento em atraso desde ${fmtData(isoLocal(new Date(st.ate)))} — o acesso será suspenso em ${fmtData(isoLocal(new Date(st.suspendeEm)))}`
-              : st.tipo === 'teste' ? `Teste grátis até ${fmtData(isoLocal(new Date(st.ate)))}`
-              : st.tipo === 'isento' ? 'Sem cobrança para esta conta'
-              : 'Assinatura vencida'}
-          </p>
-        </div>
-        {/* ⚠️ A PORTA FIXA DO PAGAMENTO — e ela não existia. O dono abriu a
-            conta de um cliente em 10/09 e não achou onde pagar: a tela de
-            Assinatura (mensal/semestral/anual, Pix) só aparecia na faixa do
-            teste, no aviso dos 3 últimos dias e na tela de bloqueio. Com a
-            assinatura em dia, o cliente que quisesse pagar adiantado — ou
-            trocar para o anual — não tinha caminho nenhum. Some só para conta
-            isenta (super-admin, demonstração), que não paga. */}
-        {st.tipo !== 'isento' && (
-          <Link to="/pagamento" className="block">
-            <Botao tamanho="sm">Ver planos e pagar</Botao>
-          </Link>
-        )}
-      </div>
-
       {/* ⚠️ Logo abaixo da conta: a conta entregue pela Aurum chega com a senha
           que a Aurum sorteou, e trocar é a primeira coisa que o dono faz. */}
       <CartaoMinhaSenha toast={toast} />
 
-      {/* ⚠️ As unidades (M46) são assunto de contrato — cada uma com o seu
-          CNPJ e o seu adicional —, então ficam com a conta dona, junto da
-          assinatura. No plano completo a mesma lista é a tela "Unidades e
-          cozinhas" da Administração. */}
+      {/* Só aparece com mais de uma unidade (M46): qual CNPJ cada aparelho usa */}
       <CartaoUnidades />
       <CartaoEquipeDasUnidades />
-
-      {/* Upgrade — some quando a conta já é completa.
-          ⚠️ DUAS TELAS DIZIAM COISAS DIFERENTES SOBRE O MESMO PLANO: o cadastro
-          mostrava o Cozinha Pro cinza, com selo "em breve" e sem poder ser
-          escolhido, e aqui dentro ele era vendido por R$399 com botão "Quero o
-          plano completo". Quem tocasse estaria pedindo o que ainda não dá para
-          entregar. Enquanto `emBreve` estiver ligado, o cartão anuncia sem
-          prometer — e o toque vira PEDIDO, que chega na aba Ajuda e vale como
-          fila de interessados para o dia em que abrir. */}
-      {prod.id === 'etiquetas' && (
-        <div className="bg-polo-navy rounded-xl p-4 mb-4 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-bold text-polo-gold">O Aurum Cozinha Pro</p>
-            {PRODUTOS.completo.emBreve
-              ? <span className="text-[10px] font-bold text-polo-navy bg-polo-gold rounded-full px-2 py-0.5 flex-shrink-0">em breve</span>
-              : <span className="text-xs text-white/80 flex-shrink-0">R$ {fmtPreco(PRODUTOS.completo.precoMes)}/mês</span>}
-          </div>
-          <ul className="text-xs text-white/90 space-y-1">
-            <li>Estoque com entradas, saídas e contagem</li>
-            <li>Compras, produção por ficha e receitas</li>
-            <li>Relatórios de consumo, perdas e custo</li>
-          </ul>
-          <p className="text-[11px] text-white/70">
-            Seus itens e etiquetas continuam onde estão.
-          </p>
-          {PRODUTOS.completo.emBreve ? (
-            <Botao variante="sobreNavy" tamanho="sm" onClick={() => abrirAjuda('pedido')}>
-              Quero saber quando abrir
-            </Botao>
-          ) : (
-            <Link to="/pagamento" className="block">
-              <Botao variante="sobreNavy" tamanho="sm">Quero o plano completo</Botao>
-            </Link>
-          )}
-        </div>
-      )}
-
       </>)}
 
       {/* ⚠️ O plano Etiquetas não tinha COMO colocar ninguém para dentro: a

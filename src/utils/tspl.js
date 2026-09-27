@@ -16,6 +16,7 @@
 // =====================================================================
 
 import { comandoBITMAP } from './tsplBitmap';
+import { formatarCNPJ } from './documentos';
 
 export const PONTOS_POR_MM = 8; // 203 DPI
 const mm = (v) => Math.round(v * PONTOS_POR_MM);
@@ -331,7 +332,9 @@ function montarEtiqueta(campos, config, opcoes = {}) {
     rodape.push(campos.restauranteNome.toUpperCase());
   }
   if (c.estabelecimento !== false) {
-    if (est.cnpj) rodape.push(`CNPJ: ${est.cnpj}`);
+    // ⚠️ COM A PONTUAÇÃO (27/09/2026, o dono viu os 14 números corridos): o
+    // banco guarda só os dígitos. '12.345.678/0001-90' = 24 caracteres, cabe.
+    if (est.cnpj) rodape.push(`CNPJ: ${formatarCNPJ(est.cnpj)}`);
     // ⚠️ O ENDEREÇO CABE ~36 CARACTERES na fonte 2, e "Av. Conselheiro Aguiar,
     // 1234 - Boa Viagem" saía como "Av. Conselheiro Aguiar, 1234 - Boa ." — o
     // bairro sumia. É o endereço de quem manipulou, que a fiscalização procura

@@ -9,6 +9,8 @@ import { unidadesAtivas } from '../utils/unidades';
 import { montarPixBRCode } from '../utils/pix';
 import { supabase } from '../lib/supabase';
 import { fmtData, isoLocal } from '../utils/formatters';
+import { useLocation } from 'react-router-dom';
+import { SecaoUnidades, SecaoContas, SecaoCozinhaPro } from '../components/PlanoExtras';
 
 const WPP_NUMERO = '5581998184489';
 const PIX_CHAVE  = import.meta.env.VITE_PIX_CHAVE  || '';
@@ -82,6 +84,13 @@ export default function Pagamento() {
   const { unidades, recarregarUnidades } = useApp();
   useEffect(() => { recarregarUnidades(); }, [recarregarUnidades]);
   const extras = unidadesAtivas(unidades).length;
+
+  // '/pagamento#unidades' (do cartão Unidades e do Contas da equipe): rola até a seção
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash) return;
+    requestAnimationFrame(() => document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }, [hash]);
 
   // ⚠️ ENCARGO DE ATRASO (M45): só existe para quem tem contrato parcelado e
   // só depois de a Aurum lançar pelo painel. Vem de uma RPC que lê SÓ o
@@ -166,7 +175,7 @@ export default function Pagamento() {
     // dentro. No plano Etiquetas não existe Administração: rotular assim
     // mandaria o cliente procurar uma área que a conta dele não tem, e ainda
     // tiraria a barra, deixando a tela sem saída.
-    <Layout title="Assinatura" area={prod.id === 'etiquetas' ? 'estoque' : 'admin'}>
+    <Layout title="Planos e pagamento" area={prod.id === 'etiquetas' ? 'estoque' : 'admin'}>
       {/* Situação atual */}
       <div className={`rounded-2xl p-5 mb-6 flex items-center gap-4 ${st.tipo === 'vencido' || st.tipo === 'atraso' ? 'bg-red-700' : 'bg-polo-navy'}`}>
         <div className="w-14 h-14 bg-polo-gold/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">
@@ -396,6 +405,14 @@ export default function Pagamento() {
         <p>Escolha o plano e pague por Pix. Depois toque em <strong>“Já paguei”</strong> e
         mande o comprovante pelo WhatsApp. A equipe Aurum confirma o pagamento e ativa a sua
         assinatura em até 24h úteis — você recebe a confirmação pelo WhatsApp.</p>
+      </div>
+
+      {/* ⚠️ O QUE A CONTA PODE TER A MAIS (27/09/2026): unidades, contas e o
+          Pro saíram da Administração e moram aqui, junto do dinheiro. */}
+      <div className="mt-5">
+        <SecaoUnidades />
+        <SecaoContas />
+        <SecaoCozinhaPro />
       </div>
 
       {linkIndicacao && (
