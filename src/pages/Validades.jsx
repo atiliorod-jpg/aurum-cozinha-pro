@@ -5,7 +5,8 @@ import { useUI } from '../store/UIContext';
 import { fmtData, fmtNum, hoje } from '../utils/formatters';
 import { addDias, diasAte } from '../utils/datas';
 import { calcLotes } from '../utils/lotes';
-import { STATUS_ETIQUETA, statusEtiqueta } from '../utils/etiquetas';
+import { STATUS_ETIQUETA, statusEtiqueta, quantoSomaNaContagem } from '../utils/etiquetas';
+import { useNavigate } from 'react-router-dom';
 import { temRecurso } from '../utils/modulos';
 import { produtoTem, produtoAtivo } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
@@ -29,6 +30,7 @@ const FILTROS = [
  */
 export default function Validades() {
   const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, mudarStatusEtiqueta, modulo } = useApp();
+  const navigate = useNavigate();
   const { toast, confirm } = useUI();
   const { sessao, impersonando } = useAuth();
   const [filtro, setFiltro] = useState('7d');
@@ -95,6 +97,19 @@ export default function Validades() {
     // só a situação desta etiqueta vai ao banco (M49)
     mudarStatusEtiqueta(etq.id, status);
     toast(`Etiqueta marcada como ${rotulo}.`, 'sucesso');
+    // ⚠️ DESCARTADO É PERDA (28/09/2026): a tela parava aqui e a perda nunca
+    // entrava no estoque nem no custo — a pessoa teria de saber que precisava
+    // ir a Registrar e digitar tudo de novo. Agora oferece, já preenchida.
+    if (status === 'descartada' && etq.produtoId && temRecurso(modulo, 'perdas')) {
+      const prod = produtos.find(p => p.id === etq.produtoId);
+      const qtd = prod ? quantoSomaNaContagem(etq.medida, prod.unidade) : null;
+      const quer = await confirm({
+        titulo: 'Registrar a perda?',
+        mensagem: `${etq.nome}${qtd ? ` (${fmtNum(qtd)} ${prod.unidade})` : ''} vencido. Registrar a perda tira do estoque e entra no relatório de perdas.`,
+        confirmar: 'Registrar a perda',
+      });
+      if (quer) navigate('/aparas', { state: { perda: { produtoId: etq.produtoId, quantidade: qtd ? String(qtd) : '', motivo: 'V' } } });
+    }
   };
 
   // contraste de 4,5:1 (antes laranja-600 em 11 px, o aviso mais importante com a cor mais fraca)

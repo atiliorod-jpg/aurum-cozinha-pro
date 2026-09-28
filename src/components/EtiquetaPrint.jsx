@@ -11,6 +11,7 @@ import ResponsavelSelect from './ResponsavelSelect';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
 import Aviso from './Aviso';
+import { linkSuporte } from '../utils/suporte';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId,
          DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo,
          diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura,
@@ -591,6 +592,8 @@ export default function EtiquetaPrint() {
   // Guarda o PEDIDO de etiquetas que a gerou, não um sim/não: fechou e abriu
   // outro, a pergunta some sozinha.
   const [perguntaPara, setPerguntaPara] = useState(null);
+  // respondeu "Não": a janela mostra o que conferir (preso ao mesmo pedido)
+  const [naoSaiuPara, setNaoSaiuPara] = useState(null);
 
   if (!etiquetaState) return null;
 
@@ -836,7 +839,10 @@ export default function EtiquetaPrint() {
   const perguntaPapel = !!etiquetaState && perguntaPara === etiquetaState;
   const responderPapel = (saiu) => {
     setPerguntaPara(null);
-    if (!saiu) return;
+    // ⚠️ "NÃO" SUMIA SEM DIZER NADA (28/09/2026): a janela voltava ao estado
+    // de antes e a pessoa ficava sem saber o que fazer. Agora diz o que
+    // conferir e oferece o suporte.
+    if (!saiu) { setNaoSaiuPara(etiquetaState); return; }
     // Aqui cada cópia é uma etiqueta desenhada por conta própria: com o QR
     // ligado, cada uma leva o SEU código impresso — então são N linhas. Com o
     // QR desligado não há código no papel, e o lote vira uma linha só.
@@ -1262,6 +1268,13 @@ export default function EtiquetaPrint() {
             </div>
           )}
 
+          {naoSaiuPara === etiquetaState && !perguntaPapel && (
+            <Aviso tom="atencao">
+              Confira se a impressora do Windows está com o papel em 60 × 50 mm e tente de novo.{' '}
+              <a href={linkSuporte('Olá! A etiqueta não sai pela impressora do computador.')} target="_blank" rel="noopener noreferrer"
+                className="font-bold underline underline-offset-2">Falar com o suporte</a>
+            </Aviso>
+          )}
           {perguntaPapel ? (
             <div className="border-2 border-polo-navy rounded-xl bg-polo-beige p-3 space-y-2" aria-live="polite">
               {/* Texto do dono (10/09): curto e direto, sem explicação embaixo. */}

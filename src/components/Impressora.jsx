@@ -12,6 +12,7 @@ import { textoDoDiagnostico } from '../utils/diagnostico';
 import { produtoAtivo, soEtiquetas } from '../utils/produto';
 import { temUnidadesExtras, nomeDaUnidade } from '../utils/unidades';
 import { hoje } from '../utils/formatters';
+import { linkSuporte } from '../utils/suporte';
 
 // =====================================================================
 //  IMPRESSORA À VISTA (pedido do dono, 23/09/2026)
@@ -217,8 +218,16 @@ export function CartaoImpressora() {
           Copiar diagnóstico para o suporte
         </button>
         <p className="text-[11px] text-gray-600 mt-1 px-1">
-          Junta o que o suporte precisa saber (aparelho, versão do app, Bluetooth). Cole na conversa pelo WhatsApp.
+          Junta o que o suporte precisa saber (aparelho, versão do app, Bluetooth) e abre o WhatsApp do suporte: é só colar.
         </p>
+        {diagnostico && (
+          <a href={linkSuporte(`Olá! Preciso de ajuda com a impressora.
+
+${diagnostico}`)} target="_blank" rel="noopener noreferrer"
+            className="mt-2 flex items-center justify-center min-h-11 rounded-xl bg-green-700 text-white text-sm font-bold">
+            Enviar ao suporte pelo WhatsApp
+          </a>
+        )}
       </div>
       {diagnostico && (
         <textarea readOnly value={diagnostico} rows={8} aria-label="Diagnóstico para o suporte"

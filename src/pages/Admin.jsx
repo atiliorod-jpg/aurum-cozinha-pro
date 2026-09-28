@@ -712,10 +712,20 @@ A lista própria dela fica guardada: se você religar, ela volta como estava.`,
   // sozinho por 14 dias; hoje é esta data que abre a porta. `null` fecha.
   const darTeste = async (r, dias) => {
     const ate = dias === null ? null : daquiADias(dias);
+    // ⚠️ UM TOQUE ERRADO ENCURTAVA O TESTE sem aviso (28/09/2026): 7 dias num
+    // cliente com teste até o fim do mês substituía o prazo na hora.
+    if (ate && r.teste_ate && new Date(ate) < new Date(r.teste_ate)) {
+      const ok = await confirm({
+        titulo: 'Encurtar o teste?',
+        mensagem: `"${r.nome}" tem teste até ${dataBR(r.teste_ate)}. Com ${plural(dias, 'dia', 'dias')}, passa a acabar em ${dataBR(ate)}.`,
+        confirmar: 'Encurtar', perigo: true,
+      });
+      if (!ok) return;
+    }
     const { error } = await supabase.rpc('definir_teste', { p_restaurante: r.id, p_ate: ate });
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, teste_ate: ate } : x));
-    toast(ate ? `${r.nome}: teste liberado por ${dias} dia(s).` : `${r.nome}: teste zerado.`, 'sucesso');
+    toast(ate ? `${r.nome}: teste liberado por ${plural(dias, 'dia', 'dias')}.` : `${r.nome}: teste zerado.`, 'sucesso');
   };
 
   // ⚠️ DIAS À ESCOLHA (pedido do dono, 15/09/2026): o painel só oferecia 7, 14

@@ -142,6 +142,10 @@ export default function Saidas() {
                        disabled:opacity-40 active:scale-95 transition-transform">
             Registrar Saída
           </button>
+          {/* o botão apagado diz o que falta (28/09/2026) */}
+          {!itensPreenchidos.length && !salvando && (
+            <p className="text-xs text-gray-600 -mt-2" role="status">Para registrar, digite a quantidade de pelo menos um item abaixo.</p>
+          )}
 
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div>

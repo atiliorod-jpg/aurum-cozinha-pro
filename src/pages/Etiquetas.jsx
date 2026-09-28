@@ -16,6 +16,8 @@ import { useAuth } from '../store/AuthContext';
 import { casaBusca } from '../utils/busca';
 import { pode } from '../utils/permissoes';
 import Esqueleto from '../components/Esqueleto';
+import { linkSuporte } from '../utils/suporte';
+import Icon from '../components/Icons';
 
 // Guia da impressora — duas situações, passo a passo curto. Imprimível.
 //
@@ -72,8 +74,12 @@ function GuiaImpressora() {
         <p className="text-xs mt-1 text-white/90">
           O sistema trabalha com a <strong>Tomate MDK-022</strong> e o rolo de{' '}
           <strong>60 × 50 mm</strong>, já acertados um com o outro. A Aurum fornece a impressora
-          e os refis — peça pelo WhatsApp do suporte.
+          e os refis.
         </p>
+        <a href={linkSuporte('Olá! Quero refil de etiquetas 60 × 50 mm.')} target="_blank" rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1.5 min-h-11 px-4 rounded-lg bg-polo-gold text-polo-navy text-xs font-bold">
+          <Icon name="suporte" size={16} /> Pedir refil pelo WhatsApp
+        </a>
         <p className="text-xs mt-2 text-white/80">
           Comprando por fora, peça 60 × 50 mm em BOPP: o adesivo comum solta na câmara fria e
           borra na umidade.
@@ -122,7 +128,11 @@ function GuiaImpressora() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
         <p className="font-bold mb-0.5">Precisa de ajuda para configurar?</p>
-        <p>Chame o suporte Aurum pelo WhatsApp — configuramos junto com você na instalação.</p>
+        <p>Configuramos junto com você na instalação.</p>
+        <a href={linkSuporte('Olá! Preciso de ajuda para configurar a impressora de etiquetas.')} target="_blank" rel="noopener noreferrer"
+          className="mt-2 inline-flex items-center gap-1.5 min-h-11 px-4 rounded-lg bg-blue-700 text-white font-bold">
+          <Icon name="suporte" size={16} /> Falar com o suporte no WhatsApp
+        </a>
       </div>
     </div>
   );

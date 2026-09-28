@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
@@ -34,7 +35,9 @@ export default function AparasPerdas() {
   // Módulo sem apara (seco/finalização) abre direto em PERDA e nem mostra o
   // seletor — apara é sobra de limpeza/porcionamento, que só existe na produção.
   const temApara = temRecurso(modulo, 'aparas');
-  const [tipo, setTipo] = useState(temApara ? 'apara' : 'perda'); // 'apara' | 'perda'
+  // veio de Validades ("descartada"): abre a perda já preenchida
+  const perdaSugerida = useLocation().state?.perda || null;
+  const [tipo, setTipo] = useState(perdaSugerida ? 'perda' : temApara ? 'apara' : 'perda'); // 'apara' | 'perda'
   const [tab, setTab] = useState('novo');
 
   const [formApara, setFormApara] = useState({
@@ -42,6 +45,10 @@ export default function AparasPerdas() {
   });
   const [formPerda, setFormPerda] = useState({
     data: hoje(), turno: prefs.turno || 'Manhã', origem: 'estoque', produtoId: '', compraId: '', item: '', quantidade: '', unidade: 'kg', motivo: 'S', motivoOutro: '', responsavel: prefs.responsavel || '',
+    ...(perdaSugerida ? (() => {
+      const p = produtos.find(x => x.id === perdaSugerida.produtoId);
+      return p ? { produtoId: p.id, item: p.nome, unidade: p.unidade, quantidade: perdaSugerida.quantidade || '', motivo: perdaSugerida.motivo || 'V' } : {};
+    })() : {}),
   });
 
   const setA = (k, v) => setFormApara(prev => ({ ...prev, [k]: v }));
@@ -119,6 +126,12 @@ export default function AparasPerdas() {
     let qtdPerda = parseFloat(formPerda.quantidade);
     let unidPerda = formPerda.unidade;
     if (unidPerda === 'g') { qtdPerda = qtdPerda / 1000; unidPerda = 'kg'; }
+    // com item do estoque, a perda é SEMPRE na unidade dele (ver o seletor)
+    const prodDaPerda = formPerda.origem === 'estoque' ? produtos.find(p => p.id === formPerda.produtoId) : null;
+    if (prodDaPerda?.unidade && unidPerda !== prodDaPerda.unidade) {
+      toast(`${prodDaPerda.nome} é controlado em ${prodDaPerda.unidade}: registre a perda nessa unidade.`, 'aviso');
+      setSalvando(false); return;
+    }
     // Perda de ESTOQUE abate igual a uma saída, então precisa da mesma trava:
     // digitar 10 no lugar de 1,0 kg levava o estoque a negativo em silêncio,
     // com toast verde de sucesso, e só aparecia no inventário da semana seguinte.
@@ -167,6 +180,22 @@ export default function AparasPerdas() {
     });
   };
 
+  // ⚠️ O BOTÃO APAGADO DIZ O QUE FALTA (28/09/2026, achado da análise)
+  const faltaApara = !formApara.item.trim() ? 'Para registrar, escolha ou escreva o item.'
+    : !formApara.quantidade ? 'Para registrar, digite a quantidade.'
+    : (formApara.destino === 'OUT' && !formApara.destinoOutro.trim()) ? 'Para registrar, escreva o destino.' : '';
+  const faltaPerda = (formPerda.origem === 'estoque' && !formPerda.produtoId) ? 'Para registrar, escolha o item do estoque.'
+    : !formPerda.item.trim() ? 'Para registrar, escreva o que foi perdido.'
+    : !formPerda.quantidade ? 'Para registrar, digite a quantidade.'
+    : (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim()) ? 'Para registrar, escreva o motivo.' : '';
+
+  // unidades aceitas na perda: a do item do estoque (e g quando ele é em kg);
+  // fora do catálogo, as de sempre
+  const prodPerda = formPerda.origem === 'estoque' ? produtos.find(p => p.id === formPerda.produtoId) : null;
+  const unidadesDaPerda = prodPerda?.unidade
+    ? (prodPerda.unidade === 'kg' ? ['kg', 'g'] : [prodPerda.unidade])
+    : ['kg', 'unid', 'g'];
+
   return (
     <Layout title="Aparas & Perdas">
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
@@ -204,6 +233,7 @@ export default function AparasPerdas() {
                 disabled={salvando || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}>
                 Registrar Apara
               </Botao>
+              {!salvando && faltaApara && <p className="text-xs text-gray-600 -mt-2" role="status">{faltaApara}</p>}
 
               <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900">
                 Sobra aproveitável da limpeza. Não abate o estoque.
@@ -303,6 +333,7 @@ export default function AparasPerdas() {
                 disabled={salvando || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}>
                 Registrar Perda
               </Botao>
+              {!salvando && faltaPerda && <p className="text-xs text-gray-600 -mt-2" role="status">{faltaPerda}</p>}
 
               {/* O bloco saiu inteiro: citava "POP-07" (jargão de consultoria,
                   sem significado para quem opera) e explicava em três frases o
@@ -348,11 +379,13 @@ export default function AparasPerdas() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Unidade</label>
+                    {/* ⚠️ PERDA DO ESTOQUE NA UNIDADE DO ITEM (28/09/2026): o seletor
+                        livre deixava "2 kg" num item em unidades, e o estoque
+                        abatia 2 unidades. Com item escolhido, só a unidade dele
+                        (e g, que vira kg, quando ele é em kg). */}
                     <select aria-label="Unidade" value={formPerda.unidade} onChange={e => setP('unidade', e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-                      <option value="kg">kg</option>
-                      <option value="unid">unid</option>
-                      <option value="g">g</option>
+                      className="w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                      {unidadesDaPerda.map(u => <option key={u} value={u}>{u}</option>)}
                     </select>
                   </div>
                 </div>

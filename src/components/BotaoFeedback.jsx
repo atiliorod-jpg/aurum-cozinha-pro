@@ -158,7 +158,12 @@ export default function BotaoFeedback() {
     if (sessao?.demo) { toast('Demonstração: nada foi enviado de verdade.', 'aviso'); limpar(); fecharAjuda(); return; }
 
     setEnviando(true);
-    const contexto = `${sessao?.cargo || '?'} · ${navegador}`;
+    // ⚠️ A TELA E A VERSÃO VÃO JUNTO (28/09/2026): o formulário pedia "em que
+    // tela aconteceu" ao cozinheiro, mas o app sabe — e a versão diz se o
+    // aparelho está preso numa versão antiga (o caso do endereço velho).
+    const tela = typeof window !== 'undefined' ? window.location.pathname : '';
+    const versao = import.meta.env.VITE_VERSAO_APP || 'desenvolvimento';
+    const contexto = `${sessao?.cargo || '?'} · ${navegador} · tela ${tela} · versão ${versao}`.slice(0, 300);
     const { error } = await supabase.rpc('enviar_feedback', { p_tipo: tipo, p_dados: dados, p_contexto: contexto });
     setEnviando(false);
     if (error) { toast('Não consegui enviar agora. Tente de novo em instantes.', 'erro'); return; }

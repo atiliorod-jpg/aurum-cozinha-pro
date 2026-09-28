@@ -9,6 +9,7 @@ import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
 import LeitorQR from '../components/LeitorQR';
 import { lerLoteIdDoQR, quantoSomaNaContagem } from '../utils/etiquetas';
 import { cacheGet, cacheSet } from '../lib/cache';
+import { casaBusca } from '../utils/busca';
 
 export default function Inventario() {
   const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref, etiquetasImpressas, permissoes, modulo, rid } = useApp();
@@ -34,7 +35,11 @@ export default function Inventario() {
     const t = setTimeout(() => cacheSet(rid, chaveRascunho, contagem), 500);
     return () => clearTimeout(t);
   }, [contagem, rid, chaveRascunho]);
-  const [catAtiva, setCatAtiva] = useState(categorias[0]);
+  // ⚠️ ABRE EM "TODOS", COM BUSCA (28/09/2026): abria na primeira categoria do
+  // catálogo (que podia estar vazia) e não tinha busca — contar 80 itens era
+  // caçar aba por aba. '' = todas.
+  const [catAtiva, setCatAtiva] = useState('');
+  const [buscaCont, setBuscaCont] = useState('');
   const [tab, setTab] = useState('novo');
   const produtosAtivos = produtos.filter(p => p.ativo);
 
@@ -187,18 +192,21 @@ export default function Inventario() {
             )}
           </div>
 
+          <input type="search" value={buscaCont} onChange={e => setBuscaCont(e.target.value)}
+            placeholder="Buscar item" aria-label="Buscar item para contar"
+            className="w-full min-h-11 bg-white border border-gray-200 rounded-xl px-4 text-base" />
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {categorias.map(c => (
-              <button key={c} onClick={() => setCatAtiva(c)}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
-                  ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                {c}
+            {['', ...categorias.filter(c => produtosAtivos.some(p => p.categoria === c))].map(c => (
+              <button key={c || 'todos'} onClick={() => setCatAtiva(c)} aria-pressed={catAtiva === c}
+                className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
+                  ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-700 border border-gray-200'}`}>
+                {c || 'Todos'}
               </button>
             ))}
           </div>
 
           <div className="bg-white rounded-xl overflow-hidden">
-            {produtosAtivos.filter(p => p.categoria === catAtiva).map((p, i, arr) => {
+            {produtosAtivos.filter(p => (!catAtiva || p.categoria === catAtiva) && casaBusca(buscaCont, p.nome)).map((p, i, arr) => {
               const calc = estoque[p.id] ?? 0;
               const cont = contagem[p.id];
               const diff = cont !== '' && cont != null && !isNaN(parseFloat(cont)) ? parseFloat(cont) - calc : null;
