@@ -115,3 +115,29 @@ test('plano Pro: imprimir, buscar sem acento e ver na aba Impressas, como no Eti
   await abrirTela(page, '/validades');
   expect(erros, erros.join('\n')).toEqual([]);
 });
+
+// Estoque Seco (28/09/2026): o pacote ABERTO ganha etiqueta de abertura, com
+// temperatura ambiente como padrão — a única coisa do Etiquetas que o Pro
+// ainda não fazia.
+test('plano Pro, Estoque Seco: etiqueta de abertura, ambiente como padrão, e vai para Impressas', async ({ page }) => {
+  const erros = [];
+  page.on('pageerror', (e) => erros.push(`erro de JavaScript: ${e.message}`));
+  await page.addInitScript(() => { window.open = () => null; window.print = () => {}; });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Ver demonstração' }).click();
+  await page.getByPlaceholder('Seu nome').fill('Robô de teste');
+  await page.getByPlaceholder('WhatsApp com DDD').fill('81999999999');
+  await page.getByRole('button', { name: /Aurum Cozinha Pro/ }).click();
+  await page.getByRole('button', { name: /^Estoque Seco/ }).click();
+  await abrirTela(page, '/etiquetas');
+  await page.getByRole('button', { name: 'Imprimir etiqueta de Extrato de tomate (340g)' }).click();
+  const janela = page.getByRole('dialog');
+  await expect(janela.getByText('Data de abertura').first()).toBeVisible();
+  await expect(janela.getByRole('combobox').filter({ hasText: /ambiente/i }).first()).toHaveValue('ambiente');
+  await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
+  await janela.getByRole('button', { name: 'Sim', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await abrirTela(page, '/impressas');
+  await expect(page.getByText('Extrato de tomate (340g)').first()).toBeVisible();
+  expect(erros, erros.join('\n')).toEqual([]);
+});

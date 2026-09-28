@@ -7,7 +7,7 @@ import { useApp } from '../store/AppContext';
 import { agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
-import { temRecurso } from '../utils/modulos';
+import { etiquetaComArmazenamento, produtoParaEtiqueta } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
 import { armazenamentoInicial } from '../utils/etiquetas';
 import { medidaDoProduto, maisUsados } from '../utils/etiquetas';
@@ -193,7 +193,14 @@ export default function Etiquetas() {
     return agruparPorCategoria(ordenados, ordemCategorias);
   }, [produtosVisiveis, ordemCategorias]);
 
-  const imprimirProduto = (p) => abrirEtiquetas([{
+  const imprimirProduto = (original) => {
+    // no Estoque Seco a etiqueta é de ABERTURA e o padrão é o ambiente (se a
+    // casa ainda usa esse estado); nas outras cozinhas o item vai como está
+    const ajustado = produtoParaEtiqueta(modulo, original);
+    const p = ajustado.armazenamentoPadrao && !armazenamentos.some(a => (a?.id ?? a) === ajustado.armazenamentoPadrao)
+      ? { ...ajustado, armazenamentoPadrao: original.armazenamentoPadrao }
+      : ajustado;
+    return abrirEtiquetas([{
     produtoId: p.id,
     nome: p.nome,
     // 'abertura' vem do proprio item (sal, oleo, queijo: o que a cozinha
@@ -211,7 +218,7 @@ export default function Etiquetas() {
     // cada item no meio do serviço é o atrito que faz largar o app.
     // `armazenamentoInicial` só aceita a memória se o estado ainda existe e
     // tem prazo; senão cai no cadastro, como sempre foi.
-    armazenamento: temRecurso(modulo, 'armazenamento')
+    armazenamento: etiquetaComArmazenamento(modulo)
       ? armazenamentoInicial(p, prefs.ultimoArmazenamento, armazenamentos, prazosDoProduto(p))
       : null,
     // Prazo por estado, no formato novo. Os dois campos antigos seguem indo
@@ -223,6 +230,7 @@ export default function Etiquetas() {
     responsavel: prefs.responsavel || '',
     quantidade: 1,
   }]);
+  };
 
   return (
     <Layout title={soEtiq ? "Imprimir etiqueta" : "Etiquetas"}>

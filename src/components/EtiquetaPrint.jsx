@@ -22,7 +22,7 @@ import { bitmapsDoNome } from '../lib/nomeEmBitmap';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
 import { hoje, fmtHora } from '../utils/formatters';
 import { idDeImpressao } from '../utils/relatorioEtiquetas';
-import { temRecurso } from '../utils/modulos';
+import { etiquetaComArmazenamento } from '../utils/modulos';
 import { produtoAtivo, produtoTem } from '../utils/produto';
 
 // Tamanho impresso do QR, calculado a partir do NÚMERO DE MÓDULOS do código.
@@ -282,7 +282,8 @@ export default function EtiquetaPrint() {
   // chegando) ou com a unidade arquivada, sairia o CNPJ da principal.
   const bloqueioUnidade = bloqueioDaFixa(unidadeFixa, unidades, unidadeAtual?.id || null);
   // despensa não tem congelado/resfriado: a etiqueta do seco não pergunta isso
-  const comArmazenamento = temRecurso(modulo, 'armazenamento');
+  // câmara fria — ou o Estoque Seco depois de aberto (ambiente ou geladeira)
+  const comArmazenamento = etiquetaComArmazenamento(modulo);
   const config = configEtiqueta(prefs);
   // Estados de armazenamento configuráveis (Configurações → Sistema).
   const armazenamentos = armazenamentosAtivos(prefs);

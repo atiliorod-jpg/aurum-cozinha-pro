@@ -19,7 +19,7 @@ import { registrarFalha, ressuscitar, contarVivos, contarMortos, MAX_TENTATIVAS_
 import { conciliarAuditoria } from '../auditoria';
 import { listarEstoques, estoquesAtivos, acharEstoque, salvarEstoque, moduloUtilizavel } from '../instancias';
 import { limparCacheLocal, pendenciasNaoSincronizadas, outboxUid } from '../../lib/cache';
-import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId } from '../modulos';
+import { MODULO_PADRAO, chaveModulo, tipoModulo, lerTipo, temRecurso, ehTipoGlobal, RECURSOS_MODULO, mesclarFixos, catalogoDe, tipoBase, ehIdInstancia, gerarIdInstancia, moduloValido, moduloPorId, etiquetaComArmazenamento, produtoParaEtiqueta } from '../modulos';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos } from '../documentos';
 import { traduzErroAuth } from '../erros';
 
@@ -255,10 +255,25 @@ describe('módulos — namespacing sem migração', () => {
     expect(temRecurso('producao', 'validadeDoProdutor')).toBe(false);
   });
 
-  it('seco não gera etiqueta: o mantimento chega lacrado e já etiquetado', () => {
-    expect(temRecurso('seco', 'etiquetas')).toBe(false);
+  // 28/09/2026: o Seco passou a imprimir a etiqueta do que foi ABERTO (era a
+  // única coisa do plano Etiquetas que o Pro não fazia). A entrada continua sem
+  // armazenamento — só a ETIQUETA pergunta onde o aberto fica.
+  it('seco imprime a etiqueta de abertura, com ambiente como padrão; a entrada segue sem armazenamento', () => {
+    expect(temRecurso('seco', 'etiquetas')).toBe(true);
     expect(temRecurso('producao', 'etiquetas')).toBe(true);
     expect(temRecurso('finalizacao', 'etiquetas')).toBe(true);
+    expect(temRecurso('seco', 'armazenamento')).toBe(false);
+    expect(etiquetaComArmazenamento('seco')).toBe(true);
+    expect(etiquetaComArmazenamento('seco#ab12')).toBe(true);
+    expect(etiquetaComArmazenamento('producao')).toBe(true);
+    const azeite = produtoParaEtiqueta('seco', { id: 'az', nome: 'Azeite' });
+    expect(azeite).toMatchObject({ tipoData: 'abertura', armazenamentoPadrao: 'ambiente' });
+    // o que o cadastro já diz, vale
+    expect(produtoParaEtiqueta('seco', { id: 'l', tipoData: 'fabricacao', armazenamentoPadrao: 'refrigerado' }))
+      .toMatchObject({ tipoData: 'fabricacao', armazenamentoPadrao: 'refrigerado' });
+    // na Produção o item vai como está
+    const file = { id: 'f', nome: 'Filé' };
+    expect(produtoParaEtiqueta('producao', file)).toBe(file);
   });
 
   it('a auditoria fica fora do namespace (é do restaurante, não do módulo)', () => {

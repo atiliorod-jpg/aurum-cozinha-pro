@@ -165,6 +165,7 @@ export const RECURSOS_MODULO = {
     fecharTurno: false, perdas: true,
     // câmara fria: o item entra congelado OU resfriado, e cada um tem prazo próprio
     armazenamento: true,
+    armazenamentoNaEtiqueta: false, etiquetaDeAbertura: false, // já tem `armazenamento`
   },
   seco: {
     // ⚠️ No seco a COMPRA JÁ É A ENTRADA. Você compra 12 pacotes de arroz e eles
@@ -176,13 +177,20 @@ export const RECURSOS_MODULO = {
     saidas: true, producao: false,
     aparas: false, inventario: true, receitas: false, listaCompras: true,
     fecharTurno: false, perdas: true,
-    // Etiqueta não: o mantimento chega LACRADO e já etiquetado pelo fabricante.
-    // Etiquetar o que já tem etiqueta é trabalho sem retorno. A tela de
-    // Validades continua, lendo a data impressa que foi digitada na entrada.
-    etiquetas: false,
-    // despensa é temperatura ambiente: não existe "congelado/resfriado" aqui, e
-    // a validade é a DO PRODUTOR, digitada na entrada — não um prazo calculado.
+    // ⚠️ ETIQUETA SIM, PARA O QUE FOI ABERTO (28/09/2026). Antes era `false`:
+    // o mantimento chega lacrado e já etiquetado pelo fabricante. Mas o pacote
+    // ABERTO (farinha, azeite, leite, molho de tomate) precisa da etiqueta com
+    // a data de abertura e o novo prazo — a vigilância cobra, e o plano
+    // Etiquetas sempre imprimiu isso. Era a única coisa do Etiquetas que o Pro
+    // não fazia (regra do dono: o Etiquetas é um recorte do Pro).
+    etiquetas: true,
+    // A etiqueta do Seco é de ABERTURA e pergunta onde o item fica depois de
+    // aberto (ambiente ou geladeira) — `armazenamentoNaEtiqueta`. A ENTRADA
+    // continua sem armazenamento: despensa é temperatura ambiente, e a
+    // validade do lacrado é a DO PRODUTOR, digitada na entrada.
     armazenamento: false,
+    armazenamentoNaEtiqueta: true,
+    etiquetaDeAbertura: true,
     validadeDoProdutor: true,
   },
   finalizacao: {
@@ -196,6 +204,7 @@ export const RECURSOS_MODULO = {
     // automático + conta a sobra no fim do turno + registra o que estragou.
     inventario: false, fecharTurno: true, perdas: true,
     etiquetas: true, armazenamento: true,
+    armazenamentoNaEtiqueta: false, etiquetaDeAbertura: false,
   },
 };
 
@@ -205,6 +214,21 @@ export const RECURSOS_MODULO = {
 // finalização, apareceu na Produção e no Estoque Seco.
 export const temRecurso = (modulo, recurso) =>
   (RECURSOS_MODULO[tipoBase(modulo)] || RECURSOS_MODULO[MODULO_PADRAO])[recurso] === true;
+
+/** A ETIQUETA desta cozinha pergunta o armazenamento? (câmara fria, ou o Seco depois de aberto) */
+export const etiquetaComArmazenamento = (modulo) =>
+  temRecurso(modulo, 'armazenamento') || temRecurso(modulo, 'armazenamentoNaEtiqueta');
+
+/**
+ * Onde o item fica por padrão na etiqueta. No Seco, o aberto fica em
+ * TEMPERATURA AMBIENTE — sem isto caía no primeiro da lista (congelado) e o
+ * azeite aberto sairia com "CONGELADO" impresso.
+ */
+export const produtoParaEtiqueta = (modulo, p) => (
+  temRecurso(modulo, 'etiquetaDeAbertura')
+    ? { ...p, tipoData: p?.tipoData || 'abertura', armazenamentoPadrao: p?.armazenamentoPadrao || 'ambiente' }
+    : p
+);
 
 /**
  * Chave de catálogo/cache com namespace do módulo.
