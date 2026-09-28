@@ -8,7 +8,7 @@ import { conciliarAuditoria } from '../utils/auditoria';
 import { calcEstoquePuro } from '../utils/estoque';
 import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
-import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids } from '../lib/cache';
+import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids, definirUsuarioDaFila } from '../lib/cache';
 import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
@@ -27,6 +27,7 @@ import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEnt
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 import { armazenamentosAtivos, comEspelhoDePrazos } from '../utils/armazenamento';
 import { hoje } from '../utils/formatters';
+import { pode } from '../utils/permissoes';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
 const CAT = {
@@ -151,6 +152,9 @@ export function AppProvider({ children }) {
   const [etiquetasAvulsas, setEtiquetasAvulsasRaw] = useState(CAT.etiquetasAvulsas);
   const [etiquetasImpressas, setEtiquetasImpressasRaw] = useState(CAT.etiquetasImpressas);
   const [permissoes, setPermissoesRaw] = useState(CAT.permissoes);
+  // quem pode gravar o catálogo (a mesma regra que o banco confere na M56)
+  const podeCatalogoRef = useRef(false);
+  podeCatalogoRef.current = !soLeitura && !!sessao && pode(sessao, permissoes, 'gerenciarProdutos'); // eslint-disable-line react-hooks/refs
   const [precos,      setPrecosRaw]      = useState(CAT.precos);
   const [estoquesDoc, setEstoquesDocRaw] = useState(CAT.estoques);
   // Unidades EXTRAS da conta (M46) — a principal é a própria conta e não entra
@@ -183,6 +187,7 @@ export function AppProvider({ children }) {
   const ridRef = useRef(rid); ridRef.current = rid;
   const sessaoRef = useRef(sessao); sessaoRef.current = sessao;
   const soLeituraRef = useRef(soLeitura); soLeituraRef.current = soLeitura;
+  definirUsuarioDaFila(sessao?.demo ? null : sessao?.usuarioId);
   // o suporte da Aurum não guarda os lançamentos do cliente no próprio aparelho (M53)
   const guardaLocalRef = useRef(!impersonando); guardaLocalRef.current = !impersonando;
   const flushandoRef = useRef(false); // impede dois flushes simultâneos (mount + 'online')
@@ -833,6 +838,7 @@ export function AppProvider({ children }) {
   const gramigrRef = useRef(false);
   useEffect(() => {
     if (gramigrRef.current || prefs.gramaturasMigradas) { gramigrRef.current = true; return; }
+    if (!podeCatalogoRef.current) return; // o banco só aceita de quem gerencia itens (M56)
     if (!fichas.length || !produtos.length) return;
     gramigrRef.current = true;
     let mudou = false;
@@ -894,6 +900,7 @@ export function AppProvider({ children }) {
   const avulsasRef = useRef(false);
   useEffect(() => {
     if (avulsasRef.current || prefs.avulsasMigradas) { avulsasRef.current = true; return; }
+    if (!podeCatalogoRef.current) return; // o banco só aceita de quem gerencia itens (M56)
     if (!etiquetasAvulsas.length) return;
     avulsasRef.current = true;
 
@@ -935,6 +942,9 @@ export function AppProvider({ children }) {
   useEffect(() => { saidasRef.current = saidasParaConsumo; }, [saidasParaConsumo]);
   useEffect(() => {
     if (!prefs.autoMinMax) return;
+    // ⚠️ M56: o banco só grava o catálogo de quem gerencia itens. O aparelho da
+    // cozinha deixa o recálculo para o da gerência (senão a fila acumularia recusas).
+    if (!podeCatalogoRef.current) return;
     const t = setTimeout(() => {
       const prods = produtosAutoRef.current;
       if (!prods) return;
@@ -1139,6 +1149,9 @@ export function AppProvider({ children }) {
         // Itens mortos (falharam MAX vezes) não são retentados no loop normal;
         // ficam na fila para a lista de erro permanente / retry manual.
         if (item._morto) continue;
+        // ⚠️ auditoria de OUTRA pessoa (saiu sem internet): espera ela voltar —
+        // a função do banco assina com quem estiver logado agora (28/09/2026)
+        if (item.kind === 'auditoria' && item._usuario && item._usuario !== sessaoRef.current?.usuarioId) continue;
         try {
           let error = null;
           if (item.kind === 'registro' && item.op === 'insert')

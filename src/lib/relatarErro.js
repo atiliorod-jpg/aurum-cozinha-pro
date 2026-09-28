@@ -44,6 +44,10 @@ async function enviar(e) {
 /**
  * Manda um erro para o painel. `tipo`: 'tela' | 'js' | 'promessa' | 'fila'.
  */
+let usuarioAtual = null;
+/** Quem está no aparelho (AuthContext): erro guardado sem internet só sobe na conta de quem o viu. */
+export const definirUsuarioDosErros = (id) => { usuarioAtual = id || null; };
+
 export function relatarErro({ tipo = 'js', mensagem, onde = '', tela } = {}) {
   try {
     const msg = String(mensagem || '').slice(0, 500);
@@ -60,6 +64,7 @@ export function relatarErro({ tipo = 'js', mensagem, onde = '', tela } = {}) {
       versao: import.meta.env.VITE_VERSAO_APP || 'desenvolvimento',
       navegador: typeof navigator !== 'undefined' ? navigator.userAgent : '',
       quando: new Date().toISOString(),
+      usuario: usuarioAtual,
     };
     enviar(erro).catch(() => gravarPendentes([...lerPendentes(), erro]));
   } catch { /* relatar erro nunca pode virar outro erro */ }
@@ -67,10 +72,13 @@ export function relatarErro({ tipo = 'js', mensagem, onde = '', tela } = {}) {
 
 /** Manda o que ficou guardado sem internet. Chamado ao entrar e ao voltar a internet. */
 export async function enviarPendentes() {
-  const pendentes = lerPendentes();
-  if (!pendentes.length) return;
-  gravarPendentes([]);
-  const sobra = [];
+  const todos = lerPendentes();
+  if (!todos.length) return;
+  // ⚠️ o de OUTRA pessoa fica guardado (subiria no nome de quem entrou depois)
+  const pendentes = todos.filter(e => !e.usuario || e.usuario === usuarioAtual);
+  const deOutros = todos.filter(e => e.usuario && e.usuario !== usuarioAtual);
+  gravarPendentes(deOutros);
+  const sobra = [...deOutros];
   for (const e of pendentes) {
     // a mensagem vai IGUAL: assim soma no mesmo grupo do painel
     try { await enviar(e); }

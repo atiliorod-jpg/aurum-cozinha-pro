@@ -549,7 +549,7 @@ export function CartaoContas({
 
   const trocar = async (u) => {
     const senha = (novaSenha?.valor || '').trim();
-    if (senha.length < 6) { toast('A senha precisa de ao menos 6 caracteres.', 'aviso'); return; }
+    if (senha.length < 8) { toast('A senha precisa de ao menos 8 caracteres.', 'aviso'); return; }
     setOcupado(true);
     const r = await trocarSenhaDe(u.id, senha);
     setOcupado(false);
@@ -634,7 +634,7 @@ export function CartaoContas({
               </div>
               {novaSenha?.id === u.id && (
                 <div className="mt-2 flex gap-2">
-                  <input type="text" value={novaSenha.valor} autoFocus minLength={6}
+                  <input type="text" value={novaSenha.valor} autoFocus minLength={8}
                     onChange={e => setNovaSenha({ id: u.id, valor: e.target.value })}
                     placeholder="Nova senha (mín. 6)" aria-label={`Nova senha de ${quem}`}
                     className={`${inputCls} flex-1 min-w-0`} />

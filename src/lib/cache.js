@@ -34,8 +34,14 @@ let seq = 0;
 export const outboxUid = () => `${Date.now().toString(36)}_${(seq++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 // Documento repetido substitui a cópia anterior da mesma chave — ver comItemNovo.
+// Quem está usando o aparelho agora (o AppContext avisa). Vai carimbado em cada
+// item da fila: a AUDITORIA assina com quem enviar, então o item de outra
+// pessoa espera ela voltar em vez de subir no nome de quem entrou depois.
+let usuarioDaFila = null;
+export const definirUsuarioDaFila = (id) => { usuarioDaFila = id || null; };
+
 export const outboxAdd = (rid, item) => {
-  outboxSet(rid, comItemNovo(outboxGet(rid), { ...item, _uid: outboxUid(), _enfileiradoEm: Date.now() }));
+  outboxSet(rid, comItemNovo(outboxGet(rid), { ...item, _uid: outboxUid(), _enfileiradoEm: Date.now(), _usuario: usuarioDaFila }));
 };
 
 // Garante _uid em itens antigos (enfileirados antes desta versão) — chamado

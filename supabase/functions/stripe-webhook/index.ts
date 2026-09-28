@@ -16,7 +16,8 @@
 //    SUPABASE_SERVICE_ROLE_KEY (já vem preenchido no ambiente da função)
 // =====================================================================
 import Stripe from 'https://esm.sh/stripe@17?target=deno';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// versão fixa (28/09/2026): '@2' pegava qualquer 2.x publicada, sem revisão
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', { apiVersion: '2024-06-20' });
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? '';
@@ -30,6 +31,19 @@ const supabase = createClient(
 // Se um dia oferecer semestral/anual pelo Stripe, mapear o preço → dias aqui
 // (o app tem os planos em src/utils/assinatura.js PLANOS).
 const DIAS_POR_PAGAMENTO = 31; // 1 mês + folga para o cliente não ficar bloqueado no vencimento
+// ⚠️ VALOR MÍNIMO (28/09/2026): sem isto, QUALQUER link de pagamento da mesma
+// conta Stripe (um de teste de R$ 1, por exemplo) liberava 31 dias. Defina o
+// segredo STRIPE_VALOR_MINIMO_CENTAVOS (ex.: 23000 = R$ 230,00).
+const VALOR_MINIMO = Number(Deno.env.get('STRIPE_VALOR_MINIMO_CENTAVOS') ?? '0') || 0;
+
+// ⚠️ O STRIPE REENVIA O MESMO EVENTO (timeout, falha de rede): sem esta trava,
+// cada reenvio somava mais 31 dias. O id do evento é gravado; repetido = ignora.
+async function jaProcessado(id: string) {
+  const { error } = await supabase.from('stripe_eventos').insert({ id });
+  if (!error) return false;
+  if ((error as { code?: string }).code === '23505') return true; // chave repetida
+  throw new Error('não registrou o evento: ' + error.message);
+}
 
 // Soma DIAS a partir do maior entre "agora" e o vencimento atual (renovação
 // não perde os dias que ainda restavam). Grava também o customer do Stripe
@@ -64,9 +78,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (evento.type === 'checkout.session.completed') {
+    if (evento.type === 'checkout.session.completed' || evento.type === 'checkout.session.async_payment_succeeded') {
       // Primeiro pagamento: o app enviou o id do restaurante em client_reference_id.
       const s = evento.data.object as Stripe.Checkout.Session;
+      // ⚠️ BOLETO chega aqui com payment_status 'unpaid' — o dinheiro só entra
+      // (ou não) dias depois, em async_payment_succeeded. Só libera pago.
+      if (s.payment_status !== 'paid') return new Response('aguardando pagamento', { status: 200 });
+      if (VALOR_MINIMO && (s.amount_total ?? 0) < VALOR_MINIMO) {
+        console.warn('pagamento abaixo do mínimo — não libera', s.id, s.amount_total);
+        return new Response('valor abaixo do plano', { status: 200 });
+      }
+      if (await jaProcessado(evento.id)) return new Response('repetido', { status: 200 });
       const rid = s.client_reference_id;
       if (rid) await ativarAssinatura(rid, typeof s.customer === 'string' ? s.customer : undefined);
       else console.warn('checkout sem client_reference_id — não sei qual restaurante ativar');
@@ -74,6 +96,11 @@ Deno.serve(async (req) => {
       // Renovação mensal (não o primeiro pagamento, que já veio no checkout acima).
       const inv = evento.data.object as Stripe.Invoice;
       if (inv.billing_reason === 'subscription_cycle') {
+        if (VALOR_MINIMO && (inv.amount_paid ?? 0) < VALOR_MINIMO) {
+          console.warn('renovação abaixo do mínimo — não libera', inv.id, inv.amount_paid);
+          return new Response('valor abaixo do plano', { status: 200 });
+        }
+        if (await jaProcessado(evento.id)) return new Response('repetido', { status: 200 });
         const cust = typeof inv.customer === 'string' ? inv.customer : undefined;
         if (cust) {
           const { data } = await supabase

@@ -28,10 +28,24 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 // O app é servido de outro domínio (GitHub Pages), então o navegador manda um
 // OPTIONS antes de cada chamada. Sem responder a ele, nada funciona.
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
+// ⚠️ SÓ O ENDEREÇO DO APP chama esta função pelo navegador (28/09/2026). Era
+// '*': qualquer site podia montar a chamada com a sessão de quem estivesse
+// logado. A trava de verdade continua sendo o token (quem chama e de qual casa).
+const ORIGENS = [
+  'https://app.aurumcozinha.com.br',
+  'https://atiliorod-jpg.github.io',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
+let CORS: Record<string, string> = {
+  'Access-Control-Allow-Origin': ORIGENS[0],
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Vary': 'Origin',
+};
+const corsPara = (req: Request) => {
+  const o = req.headers.get('Origin') || '';
+  CORS = { ...CORS, 'Access-Control-Allow-Origin': ORIGENS.includes(o) ? o : ORIGENS[0] };
 };
 
 const json = (corpo: unknown, status = 200) =>
@@ -53,6 +67,7 @@ const soLetras = (t: string) =>
     .replace(/[^a-z0-9]/g, '');
 
 Deno.serve(async (req) => {
+  corsPara(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ erro: 'Método não suportado.' }, 405);
 
@@ -73,6 +88,11 @@ Deno.serve(async (req) => {
   }
   const rid = eu.restaurante_id;
 
+  // ⚠️ CONTA BLOQUEADA OU VENCIDA NÃO CRIA NEM TROCA SENHA DE CONTA (28/09/2026):
+  // as outras escritas já conferiam restaurante_pode_escrever desde a M10.
+  // Remover e desativar continuam liberados (é tirar acesso, não dar).
+  const { data: podeEscrever } = await admin.rpc('restaurante_pode_escrever', { rid });
+
   let corpo: Record<string, unknown> = {};
   try { corpo = await req.json(); } catch { /* corpo vazio */ }
   const acao = limpo(corpo.acao);
@@ -91,6 +111,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if ((acao === 'criar' || acao === 'senha') && podeEscrever !== true) {
+      return json({ erro: 'Conta bloqueada ou vencida: fale com a Aurum para reativar.' }, 403);
+    }
     if (acao === 'criar') {
       const nome = limpo(corpo.nome);
       const usuario = soLetras(limpo(corpo.usuario));
@@ -100,7 +123,7 @@ Deno.serve(async (req) => {
 
       if (nome.length < 2) return json({ erro: 'Escreva o nome da pessoa.' }, 400);
       if (usuario.length < 3) return json({ erro: 'O usuário precisa de ao menos 3 letras.' }, 400);
-      if (senha.length < 6) return json({ erro: 'A senha precisa de ao menos 6 caracteres.' }, 400);
+      if (senha.length < 8) return json({ erro: 'A senha precisa de ao menos 8 caracteres.' }, 400);
       // ⚠️ 'diretoria' NÃO entra: a conta dona é uma só, e quem a cria é o
       // cadastro do restaurante. Duas donas na mesma casa é briga de controle.
       if (cargo !== 'cozinha' && cargo !== 'gerencia') {
@@ -152,7 +175,7 @@ Deno.serve(async (req) => {
     if (acao === 'senha') {
       const id = limpo(corpo.id);
       const senha = String(corpo.senha ?? '');
-      if (senha.length < 6) return json({ erro: 'A senha precisa de ao menos 6 caracteres.' }, 400);
+      if (senha.length < 8) return json({ erro: 'A senha precisa de ao menos 8 caracteres.' }, 400);
       const v = await alvoValido(id);
       if (v.erro) return json({ erro: v.erro }, 403);
       const { error } = await admin.auth.admin.updateUserById(id, { password: senha });

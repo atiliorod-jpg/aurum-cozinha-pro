@@ -56,10 +56,24 @@ const ANON = Deno.env.get('SUPABASE_ANON_KEY')!;
 // Se um dia mudar, confira as duas — e o teste é abrir o painel, que usa ambas.
 const SUPER_ADMIN = 'atiliopinpolho@gmail.com';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
+// ⚠️ SÓ O ENDEREÇO DO APP chama esta função pelo navegador (28/09/2026). Era
+// '*': qualquer site podia montar a chamada com a sessão de quem estivesse
+// logado. A trava de verdade continua sendo o token (quem chama e de qual casa).
+const ORIGENS = [
+  'https://app.aurumcozinha.com.br',
+  'https://atiliorod-jpg.github.io',
+  'http://localhost:5173',
+  'http://localhost:4173',
+];
+let CORS: Record<string, string> = {
+  'Access-Control-Allow-Origin': ORIGENS[0],
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Vary': 'Origin',
+};
+const corsPara = (req: Request) => {
+  const o = req.headers.get('Origin') || '';
+  CORS = { ...CORS, 'Access-Control-Allow-Origin': ORIGENS.includes(o) ? o : ORIGENS[0] };
 };
 
 const json = (corpo: unknown, status = 200) =>
@@ -106,6 +120,7 @@ const senhaInicial = () => {
 };
 
 Deno.serve(async (req) => {
+  corsPara(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ erro: 'Método não suportado.' }, 405);
 

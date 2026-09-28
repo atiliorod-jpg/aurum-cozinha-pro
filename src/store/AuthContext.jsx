@@ -4,7 +4,7 @@ import { emailDeLogin } from '../utils/contas';
 import { limparCacheLocal, cacheGet, cacheSet } from '../lib/cache';
 import { desvioDoRelogio, horaConfiavel } from '../utils/semInternet';
 import { unidadeFixaDe } from '../utils/unidades';
-import { enviarPendentes } from '../lib/relatarErro';
+import { enviarPendentes, definirUsuarioDosErros } from '../lib/relatarErro';
 import { statusAssinatura } from '../utils/assinatura';
 
 // ⚠️ ESTES TRÊS SÃO NÍVEIS DE SEGURANÇA, não rótulos. Estão numa trava da
@@ -270,6 +270,7 @@ export function AuthProvider({ children }) {
     gravarInstantaneo({ usuarioId: userId, sessao: sessaoConfirmada, usuarios: usuariosDaConta, confirmadoEm, desvioMs });
     setConfirmacao({ confirmadoEm, desvioMs, semInternet: false });
     // com internet e sessão boa: sobem os erros guardados sem conexão (M50)
+    definirUsuarioDosErros(userId);
     enviarPendentes();
   }, []);
 
