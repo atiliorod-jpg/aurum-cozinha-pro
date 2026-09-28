@@ -3,14 +3,14 @@ import QRCode from 'qrcode';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe, adicionalUnidade } from '../utils/assinatura';
+import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe, adicionalUnidade, descontoAtivo, rotuloDesconto } from '../utils/assinatura';
 import { useApp } from '../store/AppContext';
 import { unidadesAtivas } from '../utils/unidades';
 import { montarPixBRCode } from '../utils/pix';
 import { supabase } from '../lib/supabase';
 import { fmtData, isoLocal } from '../utils/formatters';
 import { useLocation } from 'react-router-dom';
-import { SecaoUnidades, SecaoContas, SecaoCozinhaPro } from '../components/PlanoExtras';
+import { SecaoUnidades, SecaoContas, SecaoCozinhaPro, SecaoCobrancasAvulsas } from '../components/PlanoExtras';
 
 const WPP_NUMERO = '5581998184489';
 const PIX_CHAVE  = import.meta.env.VITE_PIX_CHAVE  || '';
@@ -84,6 +84,8 @@ export default function Pagamento() {
   const { unidades, recarregarUnidades } = useApp();
   useEffect(() => { recarregarUnidades(); }, [recarregarUnidades]);
   const extras = unidadesAtivas(unidades).length;
+  // desconto combinado com a Aurum (M54) — vale até a data, se houver
+  const desconto = descontoAtivo(sessao?.desconto);
 
   // '/pagamento#unidades' (do cartão Unidades e do Contas da equipe): rola até a seção
   const { hash } = useLocation();
@@ -115,7 +117,7 @@ export default function Pagamento() {
     ? { id: 'mensal', label: 'Parcela do contrato', meses: 1, dias: 30, desconto: 0 }
     : (PLANOS.find(p => p.id === planoId) || PLANOS[0]);
   const valorEncargo = Number(encargo?.valor) || 0;
-  const valor = Math.round(((parcela || precoPlano(plano, prod.id, extras)) + valorEncargo) * 100) / 100;
+  const valor = Math.round(((parcela || precoPlano(plano, prod.id, extras, desconto)) + valorEncargo) * 100) / 100;
   const brcode = PIX_CHAVE
     ? montarPixBRCode({ chave: PIX_CHAVE, nome: PIX_NOME, cidade: PIX_CIDADE, valor, txid: plano.id.toUpperCase() })
     : '';
@@ -211,6 +213,9 @@ export default function Pagamento() {
         </div>
       </div>
 
+      {/* cobrança à parte lançada pela Aurum (M54) — logo no começo: é conta a pagar */}
+      <SecaoCobrancasAvulsas pix={{ chave: PIX_CHAVE, nome: PIX_NOME, cidade: PIX_CIDADE }} whatsapp={WPP_NUMERO} />
+
       {/* Aviso de antecedência — a reativação é manual */}
       <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-5 flex items-start gap-2">
         <span className="text-base flex-shrink-0">⏰</span>
@@ -232,10 +237,18 @@ export default function Pagamento() {
         </div>
       </>) : (<>
       <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2">Escolha o plano</p>
+      {/* desconto combinado com a Aurum (M54): o cliente vê o que ganhou e até quando */}
+      {desconto && (
+        <p className="text-xs text-green-800 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-2">
+          Desconto combinado: <strong>{rotuloDesconto(desconto)}</strong> a menos no mês
+          {desconto.ate ? ` até ${fmtData(desconto.ate)}` : ''}. Os valores abaixo já estão com ele.
+        </p>
+      )}
       <div className="space-y-2 mb-5">
         {PLANOS.map(p => {
           const sel = p.id === planoId;
-          const total = precoPlano(p, prod.id, extras);
+          const total = precoPlano(p, prod.id, extras, desconto);
+          const cheio = precoPlano(p, prod.id, extras);
           return (
             <button key={p.id} onClick={() => setPlanoId(p.id)}
               className={`w-full text-left rounded-2xl p-4 border-2 transition-colors
@@ -252,11 +265,14 @@ export default function Pagamento() {
                   </div>
                   <p className="text-[11px] text-gray-500 mt-0.5">
                     {p.meses === 1 ? 'Cobrado todo mês'
-                      : `${brl(precoMensalEquivalente(p, prod.id, extras))}/mês · economize ${brl(economiaPlano(p, prod.id, extras))}`}
+                      : `${brl(precoMensalEquivalente(p, prod.id, extras, desconto))}/mês · economize ${brl(economiaPlano(p, prod.id, extras, desconto))}`}
                   </p>
                 </div>
                 <div className="text-right flex items-center gap-2">
                   <div>
+                    {cheio > total && (
+                      <span className="block text-[11px] text-gray-500 line-through">{brl(cheio)}</span>
+                    )}
                     <span className="text-lg font-bold text-polo-navy">{brl(total)}</span>
                     <span className="block text-[11px] text-gray-500">
                       {p.meses === 1 ? 'por mês' : `a cada ${p.meses} meses`}

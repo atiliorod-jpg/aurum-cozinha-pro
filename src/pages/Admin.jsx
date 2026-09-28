@@ -6,7 +6,7 @@ import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import { buscarTodas } from '../lib/paginar';
 import ErrosDosAparelhos from '../components/ErrosDosAparelhos';
-import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades } from '../utils/assinatura';
+import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades, descontoDaLinha, descontoAtivo, rotuloDesconto, cobrancaDaUnidade } from '../utils/assinatura';
 import { unidadesAtivas } from '../utils/unidades';
 import { calcularEncargo } from '../utils/encargos';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
@@ -84,6 +84,8 @@ const dataHoraOuNunca = (iso) => iso ? dataHoraBR(iso) : 'nunca';
 const daquiADias = (n) => new Date(Date.now() + n * 86400000).toISOString();
 // Unidades extras ATIVAS da conta (M46): cada uma soma 1/3 do plano por mês.
 const extrasDe = (r) => unidadesAtivas(r?.unidades).length;
+// Desconto combinado que vale hoje (M54), ou null
+const descontoDe = (r) => descontoAtivo(descontoDaLinha(r));
 const aindaVale = (iso, agora) => !!iso && new Date(iso).getTime() > agora;
 
 const dataHoraBR = (iso) => {
@@ -128,6 +130,10 @@ export default function Admin() {
   const [unidadeForm, setUnidadeForm] = useState(null);
   // "+ Unidade para um cliente": escolhendo de qual cliente
   const [escolhendoCliente, setEscolhendoCliente] = useState(false);
+  // Desconto combinado e cobrança à parte (M54)
+  const [avulsas, setAvulsas] = useState({});           // { [restauranteId]: [cobrança pendente] }
+  const [descontoForm, setDescontoForm] = useState(null); // { restId, tipo, valor, ate, motivo }
+  const [avulsaForm, setAvulsaForm] = useState(null);     // { restId, descricao, valor }
   const [salvandoUnidade, setSalvandoUnidade] = useState(false);
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
   // viram uma parede de rolagem e o painel deixa de ser consultável.
@@ -171,7 +177,7 @@ export default function Admin() {
       // ⚠️ cnpj/whatsapp/cidade/uf (M28) entram SÓ nesta primeira tentativa. A
       // cadeia de fallback abaixo existe para banco sem as colunas novas; pôr
       // as colunas lá também faria a queda em cascata falhar inteira.
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, teste_ate, produto_teste, produto_teste_ate, regime, regime_motivo, cortesia_ate, parcela_contrato')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, teste_ate, produto_teste, produto_teste_ate, regime, regime_motivo, cortesia_ate, parcela_contrato, desconto_tipo, desconto_valor, desconto_ate, desconto_motivo')
       .order('created_at', { ascending: false });
     if (errR) {
       // banco sem a migração 27: cai para o select de antes e todo mundo
@@ -216,6 +222,11 @@ export default function Admin() {
     // derruba o painel — sem a migração, o mapa só fica vazio.
     const { data: pendentes } = await supabase.rpc('encargos_pendentes_admin');
     setEncargos(Object.fromEntries((pendentes || []).map(e => [e.restaurante_id, e])));
+    // Cobranças à parte pendentes (M54) — mesmo cuidado: sem a migração, vazio
+    const { data: avs } = await supabase.rpc('cobrancas_avulsas_admin');
+    const porRest = {};
+    (avs || []).forEach(a => { (porRest[a.restaurante_id] ||= []).push(a); });
+    setAvulsas(porRest);
 
     // As prefs (incl. autorização de suporte) ficam em documentos.chave='prefs'.
     // ⚠️ O documento `estoques` vem junto (M46): é nele que mora o nome antigo
@@ -337,7 +348,7 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
   // quando este pagamento o inclui. É o número que tem que bater no extrato.
   const valorCobranca = (r, plano, incluiEncargo) => {
     const base = r.parcela_contrato && plano.id === 'mensal'
-      ? Number(r.parcela_contrato) : precoPlano(plano, r.produto, extrasDe(r));
+      ? Number(r.parcela_contrato) : precoPlano(plano, r.produto, extrasDe(r), descontoDe(r));
     const enc = incluiEncargo && encargos[r.id] ? Number(encargos[r.id].valor) || 0 : 0;
     return Math.round((base + enc) * 100) / 100;
   };
@@ -528,7 +539,10 @@ A unidade entra na conta de "${r.nome}", com a sua Cozinha de Produção. A part
     setUnidadeForm(null);
     toast(nova ? `Unidade "${data.nome}" criada.` : 'Unidade atualizada.', 'sucesso');
 
-    if (nova) await oferecerAjusteParcela(r, adicionalUnidade(r.produto), 'somando a unidade nova');
+    if (nova) {
+      await oferecerAjusteParcela(r, adicionalUnidade(r.produto), 'somando a unidade nova');
+      await sugerirCobrancaDaUnidade(r, data.nome);
+    }
   };
 
   // ⚠️ ARQUIVAR, NUNCA APAGAR: as etiquetas e os lançamentos da unidade
@@ -554,6 +568,72 @@ Ela sai do seletor de todos os aparelhos e deixa de ser cobrada. Nada é apagado
     const adicional = adicionalUnidade(r.produto);
     await oferecerAjusteParcela(r, arquivar ? -adicional : adicional,
       arquivar ? 'tirando a unidade arquivada' : 'somando a unidade reativada');
+    if (!arquivar) await sugerirCobrancaDaUnidade(r, u.nome);
+  };
+
+  // ── Desconto combinado e cobrança à parte (M54) ─────────────────
+  // ⚠️ UNIDADE NO MEIO DE UM PERÍODO JÁ PAGO (decisão do dono, 28/09/2026):
+  // quem pagou semestral ou anual paga à parte os meses que faltam até o
+  // vencimento, com o mesmo desconto do período. O painel sugere o valor e
+  // abre o formulário; a Aurum confere e lança. Contrato parcelado e conta
+  // que vence em até 31 dias não têm cobrança à parte (entra na próxima).
+  const sugerirCobrancaDaUnidade = async (r, nomeUnidade) => {
+    if (Number(r.parcela_contrato) > 0 || (r.regime && r.regime !== 'pagante')) return;
+    let planoPago = 'mensal';
+    try {
+      const { data } = await supabase.from('pagamentos').select('plano').eq('restaurante_id', r.id)
+        .order('criado_em', { ascending: false }).limit(1);
+      planoPago = data?.[0]?.plano || 'mensal';
+    } catch { /* sem histórico: sem desconto de período */ }
+    const c = cobrancaDaUnidade({ produto: r.produto, assinaturaAte: r.assinatura_ate, planoPago, desconto: descontoDaLinha(r) });
+    if (!c) return;
+    irAoRestaurante(r.id);
+    setAvulsaForm({
+      restId: r.id,
+      descricao: `Unidade ${nomeUnidade}: ${c.meses} ${c.meses > 1 ? 'meses' : 'mês'} até ${dataBR(r.assinatura_ate)}`,
+      valor: fmtPreco(c.valor),
+    });
+    toast(`O cliente já pagou até ${dataBR(r.assinatura_ate)}: confira a cobrança à parte da unidade no cartão dele.`, 'aviso', { duracao: 7000 });
+  };
+
+  const lancarAvulsa = async (r) => {
+    const f = avulsaForm;
+    const valor = Number(String(f?.valor || '').replace(/\./g, '').replace(',', '.'));
+    if (!f?.descricao?.trim() || !(valor > 0)) { toast('Descreva a cobrança e digite o valor.', 'aviso'); return; }
+    const { data, error } = await supabase.rpc('lancar_cobranca_avulsa', { p_restaurante: r.id, p_descricao: f.descricao.trim(), p_valor: valor });
+    if (error || !data) { toast('Não lançou: ' + (error?.message || 'sem resposta'), 'erro'); return; }
+    setAvulsas(prev => ({ ...prev, [r.id]: [...(prev[r.id] || []), data] }));
+    setAvulsaForm(null);
+    toast('Cobrança à parte lançada: o cliente vê em Planos e pagamento, com o Pix.', 'sucesso');
+  };
+
+  const baixarAvulsa = async (r, a, pago) => {
+    const ok = await confirm({
+      titulo: pago ? 'Cobrança recebida' : 'Dispensar cobrança',
+      mensagem: `${a.descricao} — R$ ${fmtPreco(a.valor)}\n\n${pago ? 'Marcar como paga?' : 'O cliente deixa de ver esta cobrança.'}`,
+      confirmar: pago ? 'Recebi' : 'Dispensar', perigo: !pago,
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('baixar_cobranca_avulsa', { p_id: a.id, p_pago: pago });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    setAvulsas(prev => ({ ...prev, [r.id]: (prev[r.id] || []).filter(x => x.id !== a.id) }));
+    toast(pago ? 'Cobrança marcada como paga.' : 'Cobrança dispensada.', 'sucesso');
+  };
+
+  const salvarDesconto = async (r, remover = false) => {
+    const f = descontoForm;
+    const valor = remover ? null : Number(String(f?.valor || '').replace(/\./g, '').replace(',', '.'));
+    if (!remover && !(valor > 0)) { toast('Digite o valor do desconto.', 'aviso'); return; }
+    const { data, error } = await supabase.rpc('definir_desconto', {
+      p_restaurante: r.id, p_tipo: remover ? null : f.tipo, p_valor: valor,
+      p_ate: remover ? null : (f.ate || null), p_motivo: remover ? null : (f.motivo || null),
+    });
+    if (error || !data) { toast('Não salvou: ' + (error?.message || 'sem resposta'), 'erro'); return; }
+    setRestaurantes(prev => prev.map(x => (x.id === r.id ? { ...x,
+      desconto_tipo: data.desconto_tipo, desconto_valor: data.desconto_valor,
+      desconto_ate: data.desconto_ate, desconto_motivo: data.desconto_motivo } : x)));
+    setDescontoForm(null);
+    toast(remover ? 'Desconto removido.' : 'Desconto salvo: o cliente já vê os preços com ele.', 'sucesso');
   };
 
   // ⚠️ LISTA DE ITENS PRÓPRIA (M48): para grupo com conceitos diferentes
@@ -1897,6 +1977,99 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     )}
                   </div>
 
+                  {/* ══ DESCONTO E COBRANÇA À PARTE (M54) ═══════════════
+                      O desconto aparece para o cliente (preço cheio riscado) no
+                      mensal, semestral e anual, e o Pix sai com ele. A cobrança
+                      à parte (ex.: unidade no meio de um período já pago)
+                      aparece em Planos e pagamento, com Pix próprio. */}
+                  <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Desconto e cobrança à parte</p>
+                    {descontoForm?.restId === r.id ? (
+                      <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
+                        <div className="flex gap-2">
+                          {[['valor', 'Em reais (por mês)'], ['percentual', 'Em percentual']].map(([t, l]) => (
+                            <button key={t} onClick={() => setDescontoForm(v => ({ ...v, tipo: t }))} aria-pressed={descontoForm.tipo === t}
+                              className={`flex-1 text-[11px] font-bold py-2 rounded-lg border-2 min-h-11 ${descontoForm.tipo === t ? 'border-polo-navy bg-white text-polo-navy' : 'border-gray-200 text-gray-600 bg-white'}`}>
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <input type="text" inputMode="decimal" value={descontoForm.valor}
+                            placeholder={descontoForm.tipo === 'percentual' ? '% (ex.: 15)' : 'R$ por mês (ex.: 30,00)'}
+                            aria-label="Valor do desconto" onChange={e => setDescontoForm(v => ({ ...v, valor: e.target.value }))}
+                            className="flex-1 min-w-0 border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          <input type="date" value={descontoForm.ate} aria-label="Desconto vale até (opcional)"
+                            onChange={e => setDescontoForm(v => ({ ...v, ate: e.target.value }))}
+                            className="w-36 border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                        </div>
+                        <p className="text-[11px] text-gray-600">Sem data, vale até você tirar. Contrato parcelado não usa o desconto: a parcela já é o valor combinado.</p>
+                        <input type="text" value={descontoForm.motivo} maxLength={200} placeholder="Motivo (só a Aurum vê)" aria-label="Motivo do desconto"
+                          onChange={e => setDescontoForm(v => ({ ...v, motivo: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                        <div className="flex gap-2">
+                          <button onClick={() => setDescontoForm(null)} className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
+                          <button onClick={() => salvarDesconto(r)} className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Salvar desconto</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] text-gray-700 min-w-0">
+                          {descontoDe(r)
+                            ? <>Desconto: <strong>{rotuloDesconto(descontoDe(r))}</strong>{r.desconto_ate ? ` até ${dataBR(r.desconto_ate)}` : ' sem prazo'}
+                                {' '}· mês de R$ {fmtPreco(mensalComUnidades(r.produto, extrasDe(r)))} por <strong>R$ {fmtPreco(precoPlano(planoPorId('mensal'), r.produto, extrasDe(r), descontoDe(r)))}</strong>
+                                {r.desconto_motivo ? ` · ${r.desconto_motivo}` : ''}</>
+                            : r.desconto_tipo ? 'Desconto vencido (não vale mais).' : 'Sem desconto.'}
+                        </p>
+                        <span className="flex items-center gap-2 flex-shrink-0">
+                          <button onClick={() => setDescontoForm({
+                            restId: r.id, tipo: r.desconto_tipo || 'percentual',
+                            valor: r.desconto_valor ? fmtPreco(r.desconto_valor) : '', ate: r.desconto_ate || '', motivo: r.desconto_motivo || '',
+                          })} className="text-[11px] font-semibold text-polo-navy underline underline-offset-2 min-h-11">
+                            {r.desconto_tipo ? 'mudar' : 'dar desconto'}
+                          </button>
+                          {r.desconto_tipo && (
+                            <button onClick={async () => {
+                              if (await confirm({ titulo: 'Tirar o desconto', mensagem: `"${r.nome}" volta a ver o preço cheio.`, confirmar: 'Tirar', perigo: true })) salvarDesconto(r, true);
+                            }}
+                              className="text-[11px] font-semibold text-red-700 underline underline-offset-2 min-h-11">tirar</button>
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {(avulsas[r.id] || []).map(a => (
+                      <div key={a.id} className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                        <span className="min-w-0 text-[11px] text-amber-900">
+                          À parte: <strong>{a.descricao}</strong> · R$ {fmtPreco(a.valor)} · desde {dataBR(a.lancado_em)}
+                        </span>
+                        <span className="flex items-center gap-2 flex-shrink-0">
+                          <button onClick={() => baixarAvulsa(r, a, true)} className="text-[11px] font-bold text-green-700 underline underline-offset-2 min-h-11">recebi</button>
+                          <button onClick={() => baixarAvulsa(r, a, false)} className="text-[11px] font-semibold text-gray-600 underline underline-offset-2 min-h-11">dispensar</button>
+                        </span>
+                      </div>
+                    ))}
+                    {avulsaForm?.restId === r.id ? (
+                      <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
+                        <input type="text" value={avulsaForm.descricao} maxLength={200} placeholder="Descrição (o cliente vê)" aria-label="Descrição da cobrança à parte"
+                          onChange={e => setAvulsaForm(v => ({ ...v, descricao: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                        <input type="text" inputMode="decimal" value={avulsaForm.valor} placeholder="Valor (R$)" aria-label="Valor da cobrança à parte"
+                          onChange={e => setAvulsaForm(v => ({ ...v, valor: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                        <div className="flex gap-2">
+                          <button onClick={() => setAvulsaForm(null)} className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
+                          <button onClick={() => lancarAvulsa(r)} className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Lançar cobrança</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => setAvulsaForm({ restId: r.id, descricao: '', valor: '' })}
+                        className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
+                        + Cobrança à parte
+                      </button>
+                    )}
+                  </div>
+
                   {/* ⚠️ TESTE E EMPRÉSTIMO — as duas coisas que só a Aurum dá.
                       Ficam juntas porque respondem a mesma pergunta na hora da
                       venda: "deixo essa pessoa experimentar o quê, e até
@@ -2548,7 +2721,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       {PLANOS.map(p => (
                         <button key={p.id} onClick={() => liberarDias(r, p.dias)}
                           className="text-[11px] font-bold text-polo-gold bg-polo-navy rounded-lg px-2.5 py-1.5">
-                          {p.label} (+{p.dias}d) · {brlAdmin(precoPlano(p, r.produto, extrasDe(r)))}
+                          {p.label} (+{p.dias}d) · {brlAdmin(precoPlano(p, r.produto, extrasDe(r), descontoDe(r)))}
                         </button>
                       ))}
                     </div>

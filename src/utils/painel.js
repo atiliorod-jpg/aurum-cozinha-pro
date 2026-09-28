@@ -11,7 +11,7 @@
 //  (quem precisa de atenção, quanto a operação fatura), não desenho de tela.
 // =====================================================================
 
-import { statusRestaurante, mensalComUnidades } from './assinatura';
+import { statusRestaurante, mensalCombinado, descontoDaLinha } from './assinatura';
 import { unidadesAtivas } from './unidades';
 
 // Aviso primeiro: é o único caso em que o CLIENTE está esperando resposta —
@@ -103,7 +103,7 @@ export function numerosDoPainel(restaurantes, agora = Date.now()) {
     // ⚠️ Com as unidades extras ATIVAS (M46): cada uma soma 1/3 do plano.
     if (st.tipo === 'assinatura') {
       n.pagantes++;
-      n.mrr += mensalComUnidades(r.produto, unidadesAtivas(r.unidades).length);
+      n.mrr += mensalCombinado(r.produto, unidadesAtivas(r.unidades).length, descontoDaLinha(r));
       continue;
     }
     if (st.tipo === 'teste') { n.teste++; continue; }

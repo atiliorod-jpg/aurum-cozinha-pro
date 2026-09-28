@@ -94,7 +94,9 @@ export const PLANOS = [
   { id: 'anual',     label: 'Anual',     meses: 12, dias: 365, desconto: 0.10 },
 ];
 
-const r2 = (n) => Math.round(n * 100) / 100;
+// Meio centavo sobe: 279,90 × 0,85 = 237,915 é 237,91499… no ponto flutuante e
+// arredondava para baixo. Corta o ruído (4 casas) antes de arredondar.
+const r2 = (n) => Math.round(Number((n * 100).toFixed(4))) / 100;
 const mensalDe = (produto) => produtoDe(produto).precoMes;
 // Preço TOTAL do período, já com o desconto aplicado.
 //
@@ -108,13 +110,69 @@ export const adicionalUnidade = (produto) => r2(mensalDe(produto) * ADICIONAL_UN
 /** O mês cheio da conta: o plano mais as unidades extras. */
 export const mensalComUnidades = (produto, extras = 0) =>
   r2(mensalDe(produto) + Math.max(0, parseInt(extras, 10) || 0) * adicionalUnidade(produto));
-export const precoPlano = (plano, produto, extras = 0) =>
-  r2(mensalComUnidades(produto, extras) * plano.meses * (1 - plano.desconto));
+// ── DESCONTO COMBINADO (M54, 28/09/2026) ────────────────────────────
+// A Aurum combina com o cliente R$ X a menos por mês, ou X% a menos, com
+// data para acabar ou não. Vale sobre o MÊS (plano + unidades) e DEPOIS vem o
+// desconto do período (semestral/anual). `desconto` = { tipo: 'valor' |
+// 'percentual', valor, ate: 'AAAA-MM-DD' | null } — o que a linha de
+// `restaurantes` traz. Sem desconto (ou vencido), tudo como sempre foi.
+const diaLocalISO = (ms) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+/** O desconto que vale HOJE, ou null. */
+export function descontoAtivo(desconto, agora = Date.now()) {
+  const tipo = desconto?.tipo;
+  const valor = Number(desconto?.valor) || 0;
+  if (!['valor', 'percentual'].includes(tipo) || valor <= 0) return null;
+  if (desconto.ate && String(desconto.ate).slice(0, 10) < diaLocalISO(agora)) return null;
+  return { tipo, valor, ate: desconto.ate || null, motivo: desconto.motivo || '' };
+}
+/** O mês com o desconto combinado (nunca abaixo de zero). */
+export function aplicarDesconto(mensal, desconto, agora = Date.now()) {
+  const d = descontoAtivo(desconto, agora);
+  if (!d) return r2(mensal);
+  const com = d.tipo === 'percentual' ? mensal * (1 - Math.min(d.valor, 90) / 100) : mensal - d.valor;
+  return r2(Math.max(0, com));
+}
+/** O mês que ESTA conta paga: plano + unidades, menos o desconto combinado. */
+export const mensalCombinado = (produto, extras = 0, desconto = null, agora = Date.now()) =>
+  aplicarDesconto(mensalComUnidades(produto, extras), desconto, agora);
+/** O desconto a partir da linha crua de `restaurantes` (painel). */
+export const descontoDaLinha = (r) => (r?.desconto_tipo
+  ? { tipo: r.desconto_tipo, valor: Number(r.desconto_valor) || 0, ate: r.desconto_ate || null, motivo: r.desconto_motivo || '' }
+  : null);
+/** Texto curto do desconto: "R$ 30,00/mês" ou "15%". */
+export const rotuloDesconto = (d) => (!d ? '' : d.tipo === 'percentual'
+  ? `${String(d.valor).replace('.', ',')}%` : `R$ ${fmtPreco(d.valor)}/mês`);
+
+export const precoPlano = (plano, produto, extras = 0, desconto = null, agora = Date.now()) =>
+  r2(mensalCombinado(produto, extras, desconto, agora) * plano.meses * (1 - plano.desconto));
 // Quanto sai por mês naquele plano (para mostrar "equivale a R$X/mês").
-export const precoMensalEquivalente = (plano, produto, extras = 0) => r2(precoPlano(plano, produto, extras) / plano.meses);
-// Quanto o cliente economiza vs. pagar mês a mês.
-export const economiaPlano = (plano, produto, extras = 0) =>
-  r2(mensalComUnidades(produto, extras) * plano.meses - precoPlano(plano, produto, extras));
+export const precoMensalEquivalente = (plano, produto, extras = 0, desconto = null, agora = Date.now()) =>
+  r2(precoPlano(plano, produto, extras, desconto, agora) / plano.meses);
+// Quanto o cliente economiza no período vs. pagar mês a mês (o desconto
+// combinado já está nos dois lados: aqui é só o do semestral/anual).
+export const economiaPlano = (plano, produto, extras = 0, desconto = null, agora = Date.now()) =>
+  r2(mensalCombinado(produto, extras, desconto, agora) * plano.meses - precoPlano(plano, produto, extras, desconto, agora));
+
+/**
+ * A cobrança à parte da unidade criada no meio de um período JÁ PAGO (M54,
+ * decisão do dono): os meses que faltam até o vencimento × o adicional, com o
+ * mesmo desconto do período pago (5% semestral, 10% anual) e o combinado.
+ * Faltando 31 dias ou menos, não há cobrança à parte — entra na próxima.
+ * Devolve { meses, valor } ou null.
+ */
+export function cobrancaDaUnidade({ produto, assinaturaAte, planoPago, desconto = null, agora = Date.now() }) {
+  const fim = assinaturaAte ? new Date(assinaturaAte).getTime() : NaN;
+  if (Number.isNaN(fim)) return null;
+  const dias = Math.ceil((fim - agora) / 86400000);
+  if (dias <= 31) return null;
+  const meses = Math.ceil(dias / 30);
+  const plano = planoPorId(planoPago);
+  const adicionalMes = aplicarDesconto(adicionalUnidade(produto), descontoAtivo(desconto, agora)?.tipo === 'percentual' ? desconto : null, agora);
+  return { meses, valor: r2(adicionalMes * meses * (1 - plano.desconto)) };
+}
 export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
 
 // Preço para a TELA: vírgula e dois decimais. `R$ {precoMes}` direto saía

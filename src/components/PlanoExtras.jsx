@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
+import { montarPixBRCode } from '../utils/pix';
 import { Link } from 'react-router-dom';
 import Botao from './Botao';
 import { useApp } from '../store/AppContext';
@@ -6,7 +8,7 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import {
-  statusAssinatura, produtoDe, PRODUTOS, fmtPreco, mensalComUnidades, adicionalUnidade,
+  statusAssinatura, produtoDe, PRODUTOS, fmtPreco, mensalCombinado, adicionalUnidade,
 } from '../utils/assinatura';
 import { unidadesAtivas, opcoesDeUnidade } from '../utils/unidades';
 import { formatarCNPJ, validarCNPJ, soDigitos, UFS } from '../utils/documentos';
@@ -62,7 +64,7 @@ export function ResumoDoPlano() {
     : st.tipo === 'cortesia' ? 'cortesia'
     : st.tipo === 'aguardando' ? 'aguardando liberação'
     : 'assinatura vencida';
-  const valor = parcela ? brl(parcela) : brl(mensalComUnidades(prod.id, extras));
+  const valor = parcela ? brl(parcela) : brl(mensalCombinado(prod.id, extras, sessao?.desconto));
   return (
     <Link to="/pagamento"
       className={`mb-4 rounded-xl px-4 py-3 flex items-center justify-between gap-3 min-h-11 border
@@ -138,8 +140,8 @@ export function SecaoUnidades() {
         {parcela ? (
           <p>Sua conta tem contrato: o adicional entra na parcela, e a Aurum combina o valor novo com você.</p>
         ) : (
-          <p>Com mais uma unidade, o seu mês passa de {brl(mensalComUnidades(prod.id, extras))} para{' '}
-            <strong>{brl(mensalComUnidades(prod.id, extras + 1))}</strong>. O desconto do semestral e do anual vale sobre o total.</p>
+          <p>Com mais uma unidade, o seu mês passa de {brl(mensalCombinado(prod.id, extras, sessao?.desconto))} para{' '}
+            <strong>{brl(mensalCombinado(prod.id, extras + 1, sessao?.desconto))}</strong>. O desconto do semestral e do anual vale sobre o total.</p>
         )}
         <p><strong>Como funciona:</strong> você pede aqui, a Aurum confere o CNPJ e cria a unidade. O adicional
           começa na próxima cobrança depois disso, sem cobrar os dias quebrados, e é pago junto com o plano, nesta conta.</p>
@@ -271,6 +273,83 @@ export function SecaoCozinhaPro() {
       ) : (
         <Botao variante="sobreNavy" tamanho="sm" onClick={() => abrirAjuda('pedido')}>Quero o plano completo</Botao>
       )}
+    </section>
+  );
+}
+
+/**
+ * COBRANÇA À PARTE (M54): o que a Aurum lançou fora do plano — por exemplo a
+ * unidade criada no meio de um semestral ou anual já pago. Cada uma com o seu
+ * Pix (valor já no código) e o "Já paguei", que avisa a equipe e abre o
+ * WhatsApp para o comprovante. Some quando não há nada pendente.
+ */
+export function SecaoCobrancasAvulsas({ pix, whatsapp }) {
+  const { sessao, impersonando, avisarPagamento } = useAuth();
+  const { toast } = useUI();
+  const [lista, setLista] = useState([]);
+  const [aberta, setAberta] = useState(''); // id com o Pix à mostra
+  const [qr, setQr] = useState('');
+
+  useEffect(() => {
+    if (!sessao?.restauranteId || sessao.demo || sessao.eSuperAdmin || impersonando) return undefined;
+    let vivo = true;
+    supabase.rpc('minhas_cobrancas_avulsas')
+      .then(({ data }) => { if (vivo) setLista(Array.isArray(data) ? data : []); })
+      .catch(() => { /* sem rede: a seção só não aparece */ });
+    return () => { vivo = false; };
+  }, [sessao?.restauranteId, sessao?.demo, sessao?.eSuperAdmin, impersonando]);
+
+  const c = lista.find(x => x.id === aberta);
+  const brcode = c && pix?.chave
+    ? montarPixBRCode({ chave: pix.chave, nome: pix.nome, cidade: pix.cidade, valor: Number(c.valor), txid: 'AVULSA' })
+    : '';
+  useEffect(() => {
+    let vivo = true;
+    (brcode ? QRCode.toDataURL(brcode, { margin: 1, width: 220 }) : Promise.resolve(''))
+      .then(u => { if (vivo) setQr(u); }).catch(() => { if (vivo) setQr(''); });
+    return () => { vivo = false; };
+  }, [brcode]);
+
+  if (!lista.length) return null;
+
+  const jaPaguei = (item) => {
+    const msg = encodeURIComponent(`Olá! Paguei a cobrança à parte "${item.descricao}" (${brl(Number(item.valor))}) — restaurante ${sessao?.restauranteNome || ''}. Segue o comprovante:`);
+    // abre ANTES de qualquer espera: o celular bloqueia janela aberta depois de um await
+    window.open(`https://wa.me/${whatsapp}?text=${msg}`, '_blank', 'noopener,noreferrer');
+    avisarPagamento?.('cobrança à parte', sessao?.nome || null).then(erro => {
+      if (erro) toast(`O aviso não foi registrado: ${erro}`, 'aviso');
+      else toast('Aviso enviado. Mande o comprovante no WhatsApp.', 'sucesso');
+    });
+  };
+
+  return (
+    <section id="cobrancas" className="scroll-mt-40 bg-white border-2 border-polo-gold rounded-2xl p-5 mb-5 space-y-3">
+      <div>
+        <p className="font-bold text-polo-navy text-sm">Cobrança à parte</p>
+        <p className="text-xs text-gray-600 mt-1">Combinada com a Aurum, fora do plano. Pague cada uma pelo Pix abaixo.</p>
+      </div>
+      {lista.map(item => (
+        <div key={item.id} className="bg-polo-beige rounded-xl p-3 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm text-polo-navy min-w-0">{item.descricao}</p>
+            <strong className="text-polo-navy flex-shrink-0">{brl(Number(item.valor))}</strong>
+          </div>
+          {aberta === item.id ? (
+            <div className="space-y-2">
+              {qr && <img src={qr} alt="QR Code do Pix da cobrança à parte" className="w-48 h-48 mx-auto rounded-lg border border-gray-200" />}
+              {brcode && (
+                <Botao tamanho="sm" onClick={async () => {
+                  try { await navigator.clipboard.writeText(brcode); toast('Código Pix copiado.', 'sucesso'); }
+                  catch { toast('Não consegui copiar — segure o dedo no código.', 'erro'); }
+                }}>Copiar código Pix</Botao>
+              )}
+              <Botao tamanho="sm" variante="secundario" onClick={() => jaPaguei(item)}>Já paguei</Botao>
+            </div>
+          ) : (
+            <Botao tamanho="sm" variante="secundario" onClick={() => setAberta(item.id)}>Pagar esta cobrança</Botao>
+          )}
+        </div>
+      ))}
     </section>
   );
 }

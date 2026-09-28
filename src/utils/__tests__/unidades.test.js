@@ -289,10 +289,10 @@ describe('adicional por unidade extra', () => {
 
   it('o QR do cliente e o painel usam as unidades extras no valor', () => {
     const pag = ler('../../pages/Pagamento.jsx');
-    expect(pag).toMatch(/precoPlano\(plano, prod\.id, extras\)/);
+    expect(pag).toMatch(/precoPlano\(plano, prod\.id, extras, desconto\)/);
     expect(pag).toMatch(/const extras = unidadesAtivas\(unidades\)\.length/);
     const adm = ler('../../pages/Admin.jsx');
-    expect(adm).toMatch(/precoPlano\(plano, r\.produto, extrasDe\(r\)\)/);
+    expect(adm).toMatch(/precoPlano\(plano, r\.produto, extrasDe\(r\), descontoDe\(r\)\)/);
     expect(adm).toMatch(/supabase\.rpc\('criar_unidade'/);
     expect(adm).toMatch(/supabase\.rpc\('arquivar_unidade'/);
   });
@@ -318,7 +318,7 @@ describe('cobrança com unidades: um número só em todas as telas', () => {
   it('criar, arquivar e reativar unidade oferecem ajustar a parcela do contrato', () => {
     const adm = ler('../../pages/Admin.jsx');
     expect(adm).toMatch(/const oferecerAjusteParcela = async \(r, delta, porque\)/);
-    expect(adm).toMatch(/if \(nova\) await oferecerAjusteParcela\(r, adicionalUnidade\(r\.produto\)/);
+    expect(adm).toMatch(/if \(nova\) \{\s*await oferecerAjusteParcela\(r, adicionalUnidade\(r\.produto\)/);
     expect(adm).toMatch(/await oferecerAjusteParcela\(r, arquivar \? -adicional : adicional/);
     // a ajuda é declarada ANTES de quem a chama
     expect(adm.indexOf('const oferecerAjusteParcela')).toBeLessThan(adm.indexOf('const salvarUnidade'));
@@ -338,7 +338,7 @@ describe('cobrança com unidades: um número só em todas as telas', () => {
   it('a linha do plano na Administração mostra o que o cliente paga: parcela do contrato, ou plano + unidades', () => {
     expect(ler('../../pages/etiquetas/Ajustes.jsx')).toMatch(/<ResumoDoPlano \/>/);
     const aj = ler('../../components/PlanoExtras.jsx');
-    expect(aj).toMatch(/const valor = parcela \? brl\(parcela\) : brl\(mensalComUnidades\(prod\.id, extras\)\);/);
+    expect(aj).toMatch(/const valor = parcela \? brl\(parcela\) : brl\(mensalCombinado\(prod\.id, extras, sessao\?\.desconto\)\);/);
     expect(aj).toMatch(/const parcela = Number\(sessao\?\.parcelaContrato\) \|\| 0/);
     expect(mensalComUnidades('etiquetas', 1)).toBe(373.2);
   });

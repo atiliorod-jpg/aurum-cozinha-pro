@@ -61,7 +61,7 @@ describe('Administração do cliente enxuta; conta e dinheiro em Planos e pagame
   });
 
   it('unidade: explica, mostra a conta pronta e o pedido chega com nome e CNPJ', () => {
-    expect(extras).toMatch(/mensalComUnidades\(prod\.id, extras \+ 1\)/);
+    expect(extras).toMatch(/mensalCombinado\(prod\.id, extras \+ 1, sessao\?\.desconto\)/);
     expect(extras).toMatch(/começa na próxima cobrança depois disso, sem cobrar os dias quebrados/);
     expect(extras).toMatch(/tipoPedido: 'unidade'/);
     expect(extras).toMatch(/if \(!validarCNPJ\(form\.cnpj\)\)/);

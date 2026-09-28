@@ -75,6 +75,10 @@ function camposDoRestaurante(rest) {
     // Contrato parcelado (M45): valor da parcela congelado no contrato.
     // Liga os 10 dias de tolerância e mostra a parcela na tela de pagar.
     parcelaContrato:  rest?.parcela_contrato ? Number(rest.parcela_contrato) : null,
+    // Desconto combinado com a Aurum (M54): { tipo, valor, ate, motivo } ou null
+    desconto:         rest?.desconto_tipo
+      ? { tipo: rest.desconto_tipo, valor: Number(rest.desconto_valor) || 0, ate: rest.desconto_ate || null, motivo: rest.desconto_motivo || '' }
+      : null,
     // Teste escolhido pela Aurum e plano emprestado (M41).
     testeAte:         rest?.teste_ate || null,
     produtoTeste:     rest?.produto_teste || null,
@@ -128,7 +132,7 @@ async function sairDoSupabase() {
   });
 }
 
-const COLUNAS_RESTAURANTE ='nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate, parcela_contrato';
+const COLUNAS_RESTAURANTE ='nome, created_at, assinatura_ate, max_usuarios, bloqueado, produto, apelido, cnpj, regime, cortesia_ate, teste_ate, produto_teste, produto_teste_ate, parcela_contrato, desconto_tipo, desconto_valor, desconto_ate, desconto_motivo';
 
 /**
  * O endereço já traz a recuperação de senha?
