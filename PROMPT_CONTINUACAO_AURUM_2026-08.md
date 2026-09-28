@@ -181,6 +181,49 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (28/09/2026, noite) — LOTES A, B, C e D DA ANÁLISE APLICADOS (M56, M57)
+
+Tudo publicado, deploy verde. 756 testes + 11 do robô. Migrações até a **57**.
+
+- **B — segurança:** M56 `pode_na_conta(cap)` no banco (mesma regra de
+  utils/permissoes.js → pode): as policies de `documentos` exigem "gerenciar
+  itens" para produtos/categorias/fichas de toda cozinha; as rotinas
+  automáticas que gravam o catálogo (mín/máx automático, migrações antigas)
+  só rodam em aparelho de quem pode (`podeCatalogoRef`). Funções `contas` e
+  `restaurante`: CORS só dos endereços do app; senha da equipe ≥ 8; conta
+  bloqueada/vencida não cria nem troca senha. Stripe (AINDA NÃO PUBLICADO):
+  só `payment_status === 'paid'`, boleto via async_payment_succeeded, valor
+  mínimo (segredo STRIPE_VALOR_MINIMO_CENTAVOS), eventos repetidos ignorados
+  (tabela `stripe_eventos`). Fila offline e erros guardados carimbam o
+  usuário (a auditoria de outra pessoa espera ela voltar). Conferido: sem
+  segredo no bundle, sem SQL dinâmico com texto do usuário, sem SSRF.
+- **C — leveza:** M57 `usuarios_de_todos_restaurantes()` (painel sem N+1) +
+  carimbo/índice em `etiquetas`; o Etiquetas baixa só o que mudou (IndexedDB,
+  chave `etq:<rid>:<cozinha>`, conferência pelo número de linhas da janela);
+  o documento legado de impressas só é lido quando muda (`_legado::`);
+  `rodadaSync` refaz a leitura quando o aparelho volta de > 2 min fora ou a
+  internet volta; `acompanharBrutos` mantém Relatório/Financeiro/Balanço
+  vivos; `outboxSet` apaga caches refazíveis e avisa 'fila-cheia'; Impressas
+  mostra 7 dias + "Ver dias anteriores"; precache sem xlsx/Admin/icon-*
+  (3,0 → 1,8 MB), logo 374 → 20 KB.
+- **A — visual/acessibilidade:** nenhum emoji na interface (teste
+  `visual2809` reprova); ícones novos em Icons.jsx (olho, check, fechar,
+  relogio, info, atualizar, editar, celular, loja, semInternet); 67 campos
+  ganharam aria-label (teste reprova campo sem nome); 44 px na janela de
+  imprimir (+/−, campos em 16 px), categorias, filtros; contraste (branco no
+  vermelho, red-700, orange-800); aviso de vencimento à esquerda; `Esqueleto`
+  enquanto `nuvemCarregada` é false; `plural()` em utils/formatters;
+  "Cozinha Pro" no painel; aria-pressed/radiogroup.
+- **D — uso no Pro:** perda na unidade do item; "descartada" → oferece
+  perda preenchida (state para /aparas); ResponsavelSelect cadastra na hora;
+  "Não saiu" orienta; utils/suporte.js `linkSuporte`; Ajuda leva tela e
+  versão; Inventário com busca e "Todos"; botões Registrar dizem o que falta;
+  encurtar teste no painel confirma.
+
+**Ficou para depois (G):** dividir o AppContext em contextos menores
+(renderização) e trocar o tempo real por Broadcast; retenção (pg_cron) das
+etiquetas antigas; plural nas mensagens internas do painel.
+
 ## Onde paramos (28/09/2026) — SECO COM ETIQUETA, PRO RÁPIDO (M53), DESCONTO E COBRANÇA À PARTE (M54), TRAVA DE GRAVAÇÃO (M55), ANÁLISE COMPLETA
 
 Tudo publicado, deploy verde. 723 testes + 11 do robô. Migrações até a **55**.
