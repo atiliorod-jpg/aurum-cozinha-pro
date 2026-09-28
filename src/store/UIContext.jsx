@@ -100,8 +100,14 @@ export function UIProvider({ children }) {
         { duracao: 10000 },
       );
     };
+    // a memória do navegador encheu e a fila sem internet não gravou (cache.js)
+    const cheia = () => toast('A memória deste aparelho encheu e o último lançamento sem internet não foi guardado. Conecte à internet para enviar o que está pendente.', 'erro', { duracao: 12000 });
     window.addEventListener('registro-recusado', handler);
-    return () => window.removeEventListener('registro-recusado', handler);
+    window.addEventListener('fila-cheia', cheia);
+    return () => {
+      window.removeEventListener('registro-recusado', handler);
+      window.removeEventListener('fila-cheia', cheia);
+    };
   }, [toast]);
 
   // Conflito de catálogo (migração 8): outro aparelho gravou primeiro — a tela

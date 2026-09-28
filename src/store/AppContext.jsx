@@ -675,6 +675,13 @@ export function AppProvider({ children }) {
   }, [persistCatalogo]);
 
   // ── Registros operacionais (tabela 'registros') ────────────
+  // ⚠️ A CÓPIA BRUTA ACOMPANHA (28/09/2026, achado da análise): Relatório,
+  // Financeiro e Balanço leem `brutos`, que só era preenchido na abertura — o
+  // que se lançava depois não aparecia neles até reabrir o app.
+  const acompanharBrutos = useCallback((row) => {
+    if (!row?.id || !row.restaurante_id) return;
+    setBrutos(b => ({ ...b, registros: juntarDelta(b.registros, [row], row.restaurante_id) }));
+  }, []);
   const addRegistro = useCallback((tipo, setRaw, key, registro) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const r = ridRef.current;
@@ -687,6 +694,7 @@ export function AppProvider({ children }) {
     if (nuvemDe(r)) {
       // tipo com o módulo embutido ('seco:entrada') — é o que separa os estoques
       const row = { id: novo.id, restaurante_id: r, tipo: t(tipo), ts: novo.ts, dados: semIdTs(novo), deleted: false };
+      acompanharBrutos(row);
       supabase.from('registros').insert(row).then(({ error }) => {
         if (!error) return;
         // ⚠️ ERRO DEFINITIVO NÃO VAI PARA A FILA. Violação de constraint (tipo
@@ -705,13 +713,14 @@ export function AppProvider({ children }) {
             return next;
           });
           avisaErroDefinitivo(error.message);
+          acompanharBrutos({ ...row, deleted: true });
           return;
         }
         outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
       });
     }
     logAudit(`registrou ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(novo) || '');
-  }, [logAudit, RESUMOS, k, t]);
+  }, [logAudit, RESUMOS, k, t, acompanharBrutos]);
 
   const removeRegistro = useCallback((tipo, setRaw, key, id) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -723,12 +732,13 @@ export function AppProvider({ children }) {
       return next;
     });
     if (nuvemDe(r)) {
+      acompanharBrutos({ id, restaurante_id: r, deleted: true });
       supabase.from('registros').update({ deleted: true }).eq('id', id).then(({ error }) => {
         if (error) outboxAdd(r, { kind: 'registro', op: 'delete', payload: { id } });
       });
     }
     if (alvo) logAudit(`removeu ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(alvo) || '');
-  }, [logAudit, RESUMOS, k]);
+  }, [logAudit, RESUMOS, k, acompanharBrutos]);
 
   const addCompra      = useCallback((x) => addRegistro('compra',  setComprasRaw,     'compras',     x), [addRegistro]);
   const removeCompra   = useCallback((x) => removeRegistro('compra', setComprasRaw,   'compras',     x), [removeRegistro]);
@@ -769,12 +779,13 @@ export function AppProvider({ children }) {
       // t(), apagar uma entrada no Estoque Seco e desfazer ressuscitava ela
       // dentro da Cozinha de Produção, inflando o estoque errado.
       const row = { id: registro.id, restaurante_id: r, tipo: t(tipo), ts: registro.ts, dados: semIdTs(registro), deleted: false };
+      acompanharBrutos(row);
       supabase.from('registros').upsert(row).then(({ error }) => {
         if (error) outboxAdd(r, { kind: 'registro', op: 'insert', payload: row });
       });
     }
     logAudit(`restaurou ${rotulo} (desfazer)`, RESUMOS[rotulo]?.(registro) || '');
-  }, [logAudit, MAPA_RESTAURO, RESUMOS, k, t]);
+  }, [logAudit, MAPA_RESTAURO, RESUMOS, k, t, acompanharBrutos]);
 
   // ── Pendências de sincronização (badge offline) ───────────
   useEffect(() => {
@@ -969,6 +980,30 @@ export function AppProvider({ children }) {
     }, 1500);
     return () => clearTimeout(t);
   }, [saidasParaConsumo, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana, setProdutos]);
+
+  // ── O APARELHO ACORDOU (28/09/2026, achado da análise) ────────────
+  // O tempo real cai quando o celular ou o computador dorme e, ao voltar, não
+  // repõe o que passou — a tela ficava sem as etiquetas e os lançamentos dos
+  // outros aparelhos até o app ser reaberto. Agora, voltando depois de mais
+  // de 2 minutos fora (ou quando a internet volta), a leitura é refeita. Com
+  // o "só o que mudou" (M53/M57) isso custa quase nada.
+  const [rodadaSync, setRodadaSync] = useState(0);
+  useEffect(() => {
+    if (!rid || rid === 'demo') return undefined;
+    let escondidoEm = 0;
+    const aoMudar = () => {
+      if (document.visibilityState === 'hidden') { escondidoEm = Date.now(); return; }
+      if (escondidoEm && Date.now() - escondidoEm > 2 * 60 * 1000) setRodadaSync(n => n + 1);
+      escondidoEm = 0;
+    };
+    const aoVoltarRede = () => setRodadaSync(n => n + 1);
+    document.addEventListener('visibilitychange', aoMudar);
+    window.addEventListener('online', aoVoltarRede);
+    return () => {
+      document.removeEventListener('visibilitychange', aoMudar);
+      window.removeEventListener('online', aoVoltarRede);
+    };
+  }, [rid]);
 
   // ── Hidratação (cache → rede) + tempo real + offline ───────
   // O setState síncrono neste efeito é o coração do offline-first: o cache
@@ -1222,7 +1257,23 @@ export function AppProvider({ children }) {
       const docsPendentes = new Set(
         outboxGet(rid).filter(i => i.kind === 'doc' && i.payload?.chave).map(i => i.payload.chave)
       );
-      const { data: docs, error: errDocs } = await supabase.from('documentos').select('*').eq('restaurante_id', rid);
+      // ⚠️ SEM O DOCUMENTO ANTIGO DE IMPRESSAS (28/09/2026): ele pode ter até
+      // 1,5 MB por cozinha e vinha em TODA abertura e troca de cozinha, só para
+      // conferir se um aparelho velho gravou nele. Agora vem à parte, e só
+      // quando mudou desde a última vez que este aparelho o leu.
+      const { data: docs, error: errDocs } = await supabase.from('documentos').select('chave, dados, versao')
+        .eq('restaurante_id', rid).not('chave', 'like', '%etiquetasImpressas');
+      const chaveLegado = k('etiquetasImpressas');
+      let legadoLido = null;
+      if (!errDocs) {
+        const { data: leg } = await supabase.from('documentos').select('updated_at')
+          .eq('restaurante_id', rid).eq('chave', chaveLegado).maybeSingle();
+        if (leg && leg.updated_at !== cacheGet(rid, `_legado::${chaveLegado}`, null)) {
+          const { data: comDados } = await supabase.from('documentos').select('dados, updated_at')
+            .eq('restaurante_id', rid).eq('chave', chaveLegado).maybeSingle();
+          if (comDados) legadoLido = comDados;
+        }
+      }
       if (!ativo) return;
       if (errDocs) {
         console.warn('[hidratação] falha ao buscar catálogos — mantendo o cache local (não sobrescreve com padrões):', errDocs.message);
@@ -1231,6 +1282,7 @@ export function AppProvider({ children }) {
         mapaDocs = mapa;
         versoesRef.current = {}; // recomeça o controle de versão para este restaurante
         (docs || []).forEach(d => { mapa[d.chave] = d.dados; versoesRef.current[d.chave] = d.versao || 0; });
+        if (legadoLido) mapa[chaveLegado] = legadoLido.dados;
         // `reparar` conserta um catálogo que JÁ existe na nuvem. Era o buraco do
         // destino fixo: a semeadura só roda quando o documento não existe, então
         // conta antiga nunca ganhava a "Cozinha de Finalização" e a ponte entre
@@ -1306,12 +1358,51 @@ export function AppProvider({ children }) {
       {
         const hojeISO = hoje();
         const { impressasDesde, vencidasDesde } = janelaDaLista(hojeISO);
-        const { data: linhasEtq, error: errEtq } = await buscarTodas(() => supabase.from('etiquetas')
-          .select('id, status, dados, apagada_em')
-          .eq('restaurante_id', rid).eq('cozinha', moduloEfetivo).is('apagada_em', null)
-          .or(`impresso_em.gte.${impressasDesde},validade.gte.${vencidasDesde}`)
-          .order('impresso_em').order('id'));
+        // ⚠️ SÓ O QUE MUDOU (M57, 28/09/2026) — o desenho da M53. Baixar a
+        // janela inteira (120 dias) a cada abertura custava ~0,5 GB por mês
+        // por cliente. O aparelho guarda a lista desta cozinha e pede só as
+        // linhas mudadas (apagadas inclusive); a conferência pelo NÚMERO de
+        // linhas da janela garante que nada ficou para trás. Falhou: baixa tudo.
+        const COLS_ETQ = 'id, restaurante_id, status, dados, apagada_em, impresso_em, validade, atualizado_em';
+        const naJanela = (l) => !l.apagada_em
+          && ((l.impresso_em || '') >= impressasDesde || (l.validade || '') >= vencidasDesde);
+        const daJanela = (q) => q.eq('restaurante_id', rid).eq('cozinha', moduloEfetivo).is('apagada_em', null)
+          .or(`impresso_em.gte.${impressasDesde},validade.gte.${vencidasDesde}`);
+        const chaveEtq = `etq:${rid}:${moduloEfetivo}`;
+        let linhasEtq = null;
+        let errEtq = null;
+        const guardadasEtq = guardaLocalRef.current ? await lerRegistrosLocais(chaveEtq) : null;
         if (!ativo) return;
+        const desdeEtq = pedirDesde(guardadasEtq?.ate);
+        if (guardadasEtq && desdeEtq) {
+          const { data: mudaram, error } = await buscarTodas(() => supabase.from('etiquetas').select(COLS_ETQ)
+            .eq('restaurante_id', rid).eq('cozinha', moduloEfetivo).gte('atualizado_em', desdeEtq)
+            .order('atualizado_em').order('id'));
+          if (!ativo) return;
+          if (!error) {
+            const juntas = juntarDelta(guardadasEtq.linhas,
+              (mudaram || []).map(l => ({ ...l, deleted: !!l.apagada_em })), rid).filter(naJanela);
+            const { count, error: eCount } = await daJanela(supabase.from('etiquetas')
+              .select('id', { count: 'exact', head: true }));
+            if (!ativo) return;
+            if (!eCount && count === juntas.length) {
+              linhasEtq = juntas;
+              if (mudaram?.length || juntas.length !== guardadasEtq.linhas.length) {
+                gravarRegistrosLocais(chaveEtq, juntas, horaMaisNova(mudaram, guardadasEtq.ate));
+              }
+            }
+          }
+        }
+        if (!linhasEtq) {
+          const { data: todas, error } = await buscarTodasPorId(() => daJanela(supabase.from('etiquetas').select(COLS_ETQ)));
+          if (!ativo) return;
+          if (error) errEtq = error;
+          else {
+            linhasEtq = todas || [];
+            const ate = horaMaisNova(linhasEtq);
+            if (guardaLocalRef.current && ate) gravarRegistrosLocais(chaveEtq, linhasEtq, ate);
+          }
+        }
         if (!errEtq) {
           const daNuvem = (linhasEtq || []).map(linhaParaEtiqueta);
           // aparelho com a versão velha gravou no documento depois da M49?
@@ -1331,7 +1422,10 @@ export function AppProvider({ children }) {
             }
             if (!ativo) return;
             antigas = falhou ? [] : antigas.filter(e => !jaNoBanco.has(e.id));
+            if (falhou) legadoLido = null; // confere de novo na próxima abertura
           }
+          // o documento antigo foi conferido: só volta a ser lido se mudar
+          if (legadoLido) cacheSet(rid, `_legado::${chaveLegado}`, legadoLido.updated_at);
           if (antigas.length && !soLeituraRef.current) {
             const itens = antigas.map(e => ({ ...e, cozinha: moduloEfetivo }));
             for (const lote of emLotes(itens)) {
@@ -1506,6 +1600,7 @@ export function AppProvider({ children }) {
     };
     const aplicaRegistroRT = (row) => {
       if (!row) return;
+      acompanharBrutos(row); // os relatórios veem o que outro aparelho lançou
       // outro aparelho gravou: só entra se for do MÓDULO que está aberto aqui
       const { modulo: mod, tipo } = lerTipo(row.tipo);
 
@@ -1597,7 +1692,7 @@ export function AppProvider({ children }) {
     // `moduloEfetivo` nas deps: trocar de estoque re-hidrata tudo daquele
     // estoque. É o EFETIVO, não o do localStorage: um id arquivado precisa
     // hidratar a raiz, não continuar carregando o estoque escondido.
-  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo]);
+  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo, rodadaSync, acompanharBrutos]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Administração de dados ─────────────────────────────────

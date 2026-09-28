@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../../components/Layout';
 import Aviso from '../../components/Aviso';
@@ -39,6 +39,12 @@ export default function Impressas() {
   const podeApagar = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin;
   const [apagando, setApagando] = useState('');
   const [busca, setBusca] = useState('');
+  // ⚠️ LEVE NO CELULAR (28/09/2026): a janela tem até 120 dias — uma cozinha
+  // que imprime 100 por dia punha ~12 mil linhas na tela de uma vez. Mostra 7
+  // dias e vai abrindo mais; a busca refaz a lista só quando a pessoa para de
+  // digitar (useDeferredValue).
+  const [diasVisiveis, setDiasVisiveis] = useState(7);
+  const buscaAdiada = useDeferredValue(busca);
 
   const hj = hoje();
 
@@ -47,7 +53,7 @@ export default function Impressas() {
   // "aquela que eu fiz hoje de manhã".
   const dias = useMemo(() => {
     const lista = (etiquetasImpressas || [])
-      .filter(e => casaBusca(busca, e.nome, e.responsavel));
+      .filter(e => casaBusca(buscaAdiada, e.nome, e.responsavel));
     const porDia = new Map();
     for (const e of lista) {
       const d = e.impressoEm || '';
@@ -62,7 +68,7 @@ export default function Impressas() {
       lista_.sort((a, b) => (b.impressoEmHora || '').localeCompare(a.impressoEmHora || ''));
     }
     return [...porDia.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [etiquetasImpressas, busca]);
+  }, [etiquetasImpressas, buscaAdiada]);
 
   const totalDoDia = (lista) => lista.reduce((s, e) => s + (e.copias || 1), 0);
 
@@ -195,7 +201,7 @@ export default function Impressas() {
             <Aviso tom="neutro">Nenhuma etiqueta com esse nome.</Aviso>
           )}
 
-          {dias.map(([dia, lista]) => (
+          {dias.slice(0, diasVisiveis).map(([dia, lista]) => (
             <section key={dia} className="space-y-2">
               <div className="flex items-baseline justify-between gap-2">
                 <h2 className="text-xs font-bold text-polo-navy uppercase">
@@ -230,7 +236,7 @@ export default function Impressas() {
                             {e.responsavel ? ` · ${e.responsavel}` : ''}
                             {(e.copias || 1) > 1 ? ` · ${e.copias} cópias` : ''}
                           </p>
-                          <span className={`inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${info.cor}`}>
+                          <span className={`inline-block mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${info.cor}`}>
                             {info.label}
                           </span>
                         </div>
@@ -260,6 +266,13 @@ export default function Impressas() {
               </ul>
             </section>
           ))}
+
+          {dias.length > diasVisiveis && (
+            <button onClick={() => setDiasVisiveis(n => n + 14)}
+              className="w-full min-h-11 rounded-xl border-2 border-polo-navy text-polo-navy text-sm font-bold">
+              Ver dias anteriores ({dias.length - diasVisiveis} {dias.length - diasVisiveis === 1 ? 'dia' : 'dias'})
+            </button>
+          )}
         </div>
       )}
     </Layout>

@@ -61,7 +61,7 @@ describe('lista de itens por unidade: de onde cada cozinha lê', () => {
   it('o app troca a chave do catálogo pela base da unidade e recarrega quando ela muda', () => {
     const app = ler('../../store/AppContext.jsx');
     expect(app).toMatch(/const kc = useCallback\(\(chave\) => chaveModulo\(catalogoRef\.current, chave\), \[\]\);/);
-    expect(app).toMatch(/\}, \[rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo\]\);/);
+    expect(app).toMatch(/\}, \[rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo, rodadaSync, acompanharBrutos\]\);/);
     expect(app).toMatch(/baseCatalogo: baseDoCatalogo\(estoques, unidades, id\),/);
     expect(app).toMatch(/cozinha, arquivada_em, criada_em, catalogo_proprio'\)/);
   });

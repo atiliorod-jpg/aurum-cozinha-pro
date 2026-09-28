@@ -25,7 +25,29 @@ export const cacheSet = (rid, chave, valor) => {
 const avisaOutbox = () => { try { window.dispatchEvent(new Event('outbox-mudou')); } catch { /* sem window (SSR/teste) — ignora */ } };
 
 export const outboxGet = (rid) => cacheGet(rid, '_outbox', []);
-export const outboxSet = (rid, fila) => { cacheSet(rid, '_outbox', fila); avisaOutbox(); };
+// ⚠️ A FILA NÃO PODE FALHAR CALADA (28/09/2026, achado da análise). O cache e
+// a fila dividem os ~5 MB do localStorage; com ele cheio, `cacheSet` engolia o
+// erro e o lançamento feito sem internet se perdia sem ninguém saber. Agora:
+// falhou → apaga os caches que se refazem pelo banco (listas desta conta) e
+// tenta de novo; ainda falhou → avisa a tela ('fila-cheia').
+const REFAZIVEIS = /::(compras|entradas|saidas|aparas|desperdicio|ajustes|recebimentos|auditoria|etiquetasImpressas)$/;
+export const outboxSet = (rid, fila) => {
+  if (!rid) return false;
+  const txt = JSON.stringify(fila);
+  const gravar = () => { try { localStorage.setItem(ns(rid, '_outbox'), txt); return true; } catch { return false; } };
+  let ok = gravar();
+  if (!ok) {
+    try {
+      Object.keys(localStorage)
+        .filter(k => k.startsWith(`pe::${rid}::`) && REFAZIVEIS.test(k))
+        .forEach(k => localStorage.removeItem(k));
+    } catch { /* sem storage */ }
+    ok = gravar();
+    if (!ok) { try { window.dispatchEvent(new Event('fila-cheia')); } catch { /* sem window */ } }
+  }
+  avisaOutbox();
+  return ok;
+};
 
 // Identidade estável de cada item da fila. Sem isso o flush (que é assíncrono)
 // só sabe remover itens por POSIÇÃO — e um registro salvo no meio de um flush

@@ -65,6 +65,16 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,json}'],
+        // ⚠️ O APP INSTALADO NÃO BAIXA O QUE A COZINHA NÃO USA (28/09/2026): a
+        // planilha (xlsx, ~500 KB) e o painel da Aurum ficam de fora da
+        // instalação e são guardados na primeira vez que alguém abrir (ver
+        // runtimeCaching). icon-192/512 não são usados por nada.
+        globIgnores: ['**/xlsx-*.js', '**/Admin-*.js', 'icon-*.png'],
+        runtimeCaching: [{
+          urlPattern: ({ url }) => url.pathname.includes('/assets/'),
+          handler: 'CacheFirst',
+          options: { cacheName: 'aurum-sob-demanda', expiration: { maxEntries: 40 } },
+        }],
         cleanupOutdatedCaches: true,
         // o chunk do xlsx passa de 2 MB no limite padrão do precache
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
