@@ -181,6 +181,73 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (28/09/2026) — SECO COM ETIQUETA, PRO RÁPIDO (M53), DESCONTO E COBRANÇA À PARTE (M54), TRAVA DE GRAVAÇÃO (M55), ANÁLISE COMPLETA
+
+Tudo publicado, deploy verde. 723 testes + 11 do robô. Migrações até a **55**.
+
+- **27/09:** 30 proteínas cadastradas na conta do cliente Polo Central/Beer
+  (plano Etiquetas) direto no banco, só acrescentando (sem ler os 6 itens que
+  existiam); CNPJ formatado na etiqueta (TSPL e computador); "Planos e
+  pagamento" reúne plano, unidade nova (pedido com CNPJ), contas a mais (sem
+  cobrança, a Aurum libera) e o Pro; painel com "+ Unidade para um cliente".
+- **Estoque Seco imprime etiqueta de ABERTURA** (`armazenamentoNaEtiqueta`,
+  `etiquetaDeAbertura` em RECURSOS_MODULO; ambiente como padrão). Era a única
+  coisa do Etiquetas que o Pro não fazia. Robô imprime no Seco e no Pro.
+- **M53 — só o que mudou:** `registros.atualizado_em` (gatilho,
+  clock_timestamp) + índice; o aparelho guarda os lançamentos no IndexedDB
+  (lib/registrosLocais.js) e pede só o que mudou, com 10 min de folga,
+  apagadas inclusive (utils/registrosDelta.js). Conferência pelo NÚMERO de
+  lançamentos vivos (count head); não bateu → baixa tudo, pela CHAVE
+  (`buscarTodasPorId`, nunca `range` — linha apagada no meio pularia outra).
+  O Sair apaga o IndexedDB; modo suporte não guarda. Medido: 20 mil
+  lançamentos gravam em 0,13 s e leem em 0,09 s.
+- **M54 — desconto combinado** (reais por mês ou %, motivo, data opcional;
+  `restaurantes.desconto_*`, `definir_desconto`, só super-admin): o cliente vê
+  o preço cheio riscado e o Pix sai com ele; contrato parcelado não usa.
+  **Cobrança à parte** (`cobrancas_avulsas`, lançar/baixar no painel, cliente
+  vê em Planos e pagamento com Pix próprio e "Já paguei"). Ao criar/reativar
+  unidade de quem pagou semestral/anual, o painel SUGERE meses restantes ×
+  adicional × desconto do período pago (`cobrancaDaUnidade`). Arredondamento
+  do meio centavo corrigido em `r2`.
+- **M55 — trava de gravação:** registrar_etiquetas/registrar_impressoes/
+  mudar_status_etiqueta só gravam para conta liberada OU etiqueta impressa
+  até o último vencimento +1 dia (`_pode_gravar_etiqueta`, sem grant);
+  teto 5.000/24 h por conta; etiqueta ≤ 2 KB. Antes, conta recém-cadastrada
+  (sem liberação) enchia o banco grátis e travava TODOS.
+- Correções da análise: contagem por QR converte a medida para a unidade do
+  produto (`quantoSomaNaContagem`); aviso invisível do "recuperar senha";
+  atalhos de cadastro do Pro vão para /itens; bloqueio diz "Sua assinatura
+  venceu" para quem pagou.
+- **Duas etapas:** o dono JÁ cadastrou o código (1 fator verificado em 28/09).
+
+### Análise completa (4 revisores, 51 achados) — o que ficou para decidir
+Relatório entregue ao dono no chat. Principais pendentes:
+- **Segurança:** cozinheiro altera prazos do catálogo pela API (policies de
+  `documentos` não olham a matriz de acessos) — criar `pode(cap)` no banco;
+  webhook do Stripe libera boleto não pago (antes de ligar o Stripe); senha
+  da equipe com 6 caracteres (subir para 8); auditoria da fila offline assina
+  com quem entrar depois; conta bloqueada ainda cria contas de equipe.
+- **Desempenho:** aparelho que dorme perde o tempo real até reabrir (rodar o
+  incremental ao voltar); cache por tipo e fila no mesmo localStorage (5 MB);
+  Relatório/Financeiro/Balanço usam a cópia da abertura; Etiquetas baixa a
+  janela de 120 dias a cada abertura (mesmo desenho da M53); troca de cozinha
+  rebaixa tudo e o documento legado de impressas; tempo real por
+  postgres_changes não escala (Broadcast); contexto único de 60 valores.
+- **Design/acessibilidade ("sem cara de IA"):** emojis na interface (botão
+  Imprimir, Pagamento, Login…), toques < 44 px no modal de impressão,
+  dourado sobre vermelho, erros do login em cores fracas, aviso de
+  vencimento flutuante cobrindo botões, vencimento em 11 px no modal,
+  botões feitos à mão, sem estado de carregamento, travessões e "(s)".
+- **Produto:** perda aceita unidade diferente sem converter; "Cadastrar
+  equipe" dentro da janela de imprimir não leva a lugar nenhum; descartada
+  em Validades não vira perda; WhatsApp do suporte citado sem link; Ajuda não
+  envia tela/versão; telas de registro do Pro com botão no topo; Inventário
+  sem busca; Impressas desenha 120 dias de uma vez.
+
+**Pendentes do dono:** plano Pro do Supabase (US$ 25) + região São Paulo
+(projeto novo — ver o passo a passo entregue em 28/09); vídeo de
+demonstração (ffmpeg não está instalado; roteiro a combinar); APK e Stripe.
+
 ## Onde paramos (24/09/2026, tarde) — ETIQUETAS EM LINHAS (M49), ERROS NO PAINEL (M50), DUAS ETAPAS (M51), REVISÃO (M52)
 
 Tudo publicado. 691 testes + 9 do robô. Migrações até a **52**, todas no banco.
