@@ -2,6 +2,7 @@
 // Permite o app funcionar sem internet e sincronizar ao reconectar.
 
 import { contarVivos, contarMortos, comItemNovo } from '../utils/outbox';
+import { apagarRegistrosLocais } from './registrosLocais';
 
 const ns = (rid, chave) => `pe::${rid}::${chave}`;
 
@@ -124,5 +125,7 @@ export function limparCacheLocal({ preservarOutbox = true } = {}) {
       removidas++;
     });
   } catch { /* storage indisponível */ }
+  // os lançamentos guardados no IndexedDB (M53) vão junto — sem esperar
+  apagarRegistrosLocais().catch(() => { /* sem IndexedDB: nada guardado */ });
   return removidas;
 }

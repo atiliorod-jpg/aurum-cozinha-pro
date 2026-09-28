@@ -18,6 +18,8 @@ import {
   juntarNaLista, aplicarLinhaNaLista, emLotes,
 } from '../utils/etiquetasLinhas';
 import { buscarTodas } from '../lib/paginar';
+import { lerRegistrosLocais, gravarRegistrosLocais } from '../lib/registrosLocais';
+import { juntarDelta, pedirDesde, horaMaisNova } from '../utils/registrosDelta';
 import { relatarErro } from '../lib/relatarErro';
 import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../utils/produto';
@@ -181,6 +183,8 @@ export function AppProvider({ children }) {
   const ridRef = useRef(rid); ridRef.current = rid;
   const sessaoRef = useRef(sessao); sessaoRef.current = sessao;
   const soLeituraRef = useRef(soLeitura); soLeituraRef.current = soLeitura;
+  // o suporte da Aurum não guarda os lançamentos do cliente no próprio aparelho (M53)
+  const guardaLocalRef = useRef(!impersonando); guardaLocalRef.current = !impersonando;
   const flushandoRef = useRef(false); // impede dois flushes simultâneos (mount + 'online')
 
   // ── Módulo ativo (multi-cozinha) ───────────────────────────
@@ -1338,17 +1342,41 @@ export function AppProvider({ children }) {
       // qualquer deles — saldo, validades e relatórios calculados com dados
       // faltando, sem erro nenhum na tela. Ordena pelo id para as páginas não
       // se sobreporem. Falhou no meio: vale como falha (o cache fica).
-      const TAMANHO_PAGINA = 1000;
-      let regs = [];
+      //
+      // ⚠️ SÓ O QUE MUDOU (M53, 28/09/2026). Baixar TUDO a cada abertura e a
+      // cada troca de cozinha não escala (um ano de uso = dezenas de páginas,
+      // em cada aparelho). O aparelho guarda os lançamentos (IndexedDB) e pede
+      // só as linhas mudadas desde a última vez, com folga — apagadas
+      // inclusive, para saírem daqui também. As contas de saldo não mudam:
+      // continuam vendo TODOS os lançamentos, só que sem baixá-los de novo.
+      // Qualquer falha nesse caminho → baixa tudo, como antes.
+      let regs = null;
       let errRegs = null;
-      for (let de = 0; ; de += TAMANHO_PAGINA) {
-        const { data: pagina, error } = await supabase.from('registros').select('*')
-          .eq('restaurante_id', rid).eq('deleted', false)
-          .order('id').range(de, de + TAMANHO_PAGINA - 1);
+      const guardadas = guardaLocalRef.current ? await lerRegistrosLocais(rid) : null;
+      if (!ativo) return;
+      const desde = pedirDesde(guardadas?.ate);
+      if (guardadas && desde) {
+        const { data: mudaram, error } = await buscarTodas(() => supabase.from('registros').select('*')
+          .eq('restaurante_id', rid).gte('atualizado_em', desde)
+          .order('atualizado_em').order('id'));
         if (!ativo) return;
-        if (error) { errRegs = error; regs = null; break; }
-        regs.push(...(pagina || []));
-        if (!pagina || pagina.length < TAMANHO_PAGINA) break;
+        if (!error) {
+          regs = juntarDelta(guardadas.linhas, mudaram, rid);
+          const ate = horaMaisNova(mudaram, guardadas.ate);
+          if (mudaram?.length) gravarRegistrosLocais(rid, regs, ate);
+        }
+      }
+      if (!regs) {
+        const { data: todas, error } = await buscarTodas(() => supabase.from('registros').select('*')
+          .eq('restaurante_id', rid).eq('deleted', false).order('id'));
+        if (!ativo) return;
+        if (error) errRegs = error;
+        else {
+          regs = todas || [];
+          // banco sem a M53 (sem `atualizado_em`): não guarda — pediria tudo de novo de qualquer jeito
+          const ate = horaMaisNova(regs);
+          if (guardaLocalRef.current && ate) gravarRegistrosLocais(rid, regs, ate);
+        }
       }
       // Guarda o BRUTO: a Administração precisa mostrar o relatório de outro
       // estoque sem trocar o que está aberto, e o balanço consolidado precisa de

@@ -56,7 +56,9 @@ describe('buscar todas as linhas, em páginas', () => {
 
   it('o app e a cópia do painel buscam em páginas, ordenadas por coluna única', () => {
     const app = ler('../../store/AppContext.jsx');
-    expect(app).toMatch(/\.order\('id'\)\.range\(de, de \+ TAMANHO_PAGINA - 1\)/);
+    // M53: tudo (ordenado pelo id) ou só o que mudou (pela hora e pelo id), sempre em páginas
+    expect(app).toMatch(/buscarTodas\(\(\) => supabase\.from\('registros'\)\.select\('\*'\)\s*\.eq\('restaurante_id', rid\)\.eq\('deleted', false\)\.order\('id'\)\)/);
+    expect(app).toMatch(/\.gte\('atualizado_em', desde\)\s*\.order\('atualizado_em'\)\.order\('id'\)\)/);
     const adm = ler('../../pages/Admin.jsx');
     expect(adm).toMatch(/buscarTodas\(\(\) => supabase\.from\('registros'\)\.select\('\*'\)\.eq\('restaurante_id', r\.id\)\.order\('id'\)\)/);
     expect(adm).toMatch(/if \(docs\.error \|\| regs\.error\) throw docs\.error \|\| regs\.error;/);
