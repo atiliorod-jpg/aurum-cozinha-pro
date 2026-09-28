@@ -57,7 +57,7 @@ describe('buscar todas as linhas, em páginas', () => {
   it('o app e a cópia do painel buscam em páginas, ordenadas por coluna única', () => {
     const app = ler('../../store/AppContext.jsx');
     // M53: tudo (ordenado pelo id) ou só o que mudou (pela hora e pelo id), sempre em páginas
-    expect(app).toMatch(/buscarTodas\(\(\) => supabase\.from\('registros'\)\.select\('\*'\)\s*\.eq\('restaurante_id', rid\)\.eq\('deleted', false\)\.order\('id'\)\)/);
+    expect(app).toMatch(/buscarTodasPorId\(\(\) => supabase\.from\('registros'\)\.select\('\*'\)\s*\.eq\('restaurante_id', rid\)\.eq\('deleted', false\)\)/);
     expect(app).toMatch(/\.gte\('atualizado_em', desde\)\s*\.order\('atualizado_em'\)\.order\('id'\)\)/);
     const adm = ler('../../pages/Admin.jsx');
     expect(adm).toMatch(/buscarTodas\(\(\) => supabase\.from\('registros'\)\.select\('\*'\)\.eq\('restaurante_id', r\.id\)\.order\('id'\)\)/);

@@ -92,7 +92,7 @@ function BannerSuporte({ nome, podeMexer, onSair }) {
 
 // Tela cheia quando teste/assinatura venceram OU a conta foi suspensa —
 // só a página Assinatura fica acessível (dados sempre preservados)
-function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, onSair }) {
+function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, eraAssinante = false, onSair }) {
   // ⚠️ EXPORTAR PRECISA FUNCIONAR AQUI DENTRO. Os Termos prometem, em duas
   // cláusulas, que a conta exporta a íntegra dos dados "a qualquer momento" e
   // que, encerrada a relação, o cliente leva o que é dele. Só que o vencimento
@@ -114,6 +114,8 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, onSair }) {
       <p className="text-polo-gold font-bold text-lg">
         {bloqueado ? 'Conta suspensa'
           : aguardando ? 'Falta liberarmos o seu acesso'
+          // quem PAGOU e deixou vencer não fez "teste" nenhum (28/09/2026)
+          : eraAssinante ? 'Sua assinatura venceu'
           : 'Seu período de teste terminou'}
       </p>
       <p className="text-white/80 text-sm max-w-xs">
@@ -121,7 +123,9 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, onSair }) {
           ? 'O acesso desta conta foi suspenso pela administração. Os seus dados estão guardados e seguros — fale com o suporte Aurum para reativar.'
           : aguardando
             ? 'Sua conta foi criada. Chame a Aurum no WhatsApp que liberamos na hora — normalmente em minutos, no horário comercial.'
-            : 'Os seus dados estão guardados e seguros. Assine o plano para continuar usando o sistema exatamente de onde parou.'}
+            : eraAssinante
+              ? 'Os seus dados estão guardados e seguros. Renove o plano para continuar exatamente de onde parou.'
+              : 'Os seus dados estão guardados e seguros. Assine o plano para continuar usando o sistema exatamente de onde parou.'}
       </p>
       {/* ⚠️ Quem está esperando precisa de um caminho, não de um botão de
           pagar: ele já pagou, ou combinou de pagar. O caminho é o WhatsApp,
@@ -309,7 +313,7 @@ function Rotas() {
     return (
       <Routes>
         <Route path="/pagamento" element={temPermissao('gerencia') ? <Pagamento /> : <BloqueioAssinatura podeAssinar={false} onSair={logout} />} />
-        <Route path="*" element={<BloqueioAssinatura aguardando={plano.tipo === 'aguardando'} podeAssinar={temPermissao('gerencia')} onSair={logout} />} />
+        <Route path="*" element={<BloqueioAssinatura aguardando={plano.tipo === 'aguardando'} eraAssinante={!!sessao?.assinaturaAte} podeAssinar={temPermissao('gerencia')} onSair={logout} />} />
       </Routes>
     );
   }

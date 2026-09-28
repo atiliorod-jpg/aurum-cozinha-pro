@@ -47,8 +47,36 @@ describe('ligado no app', () => {
 
   it('com o guardado, pede só o que mudou (apagadas inclusive); sem ele, ou se falhar, baixa tudo', () => {
     expect(app).toMatch(/const guardadas = guardaLocalRef\.current \? await lerRegistrosLocais\(rid\) : null;/);
-    expect(app).toMatch(/regs = juntarDelta\(guardadas\.linhas, mudaram, rid\);/);
+    expect(app).toMatch(/const juntas = juntarDelta\(guardadas\.linhas, mudaram, rid\);/);
+    // conferência: o número de lançamentos vivos do banco tem de bater, senão baixa tudo
+    expect(app).toMatch(/\.select\('id', \{ count: 'exact', head: true \}\)\.eq\('restaurante_id', rid\)\.eq\('deleted', false\);/);
+    expect(app).toMatch(/if \(!eCount && count === juntas\.length\) \{/);
     expect(app).toMatch(/if \(!regs\) \{/);
+  });
+
+  it('a leitura completa pagina pela CHAVE: linha que some no meio não faz outra ser pulada', async () => {
+    const { buscarTodasPorId } = await import('../../lib/paginar');
+    // banco falso: 7 linhas vivas; depois da 1ª página, 'c' é apagada
+    let vivas = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+    let paginas = 0;
+    const montar = () => {
+      const f = { gt: null, lim: 0 };
+      const q = {
+        gt: (_c, v) => { f.gt = v; return q; },
+        order: () => q,
+        limit: (n) => { f.lim = n; return q; },
+        then: (ok) => {
+          paginas += 1;
+          const data = vivas.filter(id => f.gt === null || id > f.gt).slice(0, f.lim).map(id => ({ id }));
+          if (paginas === 1) vivas = vivas.filter(id => id !== 'c');
+          return Promise.resolve({ data, error: null }).then(ok);
+        },
+      };
+      return q;
+    };
+    const { data } = await buscarTodasPorId(montar, 3);
+    // a..c na 1ª página; depois d, e, f, g — nenhuma pulada
+    expect(data.map(x => x.id)).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
   });
 
   it('o suporte da Aurum não guarda os lançamentos do cliente, e o "Sair" apaga o que ficou', () => {

@@ -376,6 +376,30 @@ export const gramasDeMedida = (txt) => {
   return m[2] === 'kg' ? Math.round(n * 1000) : Math.round(n);
 };
 
+// ── Quanto UM pote soma na contagem por QR (Inventário) ────────
+//
+// ⚠️ A MEDIDA DA ETIQUETA TEM UNIDADE (28/09/2026, achado da análise): o passo
+// era só o número de "150 g" — um filé porcionado cadastrado em kg somava 150
+// kg por pote escaneado, e a contagem vira a nova base do estoque. Agora a
+// medida é convertida para a unidade do PRODUTO; unidade que não converte
+// (litro num item em kg, "1 maço" num item em kg) devolve null e a tela pede
+// para digitar.
+const FATOR = { g: ['g', 1], kg: ['g', 1000], ml: ['ml', 1], l: ['ml', 1000] };
+export function quantoSomaNaContagem(medida, unidadeProduto) {
+  const un = String(unidadeProduto || '').trim().toLowerCase();
+  if (un === 'unid' || un === 'un' || un === 'unidade') return 1;
+  const m = String(medida || '').trim().toLowerCase().replace(',', '.').match(/^([\d.]+)\s*([a-zç]*)/);
+  const n = m ? parseFloat(m[1]) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const deMedida = m[2] || '';
+  // sem unidade na medida ("2"): vale a do produto, como sempre foi
+  if (!deMedida || deMedida === un) return n;
+  const a = FATOR[deMedida];
+  const b = FATOR[un];
+  if (!a || !b || a[0] !== b[0]) return null; // não converte (massa × volume, maço…)
+  return Math.round((n * a[1] / b[1]) * 1000) / 1000;
+}
+
 // ── Prazo digitado na hora de imprimir ────────────────────────
 //
 // ⚠️ O CAMPO NÃO TINHA TETO, e isso saía impresso em papel colado no pote.

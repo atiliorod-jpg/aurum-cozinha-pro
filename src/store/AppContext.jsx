@@ -17,7 +17,7 @@ import {
   ehChaveImpressas, cozinhaDaChaveImpressas, linhaParaEtiqueta, janelaDaLista, etiquetasDoDocumentoAntigo,
   juntarNaLista, aplicarLinhaNaLista, emLotes,
 } from '../utils/etiquetasLinhas';
-import { buscarTodas } from '../lib/paginar';
+import { buscarTodas, buscarTodasPorId } from '../lib/paginar';
 import { lerRegistrosLocais, gravarRegistrosLocais } from '../lib/registrosLocais';
 import { juntarDelta, pedirDesde, horaMaisNova } from '../utils/registrosDelta';
 import { relatarErro } from '../lib/relatarErro';
@@ -1361,14 +1361,23 @@ export function AppProvider({ children }) {
           .order('atualizado_em').order('id'));
         if (!ativo) return;
         if (!error) {
-          regs = juntarDelta(guardadas.linhas, mudaram, rid);
-          const ate = horaMaisNova(mudaram, guardadas.ate);
-          if (mudaram?.length) gravarRegistrosLocais(rid, regs, ate);
+          const juntas = juntarDelta(guardadas.linhas, mudaram, rid);
+          // ⚠️ CONFERÊNCIA BARATA: o banco diz quantos lançamentos vivos a
+          // conta tem (só o número). Não bateu com o que o aparelho montou —
+          // linha perdida numa leitura antiga, cópia corrompida — baixa tudo.
+          const { count, error: eCount } = await supabase.from('registros')
+            .select('id', { count: 'exact', head: true }).eq('restaurante_id', rid).eq('deleted', false);
+          if (!ativo) return;
+          if (!eCount && count === juntas.length) {
+            regs = juntas;
+            const ate = horaMaisNova(mudaram, guardadas.ate);
+            if (mudaram?.length) gravarRegistrosLocais(rid, regs, ate);
+          }
         }
       }
       if (!regs) {
-        const { data: todas, error } = await buscarTodas(() => supabase.from('registros').select('*')
-          .eq('restaurante_id', rid).eq('deleted', false).order('id'));
+        const { data: todas, error } = await buscarTodasPorId(() => supabase.from('registros').select('*')
+          .eq('restaurante_id', rid).eq('deleted', false));
         if (!ativo) return;
         if (error) errRegs = error;
         else {

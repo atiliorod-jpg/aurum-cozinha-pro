@@ -93,7 +93,10 @@ const SECOES = [
       // esse mesmo atalho contextual em ResponsavelSelect ("Cadastrar equipe")
       // e em Produção ("Criar ficha"). Quem está com a mercadoria na mão
       // precisa cadastrar dali, não de outra área.
-      { to: '/configuracoes?secao=produtos', icone: 'caixa', titulo: 'Produtos do estoque',
+      // ⚠️ /itens, não o formulário antigo de Configurações (28/09/2026): é
+      // lá que estão os itens prontos, abertura/manipulação e a medida — o
+      // mesmo cadastro do plano Etiquetas, com o estoque num bloco à parte.
+      { to: '/itens', icone: 'caixa', titulo: 'Produtos do estoque',
         desc: 'Cadastrar item novo, mínimo e máximo', cap: 'gerenciarProdutos' },
     ],
   },

@@ -497,7 +497,7 @@ export default function Dashboard() {
             ? 'Este estoque ainda não tem nenhum produto cadastrado.'
             : 'Nenhum produto nesta categoria.'}</p>
           {produtosAtivos.length === 0 && pode(sessao, permissoes, 'gerenciarProdutos') && (
-            <Link to="/configuracoes?secao=produtos"
+            <Link to="/itens"
               className="inline-block min-h-11 px-5 py-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm
                          active:scale-95 transition-transform">
               Cadastrar o primeiro produto

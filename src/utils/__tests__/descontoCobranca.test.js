@@ -98,3 +98,34 @@ describe('ligado nas telas e no banco', () => {
     expect(sql).toMatch(/desconto_tipo = 'percentual' and desconto_valor > 0 and desconto_valor <= 90/);
   });
 });
+
+describe('achados da análise de 28/09 corrigidos na hora', () => {
+  it('contagem por QR: a medida da etiqueta vira a unidade do produto', async () => {
+    const { quantoSomaNaContagem } = await import('../etiquetas');
+    expect(quantoSomaNaContagem('150 g', 'kg')).toBe(0.15);      // somava 150
+    expect(quantoSomaNaContagem('2 kg', 'kg')).toBe(2);
+    expect(quantoSomaNaContagem('1,5 kg', 'g')).toBe(1500);
+    expect(quantoSomaNaContagem('500 mL', 'L')).toBe(0.5);
+    expect(quantoSomaNaContagem('2', 'kg')).toBe(2);             // sem unidade: a do produto
+    expect(quantoSomaNaContagem('qualquer', 'unid')).toBe(1);
+    expect(quantoSomaNaContagem('500 mL', 'kg')).toBeNull();     // não converte: pede para digitar
+    expect(quantoSomaNaContagem('1 maço', 'kg')).toBeNull();
+    expect(quantoSomaNaContagem('', 'kg')).toBeNull();
+  });
+
+  it('o aviso do "recuperar senha" é legível; o Pro cadastra pelo Meus itens; bloqueio distingue quem pagou', () => {
+    expect(ler('../../pages/Login.jsx')).not.toMatch(/text-white\/60 -mt-1/);
+    expect(ler('../../pages/Registrar.jsx')).toMatch(/\{ to: '\/itens', icone: 'caixa', titulo: 'Produtos do estoque'/);
+    expect(ler('../../pages/Dashboard.jsx')).not.toMatch(/to="\/configuracoes\?secao=produtos"/);
+    expect(ler('../../App.jsx')).toMatch(/eraAssinante \? 'Sua assinatura venceu'/);
+  });
+
+  it('M55: conta sem liberação não grava etiqueta; teto por dia; 2 KB por etiqueta', () => {
+    const sql = ler('../../lib/migration55_trava_de_gravacao_etiquetas.sql');
+    expect(sql).toMatch(/where _pode_gravar_etiqueta\(rid, x\.impresso_em\)/);
+    expect(sql).toMatch(/and _pode_gravar_etiqueta\(rid, \(e->>'dia'\)::date\)/);
+    expect(sql).toMatch(/>= 5000 then\s*raise exception 'Limite diário de etiquetas atingido/);
+    expect(sql).toMatch(/check \(pg_column_size\(dados\) <= 2048\)/);
+    expect(sql).toMatch(/revoke all on function _pode_gravar_etiqueta\(uuid, date\) from public, anon, authenticated;/);
+  });
+});

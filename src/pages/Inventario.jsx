@@ -7,7 +7,7 @@ import { pode } from '../utils/permissoes';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
 import LeitorQR from '../components/LeitorQR';
-import { lerLoteIdDoQR } from '../utils/etiquetas';
+import { lerLoteIdDoQR, quantoSomaNaContagem } from '../utils/etiquetas';
 import { cacheGet, cacheSet } from '../lib/cache';
 
 export default function Inventario() {
@@ -70,11 +70,10 @@ export default function Inventario() {
     // Quanto cada etiqueta SOMA depende da unidade do produto. Somar sempre 1
     // corrompia o estoque de quem vende por peso: 5 potes de 2 kg viravam
     // "5 kg" em vez de 10 kg — e a contagem vira a nova base do estoque.
-    const passo = prod?.unidade === 'unid'
-      ? 1
-      : parseFloat(String(etq.medida || '').replace(',', '.').match(/[\d.]+/)?.[0] || '');
+    // ⚠️ E NA UNIDADE DO PRODUTO: "150 g" num item em kg soma 0,15 (somava 150)
+    const passo = quantoSomaNaContagem(etq.medida, prod?.unidade);
     if (!passo || passo <= 0) {
-      toast(`"${etq.nome}" é por ${prod?.unidade || 'peso'} e a etiqueta não tem a medida — digite a quantidade na lista.`, 'aviso', { duracao: 5000 });
+      toast(`"${etq.nome}" é por ${prod?.unidade || 'peso'} e a medida da etiqueta não converte — digite a quantidade na lista.`, 'aviso', { duracao: 5000 });
       return;
     }
     setContagem(prev => ({ ...prev, [etq.produtoId]: String((parseFloat(prev[etq.produtoId]) || 0) + passo) }));

@@ -282,7 +282,8 @@ export default function Login() {
             {/* ⚠️ Quem tem conta de equipe precisa saber AQUI que este caminho
                 não é dele — o endereço interno dessas contas não tem caixa de
                 entrada, e o link nunca chegaria. */}
-            <p className="text-[11px] text-white/60 -mt-1">
+            {/* estava text-white/60 DENTRO do cartão branco: ninguém lia (28/09/2026) */}
+            <p className="text-xs text-gray-600 -mt-1">
               Conta de funcionário não recupera por aqui: quem troca a senha dela é o dono, em Administração.
             </p>
             <Msg erro={erro} info={info} />
