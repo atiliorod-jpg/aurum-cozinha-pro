@@ -206,15 +206,18 @@ export default function Admin() {
     }
 
     const ids = rests.map(r => r.id);
-    // e-mails via RPC (migração 9); sem ela, cai no select básico (nome/cargo)
+    // ⚠️ UMA CONSULTA SÓ (M57, 28/09/2026). Antes era uma por cliente, em fila
+    // (o "N+1"): com 50 clientes, 50 idas ao banco antes de a lista aparecer.
+    // Em páginas, porque o banco entrega no máximo 1.000 linhas por vez.
     let perfis = [];
-    for (const rid of ids) {
-      const { data: comEmail, error: eRpc } = await supabase.rpc('usuarios_do_restaurante', { p_restaurante: rid });
-      if (!eRpc && comEmail) { perfis.push(...comEmail.map(u => ({ ...u, restaurante_id: rid }))); }
-      else {
-        const { data: basicos } = await supabase.from('perfis').select('id, nome, cargo').eq('restaurante_id', rid);
-        perfis.push(...(basicos || []).map(u => ({ ...u, restaurante_id: rid })));
-        break; // RPC ausente — não insiste nos demais
+    const { data: todosUsuarios, error: eUsu } = await buscarTodas(() => supabase.rpc('usuarios_de_todos_restaurantes'));
+    if (!eUsu && todosUsuarios) perfis = todosUsuarios;
+    else {
+      // banco sem a M57: o jeito antigo, cliente a cliente
+      for (const rid of ids) {
+        const { data: comEmail, error: eRpc } = await supabase.rpc('usuarios_do_restaurante', { p_restaurante: rid });
+        if (eRpc || !comEmail) break;
+        perfis.push(...comEmail.map(u => ({ ...u, restaurante_id: rid })));
       }
     }
 
