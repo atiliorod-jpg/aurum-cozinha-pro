@@ -95,3 +95,23 @@ test('plano Pro: todas as telas abrem sem travar', async ({ page }) => {
   }
   expect(erros, erros.join('\n')).toEqual([]);
 });
+
+// ⚠️ O ETIQUETAS É UM RECORTE DO PRO (regra do dono): quem assina o Pro tem de
+// imprimir, achar sem acento e ver na aba Impressas exatamente como no
+// Etiquetas — o mesmo caminho, agora pela Cozinha de Produção do Pro.
+test('plano Pro: imprimir, buscar sem acento e ver na aba Impressas, como no Etiquetas', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
+  await abrirTela(page, '/etiquetas');
+  await page.getByLabel('Buscar produto').fill('porcao');
+  await expect(page.getByText('Picanha (porção)').first()).toBeVisible();
+  await page.getByLabel('Buscar produto').fill('');
+  await page.getByRole('button', { name: 'Imprimir etiqueta de Molho de Tomate da Casa' }).click();
+  const janela = page.getByRole('dialog');
+  await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
+  await janela.getByRole('button', { name: 'Sim', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await abrirTela(page, '/impressas');
+  await expect(page.getByText('Molho de Tomate da Casa').first()).toBeVisible();
+  await abrirTela(page, '/validades');
+  expect(erros, erros.join('\n')).toEqual([]);
+});

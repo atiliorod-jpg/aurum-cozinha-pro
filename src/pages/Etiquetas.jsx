@@ -14,6 +14,7 @@ import { medidaDoProduto, maisUsados } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
 import { casaBusca } from '../utils/busca';
+import { pode } from '../utils/permissoes';
 
 // Guia da impressora — duas situações, passo a passo curto. Imprimível.
 //
@@ -130,7 +131,7 @@ function GuiaImpressora() {
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
 export default function Etiquetas() {
-  const { produtos, categorias, prefs, modulo, etiquetasImpressas } = useApp();
+  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes } = useApp();
   const { abrirEtiquetas } = useUI();
 
   const { sessao, impersonando } = useAuth();
@@ -324,7 +325,8 @@ export default function Etiquetas() {
                     ? `Nada encontrado para “${busca.trim()}”.`
                     : 'Você ainda não tem itens para etiquetar.'}
                 </p>
-                {soEtiq && (
+                {/* nos dois planos (o Pro também tem Meus itens) — para quem pode cadastrar */}
+                {pode(sessao, permissoes, 'gerenciarProdutos') && (
                   <Link to="/itens" className="inline-block mt-3 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">
                     Cadastrar itens
                   </Link>
