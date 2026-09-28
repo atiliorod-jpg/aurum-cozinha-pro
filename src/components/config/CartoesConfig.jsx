@@ -16,6 +16,7 @@ import { temUnidadesExtras, opcoesDeUnidade, acharUnidade } from '../../utils/un
 import { useApp } from '../../store/AppContext';
 import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
+import { plural } from '../../utils/formatters';
 
 export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
   // eslint-disable-next-line react-hooks/purity -- a hora atual é insumo legítimo do prazo de 24h; recalcular a cada render é o comportamento desejado
@@ -53,7 +54,7 @@ export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
       {suporteAtivo ? (
         <>
           <p className="text-xs text-green-700 mt-0.5">
-            ✅ Suporte autorizado — expira em ~{restante}h.{' '}
+            Suporte autorizado — expira em ~{restante}h.{' '}
             <strong>{prefs.suportePermissao === 'mexer' ? 'Pode ver e EDITAR' : 'Somente visualização'}</strong> dos seus dados.
           </p>
           <button onClick={revogar}
@@ -68,11 +69,11 @@ export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button onClick={() => autorizar('ver')}
               className="bg-polo-navy text-polo-gold font-bold px-3 py-2.5 rounded-lg text-xs">
-              👁️ Só visualizar (24h)
+              Só visualizar (24h)
             </button>
             <button onClick={() => autorizar('mexer')}
               className="border-2 border-polo-navy text-polo-navy font-bold px-3 py-2.5 rounded-lg text-xs">
-              ✏️ Ver e editar (24h)
+              Ver e editar (24h)
             </button>
           </div>
         </>
@@ -806,7 +807,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
     const ok = await confirm({
       titulo: `Apagar o cargo "${cargo.nome}"?`,
       mensagem: usando
-        ? `${usando} conta(s) usam este cargo e voltam para ${cargo.base === 'gerencia' ? 'Gerência' : 'Cozinha'}.`
+        ? `${plural(usando, 'conta usa', 'contas usam')} este cargo e volta${usando === 1 ? '' : 'm'} para ${cargo.base === 'gerencia' ? 'Gerência' : 'Cozinha'}.`
         : 'Nenhuma conta usa este cargo.',
       perigo: true, confirmar: 'Apagar cargo',
     });

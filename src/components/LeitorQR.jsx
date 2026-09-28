@@ -74,7 +74,7 @@ export default function LeitorQR({ onLer, onFechar }) {
     return (
       <div className="bg-amber-50 border border-amber-300 rounded-xl p-3">
         <p className="text-xs text-amber-800">
-          📷 Este navegador não lê QR pela câmera. Funciona no <strong>Chrome do Android</strong>.
+          Este navegador não lê QR pela câmera. Funciona no <strong>Chrome do Android</strong>.
           No iPhone, e em qualquer aparelho, dá para continuar digitando a contagem normalmente.
         </p>
         <button onClick={onFechar} className="mt-2 text-xs font-semibold text-polo-navy underline underline-offset-2">

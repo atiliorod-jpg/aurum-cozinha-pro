@@ -4,6 +4,7 @@ import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import Icon from './Icons';
 import Dialogo from './Dialogo';
+import { plural } from '../utils/formatters';
 
 // Canal de feedback do cliente (bug ou sugestão) direto pelo app.
 // Guia o cliente a descrever direito e envia para a aba do super-admin (RPC
@@ -173,7 +174,7 @@ export default function BotaoFeedback() {
   return (
     <>
       <button onClick={abrir}
-        aria-label={naoLidas > 0 ? `Ajuda — ${naoLidas} resposta(s) nova(s)` : 'Enviar problema ou sugestão'}
+        aria-label={naoLidas > 0 ? `Ajuda: ${plural(naoLidas, 'resposta nova', 'respostas novas')}` : 'Enviar problema ou sugestão'}
         title="Relatar problema ou sugerir melhoria"
         className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">

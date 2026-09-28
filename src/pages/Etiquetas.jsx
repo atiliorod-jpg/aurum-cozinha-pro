@@ -15,6 +15,7 @@ import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
 import { casaBusca } from '../utils/busca';
 import { pode } from '../utils/permissoes';
+import Esqueleto from '../components/Esqueleto';
 
 // Guia da impressora — duas situações, passo a passo curto. Imprimível.
 //
@@ -33,7 +34,7 @@ import { pode } from '../utils/permissoes';
 const TIPOS_IMPRESSORA = [
   {
     id: 'celular',
-    titulo: 'Celular ou tablet Android',
+    titulo: 'Celular Android',
     resumo: 'Imprime direto, sem cabo e sem instalar nada.',
     comoFica: 'A etiqueta sai em segundos, no tamanho certo. Não abre janela de impressão.',
     passos: [
@@ -41,7 +42,7 @@ const TIPOS_IMPRESSORA = [
       'Abra o Aurum no Chrome. Dentro do WhatsApp ou do Instagram não funciona.',
       'Monte a etiqueta e toque em "Conectar impressora e imprimir". Escolha a impressora na lista.',
       'Nas próximas vezes ele já conecta sozinho.',
-      '⚠️ Lista vazia: impressora desligada, longe, ou conectada em outro aparelho — ela atende um por vez.',
+      'Lista vazia: impressora desligada, longe, ou conectada em outro aparelho — ela atende um por vez.',
     ],
   },
   {
@@ -53,7 +54,7 @@ const TIPOS_IMPRESSORA = [
       'CABO: ligue no USB e espere instalar. Se o Windows não achar, baixe o driver do modelo no site do fabricante.',
       'BLUETOOTH: pareie em Configurações → Bluetooth e dispositivos → Adicionar dispositivo.',
       'Nos dois casos, abra Impressoras e scanners → sua impressora → Preferências de impressão e deixe o papel em 60 × 50 mm. Se não estiver na lista, crie em "Novo" e confira que ficou selecionado — criar e não selecionar é o erro mais comum.',
-      '⚠️ SÓ NO BLUETOOTH: se você já usou a impressora por cabo, a fila antiga não funciona sem fio, e o trabalho fica parado sem erro na tela. Apague a fila antiga e use a que nasceu com o pareamento. Trocar a porta não resolve. Depois de recriar, refaça o tamanho do papel.',
+      'SÓ NO BLUETOOTH: se você já usou a impressora por cabo, a fila antiga não funciona sem fio, e o trabalho fica parado sem erro na tela. Apague a fila antiga e use a que nasceu com o pareamento. Trocar a porta não resolve. Depois de recriar, refaça o tamanho do papel.',
       'No app, toque em "Imprimir pelo computador" e escolha a impressora.',
     ],
   },
@@ -82,7 +83,7 @@ function GuiaImpressora() {
         <p className="text-xs text-gray-600">Escolha a sua situação para ver o passo a passo.</p>
         <button onClick={() => window.print()}
           className="bg-gray-100 text-gray-600 font-semibold text-xs px-3 py-2 rounded-lg whitespace-nowrap">
-          📄 Salvar guia em PDF
+          Salvar guia em PDF
         </button>
       </div>
       {TIPOS_IMPRESSORA.map(t => (
@@ -131,7 +132,7 @@ function GuiaImpressora() {
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
 export default function Etiquetas() {
-  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes } = useApp();
+  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes, nuvemCarregada } = useApp();
   const { abrirEtiquetas } = useUI();
 
   const { sessao, impersonando } = useAuth();
@@ -303,9 +304,9 @@ export default function Etiquetas() {
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {!buscando && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <button onClick={() => setCatAtiva('')}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
-                  ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              <button onClick={() => setCatAtiva('')} aria-pressed={catAtiva === ''}
+                className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
+                  ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-700 border border-gray-200'}`}>
                 Todos
               </button>
               {/* ⚠️ SÓ AS QUE TÊM ITEM. A lista vinha inteira da biblioteca:
@@ -314,8 +315,8 @@ export default function Etiquetas() {
                   tela de Meus itens já fazia certo — o app se comportava de
                   dois jeitos com o mesmo dado. */}
               {categorias.filter(c => produtosAtivos.some(p => p.categoria === c)).map(c => (
-                <button key={c} onClick={() => setCatAtiva(c)}
-                  className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                <button key={c} onClick={() => setCatAtiva(c)} aria-pressed={catAtiva === c}
+                  className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
                     ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
                   {c}
                 </button>
@@ -323,7 +324,8 @@ export default function Etiquetas() {
             </div>
           )}
           <div className="bg-white rounded-xl overflow-hidden">
-            {produtosVisiveis.length === 0 && (
+            {produtosVisiveis.length === 0 && !buscando && !nuvemCarregada && <Esqueleto rotulo="Carregando os itens" />}
+            {produtosVisiveis.length === 0 && (buscando || nuvemCarregada) && (
               /* Beco sem saida se a lista esta vazia: no plano Etiquetas a
                  conta nasce sem item nenhum, e "nenhum produto encontrado"
                  sozinho nao diz o que fazer. */
@@ -374,7 +376,7 @@ export default function Etiquetas() {
                 </div>
                 <button onClick={() => imprimirProduto(p)} aria-label={`Imprimir etiqueta de ${p.nome}`}
                   className="bg-polo-navy text-polo-gold font-bold text-xs px-3.5 py-2.5 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
-                  🏷️ Imprimir
+                  Imprimir
                 </button>
               </div>
             ))}

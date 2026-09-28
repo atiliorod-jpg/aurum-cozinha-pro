@@ -14,6 +14,7 @@ import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
 import { listaDeCompras, agruparListaPorMateriaPrima, fcEfetivo, preparacoesDoItem } from '../utils/analise';
 import { casaBusca } from '../utils/busca';
+import Icon from '../components/Icons';
 
 // Faixas de boas práticas no recebimento. Não bloqueia nada — só avisa, porque
 // a decisão de aceitar ou recusar a carga é de quem está na doca.
@@ -22,8 +23,8 @@ const avisoTemp = (v) => {
   if (isNaN(t)) return '';
   if (t <= -12) return '';                                   // congelado ok
   if (t >= 0 && t <= 7) return '';                            // resfriado ok
-  if (t > -12 && t < 0) return '⚠️ Congelado deve chegar a −12 °C ou menos. Registre a ocorrência.';
-  return '⚠️ Acima de 7 °C: fora da faixa de resfriado. Confira com o fornecedor antes de aceitar.';
+  if (t > -12 && t < 0) return 'Congelado deve chegar a −12 °C ou menos. Registre a ocorrência.';
+  return 'Acima de 7 °C: fora da faixa de resfriado. Confira com o fornecedor antes de aceitar.';
 };
 
 export default function Compras() {
@@ -70,7 +71,7 @@ export default function Compras() {
   }, [producoes]);
 
   const copiarLista = async () => {
-    const linhas = [`🧾 LISTA DE COMPRAS — ${fmtData(hoje())}`];
+    const linhas = [`LISTA DE COMPRAS — ${fmtData(hoje())}`];
     const textoItem = ({ p, atual, brutoKg, liquidoKg, fc, fornecedor }) => {
       const kgTexto = brutoKg
         ? `${fmtNum(brutoKg)} kg bruto${fc ? ` (FC ${Math.round(fc * 100)}%)` : ''}`
@@ -241,7 +242,7 @@ export default function Compras() {
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {[
           ['novo', '+ Nova compra'],
-          ['lista', `🧾 Lista de compras${listaCompleta.length + listaManual.length ? ` (${listaCompleta.length + listaManual.length})` : ''}`],
+          ['lista', `Lista de compras${listaCompleta.length + listaManual.length ? ` (${listaCompleta.length + listaManual.length})` : ''}`],
         ].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors
@@ -260,8 +261,8 @@ export default function Compras() {
           {/* Busca na lista */}
           {(listaCompleta.length > 0 || listaManual.length > 0) && (
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm">🔍</span>
-              <input
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" aria-hidden="true"><Icon name="busca" size={16} /></span>
+              <input aria-label="Pesquisar item ou categoria"
                 type="text"
                 value={busca}
                 onChange={e => setBusca(e.target.value)}
@@ -277,13 +278,13 @@ export default function Compras() {
 
           {listaCompleta.length === 0 && listaManual.length === 0 ? (
             <div className="bg-white rounded-xl p-8 text-center">
-              <div className="text-3xl mb-2">✅</div>
+              <div className="flex justify-center mb-2 text-green-700" aria-hidden="true"><Icon name="check" size={28} /></div>
               <p className="text-sm font-semibold text-gray-700">Nada para comprar!</p>
               <p className="text-xs text-gray-500 mt-1">Nenhum produto está abaixo do mínimo.</p>
             </div>
           ) : b && lista.length === 0 && manualFiltrada.length === 0 ? (
             <div className="bg-white rounded-xl p-8 text-center">
-              <div className="text-3xl mb-2">🔍</div>
+              <div className="flex justify-center mb-2 text-gray-500" aria-hidden="true"><Icon name="busca" size={28} /></div>
               <p className="text-sm font-semibold text-gray-700">Nenhum item encontrado</p>
               <p className="text-xs text-gray-500 mt-1">Nada na lista corresponde a "{busca}".</p>
             </div>
@@ -303,7 +304,7 @@ export default function Compras() {
                         <div key={`g-${entrada.materiaPrima}`} className="bg-white rounded-xl overflow-hidden border border-polo-gold/50">
                           <div className="px-4 py-2 bg-polo-beige border-b border-polo-gold/30 flex items-center justify-between">
                             <span className="text-[11px] font-bold text-polo-navy bg-polo-gold px-1.5 py-0.5 rounded uppercase">
-                              🛒 Matéria-prima
+                              Matéria-prima
                             </span>
                             <span className="text-[11px] text-polo-navy/60">{entrada.itens.length} produtos</span>
                           </div>
@@ -347,7 +348,7 @@ export default function Compras() {
                             )}
                             {entrada.fornecedor && (
                               <div className="text-xs text-gray-500 flex items-center gap-1">
-                                <span>🏪</span>
+                                <span aria-hidden="true"><Icon name="loja" size={14} /></span>
                                 <span>Último fornecedor: <span className="font-semibold text-gray-700">{entrada.fornecedor}</span></span>
                               </div>
                             )}
@@ -426,7 +427,7 @@ export default function Compras() {
                           </div>
                           {/* Fornecedor */}
                           <div className="text-xs text-gray-500 flex items-center gap-1">
-                            <span>🏪</span>
+                            <span aria-hidden="true"><Icon name="loja" size={14} /></span>
                             {fornecedor
                               ? <span>Último fornecedor: <span className="font-semibold text-gray-700">{fornecedor}</span></span>
                               : <span className="italic">Fornecedor não informado nas compras anteriores</span>}
@@ -494,11 +495,11 @@ export default function Compras() {
               <div className="flex gap-3">
                 <button onClick={copiarLista}
                   className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm">
-                  📋 Copiar lista
+                  Copiar lista
                 </button>
                 <button onClick={() => window.print()}
                   className="flex-1 border border-polo-navy text-polo-navy font-semibold py-3 rounded-xl text-sm">
-                  🖨️ Imprimir
+                  Imprimir
                 </button>
               </div>
             </>
@@ -523,7 +524,7 @@ export default function Compras() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
-                <input type="date" value={form.data} max={hoje()} onChange={e => set('data', e.target.value)}
+                <input aria-label="Data" type="date" value={form.data} max={hoje()} onChange={e => set('data', e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
@@ -613,7 +614,7 @@ export default function Compras() {
             {temRecurso(modulo, 'armazenamento') && (
             <div>
               <label htmlFor="cmp-temp" className="block text-xs font-semibold text-gray-600 mb-1">
-                🌡️ Temperatura no recebimento (°C) — opcional
+                Temperatura no recebimento (°C) — opcional
               </label>
               <input id="cmp-temp" type="number" inputMode="decimal" step="0.1" value={form.temperatura}
                 onChange={e => set('temperatura', e.target.value)}
@@ -621,7 +622,7 @@ export default function Compras() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               {form.temperatura !== '' && !isNaN(parseFloat(form.temperatura)) && (
                 <p className={`text-[11px] mt-1 ${avisoTemp(form.temperatura) ? 'text-orange-700 bg-orange-50 rounded-lg px-2 py-1' : 'text-green-700'}`}>
-                  {avisoTemp(form.temperatura) || '✔ Dentro da faixa esperada.'}
+                  {avisoTemp(form.temperatura) || 'Dentro da faixa esperada.'}
                 </p>
               )}
             </div>
@@ -634,13 +635,13 @@ export default function Compras() {
                 <label className="block text-xs font-semibold text-gray-600 mb-1">
                   {temRecurso(modulo, 'aparas') ? 'Quantidade bruta' : 'Quantidade'}
                 </label>
-                <input type="number" inputMode="decimal" min="0" step="0.1" value={form.quantidade} onChange={e => set('quantidade', e.target.value)}
+                <input aria-label="Quantidade" type="number" inputMode="decimal" min="0" step="0.1" value={form.quantidade} onChange={e => set('quantidade', e.target.value)}
                   placeholder="0"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Unidade</label>
-                <select value={form.unidade} onChange={e => set('unidade', e.target.value)}
+                <select aria-label="Unidade" value={form.unidade} onChange={e => set('unidade', e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="kg">kg</option>
                   <option value="unid">unid</option>
@@ -659,7 +660,7 @@ export default function Compras() {
             {temRecurso(modulo, 'validadeDoProdutor') && (
               <div>
                 <label htmlFor="cmp-val" className="block text-xs font-semibold text-gray-600 mb-1">
-                  📅 Validade impressa na embalagem (opcional)
+                  Validade impressa na embalagem (opcional)
                 </label>
                 <input id="cmp-val" type="date" value={form.validade}
                   onChange={e => set('validade', e.target.value)}
@@ -678,7 +679,7 @@ export default function Compras() {
                 </label>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-500">R$</span>
-                  <input type="number" inputMode="decimal" min="0" step="0.01"
+                  <input aria-label="Valor pago (opcional)" type="number" inputMode="decimal" min="0" step="0.01"
                     value={form.valorTotal} onChange={e => set('valorTotal', e.target.value)}
                     placeholder="total da nota deste item"
                     className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -695,7 +696,7 @@ export default function Compras() {
           </div>
 
           <Botao onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade || salvando}>
-            ✓ Registrar Compra
+            Registrar Compra
           </Botao>
         </div>
       ) : null}

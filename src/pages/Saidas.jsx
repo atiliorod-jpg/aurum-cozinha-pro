@@ -140,13 +140,13 @@ export default function Saidas() {
           <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
-            ✓ Registrar Saída
+            Registrar Saída
           </button>
 
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
-              <input type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
+              <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
@@ -170,7 +170,7 @@ export default function Saidas() {
             <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
           </div>
 
-          <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+          <input aria-label="Buscar produto" type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
 
@@ -244,7 +244,7 @@ export default function Saidas() {
 
           <div className="bg-white rounded-xl p-4">
             <label className="block text-xs font-semibold text-gray-600 mb-1">Observação (opcional)</label>
-            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2}
+            <textarea aria-label="Observação (opcional)" value={obs} onChange={e => setObs(e.target.value)} rows={2}
               placeholder="Alguma observação..."
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
@@ -269,7 +269,7 @@ export default function Saidas() {
         </div>
       ) : (
         <div className="space-y-3">
-          <input type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
+          <input aria-label="Buscar por produto ou responsável" type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
             placeholder="Buscar por produto ou responsável..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {saidasOrdenadas.length === 0 && (

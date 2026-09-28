@@ -8,6 +8,7 @@ import { valorDoEstoque, curvaABC, custoDosRegistros } from '../utils/financeiro
 import { fmtNum } from '../utils/formatters';
 import { addDias } from '../utils/datas';
 import { hoje } from '../utils/formatters';
+import Icon from '../components/Icons';
 
 const brl = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const plural = (n, um, muitos) => `${n} ${n === 1 ? um : muitos}`;
@@ -64,7 +65,7 @@ export default function Financeiro() {
     return (
       <Layout title="Financeiro" area="admin">
         <div className="bg-white rounded-xl p-6 text-center border border-gray-100">
-          <p className="text-4xl mb-2" aria-hidden="true">🔒</p>
+          <span className="w-14 h-14 mx-auto mb-2 rounded-2xl bg-polo-beige text-polo-navy flex items-center justify-center" aria-hidden="true"><Icon name="cadeado" size={28} /></span>
           <p className="text-sm font-bold text-polo-navy">Sem acesso aos custos</p>
           <p className="text-xs text-gray-500 mt-1 leading-relaxed">
             Você não tem permissão para ver custos. Peça à diretoria em

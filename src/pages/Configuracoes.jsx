@@ -18,6 +18,8 @@ import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../utils/armazenamento';
 import { casaBusca } from '../utils/busca';
+import Icon from '../components/Icons';
+import { plural } from '../utils/formatters';
 
 // Campos numéricos ficam como texto enquanto edita (apagar/limpar funciona);
 // a conversão para número acontece só no salvar.
@@ -120,7 +122,7 @@ function CartaoInstalarApp() {
         <div className="flex-1">
           <p className="text-sm font-bold text-polo-navy">Instalar app</p>
           {instalado ? (
-            <p className="text-xs text-green-700 mt-0.5">✅ App já instalado neste aparelho.</p>
+            <p className="text-xs text-green-700 mt-0.5">App já instalado neste aparelho.</p>
           ) : ios ? (
             <p className="text-xs text-gray-500 mt-0.5">
               No iPad: toque em <strong>⎙ Compartilhar</strong> no Safari e em <strong>"Adicionar à Tela de Início"</strong>.
@@ -256,7 +258,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                 <div className="min-w-0 flex-1">
                   {nomeEdit?.id === produto.id ? (
                     <div className="flex items-center gap-2 mb-1">
-                      <input
+                      <input aria-label={`Novo nome de ${produto.nome}`}
                         autoFocus
                         value={nomeEdit.nome}
                         onChange={e => setNomeEdit({ ...nomeEdit, nome: e.target.value })}
@@ -267,9 +269,9 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                         className="border border-polo-gold/60 rounded-lg px-2 py-1 text-sm font-semibold text-polo-navy flex-1 min-w-0"
                       />
                       <button onClick={() => renomearProduto(produto, nomeEdit.nome)}
-                        className="text-[11px] font-bold text-polo-gold bg-polo-navy px-2 py-1.5 rounded-lg flex-shrink-0">✓</button>
+                        aria-label="Confirmar" className="min-w-11 min-h-11 flex items-center justify-center text-polo-gold bg-polo-navy rounded-lg flex-shrink-0"><Icon name="check" size={16} /></button>
                       <button onClick={() => setNomeEdit(null)}
-                        className="text-[11px] text-gray-600 flex-shrink-0">✕</button>
+                        aria-label="Cancelar" className="min-w-11 min-h-11 flex items-center justify-center text-gray-600 flex-shrink-0"><Icon name="fechar" size={16} /></button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1.5 mb-0.5">
@@ -279,7 +281,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                         className="text-[11px] text-gray-600 hover:text-polo-navy transition-colors flex-shrink-0"
                         aria-label={`Renomear ${produto.nome}`}
                         title="Renomear ingrediente"
-                      >✏️</button>
+                      ><Icon name="editar" size={16} /></button>
                     </div>
                   )}
                   {nomeEdit?.id !== produto.id && (
@@ -304,7 +306,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                 <div className="mt-2 bg-polo-beige/60 rounded-lg p-2.5 space-y-2">
                   <label className="block text-[11px] font-semibold text-gray-600">Apara/perda na limpeza (%) — valor fixo</label>
                   <div className="flex items-center gap-2">
-                    <input type="number" inputMode="numeric" min="0" max="90" step="1" value={fcEdit.pct} autoFocus
+                    <input aria-label="Apara/perda na limpeza (%) — valor fixo" type="number" inputMode="numeric" min="0" max="90" step="1" value={fcEdit.pct} autoFocus
                       onChange={e => setFcEdit({ id: produto.id, pct: e.target.value })}
                       placeholder="Ex: 12"
                       className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
@@ -325,7 +327,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                   <label className="block text-[11px] font-semibold text-gray-500 mb-1">
                     Comprado como
                   </label>
-                  <input
+                  <input aria-label="Comprado como"
                     type="text"
                     list={`mp-${produto.id}`}
                     defaultValue={produto.materiaPrima || ''}
@@ -357,7 +359,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
 
         {naoVinc.length > 0 && (
           <div className="border border-amber-200 bg-amber-50 rounded-xl p-3">
-            <p className="text-xs font-bold text-amber-800 mb-2">❓ Preparações sem ingrediente vinculado</p>
+            <p className="text-xs font-bold text-amber-800 mb-2">Preparações sem ingrediente vinculado</p>
             <div className="space-y-1">
               {naoVinc.map(f => (
                 <div key={f.id} className="flex items-center justify-between gap-2 bg-white rounded-lg px-2.5 py-1.5">
@@ -474,7 +476,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
         <p className="text-xs text-gray-500 -mt-2">Mín/Máx: 0 = sem meta definida (não exibe alerta)</p>
         {parseFloat(form.max) > 0 && parseFloat(form.min) > parseFloat(form.max) && (
           <p className="text-xs text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5 -mt-1">
-            ⚠️ O máximo ({fmtNum(form.max)}) está abaixo do mínimo ({fmtNum(form.min)}) — assim o produto
+            O máximo ({fmtNum(form.max)}) está abaixo do mínimo ({fmtNum(form.min)}) — assim o produto
             aparece como BAIXO e EXCESSO ao mesmo tempo. Confira os dois valores.
           </p>
         )}
@@ -482,7 +484,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
         {sugestao && (
           <div className="flex items-center justify-between bg-polo-beige border border-polo-gold/50 rounded-xl px-3 py-2 -mt-1">
             <p className="text-xs text-polo-navy">
-              💡 Pelo consumo dos últimos {sugestao.dias} dias:{' '}
+              Pelo consumo dos últimos {sugestao.dias} dias:{' '}
               <strong>mín {sugestao.min} / máx {sugestao.max}</strong>
             </p>
             <button onClick={() => setForm(prev => ({ ...prev, min: String(sugestao.min), max: String(sugestao.max) }))}
@@ -513,7 +515,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
         ) : (
           <div>
             <label htmlFor="mp-val-congelado" className="block text-xs font-semibold text-gray-600 mb-1">
-              📦 Prazo de prateleira (dias)
+              Prazo de prateleira (dias)
             </label>
             {/* ⚠️ Escreve em prazos.congelado, NÃO em valCongelado direto.
                 No Estoque Seco esta chave sempre significou "prazo de
@@ -536,7 +538,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="mp-marca" className="block text-xs font-semibold text-gray-600 mb-1">
-              🏭 Marca / fornecedor
+              Marca / fornecedor
             </label>
             <input id="mp-marca" type="text" value={form.marca || ''}
               onChange={e => set('marca', e.target.value)}
@@ -545,7 +547,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
           </div>
           <div>
             <label htmlFor="mp-sif" className="block text-xs font-semibold text-gray-600 mb-1">
-              🎖️ SIF
+              SIF
             </label>
             <input id="mp-sif" type="text" value={form.sif || ''}
               onChange={e => set('sif', e.target.value)}
@@ -557,7 +559,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
         {form.unidade === 'unid' && (
           <div>
             <label htmlFor="mp-peso-unidade" className="block text-xs font-semibold text-gray-600 mb-1">
-              ⚖️ Peso por unidade (g)
+              Peso por unidade (g)
             </label>
             <input id="mp-peso-unidade" type="number" inputMode="decimal" min="0" value={form.pesoUnidade}
               onChange={e => set('pesoUnidade', e.target.value)}
@@ -569,7 +571,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
 
         {/* Cocção — afeta só a lista de compras de itens que entram JÁ cozidos */}
         <div className="border border-gray-100 rounded-xl p-3 space-y-3">
-          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">🔥 Cocção (lista de compras)</h2>
+          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">Cocção (lista de compras)</h2>
           <div className="flex items-center gap-3 bg-orange-50 rounded-lg p-2.5">
             <div className="flex-1">
               <p className="text-xs font-semibold text-gray-700">Entra no estoque já cozido?</p>
@@ -588,7 +590,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               {form.coccao && (
                 <p className="text-[11px] text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5 mt-1">
-                  ✔ Na lista de compras você compra mais cru ({form.coccao}% a mais) para chegar ao kg cozido necessário.
+                  Na lista de compras você compra mais cru ({form.coccao}% a mais) para chegar ao kg cozido necessário.
                 </p>
               )}
             </div>
@@ -612,7 +614,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
         </div>
 
         <p className="text-[11px] text-gray-600 -mt-1">
-          🎯 O fator de correção (rendimento) deste item é configurado em <strong>Sistema → Rendimento por ingrediente</strong>.
+          O fator de correção (rendimento) deste item é configurado em <strong>Sistema → Rendimento por ingrediente</strong>.
         </p>
 
         <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
@@ -686,31 +688,31 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
       <>
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Nome da receita</label>
-          <input type="text" value={form.nome} onChange={e => set('nome', e.target.value)}
+          <input aria-label="Nome da receita" type="text" value={form.nome} onChange={e => set('nome', e.target.value)}
             placeholder="Ex: Molho da casa" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Produto que será produzido</label>
-          <select value={form.produtoFinalId} onChange={e => set('produtoFinalId', e.target.value)}
+          <select aria-label="Produto que será produzido" value={form.produtoFinalId} onChange={e => set('produtoFinalId', e.target.value)}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
             <option value="">Selecione…</option>
             {ativos.map(p => <option key={p.id} value={p.id}>{p.nome} ({p.unidade})</option>)}
           </select>
-          <p className="text-xs text-gray-500 mt-1">É o item que entra no estoque. Crie-o em 📦 Produtos se ainda não existe.</p>
+          <p className="text-xs text-gray-500 mt-1">É o item que entra no estoque. Crie-o em Produtos se ainda não existe.</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Rende quanto? ({unid(form.produtoFinalId)})</label>
-            <input type="number" inputMode="decimal" min="0" step="0.5" value={form.rendimentoBase} onChange={e => set('rendimentoBase', e.target.value)}
+            <input aria-label="Rende quanto?" type="number" inputMode="decimal" min="0" step="0.5" value={form.rendimentoBase} onChange={e => set('rendimentoBase', e.target.value)}
               placeholder="Ex: 10" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento</label>
-            <select value={form.armazenamento} onChange={e => set('armazenamento', e.target.value)}
+            <select aria-label="Armazenamento" value={form.armazenamento} onChange={e => set('armazenamento', e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
               <option value="ambos">Ambos (decide na hora)</option>
-              <option value="congelado">❄️ Congelado</option>
-              <option value="resfriado">🧊 Resfriado</option>
+              <option value="congelado">Congelado</option>
+              <option value="resfriado">Resfriado</option>
             </select>
           </div>
         </div>
@@ -720,7 +722,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
             <button onClick={addIng} className="text-xs font-bold text-polo-navy bg-gray-100 px-2 py-1 rounded">+ Ingrediente</button>
           </div>
           <p className="text-[11px] text-gray-500 mb-2">
-            Por padrão, ingredientes são <strong>monitorados</strong> (só registra uso, sem baixa no estoque). Marque ☑️ se o item é controlado no estoque.
+            Por padrão, ingredientes são <strong>monitorados</strong> (só registra uso, sem baixa no estoque). Marque se o item é controlado no estoque.
           </p>
           <div className="space-y-2">
             {form.ingredientes.map((ing, i) => (
@@ -728,17 +730,17 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
                     {ing.abate ? (
-                      <select value={ing.produtoId || ''} onChange={e => setIng(i, 'produtoId', e.target.value)}
+                      <select aria-label={`Produto do ingrediente ${i + 1}`} value={ing.produtoId || ''} onChange={e => setIng(i, 'produtoId', e.target.value)}
                         className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white">
                         <option value="">Escolha o produto controlado…</option>
                         {ativos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                       </select>
                     ) : (
-                      <input type="text" value={ing.nome || ''} onChange={e => setIng(i, 'nome', e.target.value)}
+                      <input aria-label="Nome do ingrediente (ex: Tempero, Cebola)" type="text" value={ing.nome || ''} onChange={e => setIng(i, 'nome', e.target.value)}
                         placeholder="Nome do ingrediente (ex: Tempero, Cebola)" className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm" />
                     )}
                   </div>
-                  <input type="number" inputMode="decimal" min="0" step="0.1" value={ing.quantidade} onChange={e => setIng(i, 'quantidade', e.target.value)}
+                  <input aria-label="Qtd" type="number" inputMode="decimal" min="0" step="0.1" value={ing.quantidade} onChange={e => setIng(i, 'quantidade', e.target.value)}
                     placeholder="Qtd" className="w-14 border border-gray-200 rounded-lg px-2 py-2 text-sm" />
                   {ing.abate ? (
                     // Item controlado dá baixa na unidade do PRÓPRIO produto — fixa
@@ -749,7 +751,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                       {unid(ing.produtoId) || '—'}
                     </span>
                   ) : (
-                    <select value={ing.unidade || 'kg'} onChange={e => setIng(i, 'unidade', e.target.value)}
+                    <select aria-label={`Unidade do ingrediente ${i + 1}`} value={ing.unidade || 'kg'} onChange={e => setIng(i, 'unidade', e.target.value)}
                       className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white">
                       <option value="kg">kg</option>
                       <option value="g">g</option>
@@ -861,7 +863,7 @@ export default function Configuracoes() {
   const handleRemoveCategoria = async (cat) => {
     const emUso = produtos.filter(p => p.categoria === cat).length;
     if (emUso > 0) {
-      toast(`${emUso} produto(s) usam "${cat}" — mova-os de categoria antes de remover.`, 'aviso');
+      toast(`${plural(emUso, 'produto usa', 'produtos usam')} "${cat}". Mude de categoria antes de remover.`, 'aviso');
       return;
     }
     const ok = await confirm({ titulo: 'Remover categoria', mensagem: `Remover "${cat}"?`, perigo: true, confirmar: 'Remover' });
@@ -925,7 +927,7 @@ export default function Configuracoes() {
   // ali, morto, dando a entender que a tela estava quebrada.
   const ABAS = [
     ['produtos', 'Produtos', podeProdutos],
-    ['receitas', '🍽️ Receitas', podeProdutos && temRecurso(modulo, 'receitas')],
+    ['receitas', 'Receitas', podeProdutos && temRecurso(modulo, 'receitas')],
     ['acessos',  'Acessos',  podeAcessos],
     ['sistema',  'Sistema',  podeSistema],
   ];
@@ -1108,7 +1110,7 @@ export default function Configuracoes() {
 
         const ok = await confirm({
           titulo: 'Importar planilha',
-          mensagem: `Encontrei ${novos.length} produto(s). Os que já existem (mesmo nome) serão atualizados; os novos serão criados. Continuar?`,
+          mensagem: `Encontrei ${plural(novos.length, 'produto', 'produtos')}. Os que já existem (mesmo nome) serão atualizados; os novos serão criados. Continuar?`,
           confirmar: 'Importar',
         });
         if (!ok) return;
@@ -1124,7 +1126,7 @@ export default function Configuracoes() {
         setCategorias([...novasCats]);
         setProdutos([...porNome.values()]);
         logAudit('importou planilha de produtos', `${criados} novos, ${atualizados} atualizados`);
-        toast(`Planilha importada: ${criados} novo(s), ${atualizados} atualizado(s).`, 'sucesso');
+        toast(`Planilha importada: ${plural(criados, 'novo', 'novos')}, ${plural(atualizados, 'atualizado', 'atualizados')}.`, 'sucesso');
       } catch (err) {
         toast(err?.message || 'Não foi possível ler a planilha. Use o modelo.', 'erro');
       }
@@ -1197,7 +1199,7 @@ export default function Configuracoes() {
       {/* Busca + o CTA de cadastrar, lado a lado. É aqui que a pessoa está
           olhando quando conclui "não tem nenhum produto" — não no cabeçalho. */}
       <div className="mb-3 flex gap-2">
-        <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+        <input aria-label="Buscar produto" type="text" value={busca} onChange={e => setBusca(e.target.value)}
           placeholder="Buscar produto..."
           className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
         <Botao variante="primario" tamanho="sm" largura="auto"
@@ -1231,12 +1233,12 @@ export default function Configuracoes() {
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 {p.gramatura > 0 && (
                   <span className="text-[11px] font-semibold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
-                    🍽️ {p.gramatura}g/porção{p.coccao > 0 ? ` · 🔥−${p.coccao}%` : ''}{p.entradaCozida ? ' · cozido' : ''}
+                    {p.gramatura}g/porção{p.coccao > 0 ? ` · cocção −${p.coccao}%` : ''}{p.entradaCozida ? ' · cozido' : ''}
                   </span>
                 )}
                 {pendenciasDoProduto(p).length > 0 && (
                   <span className="text-[11px] font-semibold text-amber-600">
-                    ⚠️ falta: {pendenciasDoProduto(p).join(', ')}
+                    falta: {pendenciasDoProduto(p).join(', ')}
                   </span>
                 )}
               </div>
@@ -1279,7 +1281,7 @@ export default function Configuracoes() {
           <p className="text-xs text-gray-500 mt-1">Organizam os produtos em todas as telas. Só é possível remover categorias sem produtos.</p>
         </div>
         <div className="flex gap-2">
-          <input type="text" value={novaCategoria} onChange={e => setNovaCategoria(e.target.value)}
+          <input aria-label="Nova categoria (ex: BEBIDAS)" type="text" value={novaCategoria} onChange={e => setNovaCategoria(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleAddCategoria(); }}
             placeholder="Nova categoria (ex: BEBIDAS)"
             className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -1329,7 +1331,7 @@ export default function Configuracoes() {
                   <div className="min-w-0">
                     <div className="font-semibold text-sm text-polo-navy truncate">{r.nome}</div>
                     <div className="text-xs text-gray-500">
-                      Rende {fmtNum(r.rendimentoBase)} {final?.unidade || ''} de {final?.nome || '—'} • {(r.ingredientes || []).length} ingrediente(s)
+                      Rende {fmtNum(r.rendimentoBase)} {final?.unidade || ''} de {final?.nome || '—'} • {plural((r.ingredientes || []).length, 'ingrediente', 'ingredientes')}
                     </div>
                   </div>
                   <div className="flex gap-1.5 flex-shrink-0">
@@ -1352,7 +1354,7 @@ export default function Configuracoes() {
       {/* Fila de erro permanente (itens que não sincronizaram após várias tentativas) */}
       {mortos.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-          <p className="text-sm font-bold text-red-700">⚠️ {mortos.length} lançamento(s) não sincronizaram</p>
+          <p className="text-sm font-bold text-red-700">{plural(mortos.length, 'lançamento não sincronizou', 'lançamentos não sincronizaram')}</p>
           <p className="text-xs text-red-600/90 mt-0.5">
             Estes itens falharam várias vezes ao subir para a nuvem e pararam de tentar sozinhos.
             Toque em <strong>Tentar de novo</strong>; se persistir, o último erro foi:
@@ -1366,7 +1368,7 @@ export default function Configuracoes() {
             <button onClick={() => { retentarMortos(); toast('Tentando sincronizar de novo…', 'sucesso'); }}
               className="bg-polo-navy text-polo-gold font-bold px-3 py-1.5 rounded-lg text-xs">Tentar de novo</button>
             <button onClick={async () => {
-                const ok = await confirm({ titulo: 'Descartar itens', mensagem: `Descartar ${mortos.length} lançamento(s) que não sincronizam? Eles somem deste aparelho e não sobem para a nuvem.`, perigo: true, confirmar: 'Descartar' });
+                const ok = await confirm({ titulo: 'Descartar itens', mensagem: `Descartar ${plural(mortos.length, 'lançamento que não sincroniza', 'lançamentos que não sincronizam')}? Eles somem deste aparelho e não sobem para a nuvem.`, perigo: true, confirmar: 'Descartar' });
                 if (ok) { descartarMortos(); toast('Itens descartados.', 'sucesso'); }
               }}
               className="text-red-500 font-semibold px-3 py-1.5 rounded-lg text-xs border border-red-200">Descartar</button>
@@ -1379,7 +1381,7 @@ export default function Configuracoes() {
         <Link to="/admin" className="block bg-polo-navy rounded-xl p-4 mb-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-bold text-polo-gold">🔑 Painel super-admin</p>
+              <p className="text-sm font-bold text-polo-gold">Painel super-admin</p>
               <p className="text-[11px] text-white/80 mt-0.5">Ver restaurantes, usuários e suporte ativo.</p>
             </div>
             <span className="text-polo-gold text-lg">→</span>
@@ -1441,18 +1443,18 @@ export default function Configuracoes() {
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
         <div className="flex items-start gap-3">
           <div className="flex-1">
-            <p className="text-sm font-bold text-polo-navy">🤖 Ajuste automático de Mín/Máx</p>
+            <p className="text-sm font-bold text-polo-navy">Ajuste automático de Mín/Máx</p>
             <p className="text-xs text-gray-500 mt-0.5">
               Recalcula mín/máx de cada produto pela média de saídas dos últimos 15 dias.
               Desligado, apenas sugere e você aprova.
             </p>
             <details className="mt-1.5">
-              <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">❓ Como funciona</summary>
+              <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">Como funciona</summary>
               <div className="text-[11px] text-gray-600 mt-1.5 space-y-1 leading-snug">
                 <p>• Olha as <strong>saídas dos últimos ~15 dias</strong> — tanto o envio para a cozinha e outras unidades
                 quanto o uso interno em produção (ingrediente consumido por ficha conta).</p>
                 <p>• Com isso calcula quanto a casa gasta por dia e define: mínimo = cobertura de
-                {' '}{prefs.diasMin || 3} dia(s) de operação; máximo = meta de reposição para {prefs.diasMax || 6} dia(s).</p>
+                {' '}{plural(prefs.diasMin || 3, 'dia', 'dias')} de operação; máximo = meta de reposição para {plural(prefs.diasMax || 6, 'dia', 'dias')}.</p>
                 <p>• <strong>Só começa a funcionar após ~15 dias com saídas registradas.</strong> Numa conta
                 nova, defina mín/máx manualmente no cadastro de cada produto até lá.</p>
                 <p>• Desligado: o Início mostra <em>sugestões</em> e você aprova. Ligado: atualiza sozinho
@@ -1477,7 +1479,7 @@ export default function Configuracoes() {
             <div>
               <label className="block text-xs text-gray-500 mb-1">Mínimo (alerta abaixo de)</label>
               <div className="flex items-center gap-1.5">
-                <input type="number" inputMode="numeric" min="1" max="30"
+                <input aria-label="Mínimo (alerta abaixo de)" type="number" inputMode="numeric" min="1" max="30"
                   value={diasMinStr}
                   onChange={e => setDiasMinStr(e.target.value)}
                   onBlur={e => {
@@ -1492,7 +1494,7 @@ export default function Configuracoes() {
             <div>
               <label className="block text-xs text-gray-500 mb-1">Máximo (meta de reposição)</label>
               <div className="flex items-center gap-1.5">
-                <input type="number" inputMode="numeric" min="1" max="90"
+                <input aria-label="Máximo (meta de reposição)" type="number" inputMode="numeric" min="1" max="90"
                   value={diasMaxStr}
                   onChange={e => setDiasMaxStr(e.target.value)}
                   onBlur={e => {
@@ -1520,7 +1522,7 @@ export default function Configuracoes() {
                   sobe na véspera do fim de semana e cai no início da semana.
                 </p>
                 <details className="mt-1.5">
-                  <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">❓ Quando ligar</summary>
+                  <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">Quando ligar</summary>
                   <div className="text-[11px] text-gray-600 mt-1.5 leading-snug">
                     <p>Ligue se sexta a domingo vendem bem mais que o resto da semana.</p>
                   </div>
@@ -1576,7 +1578,7 @@ export default function Configuracoes() {
           <p className="text-xs text-gray-500 mt-1">Quem aparece para selecionar ao registrar entradas, saídas, aparas e perdas.</p>
         </div>
         <div className="flex gap-2">
-          <input type="text" value={novaPessoa} onChange={e => setNovaPessoa(e.target.value)}
+          <input aria-label="Nome da pessoa" type="text" value={novaPessoa} onChange={e => setNovaPessoa(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleAddPessoa(); }}
             placeholder="Nome da pessoa"
             className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
@@ -1639,7 +1641,7 @@ export default function Configuracoes() {
                     </span>
                   ) : (
                     <>
-                      <select value={u.cargo} onChange={async e => {
+                      <select aria-label={`Cargo de ${u.nome || 'conta'}`} value={u.cargo} onChange={async e => {
                           const novoCargo = e.target.value;
                           const label = CARGOS.find(c => c.id === novoCargo)?.label;
                           const erro = await alterarCargo(u.id, novoCargo);
@@ -1776,7 +1778,7 @@ export default function Configuracoes() {
       {/* Cópia de segurança — recuperação de desastre (apagar tudo, clonar restaurante) */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
         <div>
-          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">🛟 Cópia de segurança</h2>
+          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">Cópia de segurança</h2>
           <p className="text-xs text-gray-500 mt-1">
             Baixe uma cópia dos dados para poder restaurar depois.
           </p>

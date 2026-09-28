@@ -11,6 +11,8 @@ import { supabase } from '../lib/supabase';
 import { fmtData, isoLocal } from '../utils/formatters';
 import { useLocation } from 'react-router-dom';
 import { SecaoUnidades, SecaoContas, SecaoCozinhaPro, SecaoCobrancasAvulsas } from '../components/PlanoExtras';
+import Icon from '../components/Icons';
+import { plural } from '../utils/formatters';
 
 const WPP_NUMERO = '5581998184489';
 const PIX_CHAVE  = import.meta.env.VITE_PIX_CHAVE  || '';
@@ -39,30 +41,30 @@ const dataISO = (ts) => isoLocal(new Date(ts));
 // o aviso da lista de baixo — só liste o que o app REALMENTE faz naquele plano.
 const RECURSOS_POR_PRODUTO = {
   etiquetas: [
-    '✅ Etiquetas de validade com impressão',
-    '✅ Biblioteca de itens prontos (é só buscar e usar)',
-    '✅ Cadastro de itens com prazo por tipo de armazenamento',
+    'Etiquetas de validade com impressão',
+    'Biblioteca de itens prontos (é só buscar e usar)',
+    'Cadastro de itens com prazo por tipo de armazenamento',
     // ⚠️ Não entra "controle do que vence": a tela de Validades não existe
     // neste produto. A lista só pode prometer o que a conta realmente tem.
-    '✅ Prazo por tipo de armazenamento (congelado, resfriado, refrigerado, ambiente)',
+    'Prazo por tipo de armazenamento (congelado, resfriado, refrigerado, ambiente)',
     // ⚠️ Aqui dizia "Etiquetas avulsas". Aquela aba foi removida em 31/08 —
     // virou o campo de data de abertura dentro do próprio item. Prometer na
     // TELA DE PAGAMENTO um recurso que não existe é o pior lugar possível
     // para essa dívida ficar.
-    '✅ Itens abertos com data de abertura (ex.: leite, molho do dia)',
-    '✅ Funciona offline e sincroniza na nuvem',
+    'Itens abertos com data de abertura (ex.: leite, molho do dia)',
+    'Funciona offline e sincroniza na nuvem',
   ],
   completo: [
-    '✅ Estoque completo (FEFO, mín/máx automático)',
-    '✅ Entradas, saídas, produção e receitas',
-    '✅ Etiquetas de validade com impressão',
+    'Estoque completo (FEFO, mín/máx automático)',
+    'Entradas, saídas, produção e receitas',
+    'Etiquetas de validade com impressão',
     // ⚠️ Isto é promessa comercial: só liste o que o app REALMENTE faz hoje.
     // "exportação Excel" saiu daqui porque o Excel dos relatórios foi removido —
     // o que existe é imprimir/salvar em PDF e a planilha-modelo de produtos.
-    '✅ Relatórios por período (imprimir ou salvar em PDF)',
-    '✅ Cadastro de produtos por planilha (Excel)',
-    '✅ Usuários com permissões por função',
-    '✅ Funciona offline e sincroniza na nuvem',
+    'Relatórios por período (imprimir ou salvar em PDF)',
+    'Cadastro de produtos por planilha (Excel)',
+    'Usuários com permissões por função',
+    'Funciona offline e sincroniza na nuvem',
   ],
 };
 
@@ -181,7 +183,7 @@ export default function Pagamento() {
       {/* Situação atual */}
       <div className={`rounded-2xl p-5 mb-6 flex items-center gap-4 ${st.tipo === 'vencido' || st.tipo === 'atraso' ? 'bg-red-700' : 'bg-polo-navy'}`}>
         <div className="w-14 h-14 bg-polo-gold/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">
-          {st.tipo === 'assinatura' ? '✅' : st.tipo === 'teste' ? '⏳' : st.tipo === 'vencido' || st.tipo === 'atraso' ? '⚠️' : '🏪'}
+          <Icon name={st.tipo === 'assinatura' ? 'check' : st.tipo === 'teste' ? 'relogio' : st.tipo === 'vencido' || st.tipo === 'atraso' ? 'alerta' : 'loja'} size={28} className={st.tipo === 'vencido' || st.tipo === 'atraso' ? 'text-white' : 'text-polo-gold'} />
         </div>
         <div>
           <p className="text-xs text-white/80 uppercase tracking-wide">Situação</p>
@@ -190,10 +192,10 @@ export default function Pagamento() {
               liam "Conta administrativa — sem cobrança" na tela onde vieram
               pagar. Cada situação diz a sua. "Vencido" também deixou de dizer
               "Teste encerrado": vale para assinatura que venceu. */}
-          <p className="text-polo-gold font-bold text-xl">
+          <p className={`font-bold text-xl ${st.tipo === 'vencido' || st.tipo === 'atraso' ? 'text-white' : 'text-polo-gold'}`}>
             {st.tipo === 'assinatura' ? 'Assinatura ativa'
-              : st.tipo === 'teste' ? `Período de teste — ${st.diasRestantes} dia(s)`
-              : st.tipo === 'atraso' ? `Pagamento em atraso — ${st.diasAtraso} dia(s)`
+              : st.tipo === 'teste' ? `Período de teste: ${plural(st.diasRestantes, 'dia', 'dias')}`
+              : st.tipo === 'atraso' ? `Pagamento em atraso: ${plural(st.diasAtraso, 'dia', 'dias')}`
               : st.tipo === 'vencido' ? 'Acesso vencido'
               : st.tipo === 'aguardando' ? 'Aguardando liberação'
               : st.tipo === 'cortesia' ? 'Conta cortesia'
@@ -218,7 +220,7 @@ export default function Pagamento() {
 
       {/* Aviso de antecedência — a reativação é manual */}
       <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-5 flex items-start gap-2">
-        <span className="text-base flex-shrink-0">⏰</span>
+        <span className="flex-shrink-0 text-amber-800" aria-hidden="true"><Icon name="relogio" size={18} /></span>
         <p className="text-xs text-amber-800">
           <strong>Pague com 24h de antecedência.</strong> A confirmação do Pix e a reativação são feitas
           pela equipe (em até 24h úteis) — não deixe para o último dia para não ficar sem o sistema.
@@ -244,13 +246,13 @@ export default function Pagamento() {
           {desconto.ate ? ` até ${fmtData(desconto.ate)}` : ''}. Os valores abaixo já estão com ele.
         </p>
       )}
-      <div className="space-y-2 mb-5">
+      <div className="space-y-2 mb-5" role="radiogroup" aria-label="Duração do plano">
         {PLANOS.map(p => {
           const sel = p.id === planoId;
           const total = precoPlano(p, prod.id, extras, desconto);
           const cheio = precoPlano(p, prod.id, extras);
           return (
-            <button key={p.id} onClick={() => setPlanoId(p.id)}
+            <button key={p.id} onClick={() => setPlanoId(p.id)} role="radio" aria-checked={sel}
               className={`w-full text-left rounded-2xl p-4 border-2 transition-colors
                 ${sel ? 'border-polo-gold bg-polo-beige' : 'border-gray-200 bg-white'}`}>
               <div className="flex items-center justify-between">
@@ -302,7 +304,7 @@ export default function Pagamento() {
         <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-5 text-xs text-amber-900 space-y-1">
           <p className="font-bold">Encargos de atraso (contrato, cláusula 6ª)</p>
           <p>
-            Multa de 2%: {brl(Number(encargo.multa) || 0)} · Juros de {encargo.dias_atraso} dia(s): {brl(Number(encargo.juros) || 0)}
+            Multa de 2%: {brl(Number(encargo.multa) || 0)} · Juros de {plural(encargo.dias_atraso, 'dia', 'dias')}: {brl(Number(encargo.juros) || 0)}
           </p>
           <p>Total de encargos: <strong>{brl(valorEncargo)}</strong> — já somado no valor do Pix abaixo.</p>
         </div>
@@ -324,7 +326,7 @@ export default function Pagamento() {
 
           <button onClick={() => copiar(brcode, 'Código Pix copiado! Cole no app do seu banco.')}
             className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm mb-2">
-            📋 Copiar código Pix (copia e cola)
+            Copiar código Pix (copia e cola)
           </button>
 
           <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
@@ -341,22 +343,22 @@ export default function Pagamento() {
           {wppPronto ? (
             <div className="mt-3 bg-green-50 border border-green-300 rounded-xl p-3">
               <p className="text-xs text-green-800 mb-2">
-                ✅ Aviso registrado. Agora <strong>envie o comprovante</strong> para a equipe confirmar:
+                Aviso registrado. Agora <strong>envie o comprovante</strong> para a equipe confirmar:
               </p>
               <a href={wppPronto} target="_blank" rel="noopener noreferrer"
                 className="block w-full bg-green-600 text-white font-bold py-3 rounded-xl text-sm text-center">
-                📲 Abrir WhatsApp e enviar comprovante
+                Abrir WhatsApp e enviar comprovante
               </a>
             </div>
           ) : !confirmando ? (
             <button onClick={() => setConfirmando(true)}
               className="w-full mt-3 border-2 border-polo-navy text-polo-navy font-bold py-3 rounded-xl text-sm">
-              ✅ Já paguei
+              Já paguei
             </button>
           ) : (
             <div className="mt-3 bg-polo-beige rounded-xl p-3">
               <label className="block text-xs font-semibold text-polo-navy mb-1">Nome de quem fez o Pix</label>
-              <input value={nomePagador} onChange={e => setNomePagador(e.target.value)}
+              <input aria-label="Nome de quem fez o Pix" value={nomePagador} onChange={e => setNomePagador(e.target.value)}
                 placeholder="Ex.: João da Silva" autoFocus
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 mb-2" />
               <button onClick={confirmarPagamento} disabled={avisando}
@@ -378,17 +380,17 @@ export default function Pagamento() {
           {wppPronto ? (
             <a href={wppPronto} target="_blank" rel="noopener noreferrer"
               className="block w-full bg-green-600 text-white font-bold py-3 rounded-xl text-sm text-center">
-              📲 Abrir WhatsApp e enviar comprovante
+              Abrir WhatsApp e enviar comprovante
             </a>
           ) : !confirmando ? (
             <button onClick={() => setConfirmando(true)}
               className="w-full bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm">
-              💬 Falar no WhatsApp
+              Falar no WhatsApp
             </button>
           ) : (
             <div className="bg-white rounded-xl p-3">
               <label className="block text-xs font-semibold text-polo-navy mb-1">Seu nome (de quem vai pagar)</label>
-              <input value={nomePagador} onChange={e => setNomePagador(e.target.value)}
+              <input aria-label="Seu nome (de quem vai pagar)" value={nomePagador} onChange={e => setNomePagador(e.target.value)}
                 placeholder="Ex.: João da Silva" autoFocus
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 mb-2" />
               <button onClick={confirmarPagamento} disabled={avisando}
@@ -433,7 +435,7 @@ export default function Pagamento() {
 
       {linkIndicacao && (
         <div className="bg-polo-navy rounded-2xl p-5 mt-5 space-y-2">
-          <p className="text-polo-gold font-bold">🎁 Indique e ganhe 1 mês grátis</p>
+          <p className="text-polo-gold font-bold">Indique e ganhe 1 mês grátis</p>
           <p className="text-sm text-white/90">
             Indique o Aurum para outro restaurante. Se ele contratar e o primeiro pagamento for
             confirmado, você ganha <strong>1 mês grátis</strong> no seu plano.

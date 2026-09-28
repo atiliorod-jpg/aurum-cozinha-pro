@@ -5,6 +5,7 @@ import { PRODUTOS, fmtPreco } from '../utils/assinatura';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos, UFS } from '../utils/documentos';
 import { traduzErroAuth as traduz } from '../utils/erros';
 import { TERMOS_VERSAO } from './Termos';
+import Icon from '../components/Icons';
 
 const campo = "w-full border border-gray-200 rounded-xl px-4 py-3 text-sm";
 const botao = "w-full bg-polo-navy text-polo-gold font-bold py-3.5 rounded-xl active:scale-[0.98] transition-transform disabled:opacity-50";
@@ -19,8 +20,8 @@ function CampoSenha({ valor, onChange, aria, placeholder, autoComplete, onEnter 
         onKeyDown={onEnter ? (e => { if (e.key === 'Enter') onEnter(); }) : undefined}
         placeholder={placeholder} className={`${campo} pr-12`} />
       <button type="button" onClick={() => setVer(v => !v)} aria-label={ver ? 'Ocultar senha' : 'Mostrar senha'}
-        className="absolute right-1 top-1/2 -translate-y-1/2 text-lg px-2 py-1">
-        {ver ? '🙈' : '👁️'}
+        className="absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center text-gray-600">
+        <Icon name={ver ? 'olhoFechado' : 'olho'} size={20} />
       </button>
     </div>
   );
@@ -495,8 +496,8 @@ export default function Login() {
 
 
 function Msg({ erro, info }) {
-  if (erro) return <p role="alert" className="text-xs text-red-500 font-semibold">{erro}</p>;
-  if (info) return <p role="status" className="text-xs text-green-600 font-semibold">{info}</p>;
+  if (erro) return <p role="alert" className="text-sm text-red-700 font-semibold">{erro}</p>;
+  if (info) return <p role="status" className="text-sm text-green-800 font-semibold">{info}</p>;
   return null;
 }
 

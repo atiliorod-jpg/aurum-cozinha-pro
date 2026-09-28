@@ -6,6 +6,7 @@ export default function AutocompleteInput({
   sugestoes = [],
   placeholder = '',
   className = '',
+  rotulo = '',
 }) {
   const [aberto, setAberto] = useState(false);
   const [destaque, setDestaque] = useState(-1);
@@ -59,6 +60,7 @@ export default function AutocompleteInput({
   return (
     <div ref={ref} className="relative">
       <input
+        aria-label={rotulo || placeholder || 'Texto'}
         type="text"
         value={value}
         autoComplete="off"

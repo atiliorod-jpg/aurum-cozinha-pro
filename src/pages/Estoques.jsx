@@ -48,7 +48,7 @@ export default function Estoques() {
     return (
       <Layout title="Unidades e cozinhas" area="admin">
         <div className="bg-white rounded-xl p-6 text-center border border-gray-100">
-          <p className="text-4xl mb-2" aria-hidden="true">🔒</p>
+          <span className="w-14 h-14 mx-auto mb-2 rounded-2xl bg-polo-beige text-polo-navy flex items-center justify-center" aria-hidden="true"><Icon name="cadeado" size={28} /></span>
           <p className="text-sm font-bold text-polo-navy">Só a diretoria mexe nas cozinhas</p>
           <p className="text-xs text-gray-500 mt-1">
             Criar, renomear ou arquivar uma cozinha muda o que toda a equipe enxerga.
@@ -230,7 +230,7 @@ export default function Estoques() {
                       </button>
                     ))}
                   </div>
-                  <input className={campo} value={nomeNovo} autoFocus
+                  <input aria-label="Nome da cozinha (ex.: Cozinha do salão)" className={campo} value={nomeNovo} autoFocus
                     placeholder="Nome da cozinha (ex.: Cozinha do salão)"
                     onChange={e => setNomeNovo(e.target.value)} />
                   <div className="flex gap-2">

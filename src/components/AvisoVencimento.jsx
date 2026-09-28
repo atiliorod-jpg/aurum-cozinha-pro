@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { statusAssinatura } from '../utils/assinatura';
+import Icon from './Icons';
 
 // Faixa discreta no canto quando faltam <=3 dias para vencer (teste ou assinatura).
 // Fica no cantinho, tem X para dispensar (por hoje) e não cobre a barra de navegação.
@@ -37,14 +38,14 @@ export default function AvisoVencimento() {
   const quando = dias === 0 ? 'vence hoje' : dias === 1 ? 'vence amanhã' : `vence em ${dias} dias`;
 
   return (
-    <div className="fixed bottom-20 right-3 z-40 max-w-[15rem] print:hidden">
-      <div className="relative bg-white border border-polo-gold shadow-lg rounded-xl p-3 pr-8">
+    <div className="fixed bottom-20 left-3 z-40 max-w-[15rem] print:hidden">
+      <div className="relative bg-white border border-polo-gold shadow-lg rounded-xl p-3 pr-11">
         <button onClick={dispensar} aria-label="Dispensar aviso"
-          className="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center text-gray-600 rounded-full hover:bg-gray-100">✕</button>
+          className="absolute top-0 right-0 w-11 h-11 flex items-center justify-center text-gray-600 rounded-full hover:bg-gray-100"><Icon name="fechar" size={16} /></button>
         <p className="text-xs font-bold text-polo-navy">
-          {st.tipo === 'teste' ? '⏳ Seu teste ' : 'Sua assinatura '}{quando}
+          {st.tipo === 'teste' ? 'Seu teste ' : 'Sua assinatura '}{quando}
         </p>
-        <p className="text-[11px] text-gray-500 mt-0.5 mb-2">
+        <p className="text-xs text-gray-600 mt-0.5 mb-2">
           Pague por Pix com <strong>24h de antecedência</strong> para não ficar sem o sistema.
         </p>
         <Link to="/pagamento" onClick={dispensar}

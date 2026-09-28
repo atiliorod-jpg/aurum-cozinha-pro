@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Layout from '../components/Layout';
+import Icon from '../components/Icons';
 import { useApp } from '../store/AppContext';
 import { prazosDoProduto } from '../utils/armazenamento';
 import { useAuth } from '../store/AuthContext';
@@ -35,40 +36,40 @@ export default function Historico() {
 
   // Monta a lista unificada
   const eventos = [
-    ...compras.map(r => ({ id: r.id, grupo: 'compras', icon: '🛒', cor: 'text-blue-600', r,
+    ...compras.map(r => ({ id: r.id, grupo: 'compras', icon: 'compras', cor: 'text-blue-600', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item}${r.fornecedor ? ` · ${r.fornecedor}` : ''}`,
       remover: () => { removeCompra(r.id); return { tipo: 'compra', reg: r }; } })),
-    ...entradas.filter(e => !e.producaoId).map(r => ({ id: r.id, grupo: 'entradas', icon: '📥', cor: 'text-green-600', r,
+    ...entradas.filter(e => !e.producaoId).map(r => ({ id: r.id, grupo: 'entradas', icon: 'entradas', cor: 'text-green-600', r,
       resumo: itensTxt(r), remover: () => { removeEntrada(r.id); return { tipo: 'entrada', reg: r }; } })),
-    ...entradas.filter(e => e.producaoId).map(r => ({ id: r.id, grupo: 'producao', icon: '🍲', cor: 'text-amber-600', r,
+    ...entradas.filter(e => e.producaoId).map(r => ({ id: r.id, grupo: 'producao', icon: 'producao', cor: 'text-amber-600', r,
       resumo: itensTxt(r) + ((r.monitorados || []).length ? ` · monitorado: ${r.monitorados.map(m => `${fmtNum(m.quantidade)} ${m.nome}`).join(', ')}` : ''),
       remover: () => removerProducao(r) })),
-    ...saidas.filter(s => s.destino !== 'producao').map(r => ({ id: r.id, grupo: 'saidas', icon: '📤', cor: 'text-red-600', r,
+    ...saidas.filter(s => s.destino !== 'producao').map(r => ({ id: r.id, grupo: 'saidas', icon: 'saidas', cor: 'text-red-600', r,
       resumo: `${itensTxt(r)} → ${destNome(r.destino)}`, remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
     // Saída interna ÓRFÃ (produção incompleta): a entrada do produto final não
     // existe — precisa aparecer aqui para o operador remover/desfazer o consumo
     ...saidas.filter(s => s.destino === 'producao' && s.producaoId &&
         !entradas.some(e => e.producaoId === s.producaoId))
-      .map(r => ({ id: r.id, grupo: 'producao', icon: '⚠️', cor: 'text-red-600', r,
+      .map(r => ({ id: r.id, grupo: 'producao', icon: 'alerta', cor: 'text-red-600', r,
         resumo: `Produção incompleta — o item produzido não entrou. Remova e registre de novo: ${itensTxt(r)}`,
         remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
-    ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: '✂️', cor: 'text-teal-600', r,
+    ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'faca', cor: 'text-teal-600', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,
       remover: () => { removeApara(r.id); return { tipo: 'apara', reg: r }; } })),
-    ...desperdicio.map(r => ({ id: r.id, grupo: 'correcoes', icon: '🗑️', cor: 'text-gray-600', r,
+    ...desperdicio.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'perda', cor: 'text-gray-600', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} (${r.motivoOutro || r.motivo}${r.origem === 'estoque' ? ' · baixa' : ''})`,
       remover: () => { removeDesperdicio(r.id); return { tipo: 'perda', reg: r }; } })),
     // Contagem física faltava aqui — e é o lançamento que MAIS muda o saldo
     // (sobrepõe o calculado). Quem procurava "por que o estoque mudou" não
     // encontrava a resposta na tela que promete mostrar tudo.
-    ...ajustes.map(r => ({ id: r.id, grupo: 'correcoes', icon: '📐', cor: 'text-indigo-600', r,
+    ...ajustes.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'contagem', cor: 'text-indigo-600', r,
       resumo: `contagem física: ${nome(r.produtoId)} → ${fmtNum(r.quantidade)}`,
       remover: () => { removeAjuste(r.id); return { tipo: 'ajuste', reg: r }; } })),
     // Recebimento da Produção. Sem isto o Histórico da Finalização ficava
     // quase vazio, justamente onde receber é quase tudo o que acontece.
     // NÃO tem `remover`: a linha pertence à saída da Produção — apagar aqui
     // apagaria o lançamento do outro estoque pelas costas de quem o fez.
-    ...recebimentos.map(r => ({ id: r.id, grupo: 'recebimentos', icon: '📦', cor: 'text-emerald-600', r,
+    ...recebimentos.map(r => ({ id: r.id, grupo: 'recebimentos', icon: 'caixa', cor: 'text-emerald-600', r,
       resumo: `recebido da produção: ${itensTxt(r)}` })),
   ];
 
@@ -130,7 +131,7 @@ export default function Historico() {
 
   return (
     <Layout title="Histórico">
-      <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+      <input aria-label="Buscar por item ou responsável" type="text" value={busca} onChange={e => setBusca(e.target.value)}
         placeholder="Buscar por item ou responsável..."
         className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3" />
 
@@ -149,7 +150,7 @@ export default function Historico() {
       <div className="space-y-2">
         {filtrados.map(ev => (
           <div key={ev.grupo + ev.id} className="bg-white rounded-xl p-3 flex items-start gap-3">
-            <span className="text-xl flex-shrink-0 mt-0.5">{ev.icon}</span>
+            <span className="flex-shrink-0 mt-0.5" aria-hidden="true"><Icon name={ev.icon} size={20} /></span>
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-medium ${ev.cor} break-words`}>{ev.resumo}</div>
               <div className="text-[11px] text-gray-600">
@@ -163,7 +164,7 @@ export default function Historico() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {(ev.grupo === 'entradas' || ev.grupo === 'producao') && (ev.r.itens || []).length > 0 && (
                 <button onClick={() => reimprimirEtiquetas(ev)} aria-label="Reimprimir etiquetas deste registro"
-                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-polo-beige text-polo-navy text-lg flex-shrink-0">🏷️</button>
+                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-polo-beige text-polo-navy flex-shrink-0"><Icon name="etiqueta" size={20} /></button>
               )}
               {podeRemover && ev.remover && (
                 <button onClick={() => handleRemover(ev)}

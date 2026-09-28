@@ -11,6 +11,7 @@ import { medidaDoProduto, gramasDeMedida } from '../../utils/etiquetas';
 import { useAuth } from '../../store/AuthContext';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../../utils/produto';
 import { casaBusca } from '../../utils/busca';
+import Icon from '../../components/Icons';
 
 // Campo numérico fica como texto enquanto edita (apagar funciona); converte ao salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
@@ -240,8 +241,9 @@ export default function Itens() {
                           </span>
                         </span>
                         {!temAlgumPrazo(p) && (
-                          <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0"
-                            title="Sem prazo de validade" aria-label="Sem prazo de validade" />
+                          <span className="text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                            sem prazo
+                          </span>
                         )}
                         <span aria-hidden="true" className="text-gray-400 text-lg leading-none flex-shrink-0">›</span>
                       </button>
@@ -439,7 +441,7 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
                 className={`text-left rounded-lg p-2.5 border-2 transition-colors
                   ${form.tipoData === v ? 'border-polo-navy bg-polo-beige' : 'border-gray-200'}`}>
                 <span className="flex items-center gap-1 text-sm font-bold text-polo-navy">
-                  <span aria-hidden="true" className={form.tipoData === v ? 'opacity-100' : 'opacity-0'}>✓</span>
+                  <span aria-hidden="true" className={form.tipoData === v ? 'opacity-100' : 'opacity-0'}><Icon name="check" size={16} /></span>
                   {l}
                 </span>
                 <span className="block text-[11px] text-gray-600 leading-tight mt-0.5">{d}</span>
@@ -554,7 +556,7 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
           </Botao>
         </div>
         {onRemover && (
-          <button onClick={onRemover} className="w-full text-red-700 text-xs font-bold py-2">
+          <button onClick={onRemover} className="w-full min-h-11 text-red-700 text-sm font-bold">
             Remover item
           </button>
         )}

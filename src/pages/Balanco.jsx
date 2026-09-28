@@ -7,6 +7,7 @@ import { fmtNum } from '../utils/formatters';
 import { moduloPorId } from '../utils/modulos';
 import { useAuth } from '../store/AuthContext';
 import { temUnidadesExtras, opcoesDeUnidade, nomeDaUnidade } from '../utils/unidades';
+import Icon from '../components/Icons';
 
 /**
  * Quanto a casa tem no total, somando estoques do mesmo tipo.
@@ -57,7 +58,7 @@ export default function Balanco() {
       <Layout title="Balanço" area="admin">
         {filtroUnidades && <div className="mb-4">{filtroUnidades}</div>}
         <div className="bg-white rounded-xl p-6 text-center border border-gray-100">
-          <p className="text-4xl mb-2" aria-hidden="true">🧮</p>
+          <span className="w-14 h-14 mx-auto mb-2 rounded-2xl bg-polo-beige text-polo-navy flex items-center justify-center" aria-hidden="true"><Icon name="calculadora" size={28} /></span>
           <p className="text-sm font-bold text-polo-navy">Ainda não há o que consolidar</p>
           <p className="text-xs text-gray-500 mt-1 leading-relaxed">
             O balanço soma estoques do mesmo tipo — por exemplo, dois Estoques Secos de

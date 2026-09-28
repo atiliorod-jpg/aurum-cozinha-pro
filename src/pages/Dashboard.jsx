@@ -18,6 +18,7 @@ import { temRecurso } from '../utils/modulos';
 import { acharArmazenamento } from '../utils/armazenamento';
 import { pode } from '../utils/permissoes';
 import { useAuth } from '../store/AuthContext';
+import { plural } from '../utils/formatters';
 
 export default function Dashboard() {
   const { produtos, setProdutos, saidas, saidasParaConsumo, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs, modulo, permissoes } = useApp();
@@ -179,7 +180,7 @@ export default function Dashboard() {
       {negativos.length > 0 && (
         <div className="bg-red-100 border border-red-400 rounded-xl p-3 mb-4">
           <p className="text-xs font-bold text-red-800 mb-2">
-            ⚠️ {negativos.length} item(ns) com estoque negativo — provável entrada ou produção não registrada
+            {plural(negativos.length, 'item', 'itens')} com estoque negativo: provável entrada ou produção não registrada
           </p>
           <div className="space-y-1">
             {negativos.map(({ p, atual }) => (
@@ -204,7 +205,7 @@ export default function Dashboard() {
         <button onClick={() => navigate('/compras', { state: { tab: 'lista' } })}
           className="w-full flex items-center justify-between bg-polo-navy text-white rounded-xl px-4 py-3 mb-4 active:scale-[0.99] transition-transform">
           <span className="text-sm font-semibold text-left">
-            🧾 Lista de compras —
+            Lista de compras —
             {lista.length > 0 && <> <strong className="text-polo-gold">{lista.length}</strong> abaixo do mín</>}
             {lista.length > 0 && listaManual.length > 0 && ' + '}
             {listaManual.length > 0 && <><strong className="text-polo-gold">{listaManual.length}</strong> manual{listaManual.length > 1 ? 'is' : ''}</>}
@@ -288,7 +289,7 @@ export default function Dashboard() {
           className="block bg-orange-50 border border-orange-300 rounded-xl p-3 mb-4 active:scale-[0.99] transition-transform
                     ">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-orange-700">⏰ Usar primeiro — lotes vencendo</p>
+            <p className="text-xs font-bold text-orange-700">Usar primeiro: lotes vencendo</p>
             <span className="text-[11px] font-bold text-orange-700">ver todas →</span>
           </div>
           <div className="space-y-1">
@@ -309,7 +310,7 @@ export default function Dashboard() {
         <div className="bg-polo-beige border border-polo-gold/50 rounded-xl p-3 mb-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-polo-navy flex-1">
-              💡 <strong>{divergentes.length} produto{divergentes.length > 1 ? 's' : ''}</strong> com mín/máx fora do consumo real (média dos últimos {sugestoes[divergentes[0].id]?.dias} dias).
+              <strong>{divergentes.length} produto{divergentes.length > 1 ? 's' : ''}</strong> com mín/máx fora do consumo real (média dos últimos {sugestoes[divergentes[0].id]?.dias} dias).
             </p>
             <button onClick={() => setVerSugestoes(v => !v)}
               className="text-xs font-bold text-polo-navy underline flex-shrink-0">
@@ -347,7 +348,7 @@ export default function Dashboard() {
       {/* Conta nova: explica por que ainda não há sugestões de mín/máx (gate de ~15 dias) */}
       {!prefs.autoMinMax && divergentes.length === 0 && Object.keys(sugestoes).length === 0 && produtosAtivos.length > 0 && (
         <p className="text-[11px] text-gray-600 px-1 mb-4">
-          💡 Sugestões automáticas de mín/máx aparecem após ~15 dias de saídas registradas.
+          Sugestões automáticas de mín/máx aparecem após ~15 dias de saídas registradas.
         </p>
       )}
 
@@ -401,7 +402,7 @@ export default function Dashboard() {
                   <div key={p.id}
                     {...(lotesProduto.length ? {
                       role: 'button', tabIndex: 0, 'aria-expanded': aberto,
-                      'aria-label': `${p.nome}: ${lotesProduto.length} lote(s), toque para ${aberto ? 'recolher' : 'ver'}`,
+                      'aria-label': `${p.nome}: ${plural(lotesProduto.length, 'lote', 'lotes')}, toque para ${aberto ? 'recolher' : 'ver'}`,
                       onClick: () => setExpandido(aberto ? null : p.id),
                       onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandido(aberto ? null : p.id); } },
                     } : {})}
@@ -411,12 +412,12 @@ export default function Dashboard() {
                         {p.nome}
                         {produtoFinalIds.has(p.id) && (
                           <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
-                            🍲 produzido
+                            produzido
                           </span>
                         )}
                         {lotesProduto.length > 0 && (
                           <span className="text-[11px] font-bold text-polo-navy bg-white/70 px-1.5 py-0.5 rounded-full">
-                            🏷️ {lotesProduto.length} lote{lotesProduto.length > 1 ? 's' : ''} {aberto ? '▾' : '▸'}
+                            {lotesProduto.length} lote{lotesProduto.length > 1 ? 's' : ''} {aberto ? '▾' : '▸'}
                           </span>
                         )}
                       </span>
@@ -455,7 +456,7 @@ export default function Dashboard() {
                       <div className="flex justify-between text-[11px] text-gray-600 mt-0.5">
                         <span>Consumo: {fmtNum(Math.round(medias[p.id] * 10) / 10)} {p.unidade}/dia</span>
                         {medias[p.id] > 0 && atual > 0 && (
-                          <span>dura ~{Math.floor(atual / medias[p.id])} dia(s)</span>
+                          <span>dura ~{plural(Math.floor(atual / medias[p.id]), 'dia', 'dias')}</span>
                         )}
                       </div>
                     )}

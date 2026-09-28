@@ -5,6 +5,7 @@ import { statusEstoque } from '../utils/calculos';
 import { pode, podeAbrirConfig } from '../utils/permissoes';
 import { temRecurso } from '../utils/modulos';
 import Icon from './Icons';
+import { plural } from '../utils/formatters';
 
 const NAV = [
   { to: '/',              icon: 'inicio',    label: 'Início' },
@@ -114,7 +115,7 @@ export default function NavBar({ soEtiquetas = false }) {
         alertas > 0 && { lado: 'direita', texto: alertas > 9 ? '9+' : String(alertas), cor: 'bg-red-500',
           rotulo: `${alertas} produtos abaixo do mínimo` },
         precisaProduzir > 0 && { lado: 'esquerda', icone: 'producao', cor: 'bg-amber-700',
-          rotulo: `${precisaProduzir} receita(s) precisam ser produzidas` },
+          rotulo: `${plural(precisaProduzir, 'receita precisa', 'receitas precisam')} ser produzida${precisaProduzir === 1 ? '' : 's'}` },
       ].filter(Boolean),
     }} />
   );

@@ -34,3 +34,6 @@ export const semanaAtual = () => {
     fim: isoLocal(end),
   };
 };
+
+/** "1 dia" / "3 dias" — no lugar de "dia(s)", que soa gerado. */
+export const plural = (n, um, varios) => `${n} ${Number(n) === 1 ? um : varios}`;

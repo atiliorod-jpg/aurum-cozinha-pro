@@ -305,6 +305,10 @@ export function AppProvider({ children }) {
   // o render quebra no modo concorrente do React (o lint pega). Muda só na
   // hidratação, então não custa render extra.
   const [brutos, setBrutos] = useState({ registros: [], docs: {} });
+  // ⚠️ "CARREGANDO" NÃO É "VAZIO" (28/09/2026): o Sair apaga o cache, então
+  // toda entrada num aparelho mostrava "Você ainda não tem itens" até a nuvem
+  // responder. As telas usam isto para mostrar um esqueleto nesse intervalo.
+  const [nuvemCarregada, setNuvemCarregada] = useState(false);
 
   const dadosRef = useRef({});
   // ⚠️ produtosCat e metas PRECISAM estar aqui: setProdutos lê os dois deste
@@ -1010,6 +1014,8 @@ export function AppProvider({ children }) {
   // local precisa aparecer no primeiro paint pós-login (antes da rede).
   /* eslint-disable react-hooks/set-state-in-effect -- hidratação síncrona do cache é intencional */
   useEffect(() => {
+    // a primeira leitura da nuvem ainda não chegou (a tela mostra "carregando" em vez de "vazio")
+    setNuvemCarregada(rid === 'demo');
     if (!rid) {
       // sem sessão: volta aos valores padrão
       setProdutosRaw(CAT.produtos); setCategoriasRaw(CAT.categorias);
@@ -1553,6 +1559,7 @@ export function AppProvider({ children }) {
         aplicaReg('auditoria', setAuditoriaRaw, 'auditoria');
       }
 
+      if (ativo) setNuvemCarregada(true);
       await flush();
     })();
 
@@ -1874,7 +1881,7 @@ export function AppProvider({ children }) {
       locais, setLocais,
       listaManual, setListaManual,
       etiquetasAvulsas, setEtiquetasAvulsas,
-      etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo,
+      etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada,
       permissoes, setPermissoes,
       precos, setPrecos,
       estoques, estoqueAtual, estoquesDoc, setEstoquesDoc, visoesPorEstoque,
@@ -1905,7 +1912,7 @@ export function AppProvider({ children }) {
     addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, ajustes,
     addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, fichas,
     setFichas, producoes, setProducoes, locais, setLocais, listaManual,
-    setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, permissoes,
+    setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada, permissoes,
     setPermissoes, precos, setPrecos, estoques, estoqueAtual, estoquesDoc,
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,

@@ -621,7 +621,7 @@ export default function EtiquetaPrint() {
     return false;
   });
 
-  const inputCls = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs';
+  const inputCls = 'w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-base';
 
   // Ao imprimir, cada cópia vira uma ETIQUETA FÍSICA registrada: é o que
   // permite depois contar por leitura de QR e saber o que ainda está na
@@ -979,14 +979,14 @@ export default function EtiquetaPrint() {
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button aria-label={`Menos etiquetas de ${item.nome}`}
                         onClick={() => mudarQtd(idx, -1)}
-                        className="w-9 h-9 rounded-full bg-gray-100 text-gray-600 font-bold flex items-center justify-center">−</button>
+                        className="w-11 h-11 rounded-full bg-gray-100 text-gray-700 font-bold text-lg flex items-center justify-center">−</button>
                       <input type="number" min="0" max={MAX_COPIAS} inputMode="numeric" value={item.quantidade}
                         onChange={e => setItem(idx, { quantidade: e.target.value === '' ? '' : limitarCopias(e.target.value) })}
                         aria-label={`Quantidade de etiquetas de ${item.nome}`}
                         className="w-12 text-center border border-gray-200 rounded-lg py-1.5 text-sm font-semibold" />
                       <button aria-label={`Mais etiquetas de ${item.nome}`}
                         onClick={() => mudarQtd(idx, +1)}
-                        className="w-9 h-9 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center">+</button>
+                        className="w-11 h-11 rounded-full bg-polo-navy text-polo-gold font-bold text-lg flex items-center justify-center">+</button>
                     </div>
                   </div>
                   {/* ⚠️ O ARMAZENAMENTO SAIU DO MEIO DA GRADE E VIROU o campo
@@ -1125,10 +1125,10 @@ export default function EtiquetaPrint() {
                       Passa da validade do fornecedor ({campos.valOriginalFmt}). Reduza os dias.
                     </Aviso>
                   )}
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-sm text-gray-700">
                     {campos.validadeFmt
-                      ? <>Vencimento na etiqueta: <strong className="text-polo-navy">{campos.validadeFmt}</strong></>
-                      : 'Sem validade — etiqueta só de identificação.'}
+                      ? <>Vencimento na etiqueta: <strong className="text-base text-polo-navy">{campos.validadeFmt}</strong></>
+                      : 'Sem validade: etiqueta só de identificação.'}
                     {(item.marca || item.sif || item.lote) && <> · {item.marca}{item.sif ? ` · SIF ${item.sif}` : ''}{item.lote ? ` · lote ${item.lote}` : ''}</>}
                   </p>
                 </div>

@@ -97,8 +97,9 @@ export default function Validades() {
     toast(`Etiqueta marcada como ${rotulo}.`, 'sucesso');
   };
 
-  const corDias = (d) => d < 0 ? 'text-red-600' : d === 0 ? 'text-red-600' : d <= 3 ? 'text-orange-600' : 'text-gray-600';
-  const textoDias = (d) => d < 0 ? `venceu há ${Math.abs(d)}d` : d === 0 ? 'vence hoje' : `${d}d`;
+  // contraste de 4,5:1 (antes laranja-600 em 11 px, o aviso mais importante com a cor mais fraca)
+  const corDias = (d) => d <= 0 ? 'text-red-700' : d <= 3 ? 'text-orange-800' : 'text-gray-600';
+  const textoDias = (d) => d < 0 ? `venceu há ${Math.abs(d)} ${Math.abs(d) === 1 ? 'dia' : 'dias'}` : d === 0 ? 'vence hoje' : `em ${d} ${d === 1 ? 'dia' : 'dias'}`;
 
   return (
     <Layout title="Validades">
@@ -106,22 +107,22 @@ export default function Validades() {
         <div className="bg-white rounded-xl p-3">
           <div className="flex flex-wrap gap-1.5">
             {FILTROS.map(([v, l]) => (
-              <button key={v} onClick={() => setFiltro(v)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
-                  ${filtro === v ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-500'}`}>
+              <button key={v} onClick={() => setFiltro(v)} aria-pressed={filtro === v}
+                className={`min-h-11 px-4 rounded-lg text-xs font-semibold transition-colors
+                  ${filtro === v ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-700'}`}>
                 {l}
               </button>
             ))}
-            <button onClick={() => setFiltro('custom')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
-                ${filtro === 'custom' ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-500'}`}>
+            <button onClick={() => setFiltro('custom')} aria-pressed={filtro === 'custom'}
+              className={`min-h-11 px-4 rounded-lg text-xs font-semibold transition-colors
+                ${filtro === 'custom' ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-700'}`}>
               Escolher data
             </button>
           </div>
           {filtro === 'custom' && (
             <div className="mt-2">
               <label className="block text-xs text-gray-500 mb-1">Vencendo até</label>
-              <input type="date" value={ate} min={hj} onChange={e => setAte(e.target.value)}
+              <input aria-label="Vencendo até" type="date" value={ate} min={hj} onChange={e => setAte(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
           )}
@@ -139,7 +140,7 @@ export default function Validades() {
           {abas.map(([v, l]) => (
             <button key={v} onClick={() => setAba(v)} aria-pressed={abaAtual === v}
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors
-                ${abaAtual === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
+                ${abaAtual === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-700'}`}>
               {l}
             </button>
           ))}
@@ -175,7 +176,7 @@ export default function Validades() {
             <div className="bg-white rounded-xl p-8 text-center">
               <p className="text-sm text-gray-500">Nenhuma etiqueta {soVencidos ? 'vencida' : 'vencendo neste período'}.</p>
               <p className="text-xs text-gray-600 mt-1">
-                As etiquetas aparecem aqui depois de impressas com QR ligado (Config → Sistema → Etiquetas).
+                As etiquetas impressas com validade aparecem aqui até serem marcadas como consumidas ou descartadas.
               </p>
             </div>
           ) : (

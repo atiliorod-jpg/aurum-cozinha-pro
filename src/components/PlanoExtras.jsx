@@ -13,6 +13,7 @@ import {
 import { unidadesAtivas, opcoesDeUnidade } from '../utils/unidades';
 import { formatarCNPJ, validarCNPJ, soDigitos, UFS } from '../utils/documentos';
 import { fmtData, isoLocal } from '../utils/formatters';
+import { plural } from '../utils/formatters';
 
 // =====================================================================
 //  PLANOS E PAGAMENTO — o que a conta pode ter a mais (pedido do dono,
@@ -198,7 +199,7 @@ export function SecaoContas() {
     setEnviando(true);
     const erro = await enviarPedido(sessao, {
       tipoPedido: 'contas', quantas,
-      pedido: `Mais ${quantas} conta(s) da equipe — hoje: ${ativos} de ${max}`,
+      pedido: `Mais ${plural(quantas, 'conta', 'contas')} da equipe (hoje: ${ativos} de ${max})`,
       motivo: motivo.trim(),
     });
     setEnviando(false);
@@ -271,7 +272,7 @@ export function SecaoCozinhaPro() {
       {PRODUTOS.completo.emBreve ? (
         <Botao variante="sobreNavy" tamanho="sm" onClick={() => abrirAjuda('pedido')}>Quero saber quando abrir</Botao>
       ) : (
-        <Botao variante="sobreNavy" tamanho="sm" onClick={() => abrirAjuda('pedido')}>Quero o plano completo</Botao>
+        <Botao variante="sobreNavy" tamanho="sm" onClick={() => abrirAjuda('pedido')}>Quero o Cozinha Pro</Botao>
       )}
     </section>
   );

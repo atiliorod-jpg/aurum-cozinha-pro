@@ -11,6 +11,7 @@ import { hoje, fmtData } from '../../utils/formatters';
 import { statusEtiqueta, STATUS_ETIQUETA, medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
 import { prazosDoProduto } from '../../utils/armazenamento';
 import { casaBusca } from '../../utils/busca';
+import Esqueleto from '../../components/Esqueleto';
 
 /**
  * O que já saiu no rolo — e o botão de fazer de novo.
@@ -28,7 +29,7 @@ import { casaBusca } from '../../utils/busca';
  * impedir.
  */
 export default function Impressas() {
-  const { etiquetasImpressas, tirarEtiquetaDaLista, etiquetaAindaSubindo, produtos, permissoes, rid } = useApp();
+  const { etiquetasImpressas, tirarEtiquetaDaLista, etiquetaAindaSubindo, produtos, permissoes, rid, nuvemCarregada } = useApp();
   const { sessao } = useAuth();
   const { abrirEtiquetas, confirm, toast } = useUI();
   const verRelatorio = pode(sessao, permissoes, 'verRelatorioEtiquetas');
@@ -165,7 +166,9 @@ export default function Impressas() {
           <span aria-hidden="true">→</span>
         </Link>
       )}
-      {vazio ? (
+      {vazio && !nuvemCarregada ? (
+        <Esqueleto rotulo="Carregando as etiquetas impressas" />
+      ) : vazio ? (
         <Aviso tom="neutro">
           Nada impresso ainda. O que sair no rolo aparece aqui, e dá para repetir
           uma etiqueta que rasgou sem precisar montar tudo de novo.

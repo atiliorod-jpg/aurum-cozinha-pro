@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import Dialogo from '../components/Dialogo';
+import Icon from '../components/Icons';
 
 const UIContext = createContext(null);
 
@@ -144,8 +145,8 @@ export function UIProvider({ children }) {
               ${t.tipo === 'sucesso' ? 'bg-green-600 text-white' :
                 t.tipo === 'erro' ? 'bg-red-600 text-white' :
                 t.tipo === 'aviso' ? 'bg-orange-500 text-white' : 'bg-polo-navy text-white'}`}>
-            <span className="text-lg leading-none">
-              {t.tipo === 'sucesso' ? '✓' : t.tipo === 'erro' ? '✕' : t.tipo === 'aviso' ? '⚠️' : 'ℹ️'}
+            <span className="flex-shrink-0" aria-hidden="true">
+              <Icon name={t.tipo === 'sucesso' ? 'check' : t.tipo === 'erro' ? 'fechar' : t.tipo === 'aviso' ? 'alerta' : 'info'} size={18} />
             </span>
             <span className="flex-1">{t.mensagem}</span>
             {t.acao && (

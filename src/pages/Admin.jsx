@@ -12,6 +12,8 @@ import { calcularEncargo } from '../utils/encargos';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarCEP, formatarTelefone, UFS } from '../utils/documentos';
+import Icon from '../components/Icons';
+import { plural } from '../utils/formatters';
 
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
@@ -25,11 +27,11 @@ const brlAdmin = (v) => `R$ ${Math.round(v).toLocaleString('pt-BR')}`;
 
 // Badge de situação comercial do restaurante (mesma régua do app do cliente)
 function BadgeStatus({ st }) {
-  const cfg = st.tipo === 'assinatura' ? ['🟢 Ativo', 'bg-green-100 text-green-700']
-    : st.tipo === 'atraso' ? [`🟠 Atraso (${st.diasAtraso}d)`, 'bg-orange-100 text-orange-800']
-    : st.tipo === 'teste' ? [`🟡 Teste (${st.diasRestantes}d)`, 'bg-amber-100 text-amber-700']
+  const cfg = st.tipo === 'assinatura' ? ['Ativo', 'bg-green-100 text-green-700']
+    : st.tipo === 'atraso' ? [`Atraso (${st.diasAtraso}d)`, 'bg-orange-100 text-orange-800']
+    : st.tipo === 'teste' ? [`Teste (${st.diasRestantes}d)`, 'bg-amber-100 text-amber-700']
     : st.tipo === 'bloqueado' ? ['Suspenso', 'bg-red-100 text-red-700']
-    : ['🔴 Vencido', 'bg-red-100 text-red-700'];
+    : ['Vencido', 'bg-red-100 text-red-700'];
   return <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${cfg[1]}`}>{cfg[0]}</span>;
 }
 
@@ -40,7 +42,7 @@ function BadgeProduto({ produto }) {
   return (
     <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0
       ${eEtiquetas ? 'bg-polo-beige text-polo-navy' : 'bg-gray-100 text-gray-700'}`}>
-      {eEtiquetas ? 'Etiquetas' : 'Completo'}
+      {eEtiquetas ? 'Etiquetas' : 'Cozinha Pro'}
     </span>
   );
 }
@@ -303,7 +305,7 @@ export default function Admin() {
     if (error) { toast('Erro ao liberar: ' + error.message, 'erro'); return; }
     // ativar_assinatura (migração 13) também limpa o aviso de pagamento
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, assinatura_ate: data, aviso_pagamento_em: null, aviso_pagamento_plano: null } : x));
-    toast(`✅ ${r.nome}: acesso liberado até ${dataBR(data)}.`, 'sucesso');
+    toast(`${r.nome}: acesso liberado até ${dataBR(data)}.`, 'sucesso');
   };
 
   // ⚠️ DEFINE A DATA EXATA, e é o que faltava. `ativar_assinatura` só sabe
@@ -333,7 +335,7 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     if (error) { toast('Erro ao alterar: ' + error.message, 'erro'); return; }
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, assinatura_ate: data } : x));
     setVencCustom(p => ({ ...p, [r.id]: '' }));
-    toast(data ? `✅ ${r.nome}: vence em ${dataBR(data)}.` : `${r.nome}: assinatura removida.`, data ? 'sucesso' : 'aviso');
+    toast(data ? `${r.nome}: vence em ${dataBR(data)}.` : `${r.nome}: assinatura removida.`, data ? 'sucesso' : 'aviso');
   };
 
   const marcarFeedback = async (fb, status) => {
@@ -405,7 +407,7 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     }
     setCobrando(null);
     if (pagamentos?.id === r.id) carregarPagamentos(r);
-    toast(`✅ ${r.nome}: ${brlAdmin(valor + valorExtras)} registrado${dias > 0 ? `, acesso até ${dataBR(data)}` : ''}.`, 'sucesso');
+    toast(`${r.nome}: ${brlAdmin(valor + valorExtras)} registrado${dias > 0 ? `, acesso até ${dataBR(data)}` : ''}.`, 'sucesso');
   };
 
   // ── Contrato parcelado e encargos de atraso (M45) ─────────────
@@ -775,7 +777,7 @@ A lista própria dela fica guardada: se você religar, ela volta como estava.`,
       mensagem: paraEtiquetas
         ? `"${r.nome}" passa a ver só as telas de etiqueta (${mes}).\n\nNENHUM dado é apagado: o estoque, as compras e o histórico continuam no banco e reaparecem inteiros se você voltar para o plano completo.`
         : `"${r.nome}" passa a ver o app inteiro (${mes}).\n\nOs itens e as etiquetas que ele já cadastrou continuam onde estão — aparecem na Cozinha de Produção.`,
-      confirmar: paraEtiquetas ? 'Mudar para Etiquetas' : 'Mudar para Completo',
+      confirmar: paraEtiquetas ? 'Mudar para Etiquetas' : 'Mudar para Cozinha Pro',
     });
     if (!ok) return;
     const { error } = await supabase.rpc('definir_produto', { p_restaurante: r.id, p_produto: novo });
@@ -899,7 +901,7 @@ O login e a recuperação de senha passam a usar o e-mail novo. A senha continua
     setRestaurantes(prev => prev.filter(x => x.id !== r.id));
     setAberto('');
     const sobra = resp.sobraram?.length
-      ? ` ⚠️ ${resp.sobraram.length} conta(s) de acesso resistiram — me avise.`
+      ? ` ${resp.sobraram.length} conta(s) de acesso resistiram — me avise.`
       : '';
     toast(`"${r.nome}" apagado. ${resp.usuariosApagados || 0} conta(s) removida(s).${sobra}`,
       sobra ? 'aviso' : 'sucesso', { duracao: 9000 });
@@ -1207,7 +1209,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
     const { error } = await supabase.rpc('definir_bloqueio', { p_restaurante: r.id, p_bloqueado: bloquear });
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
     setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, bloqueado: bloquear } : x));
-    toast(bloquear ? `🔒 "${r.nome}" suspenso.` : `✅ "${r.nome}" reativado.`, 'sucesso');
+    toast(bloquear ? `"${r.nome}" suspenso.` : `"${r.nome}" reativado.`, 'sucesso');
   };
 
   const salvarNotas = async (r) => {
@@ -1220,7 +1222,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
     return (
       <Layout title="Admin" area="admin">
         <div className="bg-white rounded-xl p-8 text-center">
-          <p className="text-2xl mb-2">🚫</p>
+          <span className="inline-flex mb-2 text-red-700" aria-hidden="true"><Icon name="cadeado" size={28} /></span>
           <p className="text-sm font-semibold text-gray-700">Acesso restrito</p>
           <p className="text-xs text-gray-600 mt-1">Esta página é exclusiva para administradores.</p>
         </div>
@@ -1233,10 +1235,10 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
       <div className="space-y-4">
         {/* Cabeçalho */}
         <div className="bg-polo-navy rounded-xl p-4 text-polo-gold">
-          <p className="font-bold text-sm">🔑 Painel super-admin</p>
+          <p className="font-bold text-sm">Painel super-admin</p>
           <p className="text-[11px] text-white/80 mt-0.5">Logado como {sessao.email}</p>
           <p className="text-[11px] text-polo-gold/90 mt-1.5">
-            🔒 Conta crítica: ative a verificação em duas etapas (MFA) no Supabase Auth e use uma senha forte e exclusiva.
+            Conta crítica: ative a verificação em duas etapas (MFA) no Supabase Auth e use uma senha forte e exclusiva.
           </p>
         </div>
 
@@ -1264,7 +1266,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       <span className="block text-sm font-semibold text-polo-navy truncate">{r.nome}</span>
                       <span className="block text-[11px] text-gray-600">
                         {tipo === 'aviso' && <>
-                          💰 Avisou pagamento — {plano.label.toLowerCase()}
+                          Avisou pagamento — {plano.label.toLowerCase()}
                           {r.aviso_pagamento_nome ? ` por ${r.aviso_pagamento_nome}` : ''}
                           {' · '}{dataBRHora(r.aviso_pagamento_em)}
                         </>}
@@ -1272,14 +1274,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             Ler a primeira linha aqui é o que deixa decidir se
                             responde agora ou depois, sem abrir nada. */}
                         {tipo === 'feedback' && <>
-                          💬 {feedback?.tipo === 'pedido' ? 'Pedido' : feedback?.tipo === 'bug' ? 'Problema' : 'Recado'}
+                          {feedback?.tipo === 'pedido' ? 'Pedido' : feedback?.tipo === 'bug' ? 'Problema' : 'Recado'}
                           {' — '}
                           {String(feedback?.dados?.mensagem || feedback?.dados?.texto || '').slice(0, 60) || 'sem texto'}
                         </>}
-                        {tipo === 'teste' && <>⏳ Teste acabando — {statusRestaurante(r).diasRestantes} dia(s)</>}
-                        {tipo === 'vencido' && <>🔴 Vencido desde {dataBR(r.assinatura_ate)}</>}
+                        {tipo === 'teste' && <>Teste acabando: {plural(statusRestaurante(r).diasRestantes, 'dia', 'dias')}</>}
+                        {tipo === 'vencido' && <>Vencido desde {dataBR(r.assinatura_ate)}</>}
                         {tipo === 'atraso' && <>
-                          🟠 Contrato em atraso há {statusRestaurante(r).diasAtraso} dia(s)
+                          Contrato em atraso há {statusRestaurante(r).diasAtraso} dia(s)
                           {encargos[r.id] ? ' — juros já lançados' : ' — cobrar juros'}
                         </>}
                       </span>
@@ -1381,7 +1383,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
           return (
             <details id="bloco-feedback" className="bg-white border border-gray-100 rounded-xl overflow-hidden" open={abertos > 0 || !!erroFeedback}>
               <summary className="cursor-pointer px-4 py-3 flex items-center justify-between">
-                <span className="text-sm font-bold text-polo-navy">📨 Feedback dos clientes</span>
+                <span className="text-sm font-bold text-polo-navy">Feedback dos clientes</span>
                 {erroFeedback
                   ? <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">erro</span>
                   : abertos > 0
@@ -1586,7 +1588,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 perguntas diferentes. Os números respondem "quantos pagam"; isto
                 responde "quem comprou o quê" — e as duas se somam. */}
             <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
-              {[['todos', 'Todos'], ['etiquetas', 'Etiquetas'], ['completo', 'Completo']].map(([v, l]) => (
+              {[['todos', 'Todos'], ['etiquetas', 'Etiquetas'], ['completo', 'Cozinha Pro']].map(([v, l]) => (
                 <button key={v} onClick={() => setSituacao(v)} aria-pressed={situacao === v}
                   className={`whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0 border
                     ${situacao === v ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
@@ -1599,7 +1601,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 <button onClick={() => setSituacao('todos')}
                   className="whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0
                              bg-polo-beige text-polo-navy border border-polo-gold">
-                  {{ pagantes: 'Pagando', teste: 'Em teste', vencidos: 'Vencidos', bloqueados: 'Suspensos' }[situacao]} ✕
+                  {{ pagantes: 'Pagando', teste: 'Em teste', vencidos: 'Vencidos', bloqueados: 'Suspensos' }[situacao]} <Icon name="fechar" size={12} className="inline" />
                 </button>
               )}
             </div>
@@ -1706,7 +1708,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       aria-pressed={novaConta.produto === pr}
                       className={`flex-1 text-xs font-bold py-2 rounded-lg border-2
                         ${novaConta.produto === pr ? 'border-polo-gold bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-600'}`}>
-                      {pr === 'etiquetas' ? 'Etiquetas' : 'Completo'}
+                      {pr === 'etiquetas' ? 'Etiquetas' : 'Cozinha Pro'}
                     </button>
                   ))}
                 </div>
@@ -1803,7 +1805,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           não paga. O motivo aparece no cartão aberto. */}
                       {rotuloRegime(r.regime) && (
                         <span className="text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 bg-polo-beige text-polo-navy border border-polo-gold">
-                          ⭐ {rotuloRegime(r.regime)}
+                          {rotuloRegime(r.regime)}
                         </span>
                       )}
                       {/* ⚠️ "unidade a confirmar": a conta usa o nome antigo de
@@ -1842,7 +1844,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   {r.aviso_pagamento_em && (
                     <div className="px-4 py-2 bg-polo-gold/15 border-b border-polo-gold/30 flex items-center justify-between gap-2">
                       <p className="text-[11px] text-polo-navy font-semibold">
-                        💰 Avisou pagamento — plano <strong>{r.aviso_pagamento_plano || 'mensal'}</strong>
+                        Avisou pagamento — plano <strong>{r.aviso_pagamento_plano || 'mensal'}</strong>
                         {r.aviso_pagamento_nome ? <> por <strong>{r.aviso_pagamento_nome}</strong></> : null}
                         {' '}em {dataBRHora(r.aviso_pagamento_em)}
                       </p>
@@ -1859,13 +1861,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     <span>Suporte: <strong>{r.suporteAtivo ? `ativo ~${restanteH}h${r.podeMexer ? ' (editar)' : ' (ver)'}` : '—'}</strong></span>
                     {r.regime_motivo && (
                       <span className="col-span-2 text-polo-navy">
-                        ⭐ {rotuloRegime(r.regime)}: {r.regime_motivo}
+                        {rotuloRegime(r.regime)}: {r.regime_motivo}
                         {r.cortesia_ate ? ` — até ${dataBR(r.cortesia_ate)}` : ' — sem prazo'}
                       </span>
                     )}
                     {r.produto_teste && aindaVale(r.produto_teste_ate, agora) && (
                       <span className="col-span-2 text-polo-navy">
-                        🎁 Vendo o {produtoDe(r.produto_teste).label} até {dataBR(r.produto_teste_ate)}
+                        Vendo o {produtoDe(r.produto_teste).label} até {dataBR(r.produto_teste_ate)}
                         {' '}(paga {produtoDe(r.produto).label})
                       </span>
                     )}
@@ -2284,12 +2286,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           </p>
                           <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(mensalComUnidades(r.produto, extrasDe(r))) })}
                             className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
-                            📄 Registrar contrato parcelado
+                            Registrar contrato parcelado
                           </button>
                         </>) : (<>
                           <div>
                             <p className="text-sm font-bold text-polo-navy">
-                              📄 Contrato ativo — R$ {fmtPreco(r.parcela_contrato)}/mês
+                              Contrato ativo — R$ {fmtPreco(r.parcela_contrato)}/mês
                             </p>
                             <p className="text-[11px] text-gray-600">
                               {cortesia ? 'Conta em cortesia: sem juros de atraso enquanto durar.'
@@ -2360,12 +2362,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       {cobrando?.id !== r.id && (
                         <button onClick={() => abrirCobranca(r)}
                           className="text-[11px] font-bold text-white bg-green-700 rounded-lg px-2.5 py-1">
-                          💰 Registrar pagamento
+                          Registrar pagamento
                         </button>
                       )}
                       <button onClick={() => alternarPagamentos(r)}
                         className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
-                        {pagamentos?.id === r.id ? 'Fechar histórico' : '📒 Pagamentos'}
+                        {pagamentos?.id === r.id ? 'Fechar histórico' : 'Pagamentos'}
                       </button>
                       {regimeEdit?.id !== r.id && (
                         <button onClick={() => setRegimeEdit({
@@ -2374,7 +2376,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           ate: r.cortesia_ate ? String(r.cortesia_ate).slice(0, 10) : '',
                         })}
                           className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
-                          {rotuloRegime(r.regime) ? 'Mudar regime' : '⭐ Tornar cortesia'}
+                          {rotuloRegime(r.regime) ? 'Mudar regime' : 'Tornar cortesia'}
                         </button>
                       )}
                     </div>
@@ -2532,14 +2534,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <button onClick={() => alternarUso(r)}
                       className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
-                      {uso?.id === r.id ? 'Fechar uso' : '📊 Uso da conta'}
+                      {uso?.id === r.id ? 'Fechar uso' : 'Uso da conta'}
                     </button>
                     {/* ⚠️ Ao lado do uso de propósito: as duas respondem "o que
                         andou acontecendo nesta conta" — uma pelo lado do
                         cliente, outra pelo nosso. */}
                     <button onClick={() => alternarLog(r)}
                       className="ml-2 text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
-                      {log?.id === r.id ? 'Fechar registro' : '📋 O que fizemos aqui'}
+                      {log?.id === r.id ? 'Fechar registro' : 'O que fizemos aqui'}
                     </button>
                     {log?.id === r.id && (
                       <div className="mt-2">
@@ -2602,7 +2604,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <button onClick={() => alternarHistorico(r)}
                       className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
-                      {historico?.id === r.id ? 'Fechar histórico' : '↺ Histórico e restaurar'}
+                      {historico?.id === r.id ? 'Fechar histórico' : 'Histórico e restaurar'}
                     </button>
                     {historico?.id === r.id && (
                       <div className="mt-2">
@@ -2736,7 +2738,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           +{d}d
                         </button>
                       ))}
-                      <input type="number" min="1" max="400" inputMode="numeric" placeholder="dias"
+                      <input aria-label="dias" type="number" min="1" max="400" inputMode="numeric" placeholder="dias"
                         value={diasCustom[r.id] || ''}
                         onChange={e => setDiasCustom(p => ({ ...p, [r.id]: e.target.value }))}
                         className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]" />
@@ -2777,7 +2779,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   {/* VIP (limite de usuários) + bloqueio */}
                   <div className="px-4 py-2.5 border-b border-gray-50 flex items-center justify-between gap-2">
                     <label className="text-[11px] text-gray-600 flex items-center gap-1.5">
-                      👥 Limite de usuários
+                      Limite de usuários
                       <select value={maxU} onChange={e => mudarMax(r, parseInt(e.target.value))}
                         className="border border-gray-200 rounded-lg px-1.5 py-1 text-[11px] bg-white">
                         {[3, 4, 5].map(n => <option key={n} value={n}>{n}{n === 3 ? ' (padrão)' : ' (VIP)'}</option>)}
@@ -2785,7 +2787,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     </label>
                     <button onClick={() => alternarBloqueio(r)}
                       className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 ${r.bloqueado ? 'bg-green-600 text-white' : 'bg-red-100 text-red-700'}`}>
-                      {r.bloqueado ? '✅ Reativar conta' : 'Suspender conta'}
+                      {r.bloqueado ? 'Reativar conta' : 'Suspender conta'}
                     </button>
                   </div>
 
@@ -2819,7 +2821,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">Notas internas (só você vê)</p>
                     <div className="flex gap-1.5">
-                      <input type="text" value={notasLocal[r.id] ?? ''} placeholder="Ex: VIP · WhatsApp (81) 9…"
+                      <input aria-label="Ex: VIP · WhatsApp (81) 9" type="text" value={notasLocal[r.id] ?? ''} placeholder="Ex: VIP · WhatsApp (81) 9…"
                         onChange={e => setNotasLocal(p => ({ ...p, [r.id]: e.target.value }))}
                         className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]" />
                       <button onClick={() => salvarNotas(r)}
@@ -2833,7 +2835,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       <button
                         onClick={() => { verComoRestaurante(r.id, r.nome, r.podeMexer, r.produto); navigate('/'); }}
                         className={`w-full font-bold text-xs py-2.5 rounded-lg ${r.podeMexer ? 'bg-red-600 text-white' : 'bg-polo-navy text-polo-gold'}`}>
-                        {r.podeMexer ? '✏️ Entrar como este restaurante (pode EDITAR)' : '👁️ Ver como este restaurante (somente leitura)'}
+                        {r.podeMexer ? 'Entrar como este restaurante (pode EDITAR)' : 'Ver como este restaurante (somente leitura)'}
                       </button>
                     ) : (
                       <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">

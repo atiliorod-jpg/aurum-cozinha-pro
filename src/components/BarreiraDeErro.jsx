@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import { CHAVE_ULTIMO_ERRO } from '../utils/erros';
 import { relatarErro } from '../lib/relatarErro';
+import Icon from './Icons';
 
 // =====================================================================
 //  Barreira de erro — o que aparece quando uma tela quebra
@@ -62,7 +63,7 @@ export default class BarreiraDeErro extends Component {
     // nem o aviso, porque a barreira já teria sido usada.
     return (
       <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
-        <p className="text-4xl" aria-hidden="true">😕</p>
+        <span className="w-14 h-14 rounded-2xl bg-polo-gold/15 text-polo-gold flex items-center justify-center" aria-hidden="true"><Icon name="alerta" size={28} /></span>
         <p className="text-polo-gold font-bold text-lg">Esta tela travou</p>
         <p className="text-white/85 text-sm max-w-xs">
           Seus dados estão salvos. Toque abaixo para abrir o app de novo.

@@ -186,13 +186,13 @@ export default function AparasPerdas() {
             <button onClick={() => setTipo('apara')}
               className={`py-3 px-3 rounded-xl text-sm font-bold border-2 transition-colors
                 ${tipo === 'apara' ? 'border-amber-400 bg-amber-500 text-white' : 'border-gray-200 bg-white text-gray-500'}`}>
-              ✂️ Apara
+              Apara
               <span className="block text-[11px] font-normal opacity-90">reaproveita no freezer</span>
             </button>
             <button onClick={() => setTipo('perda')}
               className={`py-3 px-3 rounded-xl text-sm font-bold border-2 transition-colors
                 ${tipo === 'perda' ? 'border-red-400 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-500'}`}>
-              🗑️ Perda
+              Perda
               <span className="block text-[11px] font-normal opacity-90">vai para o lixo</span>
             </button>
           </div>
@@ -202,7 +202,7 @@ export default function AparasPerdas() {
             <>
               <Botao onClick={salvarApara}
                 disabled={salvando || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}>
-                ✓ Registrar Apara
+                Registrar Apara
               </Botao>
 
               <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900">
@@ -213,12 +213,12 @@ export default function AparasPerdas() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
-                    <input type="date" value={formApara.data} max={hoje()} onChange={e => setA('data', e.target.value)}
+                    <input aria-label="Data" type="date" value={formApara.data} max={hoje()} onChange={e => setA('data', e.target.value)}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Turno</label>
-                    <select value={formApara.turno} onChange={e => setA('turno', e.target.value)}
+                    <select aria-label="Turno" value={formApara.turno} onChange={e => setA('turno', e.target.value)}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                       {TURNOS.map(t => <option key={t}>{t}</option>)}
                     </select>
@@ -227,7 +227,7 @@ export default function AparasPerdas() {
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Associar à compra (opcional)</label>
-                  <select value={formApara.compraId} onChange={e => setA('compraId', e.target.value)}
+                  <select aria-label="Associar à compra (opcional)" value={formApara.compraId} onChange={e => setA('compraId', e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="">— Não associar —</option>
                     {comprasRecentes.map(c => (
@@ -239,7 +239,7 @@ export default function AparasPerdas() {
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Produto de origem (opcional)</label>
-                  <select value={formApara.produtoId} onChange={e => setA('produtoId', e.target.value)}
+                  <select aria-label="Produto de origem (opcional)" value={formApara.produtoId} onChange={e => setA('produtoId', e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                     <option value="">— Não vincular —</option>
                     {[...produtos].sort((a, b) => a.nome.localeCompare(b.nome)).map(p => (
@@ -251,7 +251,7 @@ export default function AparasPerdas() {
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Descrição da apara</label>
-                  <input type="text" value={formApara.item} onChange={e => setA('item', e.target.value)}
+                  <input aria-label="Descrição da apara" type="text" value={formApara.item} onChange={e => setA('item', e.target.value)}
                     placeholder="Ex: Apara de filé, Ponta de picanha..."
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
@@ -259,13 +259,13 @@ export default function AparasPerdas() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Quantidade</label>
-                    <input type="number" inputMode="decimal" min="0" step="0.1" value={formApara.quantidade} onChange={e => setA('quantidade', e.target.value)}
+                    <input aria-label="Quantidade" type="number" inputMode="decimal" min="0" step="0.1" value={formApara.quantidade} onChange={e => setA('quantidade', e.target.value)}
                       placeholder="0"
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Unidade</label>
-                    <select value={formApara.unidade} onChange={e => setA('unidade', e.target.value)}
+                    <select aria-label="Unidade" value={formApara.unidade} onChange={e => setA('unidade', e.target.value)}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                       <option value="kg">kg</option>
                       <option value="unid">unid</option>
@@ -288,7 +288,7 @@ export default function AparasPerdas() {
                     ))}
                   </div>
                   {formApara.destino === 'OUT' && (
-                    <input type="text" value={formApara.destinoOutro} onChange={e => setA('destinoOutro', e.target.value)}
+                    <input aria-label="Escreva o destino previsto" type="text" value={formApara.destinoOutro} onChange={e => setA('destinoOutro', e.target.value)}
                       placeholder="Escreva o destino previsto..."
                       className="w-full border border-polo-gold/60 bg-polo-beige/50 rounded-lg px-3 py-2 text-sm mt-2" />
                   )}
@@ -301,7 +301,7 @@ export default function AparasPerdas() {
             <>
               <Botao onClick={salvarPerda}
                 disabled={salvando || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}>
-                ✓ Registrar Perda
+                Registrar Perda
               </Botao>
 
               {/* O bloco saiu inteiro: citava "POP-07" (jargão de consultoria,
@@ -312,12 +312,12 @@ export default function AparasPerdas() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
-                    <input type="date" value={formPerda.data} max={hoje()} onChange={e => setP('data', e.target.value)}
+                    <input aria-label="Data" type="date" value={formPerda.data} max={hoje()} onChange={e => setP('data', e.target.value)}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Turno</label>
-                    <select value={formPerda.turno} onChange={e => setP('turno', e.target.value)}
+                    <select aria-label="Turno" value={formPerda.turno} onChange={e => setP('turno', e.target.value)}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                       {TURNOS.map(t => <option key={t}>{t}</option>)}
                     </select>
@@ -333,7 +333,7 @@ export default function AparasPerdas() {
                 {formPerda.origem !== 'estoque' && (
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">O que foi perdido</label>
-                    <input type="text" value={formPerda.item} onChange={e => setP('item', e.target.value)}
+                    <input aria-label="O que foi perdido" type="text" value={formPerda.item} onChange={e => setP('item', e.target.value)}
                       placeholder="Ex: sobra de manipulação, pão do dia..."
                       className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm" />
                   </div>
@@ -342,13 +342,13 @@ export default function AparasPerdas() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Quantidade</label>
-                    <input type="number" inputMode="decimal" min="0" step="0.1" value={formPerda.quantidade} onChange={e => setP('quantidade', e.target.value)}
+                    <input aria-label="Quantidade" type="number" inputMode="decimal" min="0" step="0.1" value={formPerda.quantidade} onChange={e => setP('quantidade', e.target.value)}
                       placeholder="0"
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1">Unidade</label>
-                    <select value={formPerda.unidade} onChange={e => setP('unidade', e.target.value)}
+                    <select aria-label="Unidade" value={formPerda.unidade} onChange={e => setP('unidade', e.target.value)}
                       className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                       <option value="kg">kg</option>
                       <option value="unid">unid</option>
@@ -371,7 +371,7 @@ export default function AparasPerdas() {
                     ))}
                   </div>
                   {formPerda.motivo === 'O' && (
-                    <input type="text" value={formPerda.motivoOutro} onChange={e => setP('motivoOutro', e.target.value)}
+                    <input aria-label="Escreva o motivo do descarte" type="text" value={formPerda.motivoOutro} onChange={e => setP('motivoOutro', e.target.value)}
                       placeholder="Escreva o motivo do descarte..."
                       className="w-full border border-red-300 bg-red-50/50 rounded-lg px-3 py-2 text-sm mt-2" />
                   )}
@@ -384,7 +384,7 @@ export default function AparasPerdas() {
         </div>
       ) : (
         <div className="space-y-3">
-          <input type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
+          <input aria-label="Buscar por item ou responsável" type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
             placeholder="Buscar por item ou responsável..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {historico.length === 0 && (

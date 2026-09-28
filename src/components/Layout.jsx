@@ -10,6 +10,7 @@ import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { temUnidadesExtras, nomeDaUnidade } from '../utils/unidades';
 import Icon from './Icons';
 import { useUI } from '../store/UIContext';
+import { plural } from '../utils/formatters';
 
 const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
 
@@ -83,7 +84,7 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
     const mensagem = pendencias > 0
       ? `Encerrar a sessão de ${nomeExibicao}?
 
-⚠️ Há ${pendencias} lançamento(s) que ainda não subiram para a nuvem. Eles ficam guardados neste aparelho e sobem no próximo login com internet — mas só NESTE aparelho.
+Há ${plural(pendencias, 'lançamento que ainda não subiu', 'lançamentos que ainda não subiram')} para a nuvem. Eles ficam guardados neste aparelho e sobem no próximo login com internet — mas só NESTE aparelho.
 
 Se der para esperar, conecte antes de sair.`
       : `Encerrar a sessão de ${nomeExibicao}?
@@ -153,10 +154,10 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           {(pendencias > 0 || !online) && (
             <span
               role="status"
-              aria-label={!online ? `Sem internet, ${pendencias} alteração(ões) pendente(s)` : `${pendencias} alteração(ões) aguardando sincronização`}
+              aria-label={!online ? `Sem internet, ${plural(pendencias, 'alteração pendente', 'alterações pendentes')}` : `${plural(pendencias, 'alteração aguardando', 'alterações aguardando')} envio`}
               title={!online ? 'Sem internet — as alterações sobem quando reconectar' : 'Alterações aguardando sincronização'}
               className="flex items-center gap-1 bg-amber-400/90 text-polo-navy text-[11px] font-bold rounded-full px-2 py-1">
-              {!online ? '⚡ offline' : '⏳'}{pendencias > 0 && ` ${pendencias}`}
+              {!online ? <><Icon name="semInternet" size={12} /> Sem internet</> : <Icon name="relogio" size={12} />}{pendencias > 0 && ` ${pendencias}`}
             </span>
           )}
           {actions}
@@ -177,7 +178,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
                   </span>
                   <span className="text-[11px] font-semibold text-white/90 max-w-16 truncate">{nomeExibicao.split(' ')[0]}</span>
                 </span>
-                <span className="text-[8px] leading-none font-semibold text-white/70">Sair</span>
+                <span className="text-[11px] leading-none font-semibold text-white/80">Sair</span>
               </button>
             </div>
           )}

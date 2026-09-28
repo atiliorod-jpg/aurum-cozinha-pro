@@ -86,7 +86,7 @@ export default function PrimeiroUso() {
               placeholder="Nome de quem manipula" className={campo} />
             <button type="button" onClick={salvarPessoa} disabled={nome.trim().length < 2}
               className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm disabled:opacity-40 min-h-11 flex-shrink-0">
-              Add
+              Adicionar
             </button>
           </div>
           <p className="text-[11px] text-gray-600 mt-1">

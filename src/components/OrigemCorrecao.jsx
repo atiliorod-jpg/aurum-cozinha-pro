@@ -81,7 +81,7 @@ export default function OrigemCorrecao({ form, onChange }) {
         <>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Produto que perdeu</label>
-            <select value={form.produtoId || ''} onChange={e => selecionarProduto(e.target.value)}
+            <select aria-label="Produto que perdeu" value={form.produtoId || ''} onChange={e => selecionarProduto(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm bg-white">
               <option value="">Selecione o produto...</option>
               {agrupaPorSaldo ? (
@@ -114,7 +114,7 @@ export default function OrigemCorrecao({ form, onChange }) {
           {temCompras && (
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Veio de qual compra? (opcional)</label>
-              <select value={form.compraId || ''} onChange={e => onChange({ compraId: e.target.value })}
+              <select aria-label="Veio de qual compra? (opcional)" value={form.compraId || ''} onChange={e => onChange({ compraId: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm bg-white">
                 <option value="">— Não associar —</option>
                 {comprasRecentes.map(c => (
@@ -133,7 +133,7 @@ export default function OrigemCorrecao({ form, onChange }) {
           {temCompras && (
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Veio de qual compra? (opcional)</label>
-              <select value={form.compraId || ''} onChange={e => onChange({ compraId: e.target.value })}
+              <select aria-label="Veio de qual compra? (opcional)" value={form.compraId || ''} onChange={e => onChange({ compraId: e.target.value })}
                 className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm bg-white">
                 <option value="">— Não associar —</option>
                 {comprasRecentes.map(c => (

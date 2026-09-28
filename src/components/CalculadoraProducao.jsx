@@ -69,7 +69,7 @@ export default function CalculadoraProducao() {
           {/* Toggle de modo */}
           <div className="flex p-3 pb-0 gap-1">
             {(temReceitas ? [['receita', 'Receita → ingredientes']] : []).concat(
-              temProdGram ? [['gramatura', '🍽️ Gramatura → porções']] : []
+              temProdGram ? [['gramatura', 'Gramatura → porções']] : []
             ).map(([v, l]) => (
               <button key={v} onClick={() => setModo(v)}
                 className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors
@@ -119,7 +119,7 @@ export default function CalculadoraProducao() {
                   ))}
                 </div>
                 {plano.faltaAlgum && (
-                  <p className="text-[11px] text-red-600 mt-2">⚠ Faltam ingredientes controlados em estoque.</p>
+                  <p className="text-[11px] text-red-600 mt-2">Faltam ingredientes controlados em estoque.</p>
                 )}
               </div>
             </div>
@@ -175,7 +175,7 @@ export default function CalculadoraProducao() {
                       <div className="bg-white/10 rounded-lg p-2.5">
                         <div className="text-base font-bold">{fmtNum(kgServido)} kg</div>
                         <div className="text-[11px] opacity-70">
-                          líquido{correcao > 0 ? ` −${correcao}%` : ''}{coccao > 0 ? ` 🔥−${coccao}%` : ''}
+                          líquido{correcao > 0 ? ` −${correcao}%` : ''}{coccao > 0 ? ` · cocção −${coccao}%` : ''}
                         </div>
                       </div>
                     )}

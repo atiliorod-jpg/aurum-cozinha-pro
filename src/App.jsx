@@ -10,7 +10,7 @@ import { temRecurso } from './utils/modulos';
 import { pode, podeAbrirConfig, podeAbrirAdministracao } from './utils/permissoes';
 import { AppProvider, useApp } from './store/AppContext';
 import { UIProvider, useUI } from './store/UIContext';
-import { fmtData, isoLocal } from './utils/formatters';
+import { fmtData, isoLocal, plural } from './utils/formatters';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import EtiquetaPrint from './components/EtiquetaPrint';
@@ -26,6 +26,7 @@ import Itens from './pages/etiquetas/Itens';
 import EtiquetasAjustes from './pages/etiquetas/Ajustes';
 import EtiquetasImpressas from './pages/etiquetas/Impressas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
+import Icon from './components/Icons';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 // ⚠️ AS TELAS DO PLANO COMPLETO SÓ BAIXAM QUANDO ALGUÉM ABRE UMA DELAS.
 // Elas eram importadas direto, então o cliente do Aurum Etiquetas — que nunca
@@ -79,7 +80,7 @@ function BannerSuporte({ nome, podeMexer, onSair }) {
     <div className={`sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md
       ${podeMexer ? 'bg-red-600 text-red-50' : 'bg-amber-500 text-amber-950'}`}>
       <p className="text-xs font-semibold min-w-0 truncate">
-        🛠️ Modo suporte — <strong>{nome || 'cliente'}</strong> {podeMexer ? '(EDITANDO a conta do cliente)' : '(somente leitura)'}
+        Modo suporte — <strong>{nome || 'cliente'}</strong> {podeMexer ? '(EDITANDO a conta do cliente)' : '(somente leitura)'}
       </p>
       <button onClick={onSair}
         className={`font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0
@@ -110,7 +111,7 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, eraAssinante =
           essa pessoa via "Seu período de teste terminou / continue de onde
           parou", uma frase sobre um passado que ela não tem, logo depois de
           pagar. Quem nunca entrou não é quem foi embora. */}
-      <p className="text-4xl">{bloqueado ? '🔒' : aguardando ? '👋' : '⏳'}</p>
+      <span className="w-14 h-14 rounded-2xl bg-polo-gold/15 text-polo-gold flex items-center justify-center" aria-hidden="true"><Icon name={bloqueado ? 'cadeado' : aguardando ? 'suporte' : 'relogio'} size={28} /></span>
       <p className="text-polo-gold font-bold text-lg">
         {bloqueado ? 'Conta suspensa'
           : aguardando ? 'Falta liberarmos o seu acesso'
@@ -145,7 +146,7 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, eraAssinante =
           app está quebrado. */}
       {aguardando ? null : podeAssinar ? (
         <Link to="/pagamento" className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
-          💳 Ver plano e assinar
+          Ver plano e assinar
         </Link>
       ) : (
         <p className="text-white/80 text-xs max-w-xs">Só a conta dona do restaurante consegue assinar. Avise a diretoria para liberar o acesso.</p>
@@ -199,11 +200,11 @@ function Rotas() {
       const prod = produtoDe(sessao);
       const ate = st.ate ? ` até ${fmtData(isoLocal(new Date(st.ate)))}` : '';
       toast(soEtiquetas
-        ? `🎉 Bem-vindo ao ${prod.label}! Comece cadastrando seus itens em Meus itens.`
-        : `🎉 Bem-vindo ao ${prod.label}! Teste grátis com tudo liberado${ate}.`,
+        ? `Bem-vindo ao ${prod.label}! Comece cadastrando seus itens em Meus itens.`
+        : `Bem-vindo ao ${prod.label}! Teste grátis com tudo liberado${ate}.`,
         'sucesso', { duracao: 8000 });
     } else if (flag === 'convite') {
-      toast(`👋 Você entrou no restaurante ${sessao.restauranteNome || ''} como ${sessao.cargo}. Bom trabalho!`, 'sucesso', { duracao: 7000 });
+      toast(`Você entrou no restaurante ${sessao.restauranteNome || ''} como ${sessao.cargo}. Bom trabalho!`, 'sucesso', { duracao: 7000 });
     }
   }, [sessao, toast]);
 
@@ -220,7 +221,7 @@ function Rotas() {
   if (derrubado) {
     return (
       <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
-        <p className="text-4xl">📱</p>
+        <span className="w-14 h-14 rounded-2xl bg-polo-gold/15 text-polo-gold flex items-center justify-center" aria-hidden="true"><Icon name="celular" size={28} /></span>
         <p className="text-polo-gold font-bold text-lg">Conta aberta em outro aparelho</p>
         <p className="text-white/80 text-sm max-w-xs">
           Sua conta foi acessada em outro dispositivo. Por segurança, cada conta fica conectada em apenas um aparelho por vez.
@@ -248,7 +249,7 @@ function Rotas() {
   if (sessao.desativado) {
     return (
       <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
-        <p className="text-4xl">🔒</p>
+        <span className="w-14 h-14 rounded-2xl bg-polo-gold/15 text-polo-gold flex items-center justify-center" aria-hidden="true"><Icon name="cadeado" size={28} /></span>
         <p className="text-polo-gold font-bold text-lg">Acesso desativado</p>
         <p className="text-white/80 text-sm max-w-xs">
           O seu acesso a este restaurante foi desativado pela gerência. Fale com a diretoria
@@ -380,14 +381,14 @@ function Rotas() {
       {/* Faixa do período de teste (some quando a assinatura é ativada) */}
       {plano.tipo === 'teste' && (
         <Link to="/pagamento" className="block bg-polo-gold text-polo-navy text-center text-xs font-bold px-4 py-1.5 print:hidden">
-          ⏳ Período de teste — {plano.diasRestantes} dia(s) restante(s). Toque para assinar.
+          Período de teste: {plural(plano.diasRestantes, 'dia restante', 'dias restantes')}. Toque para assinar.
         </Link>
       )}
       {/* Contrato parcelado vencido, dentro dos 10 dias de tolerância (M45):
           o app segue aberto, mas a data do corte fica escrita na cara. */}
       {plano.tipo === 'atraso' && (
         <Link to="/pagamento" className="block bg-red-700 text-white text-center text-xs font-bold px-4 py-1.5 print:hidden">
-          ⚠️ Pagamento em atraso há {plano.diasAtraso} dia(s) — o acesso será suspenso em{' '}
+          Pagamento em atraso há {plural(plano.diasAtraso, 'dia', 'dias')}. O acesso será suspenso em{' '}
           {fmtData(isoLocal(new Date(plano.suspendeEm)))}. Toque para pagar.
         </Link>
       )}

@@ -12,6 +12,7 @@ import { validarDataRegistro, addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazenamento';
 import { casaBusca } from '../utils/busca';
+import { plural } from '../utils/formatters';
 
 export default function Entradas() {
   const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo, permissoes, rid } = useApp();
@@ -97,7 +98,7 @@ export default function Entradas() {
     if (responsavel) setPref('responsavel', responsavel);
     limparRascunho({});   // só depois de gravar
     setObs('');
-    toast(`Entrada de ${itensPreenchidos.length} item(ns) registrada!`, 'sucesso');
+    toast(`Entrada de ${plural(itensPreenchidos.length, 'item', 'itens')} registrada.`, 'sucesso');
     // Oferece imprimir as etiquetas dos itens recém-registrados (opcional — dá pra pular)
     abrirEtiquetas(itensPreenchidos.map(([produtoId]) => {
       const p = produtos.find(x => x.id === produtoId);
@@ -139,14 +140,14 @@ export default function Entradas() {
           <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
-            {salvando ? 'Registrando…' : '✓ Registrar Entrada'}
+            {salvando ? 'Registrando…' : 'Registrar Entrada'}
           </button>
 
           {/* Cabeçalho */}
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
-              <input type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
+              <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
@@ -168,17 +169,17 @@ export default function Entradas() {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">A validade de cada item é calculada sozinha pelos prazos do produto (Config).</p>
+                <p className="text-xs text-gray-500 mt-1">A validade de cada item é calculada sozinha pelos prazos do produto (Meus itens).</p>
               </div>
             ) : (
               <p className="text-xs text-gray-500">
-                📦 Item de prateleira. A validade é calculada pelo prazo cadastrado no produto (Config).
+                Item de prateleira. A validade é calculada pelo prazo cadastrado no produto (Meus itens).
               </p>
             )}
           </div>
 
           {/* Busca */}
-          <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+          <input aria-label="Buscar produto" type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
 
@@ -215,11 +216,11 @@ export default function Entradas() {
                   <div className="text-xs text-gray-500">{p.unidade}</div>
                   {temQtd && diasVal > 0 && (
                     <div className="text-[11px] font-semibold text-polo-navy bg-polo-beige rounded px-1.5 py-0.5 mt-1 inline-block">
-                      🏷️ Etiqueta: fab. {fmtData(data)} • venc. {fmtData(addDias(data, diasVal))}
+                      Etiqueta: fab. {fmtData(data)} • venc. {fmtData(addDias(data, diasVal))}
                     </div>
                   )}
                   {temQtd && diasVal === 0 && (
-                    <div className="text-[11px] text-gray-500 mt-0.5">sem prazo de validade cadastrado (Config → produto)</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">sem prazo de validade cadastrado (Meus itens)</div>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -245,7 +246,7 @@ export default function Entradas() {
           {/* Obs + Salvar */}
           <div className="bg-white rounded-xl p-4">
             <label className="block text-xs font-semibold text-gray-600 mb-1">Observação (opcional)</label>
-            <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2}
+            <textarea aria-label="Observação (opcional)" value={obs} onChange={e => setObs(e.target.value)} rows={2}
               placeholder="Alguma observação sobre esta entrada..."
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
@@ -268,7 +269,7 @@ export default function Entradas() {
         </div>
       ) : (
         <div className="space-y-3">
-          <input type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
+          <input aria-label="Buscar por produto ou responsável" type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
             placeholder="Buscar por produto ou responsável..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {entradasOrdenadas.length === 0 && (

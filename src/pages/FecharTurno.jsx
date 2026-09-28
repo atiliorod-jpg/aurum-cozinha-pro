@@ -6,6 +6,7 @@ import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
 import { hoje, fmtHora, fmtNum, fmtData } from '../utils/formatters';
 import { turnoAberto, consumoDoTurno, linhasParaGravar } from '../utils/turno';
+import { plural } from '../utils/formatters';
 
 const TURNOS = ['Almoço', 'Jantar'];
 
@@ -70,7 +71,7 @@ export default function FecharTurno() {
     if (responsavel) setPref('responsavel', responsavel);
     setPref('turno', turno);
     setSobras({});
-    toast(`Turno ${turno} fechado! Consumo calculado para ${linhas.length} item(ns).`, 'sucesso');
+    toast(`Turno ${turno} fechado. Consumo calculado para ${plural(linhas.length, 'item', 'itens')}.`, 'sucesso');
   };
 
   const fechados = useMemo(() => [...ajustes].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 5), [ajustes]);
@@ -86,14 +87,14 @@ export default function FecharTurno() {
         </div>
 
         <Botao onClick={fechar} disabled={salvando || !aberto.linhas.length}>
-          {salvando ? 'Fechando…' : '✓ Fechar turno'}
+          {salvando ? 'Fechando…' : 'Fechar turno'}
         </Botao>
 
         <div className="bg-white rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
-              <input type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
+              <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <div>
@@ -152,7 +153,7 @@ export default function FecharTurno() {
                   </div>
                   <p className={`text-[11px] mt-1.5 font-semibold ${l.inconsistente ? 'text-orange-700' : 'text-polo-navy'}`}>
                     {l.inconsistente
-                      ? `⚠️ Sobra acima do disponível (${fmtNum(l.sobra)} > ${fmtNum(l.disponivel)})`
+                      ? `Sobra acima do disponível (${fmtNum(l.sobra)} > ${fmtNum(l.disponivel)})`
                       : `Consumo do turno: ${fmtNum(l.consumo)} ${l.unidade}`}
                   </p>
                 </div>
@@ -171,7 +172,7 @@ export default function FecharTurno() {
               {fechados.map(f => (
                 <li key={f.id} className="text-xs text-gray-600 flex justify-between gap-2 border-b border-gray-50 pb-1.5">
                   <span>{fmtData(f.data)} · {f.turno || '—'}{f.responsavel ? ` · ${f.responsavel}` : ''}</span>
-                  <span className="text-gray-600 flex-shrink-0">{(f.itens || []).length} item(ns)</span>
+                  <span className="text-gray-600 flex-shrink-0">{plural((f.itens || []).length, 'item', 'itens')}</span>
                 </li>
               ))}
             </ul>

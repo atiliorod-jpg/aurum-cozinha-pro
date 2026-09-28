@@ -12,6 +12,7 @@ import { validarDataRegistro, addDias } from '../utils/datas';
 import { planejarProducao } from '../utils/producao';
 import { pode } from '../utils/permissoes';
 import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazenamento';
+import Icon from '../components/Icons';
 
 export default function Producao() {
   const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref, permissoes, modulo, rid } = useApp();
@@ -145,7 +146,7 @@ export default function Producao() {
     <Layout title="Produção">
       {semProdutos ? (
           <div className="bg-white rounded-xl p-6 text-center space-y-2">
-            <p className="text-3xl">🍲</p>
+            <span className="w-12 h-12 mx-auto rounded-2xl bg-polo-beige text-polo-navy flex items-center justify-center" aria-hidden="true"><Icon name="frigideira" size={24} /></span>
             <p className="font-semibold text-polo-navy">Nenhuma ficha de porcionamento ainda</p>
             <p className="text-sm text-gray-500">
               Aqui você executa as fichas de porcionamento e semiacabados da casa
@@ -160,7 +161,7 @@ export default function Producao() {
             <div className="bg-white rounded-xl p-4 space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">O que você produziu?</label>
-                <select value={produtoId} onChange={e => { setProdutoId(e.target.value); const r = producoes.find(x => x.produtoFinalId === e.target.value); if (r?.armazenamento && r.armazenamento !== 'ambos') setArmazenamento(r.armazenamento); }}
+                <select aria-label="O que você produziu?" value={produtoId} onChange={e => { setProdutoId(e.target.value); const r = producoes.find(x => x.produtoFinalId === e.target.value); if (r?.armazenamento && r.armazenamento !== 'ambos') setArmazenamento(r.armazenamento); }}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                   <option value="">Escolha um produto…</option>
                   {produtosComReceita.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -169,14 +170,14 @@ export default function Producao() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
-                  <input type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
+                  <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">
                     Quantidade ({prodUnid(produtoId)})
                   </label>
-                  <input type="number" inputMode="decimal" min="0" step={produto?.unidade === 'unid' ? '1' : '0.5'} value={quantidade} onChange={e => setQuantidade(e.target.value)}
+                  <input aria-label="Quantidade" type="number" inputMode="decimal" min="0" step={produto?.unidade === 'unid' ? '1' : '0.5'} value={quantidade} onChange={e => setQuantidade(e.target.value)}
                     placeholder={receita ? `ex: ${fmtNum(receita.rendimentoBase)}` : '0'}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                   {receita && !quantidade && (
@@ -242,7 +243,7 @@ export default function Producao() {
                   onClick={() => setMostraIngredientes(!mostraIngredientes)}
                   className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                    📋 Ingredientes {mostraIngredientes ? '▼' : '▶'}
+                    Ingredientes {mostraIngredientes ? '▼' : '▶'}
                   </p>
                   <span className="text-[11px] text-gray-600">{plano.itens.length} item(ns)</span>
                 </button>
@@ -274,7 +275,7 @@ export default function Producao() {
 
             <div className="bg-white rounded-xl p-4">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Observação (opcional)</label>
-              <textarea value={obs} onChange={e => setObs(e.target.value)} rows={2}
+              <textarea aria-label="Observação (opcional)" value={obs} onChange={e => setObs(e.target.value)} rows={2}
                 placeholder="Alguma observação..."
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
             </div>
@@ -313,11 +314,11 @@ export default function Producao() {
                 toast(`${novos.length} ingrediente(s) adicionado(s) à lista de compras.`, 'sucesso');
               }}
                 className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-95 transition-transform">
-                🧾 Adicionar ingredientes à lista de compras
+                Adicionar ingredientes à lista de compras
               </button>
             )}
             <Botao onClick={handleProduzir} disabled={salvando}>
-              {salvando ? 'Registrando…' : '✓ Registrar Produção'}
+              {salvando ? 'Registrando…' : 'Registrar Produção'}
             </Botao>
             {/* O rodapé saiu: explicava o que o sistema faz por dentro, e a
                 própria tela já mostra o efeito em números logo acima. */}

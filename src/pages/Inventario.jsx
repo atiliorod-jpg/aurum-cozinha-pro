@@ -148,7 +148,7 @@ export default function Inventario() {
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
-              <input type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
+              <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
             <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
@@ -177,7 +177,7 @@ export default function Inventario() {
               <ul className="mt-3 space-y-1">
                 {lidos.slice(0, 8).map((l) => (
                   <li key={l.loteId} className="text-[11px] text-gray-600 flex justify-between gap-2">
-                    <span className="truncate">✓ {l.nome}</span>
+                    <span className="truncate">{l.nome}</span>
                     <span className="text-gray-600 flex-shrink-0">
                       {l.validade ? `val. ${fmtData(l.validade)}` : 'sem validade'} · {l.loteId}
                     </span>
@@ -209,7 +209,7 @@ export default function Inventario() {
                       <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
                       <div className="text-xs text-gray-500">Sistema: {fmtNum(calc)} {p.unidade}</div>
                     </div>
-                    <input
+                    <input aria-label={`Quantidade contada de ${p.nome}`}
                       type="number" inputMode="decimal" min="0" step="0.5"
                       value={contagem[p.id] ?? ''}
                       onChange={e => setCont(p.id, e.target.value)}
@@ -230,7 +230,7 @@ export default function Inventario() {
           <button onClick={handleSalvar} disabled={!itensContados.length || salvando}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
-            ✓ Salvar Contagem ({itensContados.length})
+            Salvar Contagem ({itensContados.length})
           </button>
         </div>
       ) : (
@@ -243,7 +243,7 @@ export default function Inventario() {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="font-semibold text-sm text-polo-navy">
-                    📐 Contagem — {sessao.itens.length} produto{sessao.itens.length > 1 ? 's' : ''}
+                    Contagem — {sessao.itens.length} produto{sessao.itens.length > 1 ? 's' : ''}
                   </div>
                   <div className="text-xs text-gray-500">
                     {fmtData(sessao.data)} {sessao.hora && `• ${sessao.hora}`} {sessao.responsavel && `• ${sessao.responsavel}`}
