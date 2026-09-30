@@ -9,7 +9,7 @@ import ErrosDosAparelhos from '../components/ErrosDosAparelhos';
 import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades, descontoDaLinha, descontoAtivo, rotuloDesconto, cobrancaDaUnidade } from '../utils/assinatura';
 import { unidadesAtivas } from '../utils/unidades';
 import { calcularEncargo } from '../utils/encargos';
-import { filaDoPainel, numerosDoPainel, passaNoFiltro } from '../utils/painel';
+import { filaDoPainel, numerosDoPainel, passaNoFiltro, situacaoPresenca, contasEmUso } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarCEP, formatarTelefone, UFS } from '../utils/documentos';
 import Icon from '../components/Icons';
@@ -137,6 +137,9 @@ export default function Admin() {
   const [descontoForm, setDescontoForm] = useState(null); // { restId, tipo, valor, ate, motivo }
   const [avulsaForm, setAvulsaForm] = useState(null);     // { restId, descricao, valor }
   const [salvandoUnidade, setSalvandoUnidade] = useState(false);
+  // Presença (M58): { [restauranteId]: { agora, quem, ultimo } } e o filtro "em uso agora"
+  const [presenca, setPresenca] = useState({});
+  const [soEmUso, setSoEmUso] = useState(false);
   // ⚠️ UM restaurante aberto por vez. Com dezenas de clientes, todos abertos
   // viram uma parede de rolagem e o painel deixa de ser consultável.
   const [aberto, setAberto] = useState('');
@@ -170,6 +173,23 @@ export default function Admin() {
     }
     setCarregandoFeedback(false);
   }, []);
+
+  // ⚠️ Consulta PRÓPRIA e leve, refeita a cada minuto enquanto o painel está
+  // na tela — a lista de clientes não precisa ser recarregada para o
+  // sinalzinho mudar. Sem a M58 (ou com erro), o mapa fica como estava.
+  const carregarPresenca = useCallback(async () => {
+    const { data, error } = await supabase.rpc('presenca_dos_restaurantes');
+    if (error || !data) return;
+    setPresenca(Object.fromEntries(data.map(l => [l.restaurante_id, l])));
+  }, []);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- busca ao abrir (o mesmo padrão de carregar())
+    carregarPresenca();
+    const relogio = setInterval(() => { if (document.visibilityState === 'visible') carregarPresenca(); }, 60 * 1000);
+    const aoVoltar = () => { if (document.visibilityState === 'visible') carregarPresenca(); };
+    document.addEventListener('visibilitychange', aoVoltar);
+    return () => { clearInterval(relogio); document.removeEventListener('visibilitychange', aoVoltar); };
+  }, [carregarPresenca]);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -1054,12 +1074,14 @@ O login e a recuperação de senha passam a usar o e-mail novo. A senha continua
     const agora = Date.now();
     const t = normalizar(busca);
     // ⚠️ Situação e busca se SOMAM: "vencidos" + "jaboatao" é pergunta legítima.
-    return restaurantes.filter(r => passaNoFiltro(r, situacao, agora) && (!t
+    return restaurantes.filter(r => passaNoFiltro(r, situacao, agora)
+      && (!soEmUso || (Number(presenca[r.id]?.agora) || 0) > 0)
+      && (!t
       || normalizar(r.nome).includes(t)
       || normalizar(r.cidade).includes(t)
       || normalizar(r.uf).includes(t)
       || normalizar(r.cnpj).includes(t)));
-  }, [restaurantes, busca, situacao]);
+  }, [restaurantes, busca, situacao, soEmUso, presenca]);
 
   // ⚠️ O CANAL ERA DE MÃO ÚNICA: o cliente escrevia, a gente lia e marcava
   // "resolvido", e ele nunca ficava sabendo de nada. Do lado dele o botão
@@ -1605,6 +1627,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   {l}
                 </button>
               ))}
+              {/* Presença (M58): quantas contas têm alguém com o app aberto. O
+                  número é o do banco, atualizado a cada minuto. */}
+              <button onClick={() => setSoEmUso(v => !v)} aria-pressed={soEmUso}
+                className={`whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0 border inline-flex items-center gap-1.5
+                  ${soEmUso ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'}`}>
+                <span aria-hidden="true" className={`w-2 h-2 rounded-full ${contasEmUso(presenca) > 0 ? (soEmUso ? 'bg-white' : 'bg-green-500') : 'bg-gray-300'}`} />
+                Em uso agora ({contasEmUso(presenca)})
+              </button>
               {/* Some quando não há filtro de situação — botão que não faz nada
                   é pior que botão ausente. */}
               {!['todos', 'etiquetas', 'completo'].includes(situacao) && (
@@ -1763,6 +1793,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 <p className="text-sm text-gray-600">
                   {busca.trim()
                     ? `Nada encontrado para “${busca.trim()}”.`
+                    : soEmUso
+                      ? 'Ninguém com o app aberto agora.'
                     : situacao !== 'todos'
                       ? 'Nenhum restaurante nesta situação.'
                       : 'Nenhum restaurante encontrado.'}
@@ -1776,6 +1808,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               const st = statusRestaurante(r, agora);
               const restanteH = r.suporteAte ? Math.ceil((r.suporteAte - agora) / 3600000) : 0;
               const maxU = r.max_usuarios || 3;
+              const pres = situacaoPresenca(presenca[r.id], agora);
               return (
                 <div key={r.id} id={`rest-${r.id}`} className={`bg-white border rounded-xl overflow-hidden
                   ${r.bloqueado ? 'border-red-300' : r.suporteAtivo ? 'border-green-300' : 'border-gray-100'}`}>
@@ -1797,6 +1830,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 min-w-0">
+                          {/* ⚠️ Verde = alguém com o app aberto AGORA. Apagado é
+                              cinza, não vermelho: vermelho neste painel já quer
+                              dizer conta suspensa ou vencida. */}
+                          <span role="img" aria-label={pres.online ? 'Em uso agora' : 'Ninguém usando agora'}
+                            title={pres.online ? `Em uso agora: ${pres.quem.join(', ')}` : pres.texto}
+                            className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${pres.online ? 'bg-green-500 ring-2 ring-green-200' : 'bg-gray-300'}`} />
                           <p className="font-semibold text-sm text-gray-900 truncate">{r.nome}</p>
                           <button onClick={() => setRenomeando({ id: r.id, valor: r.nome })}
                             aria-label={`Renomear ${r.nome}`} title="Renomear"
@@ -1805,7 +1844,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           </button>
                         </div>
                       )}
-                      <p className="text-[11px] text-gray-600 mt-0.5">Criado em {dataBR(r.created_at)}</p>
+                      <p className="text-[11px] text-gray-600 mt-0.5">
+                        Criado em {dataBR(r.created_at)} ·{' '}
+                        {pres.online
+                          ? <strong className="text-green-700">{pres.texto}{pres.quem.length > 0 ? ` (${pres.quem.join(', ')})` : ''}</strong>
+                          : pres.texto}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {/* ⚠️ O SELO DE CORTESIA VEM PRIMEIRO. Sem ele, a conta que

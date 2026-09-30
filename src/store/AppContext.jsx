@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { PRODUTOS_BASE, PESSOAS_BASE, DESTINOS_APARA, CATEGORIAS_BASE } from '../data/produtos';
 import { FICHAS_BASE } from '../data/fichas';
+import { iniciarPresenca } from '../lib/presenca';
 import { gerarDemoSeed, PRODUTOS_DEMO_ETIQUETAS, PREFS_DEMO_ETIQUETAS } from '../data/demo';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { consumoComoSaidas } from '../utils/turno';
@@ -1008,6 +1009,12 @@ export function AppProvider({ children }) {
       window.removeEventListener('online', aoVoltarRede);
     };
   }, [rid]);
+
+  // ── Presença (M58): o painel da Aurum vê quem está com o app aberto ──
+  // ⚠️ Modo suporte e demonstração NÃO dão sinal: seria a própria Aurum
+  // acendendo o "em uso agora" do cliente ao entrar para ajudar.
+  const semPresenca = !rid || rid === 'demo' || !!impersonando || !!sessao?.demo || !!sessao?.eSuperAdmin;
+  useEffect(() => (semPresenca ? undefined : iniciarPresenca()), [semPresenca, rid]);
 
   // ── Hidratação (cache → rede) + tempo real + offline ───────
   // O setState síncrono neste efeito é o coração do offline-first: o cache

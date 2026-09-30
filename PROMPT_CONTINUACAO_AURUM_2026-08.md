@@ -181,6 +181,25 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (30/09/2026) — PRESENÇA NO PAINEL (M58)
+
+Publicado. 769 testes + 11 do robô. Migrações até a **58**.
+
+- **M58 `presenca`**: uma linha por usuário (não cresce com o uso), sem
+  policy; `marcar_presenca(p_aparelho)` (freio de 45 s, ignora a conta da
+  Aurum) e `presenca_dos_restaurantes()` (só super-admin: `agora` = sinal nos
+  últimos 5 min, `quem` = nomes, `ultimo`). Conferida no banco em transação
+  desfeita.
+- **App**: `lib/presenca.js` dá sinal ao abrir, a cada 2 min com a tela
+  visível e ao voltar (foco/internet). Modo suporte, demonstração e
+  super-admin não dão sinal (`semPresenca` no AppContext).
+- **Painel**: bolinha verde/cinza ao lado do nome, "em uso agora (nomes)" ou
+  "visto há X" na linha de baixo, ficha "Em uso agora (N)" que filtra a
+  lista; relê a cada minuto. Texto em `utils/painel.js → situacaoPresenca`.
+- **Fora do repositório (28/09)**: vídeo de divulgação v2 (38 s, sem som) em
+  `Downloads/Videos do sistema` e apresentação comercial (pptx/docx/pdf) em
+  `Downloads/Material comercial Aurum Etiquetas`.
+
 ## Onde paramos (28/09/2026, noite) — LOTES A, B, C e D DA ANÁLISE APLICADOS (M56, M57)
 
 Tudo publicado, deploy verde. 756 testes + 11 do robô. Migrações até a **57**.

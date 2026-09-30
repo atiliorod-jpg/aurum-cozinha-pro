@@ -135,3 +135,33 @@ export function passaNoFiltro(r, situacao, agora = Date.now()) {
   if (situacao === 'cortesia') return st === 'cortesia';
   return true;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+//  Presença (M58): o sinalzinho de "em uso agora" do cartão
+//
+//  `linha` é o que `presenca_dos_restaurantes` devolve para a conta:
+//  { agora, quem, ultimo } — ou nada, para quem nunca deu sinal (conta que
+//  ainda não abriu o app depois da M58).
+//
+//  ⚠️ O "agora" vem do BANCO (sinal nos últimos 5 minutos pelo relógio
+//  dele). Aqui só se escreve o texto: o relógio do computador do dono
+//  adiantado ou atrasado não acende nem apaga ninguém.
+// ─────────────────────────────────────────────────────────────────────
+export function situacaoPresenca(linha, agora = Date.now()) {
+  if (!linha || !linha.ultimo) return { online: false, texto: 'ainda não abriu o app', quem: [] };
+  const n = Number(linha.agora) || 0;
+  const quem = (linha.quem || []).filter(Boolean);
+  if (n > 0) {
+    return { online: true, quem, texto: n === 1 ? 'em uso agora' : `em uso agora · ${n} pessoas` };
+  }
+  const min = Math.max(1, Math.round((agora - new Date(linha.ultimo).getTime()) / 60000));
+  let ha;
+  if (min < 60) ha = `${min} min`;
+  else if (min < 48 * 60) ha = `${Math.round(min / 60)} h`;
+  else ha = `${Math.round(min / 1440)} dias`;
+  return { online: false, quem: [], texto: `visto há ${ha}` };
+}
+
+/** Quantas contas têm alguém usando agora. */
+export const contasEmUso = (presenca) =>
+  Object.values(presenca || {}).filter(l => (Number(l?.agora) || 0) > 0).length;
