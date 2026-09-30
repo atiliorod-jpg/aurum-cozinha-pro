@@ -31,8 +31,15 @@ import { useNavigate } from 'react-router-dom';
 // e as regras do "Indique e ganhe" (cl. 2), que a tela de pagamento anuncia.
 // Complemento de 22/09/2026, ainda na 1.2: unidades adicionais (cl. 2) —
 // outro CNPJ na mesma conta, 1/3 do plano por unidade por mês (M46).
-export const TERMOS_VERSAO = '1.2';
-export const TERMOS_VIGENCIA = '10 de setembro de 2026';
+//
+// 1.3 (30/09/2026, decisão do dono) — a impressora deixou de ser CEDIDA em
+// comodato no plano anual por contrato e passou a ser VENDIDA em parcelas no
+// 1º ano, no mesmo Pix do sistema (M60): 12 × R$ 60, 2 × R$ 290 ou 1 × R$ 560.
+// Saem a regra de "uma impressora por grupo econômico" e a devolução; entra
+// o saldo das parcelas cobrado conforme o contrato quando se encerra antes.
+// Versão nova porque muda o que se compra, não só como se escreve.
+export const TERMOS_VERSAO = '1.3';
+export const TERMOS_VIGENCIA = '30 de setembro de 2026';
 
 function Clausula({ n, titulo, children }) {
   return (
@@ -125,11 +132,11 @@ export default function Termos() {
                 parágrafos, os Termos diziam o contrário do contrato — a cl. 10
                 prometia sair "a qualquer tempo, sem multa". */}
             <p>
-              <strong>Contratação por contrato assinado.</strong> O plano anual com cessão de
-              impressora, e qualquer outra contratação feita por contrato assinado entre as partes, é
-              regido também pelo respectivo contrato, que define o prazo mínimo, a forma de
-              pagamento, os encargos de atraso, as multas de rescisão e as regras da impressora.
-              Havendo conflito, <strong>prevalece o contrato</strong>.
+              <strong>Contratação por contrato assinado.</strong> A compra da impressora em parcelas, e
+              qualquer outra contratação feita por contrato assinado entre as partes, é regida também
+              pelo respectivo contrato, que define a forma de pagamento, os encargos de atraso e o que
+              acontece no encerramento antes do prazo. Havendo conflito, <strong>prevalece o
+              contrato</strong>.
             </p>
             <p>
               Nas contratações pagas em parcelas, o atraso sujeita o contratante a multa de 2%, juros
@@ -138,9 +145,19 @@ export default function Termos() {
               sistema. Com mais de 10 dias de atraso, o acesso pode ser suspenso, com os dados
               preservados.
             </p>
+            {/* ⚠️ 1.3 (30/09/2026): a impressora é VENDIDA em parcelas (M60),
+                não mais cedida. Os valores estão aqui porque são cobrados no
+                QR do sistema, como o das unidades adicionais. */}
             <p>
-              A impressora cedida em contrato é concedida <strong>uma única vez por estabelecimento
-              e por grupo econômico</strong>, ainda que com outro CNPJ, e não se repete na renovação.
+              <strong>Impressora (opcional).</strong> A contratada vende a impressora térmica de
+              etiquetas em parcelas, somadas à cobrança do sistema no primeiro ano:{' '}
+              <strong>12 parcelas mensais de R$ 60,00, 2 parcelas semestrais de R$ 290,00 ou 1 parcela
+              anual de R$ 560,00</strong>, conforme a forma de pagamento escolhida, que fica mantida
+              enquanto houver parcela da impressora a pagar. Quitadas as parcelas, a impressora passa a
+              ser do contratante e a cobrança volta a ser somente a do sistema. Cada impressora a mais,
+              inclusive para unidade adicional, segue os mesmos valores. Se a contratação for encerrada
+              antes da quitação, <strong>o saldo das parcelas da impressora é cobrado conforme o
+              contrato</strong>.
             </p>
             {/* ⚠️ Complemento de 22/09/2026, ainda na 1.2 (pedido do dono): a
                 conta passou a aceitar mais de um estabelecimento (M46). O
@@ -275,11 +292,10 @@ export default function Termos() {
               limitada ao total pago nos 3 meses anteriores ao problema.
             </p>
             <p>
-              <strong>Impressora cedida pela contratada.</strong> Quando o contrato incluir impressora,
-              ela fica em comodato até o fim do prazo contratado e depois passa ao contratante. A
-              impressora é térmica e se desgasta com o uso; a guarda, os cuidados de uso e limpeza e
-              a compra de etiquetas são do contratante, e a contratada não presta assistência técnica
-              nem responde por defeito ou desgaste do equipamento, conforme o contrato.
+              <strong>Impressora vendida pela contratada.</strong> A impressora é térmica e se desgasta
+              com o uso. Ela conta com a garantia legal e a do fabricante; o desgaste pelo uso, a guarda,
+              os cuidados de uso e limpeza e a compra de etiquetas são do contratante, conforme o
+              contrato.
             </p>
           </Clausula>
 
@@ -324,10 +340,10 @@ export default function Termos() {
           <Clausula n="10" titulo="Vigência, rescisão e devolução de dados">
             <p>
               A contratação vigora por prazo indeterminado e pode ser encerrada por qualquer das
-              partes, a qualquer tempo, sem multa — <strong>salvo quando houver contrato assinado com
-              prazo mínimo</strong>, como o plano anual com impressora, caso em que valem o prazo, as
-              multas e a devolução da impressora nele previstos. Não há reembolso proporcional de
-              período já pago, ressalvado o que o contrato assinado dispuser.
+              partes, a qualquer tempo, sem multa — <strong>salvo o previsto em contrato
+              assinado</strong>, como o saldo das parcelas da impressora, que é cobrado mesmo quando a
+              contratação se encerra antes da quitação. Não há reembolso proporcional de período já
+              pago, ressalvado o que o contrato assinado dispuser.
             </p>
             <p>
               Encerrada a relação, o contratante pode <strong>exportar seus dados</strong> pelo

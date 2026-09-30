@@ -181,6 +181,39 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (30/09/2026, tarde) — PREÇO NOVO E IMPRESSORA PARCELADA (M60)
+
+Decisões do dono (perguntas clicáveis, 30/09): **Etiquetas R$ 149,90/mês**
+(semestral R$ 854,43; anual R$ 1.618,92; unidade R$ 49,97). A impressora
+deixou de ser CEDIDA no anual por contrato e passou a ser **VENDIDA em
+parcelas no 1º ano, no mesmo Pix**: mensal 12 × R$ 60, semestral 2 × R$ 290,
+anual 1 × R$ 560 (o desconto dela é esse, NÃO o do plano). Quitada, é do
+cliente e a cobrança volta a ser só o sistema. Cancelou antes: o saldo é
+cobrado conforme o contrato. Cada impressora a mais (inclusive de unidade)
+paga a mesma tabela. Os 2 clientes do Etiquetas não tinham contrato,
+desconto nem pagamento ativo — passaram ao preço novo sem efeito colateral.
+
+- **M60 `impressoras_vendidas`** (uma linha por impressora; sem policy, só
+  RPC): `minhas_impressoras()` (cliente), `impressoras_admin`,
+  `adicionar_impressora` (recusa forma diferente da que já está em
+  pagamento), `pagar_parcela_impressora` (avança 1 de cada em pagamento),
+  `corrigir_parcelas_impressora`, `cobrar_saldo_impressora` (vira cobrança à
+  parte M54), `remover_impressora`. Conferida no banco em transação desfeita.
+- **App**: `IMPRESSORA_PARCELADA`, `parcelaDasImpressoras`,
+  `saldoDaImpressora` em utils/assinatura.js; `useMinhasImpressoras`
+  (components/). Planos e pagamento TRAVA a forma de pagamento na da
+  impressora, soma a parcela no Pix e mostra "Sistema / Impressora parcela
+  n de N / Total"; seção "Impressora de etiquetas" com a tabela e o pedido
+  (`tipoPedido: 'impressora'`). Painel: seção Impressoras no cartão (vender,
+  corrigir parcelas, cobrar o saldo, remover), caixa "inclui a parcela da
+  impressora" no Registrar pagamento, atalho "Vender a impressora" no pedido.
+- **Termos 1.3** (vigência 30/09/2026): impressora vendida em parcelas;
+  saíram comodato, "uma por grupo econômico" e devolução; cl. 7 diz garantia
+  legal e do fabricante; cl. 10 cobra o saldo da impressora.
+- **Pendente nesta leva:** contrato Word e material comercial com os preços
+  novos. Depois: a BAIXA PELA ETIQUETA (M59 já no banco, sem uso ainda; o
+  pedaço do QR está em scratchpad/qr-etiquetas.patch).
+
 ## Onde paramos (30/09/2026) — PRESENÇA NO PAINEL (M58)
 
 Publicado. 769 testes + 11 do robô. Migrações até a **58**.

@@ -260,11 +260,11 @@ describe('unidades nos dois planos (o Etiquetas é um recorte do Pro)', () => {
 //  Etapa 3 — cobrança do adicional (decisão do dono: 1/3 do plano por mês)
 // ─────────────────────────────────────────────────────────────────────
 describe('adicional por unidade extra', () => {
-  it('é 1/3 do plano por mês: Etiquetas R$ 93,30; Pro R$ 133,00', () => {
+  it('é 1/3 do plano por mês: Etiquetas R$ 49,97; Pro R$ 133,00', () => {
     expect(ADICIONAL_UNIDADE).toBeCloseTo(1 / 3);
-    expect(adicionalUnidade('etiquetas')).toBe(93.3);
+    expect(adicionalUnidade('etiquetas')).toBe(49.97);
     expect(adicionalUnidade('completo')).toBe(133);
-    expect(mensalComUnidades('etiquetas', 2)).toBe(466.5);
+    expect(mensalComUnidades('etiquetas', 2)).toBe(249.84);
   });
 
   it('sem unidade extra, o preço de todo plano continua o mesmo de antes', () => {
@@ -275,16 +275,16 @@ describe('adicional por unidade extra', () => {
 
   it('o desconto semestral e o anual valem sobre o total, com as unidades', () => {
     const anual = PLANOS.find(p => p.id === 'anual');
-    // (279,90 + 93,30) × 12 × 0,90
-    expect(precoPlano(anual, 'etiquetas', 1)).toBe(4030.56);
-    expect(economiaPlano(anual, 'etiquetas', 1)).toBe(447.84);
-    expect(precoMensalEquivalente(anual, 'etiquetas', 1)).toBe(335.88);
+    // (149,90 + 49,97) × 12 × 0,90
+    expect(precoPlano(anual, 'etiquetas', 1)).toBe(2158.6);
+    expect(economiaPlano(anual, 'etiquetas', 1)).toBe(239.84);
+    expect(precoMensalEquivalente(anual, 'etiquetas', 1)).toBe(179.88);
   });
 
   it('a receita estimada do painel soma as unidades ATIVAS — a arquivada não cobra', () => {
     const agora = Date.now();
     const r = { id: 'r1', produto: 'etiquetas', assinatura_ate: new Date(agora + 86400000 * 10).toISOString(), unidades: [U1, U2] };
-    expect(numerosDoPainel([r], agora).mrr).toBe(373.2);
+    expect(numerosDoPainel([r], agora).mrr).toBe(199.87);
   });
 
   it('o QR do cliente e o painel usam as unidades extras no valor', () => {
@@ -302,9 +302,9 @@ describe('adicional por unidade extra', () => {
 // em todo lugar — QR do cliente, fila do painel, "Registrar pagamento",
 // Ajustes — e a parcela do contrato não podia ficar para trás.
 describe('cobrança com unidades: um número só em todas as telas', () => {
-  it('a fila do painel usa a mesma conta do Registrar pagamento (parcela, unidades, juros)', () => {
+  it('a fila do painel usa a mesma conta do Registrar pagamento (parcela, unidades, juros, impressora)', () => {
     const adm = ler('../../pages/Admin.jsx');
-    expect(adm).toMatch(/brlAdmin\(valorCobranca\(r, plano, !!encargos\[r\.id\]\)\)/);
+    expect(adm).toMatch(/brlAdmin\(valorCobranca\(r, plano, !!encargos\[r\.id\], pim\.total > 0\)\)/);
     expect(adm).not.toMatch(/brlAdmin\(precoPlano\(plano, r\.produto, extrasDe\(r\)\)\)/);
   });
 
@@ -340,7 +340,7 @@ describe('cobrança com unidades: um número só em todas as telas', () => {
     const aj = ler('../../components/PlanoExtras.jsx');
     expect(aj).toMatch(/const valor = parcela \? brl\(parcela\) : brl\(mensalCombinado\(prod\.id, extras, sessao\?\.desconto\)\);/);
     expect(aj).toMatch(/const parcela = Number\(sessao\?\.parcelaContrato\) \|\| 0/);
-    expect(mensalComUnidades('etiquetas', 1)).toBe(373.2);
+    expect(mensalComUnidades('etiquetas', 1)).toBe(199.87);
   });
 });
 

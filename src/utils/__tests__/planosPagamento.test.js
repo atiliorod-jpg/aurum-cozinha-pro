@@ -65,8 +65,8 @@ describe('Administração do cliente enxuta; conta e dinheiro em Planos e pagame
     expect(extras).toMatch(/começa na próxima cobrança depois disso, sem cobrar os dias quebrados/);
     expect(extras).toMatch(/tipoPedido: 'unidade'/);
     expect(extras).toMatch(/if \(!validarCNPJ\(form\.cnpj\)\)/);
-    expect(mensalComUnidades('etiquetas', 1)).toBe(373.2);
-    expect(adicionalUnidade('etiquetas')).toBe(93.3);
+    expect(mensalComUnidades('etiquetas', 1)).toBe(199.87);
+    expect(adicionalUnidade('etiquetas')).toBe(49.97);
   });
 
   it('contas a mais: sem cobrança, a Aurum libera; e "sem vagas" leva até o pedido', () => {

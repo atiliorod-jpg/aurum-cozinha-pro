@@ -14,20 +14,20 @@ const AGORA = new Date(2026, 8, 28, 12).getTime(); // 28/09/2026, meio-dia local
 
 describe('desconto combinado', () => {
   it('em reais: R$ 30 a menos por mês; em percentual: 15% a menos', () => {
-    expect(mensalCombinado('etiquetas', 0, { tipo: 'valor', valor: 30 }, AGORA)).toBe(249.9);
-    expect(mensalCombinado('etiquetas', 0, { tipo: 'percentual', valor: 15 }, AGORA)).toBe(237.92);
+    expect(mensalCombinado('etiquetas', 0, { tipo: 'valor', valor: 30 }, AGORA)).toBe(119.9);
+    expect(mensalCombinado('etiquetas', 0, { tipo: 'percentual', valor: 15 }, AGORA)).toBe(127.42); // 127,415: o meio centavo sobe
     // com uma unidade: vale sobre o mês inteiro (plano + unidade)
-    expect(mensalCombinado('etiquetas', 1, { tipo: 'percentual', valor: 10 }, AGORA)).toBe(335.88);
+    expect(mensalCombinado('etiquetas', 1, { tipo: 'percentual', valor: 10 }, AGORA)).toBe(179.88);
   });
 
   it('depois vem o desconto do período (semestral 5%, anual 10%)', () => {
     const d = { tipo: 'valor', valor: 30 };
-    expect(precoPlano(planoPorId('anual'), 'etiquetas', 0, d, AGORA)).toBe(2698.92); // 249,90 × 12 × 0,9
-    expect(precoPlano(planoPorId('mensal'), 'etiquetas', 0, d, AGORA)).toBe(249.9);
-    expect(economiaPlano(planoPorId('anual'), 'etiquetas', 0, d, AGORA)).toBe(299.88);
+    expect(precoPlano(planoPorId('anual'), 'etiquetas', 0, d, AGORA)).toBe(1294.92); // 119,90 × 12 × 0,9
+    expect(precoPlano(planoPorId('mensal'), 'etiquetas', 0, d, AGORA)).toBe(119.9);
+    expect(economiaPlano(planoPorId('anual'), 'etiquetas', 0, d, AGORA)).toBe(143.88);
     // sem desconto, tudo como sempre foi
-    expect(precoPlano(planoPorId('mensal'), 'etiquetas', 0, null, AGORA)).toBe(279.9);
-    expect(precoPlano(planoPorId('mensal'), 'etiquetas')).toBe(279.9);
+    expect(precoPlano(planoPorId('mensal'), 'etiquetas', 0, null, AGORA)).toBe(149.9);
+    expect(precoPlano(planoPorId('mensal'), 'etiquetas')).toBe(149.9);
   });
 
   it('vale até a data (inclusive) e depois some sozinho; nunca deixa o mês negativo', () => {
@@ -50,14 +50,14 @@ describe('desconto combinado', () => {
 describe('cobrança à parte da unidade (período já pago)', () => {
   const ate = (dias) => new Date(AGORA + dias * 86400000).toISOString();
 
-  it('anual pago com 5 meses pela frente: 5 × R$ 93,30 com os 10% do anual', () => {
+  it('anual pago com 5 meses pela frente: 5 × R$ 49,97 com os 10% do anual', () => {
     const c = cobrancaDaUnidade({ produto: 'etiquetas', assinaturaAte: ate(150), planoPago: 'anual', agora: AGORA });
-    expect(c).toEqual({ meses: 5, valor: 419.85 }); // 93,30 × 5 × 0,9
+    expect(c).toEqual({ meses: 5, valor: 224.87 }); // 49,97 × 5 × 0,9
   });
 
   it('semestral com 3 meses e pouco: arredonda o mês para cima, com os 5%', () => {
     const c = cobrancaDaUnidade({ produto: 'etiquetas', assinaturaAte: ate(95), planoPago: 'semestral', agora: AGORA });
-    expect(c).toEqual({ meses: 4, valor: 354.54 }); // 93,30 × 4 × 0,95
+    expect(c).toEqual({ meses: 4, valor: 189.89 }); // 49,97 × 4 × 0,95
   });
 
   it('faltando 31 dias ou menos (quem paga mês a mês), não há cobrança à parte', () => {
@@ -67,9 +67,9 @@ describe('cobrança à parte da unidade (período já pago)', () => {
 
   it('o desconto combinado em percentual vale também na unidade; o em reais, não (já é por mês na conta)', () => {
     const pct = cobrancaDaUnidade({ produto: 'etiquetas', assinaturaAte: ate(150), planoPago: 'anual', desconto: { tipo: 'percentual', valor: 10 }, agora: AGORA });
-    expect(pct.valor).toBe(377.87); // 83,97 × 5 × 0,9
+    expect(pct.valor).toBe(202.37); // 44,97 × 5 × 0,9
     const rs = cobrancaDaUnidade({ produto: 'etiquetas', assinaturaAte: ate(150), planoPago: 'anual', desconto: { tipo: 'valor', valor: 30 }, agora: AGORA });
-    expect(rs.valor).toBe(419.85);
+    expect(rs.valor).toBe(224.87);
   });
 });
 

@@ -9,8 +9,10 @@ import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import {
   statusAssinatura, produtoDe, PRODUTOS, fmtPreco, mensalCombinado, adicionalUnidade,
+  IMPRESSORA_PARCELADA, totalDaImpressora, impressoraEmPagamento, parcelaDasImpressoras, saldoDaImpressora, planoPorId,
 } from '../utils/assinatura';
 import { unidadesAtivas, opcoesDeUnidade } from '../utils/unidades';
+import { useMinhasImpressoras } from './useMinhasImpressoras';
 import { formatarCNPJ, validarCNPJ, soDigitos, UFS } from '../utils/documentos';
 import { fmtData, isoLocal } from '../utils/formatters';
 import { plural } from '../utils/formatters';
@@ -45,6 +47,9 @@ async function enviarPedido(sessao, dados) {
   return error ? (error.message || 'erro') : null;
 }
 
+const ROTULO_FORMA = { mensal: 'Mensal', semestral: 'Semestral', anual: 'Anual' };
+const comoParcela = (f) => `${IMPRESSORA_PARCELADA[f].parcelas} × ${brl(IMPRESSORA_PARCELADA[f].valor)}`;
+
 /**
  * A linha da Administração: plano, situação e o caminho para "Planos e
  * pagamento". Em atraso ou vencido, fica em destaque.
@@ -52,6 +57,8 @@ async function enviarPedido(sessao, dados) {
 export function ResumoDoPlano() {
   const { sessao } = useAuth();
   const { unidades } = useApp();
+  const impressoras = useMinhasImpressoras();
+  const imp = parcelaDasImpressoras(impressoras);
   const st = statusAssinatura(sessao);
   const prod = produtoDe(sessao);
   const extras = unidadesAtivas(unidades).length;
@@ -74,10 +81,105 @@ export function ResumoDoPlano() {
         <span className="block text-sm font-bold text-polo-navy">Planos e pagamento</span>
         <span className={`block text-xs ${alerta ? 'text-red-800 font-semibold' : 'text-gray-600'}`}>
           {prod.label} · {situacao}{st.tipo === 'isento' ? '' : ` · ${valor}/mês`}
+          {imp.linhas.length > 0 && ` + impressora (parcela ${imp.linhas[0].numero} de ${imp.linhas[0].de})`}
         </span>
       </span>
       <span className="text-polo-navy text-lg flex-shrink-0" aria-hidden>›</span>
     </Link>
+  );
+}
+
+/**
+ * A impressora de etiquetas (M60, decisão do dono em 30/09/2026): vendida em
+ * parcelas no 1º ano, no mesmo Pix do plano. Mostra a que a conta está
+ * pagando e, para quem ainda não tem, quanto custa e o pedido.
+ */
+export function SecaoImpressora({ impressoras }) {
+  const { sessao } = useAuth();
+  const { toast } = useUI();
+  const podePedir = usePodePedir();
+  const lista = impressoras || [];
+  const travada = lista.find(impressoraEmPagamento)?.forma || null;
+  const [forma, setForma] = useState('mensal');
+  const [pedindo, setPedindo] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const formaDoPedido = travada || forma;
+
+  const pedir = async () => {
+    setEnviando(true);
+    const erro = await enviarPedido(sessao, {
+      tipoPedido: 'impressora', forma: formaDoPedido,
+      pedido: `${lista.length ? 'Mais uma impressora' : 'Quero a impressora'}: ${ROTULO_FORMA[formaDoPedido].toLowerCase()}, ${comoParcela(formaDoPedido)}`,
+    });
+    setEnviando(false);
+    if (erro === 'demo') { toast('Demonstração: nada foi enviado de verdade.', 'aviso'); setPedindo(false); return; }
+    if (erro) { toast(`Não enviou: ${erro}`, 'erro'); return; }
+    setPedindo(false);
+    toast('Pedido enviado. A Aurum combina a entrega e responde na Ajuda.', 'sucesso', { duracao: 7000 });
+  };
+
+  return (
+    <section id="impressora" className="scroll-mt-40 bg-white border border-gray-200 rounded-2xl p-5 mb-5 space-y-3">
+      <div>
+        <p className="font-bold text-polo-navy text-sm">Impressora de etiquetas</p>
+        <p className="text-xs text-gray-600 mt-1">
+          Impressora térmica para a etiqueta de 60 × 50 mm: não usa tinta. A Aurum vende em parcelas no
+          primeiro ano, junto com o plano. Terminou de pagar, ela é sua.
+        </p>
+      </div>
+
+      {lista.length > 0 && (
+        <ul className="space-y-1.5">
+          {lista.map(i => (
+            <li key={i.id} className="bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-700">
+              <strong className="text-polo-navy">Sua impressora</strong>
+              {impressoraEmPagamento(i)
+                ? <> · parcela {Number(i.parcelas_pagas) + 1} de {i.parcelas} ({brl(i.valor_parcela)}, {ROTULO_FORMA[i.forma].toLowerCase()}) · falta {brl(saldoDaImpressora(i))}</>
+                : i.saldo_cobrado_em ? ' · o que faltava foi lançado como cobrança à parte, no começo desta tela'
+                : ' · paga: é sua'}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="bg-polo-beige rounded-xl p-3 text-xs text-polo-navy space-y-1">
+        <p><strong>Quanto custa:</strong></p>
+        <ul className="space-y-0.5">
+          {Object.keys(IMPRESSORA_PARCELADA).map(f => (
+            <li key={f}>{ROTULO_FORMA[f]}: {comoParcela(f)}{IMPRESSORA_PARCELADA[f].parcelas > 1 ? ` (${brl(totalDaImpressora(f))})` : ''}</li>
+          ))}
+        </ul>
+        <p><strong>Como funciona:</strong> a parcela vem no mesmo Pix do plano. Enquanto a impressora está sendo
+          paga, o plano fica na mesma forma de pagamento dela. Cancelando antes, o que falta da impressora é
+          cobrado conforme o contrato.</p>
+      </div>
+
+      {podePedir && !pedindo && (
+        <Botao tamanho="sm" variante="secundario" onClick={() => setPedindo(true)}>
+          {lista.length ? 'Quero mais uma impressora' : 'Quero a impressora'}
+        </Botao>
+      )}
+      {pedindo && (
+        <div className="border border-polo-gold/50 rounded-xl p-3 space-y-2">
+          {travada ? (
+            <p className="text-xs text-gray-700">Forma de pagamento: <strong>{ROTULO_FORMA[travada]}</strong>, a mesma da impressora que você já está pagando ({comoParcela(travada)}).</p>
+          ) : (
+            <label className="flex items-center justify-between gap-2 text-sm text-polo-navy">
+              Como quer pagar?
+              <select value={forma} onChange={e => setForma(e.target.value)} aria-label="Forma de pagamento da impressora"
+                className="border border-gray-200 rounded-lg px-2 py-2 text-sm bg-white min-h-11">
+                {Object.keys(IMPRESSORA_PARCELADA).map(f => <option key={f} value={f}>{ROTULO_FORMA[f]}: {comoParcela(f)}</option>)}
+              </select>
+            </label>
+          )}
+          <p className="text-[11px] text-gray-600">O plano passa a ser pago no {planoPorId(formaDoPedido).label.toLowerCase()} enquanto a impressora estiver sendo paga.</p>
+          <div className="flex gap-2">
+            <Botao tamanho="sm" variante="secundario" onClick={() => setPedindo(false)} disabled={enviando}>Cancelar</Botao>
+            <Botao tamanho="sm" onClick={pedir} disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar pedido'}</Botao>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

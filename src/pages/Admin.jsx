@@ -6,7 +6,7 @@ import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import { buscarTodas } from '../lib/paginar';
 import ErrosDosAparelhos from '../components/ErrosDosAparelhos';
-import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades, descontoDaLinha, descontoAtivo, rotuloDesconto, cobrancaDaUnidade } from '../utils/assinatura';
+import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades, descontoDaLinha, descontoAtivo, rotuloDesconto, cobrancaDaUnidade, IMPRESSORA_PARCELADA, parcelaDasImpressoras, impressoraEmPagamento, saldoDaImpressora } from '../utils/assinatura';
 import { unidadesAtivas } from '../utils/unidades';
 import { calcularEncargo } from '../utils/encargos';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro, situacaoPresenca, contasEmUso } from '../utils/painel';
@@ -136,6 +136,11 @@ export default function Admin() {
   const [avulsas, setAvulsas] = useState({});           // { [restauranteId]: [cobrança pendente] }
   const [descontoForm, setDescontoForm] = useState(null); // { restId, tipo, valor, ate, motivo }
   const [avulsaForm, setAvulsaForm] = useState(null);     // { restId, descricao, valor }
+  // Impressora parcelada (M60): { [restauranteId]: [linha] }, o formulário de
+  // venda e a correção de parcelas de UMA impressora por vez
+  const [impressoras, setImpressoras] = useState({});
+  const [impForm, setImpForm] = useState(null);          // { restId, forma, parcelas, valor, inicio, unidade, obs }
+  const [impCorrige, setImpCorrige] = useState(null);    // { id, pagas }
   const [salvandoUnidade, setSalvandoUnidade] = useState(false);
   // Presença (M58): { [restauranteId]: { agora, quem, ultimo } } e o filtro "em uso agora"
   const [presenca, setPresenca] = useState({});
@@ -252,6 +257,11 @@ export default function Admin() {
     const porRest = {};
     (avs || []).forEach(a => { (porRest[a.restaurante_id] ||= []).push(a); });
     setAvulsas(porRest);
+    // Impressoras vendidas em parcelas (M60) — sem a migração, vazio
+    const { data: imps } = await supabase.rpc('impressoras_admin');
+    const impPorRest = {};
+    (imps || []).forEach(i => { (impPorRest[i.restaurante_id] ||= []).push(i); });
+    setImpressoras(impPorRest);
 
     // As prefs (incl. autorização de suporte) ficam em documentos.chave='prefs'.
     // ⚠️ O documento `estoques` vem junto (M46): é nele que mora o nome antigo
@@ -371,24 +381,32 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
   // Valor sugerido no registro: a PARCELA DO CONTRATO quando há (fixa por 12
   // meses — cl. 5ª § 3º), senão o preço do plano; mais o encargo pendente
   // quando este pagamento o inclui. É o número que tem que bater no extrato.
-  const valorCobranca = (r, plano, incluiEncargo) => {
+  // ⚠️ A PARCELA DA IMPRESSORA (M60) entra no valor quando este pagamento a
+  // inclui — é o mesmo número que o QR do cliente mostrou.
+  const valorCobranca = (r, plano, incluiEncargo, incluiImpressora = false) => {
     const base = r.parcela_contrato && plano.id === 'mensal'
       ? Number(r.parcela_contrato) : precoPlano(plano, r.produto, extrasDe(r), descontoDe(r));
     const enc = incluiEncargo && encargos[r.id] ? Number(encargos[r.id].valor) || 0 : 0;
-    return Math.round((base + enc) * 100) / 100;
+    const imp = incluiImpressora ? parcelaDasImpressoras(impressoras[r.id]).total : 0;
+    return Math.round((base + enc + imp) * 100) / 100;
   };
 
   const abrirCobranca = (r) => {
-    const plano = planoPorId(r.aviso_pagamento_plano || 'mensal');
+    // com impressora em pagamento, o plano é o da impressora (a tela do
+    // cliente só oferece esse)
+    const pim = parcelaDasImpressoras(impressoras[r.id]);
+    const plano = planoPorId(pim.forma || r.aviso_pagamento_plano || 'mensal');
     const incluiEncargo = !!encargos[r.id];
+    const incluiImpressora = pim.total > 0;
     setCobrando({
       id: r.id,
       // Valor e dias já vêm do plano que o cliente disse ter pago: é o número
       // que tem que bater no extrato, e digitar de novo só cria divergência.
-      valor: String(valorCobranca(r, plano, incluiEncargo)),
+      valor: String(valorCobranca(r, plano, incluiEncargo, incluiImpressora)),
       dias: String(plano.dias),
       plano: plano.id,
       incluiEncargo,
+      incluiImpressora,
       extras: '', valorExtras: '', obs: '',
     });
   };
@@ -404,6 +422,7 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     const ok = await confirm({
       titulo: 'Registrar pagamento',
       mensagem: `${r.nome}\n\nRecebido: ${brlAdmin(valor + valorExtras)}`
+        + (c.incluiImpressora ? '\nInclui a parcela da impressora.' : '')
         + (dias > 0 ? `\nAcesso liberado por mais ${dias} dia(s).` : '\nSem alterar a data de acesso.')
         + '\n\nIsto fica registrado no histórico financeiro da conta.',
       confirmar: 'Registrar',
@@ -424,6 +443,13 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
       const { error: eEnc } = await supabase.rpc('quitar_encargo', { p_restaurante: r.id });
       if (eEnc) toast('Pagamento registrado, mas o encargo não foi baixado: ' + eEnc.message, 'aviso');
       else setEncargos(prev => { const n = { ...prev }; delete n[r.id]; return n; });
+    }
+    // Impressora parcelada (M60): avança uma parcela de cada impressora em
+    // pagamento, SÓ se a caixa dizia que este pagamento a incluía.
+    if (c.incluiImpressora && parcelaDasImpressoras(impressoras[r.id]).total > 0) {
+      const { error: eImp } = await supabase.rpc('pagar_parcela_impressora', { p_restaurante: r.id });
+      if (eImp) toast('Pagamento registrado, mas a parcela da impressora não avançou: ' + eImp.message + ' Corrija na seção Impressoras.', 'aviso', { duracao: 8000 });
+      else setImpressoras(prev => ({ ...prev, [r.id]: (prev[r.id] || []).map(i => (impressoraEmPagamento(i) ? { ...i, parcelas_pagas: i.parcelas_pagas + 1 } : i)) }));
     }
     setCobrando(null);
     if (pagamentos?.id === r.id) carregarPagamentos(r);
@@ -643,6 +669,74 @@ Ela sai do seletor de todos os aparelhos e deixa de ser cobrada. Nada é apagado
     if (error) { toast('Erro: ' + error.message, 'erro'); return; }
     setAvulsas(prev => ({ ...prev, [r.id]: (prev[r.id] || []).filter(x => x.id !== a.id) }));
     toast(pago ? 'Cobrança marcada como paga.' : 'Cobrança dispensada.', 'sucesso');
+  };
+
+  // ── Impressora parcelada (M60) ──────────────────────────────────────
+  const ROTULO_FORMA_IMP = { mensal: 'mensal', semestral: 'semestral', anual: 'anual' };
+  const abrirVendaImpressora = (r, forma = null) => {
+    const travada = (impressoras[r.id] || []).find(impressoraEmPagamento)?.forma || null;
+    const f = travada || forma || 'mensal';
+    setImpForm({
+      restId: r.id, forma: f, parcelas: String(IMPRESSORA_PARCELADA[f].parcelas),
+      valor: fmtPreco(IMPRESSORA_PARCELADA[f].valor), inicio: '', unidade: '', obs: '',
+    });
+  };
+  const venderImpressora = async (r) => {
+    const f = impForm;
+    const parcelas = parseInt(f?.parcelas, 10);
+    const valor = Number(String(f?.valor || '').replace(/\./g, '').replace(',', '.'));
+    if (!(parcelas >= 1 && parcelas <= 24) || !(valor > 0)) { toast('Confira as parcelas (1 a 24) e o valor.', 'aviso'); return; }
+    const ok = await confirm({
+      titulo: 'Vender impressora',
+      mensagem: `${r.nome}\n\n${parcelas} × R$ ${fmtPreco(valor)} (${ROTULO_FORMA_IMP[f.forma]}) = R$ ${fmtPreco(parcelas * valor)}.\n\nA parcela entra no próximo Pix do cliente e, enquanto a impressora estiver sendo paga, o plano dele fica no ${ROTULO_FORMA_IMP[f.forma]}.`,
+      confirmar: 'Vender',
+    });
+    if (!ok) return;
+    const { data, error } = await supabase.rpc('adicionar_impressora', {
+      p_restaurante: r.id, p_forma: f.forma, p_parcelas: parcelas, p_valor_parcela: valor,
+      p_inicio: f.inicio || null, p_unidade: f.unidade || null, p_observacao: f.obs || null,
+    });
+    if (error || !data) { toast('Não lançou: ' + (error?.message || 'sem resposta'), 'erro'); return; }
+    setImpressoras(prev => ({ ...prev, [r.id]: [...(prev[r.id] || []), data] }));
+    setImpForm(null);
+    toast('Impressora lançada: a parcela entra no próximo Pix do cliente.', 'sucesso');
+  };
+  const cobrarSaldoImpressora = async (r, i) => {
+    const saldo = saldoDaImpressora(i);
+    const ok = await confirm({
+      titulo: 'Cobrar o saldo da impressora',
+      mensagem: `${r.nome}\n\nFaltam ${i.parcelas - i.parcelas_pagas} parcela(s) de R$ ${fmtPreco(i.valor_parcela)}: R$ ${fmtPreco(saldo)}.\n\nO saldo vira uma cobrança à parte no Pix do cliente, e a parcela deixa de entrar no plano. Use quando ele cancelar antes de quitar (conforme o contrato).`,
+      confirmar: 'Cobrar o saldo', perigo: true,
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('cobrar_saldo_impressora', { p_id: i.id });
+    if (error) { toast('Não cobrou: ' + error.message, 'erro'); return; }
+    setImpressoras(prev => ({ ...prev, [r.id]: (prev[r.id] || []).map(x => (x.id === i.id ? { ...x, saldo_cobrado_em: new Date().toISOString() } : x)) }));
+    // a cobrança à parte nova aparece na lista do cartão
+    const { data: avs } = await supabase.rpc('cobrancas_avulsas_admin');
+    setAvulsas(prev => ({ ...prev, [r.id]: (avs || []).filter(a => a.restaurante_id === r.id) }));
+    toast(`Saldo de R$ ${fmtPreco(saldo)} lançado como cobrança à parte.`, 'sucesso');
+  };
+  const corrigirParcelasImpressora = async (r, i) => {
+    const pagas = parseInt(impCorrige?.pagas, 10);
+    if (!(pagas >= 0 && pagas <= i.parcelas)) { toast(`Digite de 0 a ${i.parcelas}.`, 'aviso'); return; }
+    const { data, error } = await supabase.rpc('corrigir_parcelas_impressora', { p_id: i.id, p_pagas: pagas });
+    if (error || !data) { toast('Não corrigiu: ' + (error?.message || 'sem resposta'), 'erro'); return; }
+    setImpressoras(prev => ({ ...prev, [r.id]: (prev[r.id] || []).map(x => (x.id === i.id ? data : x)) }));
+    setImpCorrige(null);
+    toast('Parcelas corrigidas.', 'sucesso');
+  };
+  const removerImpressora = async (r, i) => {
+    const ok = await confirm({
+      titulo: 'Remover impressora',
+      mensagem: `Tirar a impressora de "${r.nome}"? Use só para lançamento feito por engano: a parcela sai do Pix do cliente.`,
+      confirmar: 'Remover', perigo: true,
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('remover_impressora', { p_id: i.id });
+    if (error) { toast('Não removeu: ' + error.message, 'erro'); return; }
+    setImpressoras(prev => ({ ...prev, [r.id]: (prev[r.id] || []).filter(x => x.id !== i.id) }));
+    toast('Impressora removida.', 'sucesso');
   };
 
   const salvarDesconto = async (r, remover = false) => {
@@ -1288,7 +1382,9 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
             </div>
             <div className="divide-y divide-gray-100">
               {fila.map(({ r, tipo, feedback }) => {
-                const plano = planoPorId(r.aviso_pagamento_plano || 'mensal');
+                // com impressora em pagamento, o plano é o dela e a parcela entra
+                const pim = parcelaDasImpressoras(impressoras[r.id]);
+                const plano = planoPorId(pim.forma || r.aviso_pagamento_plano || 'mensal');
                 return (
                   <button key={`${tipo}-${feedback?.id || r.id}`}
                     onClick={() => (tipo === 'feedback' ? irAoFeedback() : irAoRestaurante(r.id))}
@@ -1325,7 +1421,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         só o preço da tabela, e com contrato não batia. */}
                     {tipo === 'aviso' && (
                       <span className="text-xs font-bold text-polo-navy flex-shrink-0 tabular-nums">
-                        {brlAdmin(valorCobranca(r, plano, !!encargos[r.id]))}
+                        {brlAdmin(valorCobranca(r, plano, !!encargos[r.id], pim.total > 0))}
                       </span>
                     )}
                     <span aria-hidden="true" className="text-gray-400 text-lg leading-none flex-shrink-0">›</span>
@@ -1556,6 +1652,17 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             }}
                               className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
                               Criar esta unidade
+                            </button>
+                          )}
+                          {fb.status !== 'resolvido' && d.tipoPedido === 'impressora' && fb.restaurante_id && (
+                            <button onClick={() => {
+                              const r = restaurantes.find(x => x.id === fb.restaurante_id);
+                              if (!r) { toast('Cliente não encontrado na lista.', 'erro'); return; }
+                              irAoRestaurante(r.id);
+                              abrirVendaImpressora(r, IMPRESSORA_PARCELADA[d.forma] ? d.forma : 'mensal');
+                            }}
+                              className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
+                              Vender a impressora
                             </button>
                           )}
                           {fb.status !== 'resolvido' && d.tipoPedido === 'contas' && fb.restaurante_id && (
@@ -2129,6 +2236,107 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     )}
                   </div>
 
+                  {/* ⚠️ IMPRESSORA PARCELADA (M60): vendida no 1º ano, no mesmo Pix
+                      do plano. "Cobrar o saldo" é para quem cancela antes de
+                      quitar; "remover" é só para lançamento feito por engano. */}
+                  <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
+                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Impressoras</p>
+                    {(impressoras[r.id] || []).length === 0 && impForm?.restId !== r.id && (
+                      <p className="text-[11px] text-gray-600">Nenhuma impressora vendida.</p>
+                    )}
+                    {(impressoras[r.id] || []).map(i => (
+                      <div key={i.id} className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 space-y-1">
+                        <p className="text-[11px] text-gray-700">
+                          <strong className="text-polo-navy">{i.parcelas} × R$ {fmtPreco(i.valor_parcela)}</strong> ({ROTULO_FORMA_IMP[i.forma]})
+                          {i.unidade_id ? ` · ${(r.unidades || []).find(u => u.id === i.unidade_id)?.nome || 'unidade'}` : ''}
+                          {' '}· desde {dataBR(i.inicio)}
+                          {' '}· {impressoraEmPagamento(i)
+                            ? <>pagas {i.parcelas_pagas} de {i.parcelas} · falta <strong>R$ {fmtPreco(saldoDaImpressora(i))}</strong></>
+                            : i.saldo_cobrado_em ? `saldo cobrado à parte em ${dataBR(i.saldo_cobrado_em)}`
+                            : 'quitada: é do cliente'}
+                          {i.observacao ? ` · ${i.observacao}` : ''}
+                        </p>
+                        {impCorrige?.id === i.id ? (
+                          <div className="flex items-center gap-2">
+                            <input type="number" min="0" max={i.parcelas} value={impCorrige.pagas} aria-label="Parcelas pagas"
+                              onChange={e => setImpCorrige(v => ({ ...v, pagas: e.target.value }))}
+                              className="w-20 border border-gray-300 rounded px-2 py-1.5 text-sm bg-white min-h-11" />
+                            <span className="text-[11px] text-gray-600">de {i.parcelas} pagas</span>
+                            <button onClick={() => corrigirParcelasImpressora(r, i)} className="text-[11px] font-bold text-polo-gold bg-polo-navy rounded px-3 py-1.5 min-h-11">Salvar</button>
+                            <button onClick={() => setImpCorrige(null)} className="text-[11px] font-semibold text-gray-600 underline underline-offset-2 min-h-11">cancelar</button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-3">
+                            {impressoraEmPagamento(i) && (
+                              <button onClick={() => cobrarSaldoImpressora(r, i)} className="text-[11px] font-semibold text-red-700 underline underline-offset-2 min-h-11">cobrar o saldo</button>
+                            )}
+                            {!i.saldo_cobrado_em && (
+                              <button onClick={() => setImpCorrige({ id: i.id, pagas: String(i.parcelas_pagas) })} className="text-[11px] font-semibold text-polo-navy underline underline-offset-2 min-h-11">corrigir parcelas</button>
+                            )}
+                            <button onClick={() => removerImpressora(r, i)} className="text-[11px] font-semibold text-gray-600 underline underline-offset-2 min-h-11">remover</button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {impForm?.restId === r.id ? (
+                      <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
+                        <div className="flex gap-2">
+                          {Object.keys(IMPRESSORA_PARCELADA).map(f => {
+                            const travada = (impressoras[r.id] || []).find(impressoraEmPagamento)?.forma || null;
+                            return (
+                              <button key={f} disabled={!!travada && travada !== f}
+                                onClick={() => setImpForm(v => ({ ...v, forma: f, parcelas: String(IMPRESSORA_PARCELADA[f].parcelas), valor: fmtPreco(IMPRESSORA_PARCELADA[f].valor) }))}
+                                aria-pressed={impForm.forma === f}
+                                className={`flex-1 text-[11px] font-bold py-1.5 rounded border min-h-11 disabled:opacity-40
+                                  ${impForm.forma === f ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
+                                {ROTULO_FORMA_IMP[f]}: {IMPRESSORA_PARCELADA[f].parcelas} × {fmtPreco(IMPRESSORA_PARCELADA[f].valor)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="text-[10px] text-gray-600">Parcelas
+                            <input type="number" min="1" max="24" value={impForm.parcelas} aria-label="Número de parcelas da impressora"
+                              onChange={e => setImpForm(v => ({ ...v, parcelas: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          </label>
+                          <label className="text-[10px] text-gray-600">Valor da parcela (R$)
+                            <input type="text" inputMode="decimal" value={impForm.valor} aria-label="Valor da parcela da impressora"
+                              onChange={e => setImpForm(v => ({ ...v, valor: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          </label>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="text-[10px] text-gray-600">Início (opcional)
+                            <input type="date" value={impForm.inicio} aria-label="Início do pagamento da impressora"
+                              onChange={e => setImpForm(v => ({ ...v, inicio: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                          </label>
+                          <label className="text-[10px] text-gray-600">Para qual unidade
+                            <select value={impForm.unidade} aria-label="Unidade da impressora"
+                              onChange={e => setImpForm(v => ({ ...v, unidade: e.target.value }))}
+                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white">
+                              <option value="">principal</option>
+                              {unidadesAtivas(r.unidades).map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                        <input type="text" value={impForm.obs} maxLength={200} placeholder="Observação (modelo, número de série; só a Aurum vê)" aria-label="Observação da impressora"
+                          onChange={e => setImpForm(v => ({ ...v, obs: e.target.value }))}
+                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
+                        <div className="flex gap-2">
+                          <button onClick={() => setImpForm(null)} className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
+                          <button onClick={() => venderImpressora(r)} className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Vender impressora</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => abrirVendaImpressora(r)}
+                        className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
+                        + Vender impressora
+                      </button>
+                    )}
+                  </div>
+
                   {/* ⚠️ TESTE E EMPRÉSTIMO — as duas coisas que só a Aurum dá.
                       Ficam juntas porque respondem a mesma pergunta na hora da
                       venda: "deixo essa pessoa experimentar o quê, e até
@@ -2442,7 +2650,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         <div className="flex gap-2">
                           {PLANOS.map(pl => (
                             <button key={pl.id}
-                              onClick={() => setCobrando(v => ({ ...v, plano: pl.id, valor: String(valorCobranca(r, pl, v.incluiEncargo)), dias: String(pl.dias) }))}
+                              onClick={() => setCobrando(v => ({ ...v, plano: pl.id, valor: String(valorCobranca(r, pl, v.incluiEncargo, v.incluiImpressora)), dias: String(pl.dias) }))}
                               aria-pressed={cobrando.plano === pl.id}
                               className={`flex-1 text-[11px] font-bold py-1.5 rounded border
                                 ${cobrando.plano === pl.id ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
@@ -2486,11 +2694,25 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             <input type="checkbox" checked={!!cobrando.incluiEncargo} className="mt-0.5"
                               onChange={e => {
                                 const inclui = e.target.checked;
-                                setCobrando(v => ({ ...v, incluiEncargo: inclui, valor: String(valorCobranca(r, planoPorId(v.plano), inclui)) }));
+                                setCobrando(v => ({ ...v, incluiEncargo: inclui, valor: String(valorCobranca(r, planoPorId(v.plano), inclui, v.incluiImpressora)) }));
                               }} />
                             <span>
                               Este pagamento inclui os juros de atraso de R$ {fmtPreco(encargos[r.id].valor)}.
                               Ao registrar, os juros são dados como pagos.
+                            </span>
+                          </label>
+                        )}
+                        {parcelaDasImpressoras(impressoras[r.id]).total > 0 && (
+                          <label className="flex items-start gap-2 text-[11px] text-gray-700">
+                            <input type="checkbox" checked={!!cobrando.incluiImpressora} className="mt-0.5"
+                              onChange={e => {
+                                const inclui = e.target.checked;
+                                setCobrando(v => ({ ...v, incluiImpressora: inclui, valor: String(valorCobranca(r, planoPorId(v.plano), v.incluiEncargo, inclui)) }));
+                              }} />
+                            <span>
+                              Este pagamento inclui a parcela da impressora: R$ {fmtPreco(parcelaDasImpressoras(impressoras[r.id]).total)}
+                              {' '}({parcelaDasImpressoras(impressoras[r.id]).linhas.map(l => `${l.numero} de ${l.de}`).join(', ')}).
+                              Ao registrar, a parcela avança.
                             </span>
                           </label>
                         )}

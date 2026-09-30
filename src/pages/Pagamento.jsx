@@ -3,14 +3,15 @@ import QRCode from 'qrcode';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe, adicionalUnidade, descontoAtivo, rotuloDesconto } from '../utils/assinatura';
+import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe, adicionalUnidade, descontoAtivo, rotuloDesconto, parcelaDasImpressoras } from '../utils/assinatura';
 import { useApp } from '../store/AppContext';
 import { unidadesAtivas } from '../utils/unidades';
 import { montarPixBRCode } from '../utils/pix';
 import { supabase } from '../lib/supabase';
 import { fmtData, isoLocal } from '../utils/formatters';
 import { useLocation } from 'react-router-dom';
-import { SecaoUnidades, SecaoContas, SecaoCozinhaPro, SecaoCobrancasAvulsas } from '../components/PlanoExtras';
+import { SecaoUnidades, SecaoContas, SecaoCozinhaPro, SecaoCobrancasAvulsas, SecaoImpressora } from '../components/PlanoExtras';
+import { useMinhasImpressoras } from '../components/useMinhasImpressoras';
 import Icon from '../components/Icons';
 import { plural } from '../utils/formatters';
 
@@ -24,9 +25,9 @@ const brl = (v) => `R$ ${v.toFixed(2).replace('.', ',')}`;
 // ⚠️ O nome do produto entra na mensagem porque é por ela que a conciliação
 // acontece: com dois produtos e três durações, "paguei R$1458" sozinho não diz
 // se é etiquetas semestral ou outra combinação.
-const linkWpp = (plano, valor, pagador, restaurante, produtoLabel) => {
+const linkWpp = (plano, valor, pagador, restaurante, produtoLabel, comImpressora = false) => {
   const msg = encodeURIComponent(
-    `Olá! Paguei o plano ${plano.label} (${brl(valor)}) do ${produtoLabel} — restaurante ${restaurante || ''}. ` +
+    `Olá! Paguei o plano ${plano.label} (${brl(valor)}${comImpressora ? ', com a parcela da impressora' : ''}) do ${produtoLabel} — restaurante ${restaurante || ''}. ` +
     `Pagamento feito por ${pagador}. Segue o comprovante:`);
   return `https://wa.me/${WPP_NUMERO}?text=${msg}`;
 };
@@ -110,16 +111,26 @@ export default function Pagamento() {
     return () => { vivo = false; };
   }, [sessao?.restauranteId, sessao?.demo, sessao?.eSuperAdmin]);
 
+  // ⚠️ IMPRESSORA PARCELADA (M60): a parcela entra no MESMO Pix, e enquanto
+  // a impressora está sendo paga a forma de pagamento fica TRAVADA na dela —
+  // senão o cliente pagaria o semestral com a parcela de um mês, ou o mensal
+  // com a de um semestre, e as contas não fechariam.
+  const impressoras = useMinhasImpressoras();
+  const imp = parcelaDasImpressoras(impressoras);
+
   // ⚠️ CONTRATO PARCELADO NÃO ESCOLHE PLANO: a parcela é a do contrato,
   // congelada por 12 meses (cl. 5ª § 3º). Mostrar mensal/semestral/anual a
   // quem assinou contrato convidaria a pagar um valor que não é o dele.
   const parcela = Number(sessao?.parcelaContrato) || 0;
-  const [planoId, setPlanoId] = useState('mensal');
+  const [planoEscolhido, setPlanoId] = useState('mensal');
+  const planoId = imp.forma || planoEscolhido;
+  const planosVisiveis = imp.forma ? PLANOS.filter(p => p.id === imp.forma) : PLANOS;
   const plano = parcela
     ? { id: 'mensal', label: 'Parcela do contrato', meses: 1, dias: 30, desconto: 0 }
     : (PLANOS.find(p => p.id === planoId) || PLANOS[0]);
   const valorEncargo = Number(encargo?.valor) || 0;
-  const valor = Math.round(((parcela || precoPlano(plano, prod.id, extras, desconto)) + valorEncargo) * 100) / 100;
+  const valorSistema = parcela || precoPlano(plano, prod.id, extras, desconto);
+  const valor = Math.round((valorSistema + imp.total + valorEncargo) * 100) / 100;
   const brcode = PIX_CHAVE
     ? montarPixBRCode({ chave: PIX_CHAVE, nome: PIX_NOME, cidade: PIX_CIDADE, valor, txid: plano.id.toUpperCase() })
     : '';
@@ -161,7 +172,7 @@ export default function Pagamento() {
     if (avisando) return; // toque repetido
     if (!nomePagador.trim()) { toast('Diga o nome de quem fez o Pix.', 'erro'); return; }
     setAvisando(true);
-    const url = linkWpp(plano, valor, nomePagador.trim(), sessao?.restauranteNome, prod.label);
+    const url = linkWpp(plano, valor, nomePagador.trim(), sessao?.restauranteNome, prod.label, imp.total > 0);
     const erro = await avisarPagamento(plano.id, nomePagador.trim());
     setAvisando(false);
     if (erro) { toast('Não registrou o aviso: ' + erro, 'erro'); return; }
@@ -246,8 +257,14 @@ export default function Pagamento() {
           {desconto.ate ? ` até ${fmtData(desconto.ate)}` : ''}. Os valores abaixo já estão com ele.
         </p>
       )}
+      {imp.forma && (
+        <p className="text-xs text-polo-navy bg-polo-beige border border-polo-gold/40 rounded-xl px-3 py-2 mb-2">
+          Enquanto a impressora está sendo paga, o plano fica no <strong>{plano.label.toLowerCase()}</strong>: a
+          parcela dela vem junto, no mesmo Pix.
+        </p>
+      )}
       <div className="space-y-2 mb-5" role="radiogroup" aria-label="Duração do plano">
-        {PLANOS.map(p => {
+        {planosVisiveis.map(p => {
           const sel = p.id === planoId;
           const total = precoPlano(p, prod.id, extras, desconto);
           const cheio = precoPlano(p, prod.id, extras);
@@ -297,6 +314,21 @@ export default function Pagamento() {
       )}
       </>)}
 
+      {/* ⚠️ O QUE COMPÕE O PIX quando há impressora: o valor do QR deixa de
+          ser o do plano, e sem as linhas o cliente acharia a cobrança errada. */}
+      {imp.total > 0 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-3 mb-5 text-xs text-gray-700 space-y-1">
+          <p className="flex justify-between gap-2"><span>Sistema ({plano.label.toLowerCase()})</span><span>{brl(valorSistema)}</span></p>
+          {imp.linhas.map(l => (
+            <p key={l.id} className="flex justify-between gap-2">
+              <span>Impressora: parcela {l.numero} de {l.de}</span><span>{brl(l.valor)}</span>
+            </p>
+          ))}
+          {valorEncargo > 0 && <p className="flex justify-between gap-2"><span>Encargos de atraso</span><span>{brl(valorEncargo)}</span></p>}
+          <p className="flex justify-between gap-2 font-bold text-polo-navy border-t border-gray-100 pt-1"><span>Total do Pix</span><span>{brl(valor)}</span></p>
+        </div>
+      )}
+
       {/* ⚠️ OS ENCARGOS APARECEM SEPARADOS antes do Pix: o cliente precisa ver
           de onde saiu cada centavo a mais — senão o QR parece cobrança errada
           e a conversa vira reclamação em vez de pagamento. */}
@@ -315,7 +347,7 @@ export default function Pagamento() {
         <div className="border-2 border-polo-gold bg-white rounded-2xl p-5 mb-5">
           <p className="font-bold text-polo-navy">Pague por Pix — {brl(valor)}</p>
           <p className="text-xs text-gray-500 mt-0.5 mb-3">
-            Plano {plano.label}. O valor já vem preenchido no QR e no código.
+            Plano {plano.label}{imp.total > 0 ? ', com a parcela da impressora' : ''}. O valor já vem preenchido no QR e no código.
           </p>
 
           {qr && (
@@ -414,7 +446,7 @@ export default function Pagamento() {
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
-        <p className="font-bold mb-1">ℹ️ Como funciona</p>
+        <p className="font-bold mb-1 flex items-center gap-1.5"><Icon name="info" size={14} />Como funciona</p>
         {/* ⚠️ Dizia "todo restaurante novo tem 14 dias de teste grátis" — regra
             que acabou em 03/09/2026 (M41): o teste deixou de ser automático e
             passou a ser liberado pela Aurum, conta a conta. O dono achou a
@@ -428,6 +460,7 @@ export default function Pagamento() {
       {/* ⚠️ O QUE A CONTA PODE TER A MAIS (27/09/2026): unidades, contas e o
           Pro saíram da Administração e moram aqui, junto do dinheiro. */}
       <div className="mt-5">
+        <SecaoImpressora impressoras={impressoras} />
         <SecaoUnidades />
         <SecaoContas />
         <SecaoCozinhaPro />

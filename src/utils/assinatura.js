@@ -50,10 +50,12 @@ export const PRODUTOS = {
   etiquetas: {
     id: 'etiquetas',
     label: 'Aurum Etiquetas',
-    // ⚠️ 279,90 desde 03/09/2026 (era 249). O preço é a fonte da verdade: as
-    // telas e os planos semestral/anual saem daqui por cálculo, nunca de número
-    // digitado noutro lugar.
-    precoMes: 279.90,
+    // ⚠️ 149,90 desde 30/09/2026 (era 279,90; antes, 249). Decisão do dono
+    // depois de comparar com o mercado: o sistema ficou mais barato e a
+    // impressora passou a ser vendida à parte, em parcelas (IMPRESSORA_PARCELADA).
+    // O preço é a fonte da verdade: as telas e os planos semestral/anual saem
+    // daqui por cálculo, nunca de número digitado noutro lugar.
+    precoMes: 149.90,
     // ⚠️ NÃO prometer "acompanhar o que vence": a tela de Validades saiu deste
     // produto de propósito — ele imprime a data na etiqueta, não monitora
     // vencimento. Quem quer acompanhamento compra o completo. Prometer aqui é
@@ -105,7 +107,7 @@ const mensalDe = (produto) => produtoDe(produto).precoMes;
 // `extras` tem padrão 0, então toda chamada antiga continua dando o mesmo
 // valor. O desconto semestral/anual vale sobre o total, com as unidades.
 export const ADICIONAL_UNIDADE = 1 / 3;
-/** Quanto custa UMA unidade extra por mês: Etiquetas R$ 93,30; Pro R$ 133,00. */
+/** Quanto custa UMA unidade extra por mês: Etiquetas R$ 49,97; Pro R$ 133,00. */
 export const adicionalUnidade = (produto) => r2(mensalDe(produto) * ADICIONAL_UNIDADE);
 /** O mês cheio da conta: o plano mais as unidades extras. */
 export const mensalComUnidades = (produto, extras = 0) =>
@@ -174,6 +176,46 @@ export function cobrancaDaUnidade({ produto, assinaturaAte, planoPago, desconto 
   return { meses, valor: r2(adicionalMes * meses * (1 - plano.desconto)) };
 }
 export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
+
+// ── IMPRESSORA PARCELADA (M60, decisão do dono em 30/09/2026) ───────
+// A impressora deixou de ser CEDIDA no anual por contrato e passou a ser
+// VENDIDA em parcelas no 1º ano, somada ao QR do sistema. O desconto do
+// semestral e do anual é o da tabela abaixo (R$ 580 e R$ 560 contra R$ 720),
+// e NÃO o do plano. Quitada, é do cliente, e a cobrança volta a ser só a do
+// sistema. Cada impressora é uma linha em `impressoras_vendidas`.
+export const IMPRESSORA_PARCELADA = {
+  mensal:    { parcelas: 12, valor: 60 },
+  semestral: { parcelas: 2,  valor: 290 },
+  anual:     { parcelas: 1,  valor: 560 },
+};
+/** Quanto a impressora sai no total, naquela forma de pagamento. */
+export const totalDaImpressora = (forma) => {
+  const f = IMPRESSORA_PARCELADA[forma];
+  return f ? r2(f.parcelas * f.valor) : 0;
+};
+/** Ainda em pagamento: não removida, saldo não cobrado à parte, parcelas faltando. */
+export const impressoraEmPagamento = (i) => !!i && !i.removida_em && !i.saldo_cobrado_em
+  && (Number(i.parcelas_pagas) || 0) < (Number(i.parcelas) || 0);
+/**
+ * A parcela das impressoras que entra no PRÓXIMO pagamento.
+ * Devolve { forma, linhas: [{ id, valor, numero, de }], total }. `forma` é a
+ * forma de pagamento travada enquanto houver impressora em pagamento (a tela
+ * de Planos e pagamento só oferece ela, senão as parcelas não batem).
+ */
+export function parcelaDasImpressoras(lista) {
+  const ativas = (lista || []).filter(impressoraEmPagamento);
+  const linhas = ativas.map(i => ({
+    id: i.id, unidadeId: i.unidade_id || null, forma: i.forma,
+    valor: r2(Number(i.valor_parcela) || 0),
+    numero: (Number(i.parcelas_pagas) || 0) + 1,
+    de: Number(i.parcelas) || 0,
+  }));
+  return { forma: ativas[0]?.forma || null, linhas, total: r2(linhas.reduce((s, l) => s + l.valor, 0)) };
+}
+/** O que falta pagar de uma impressora (0 se quitada, removida ou já cobrada). */
+export const saldoDaImpressora = (i) => (impressoraEmPagamento(i)
+  ? r2(((Number(i.parcelas) || 0) - (Number(i.parcelas_pagas) || 0)) * (Number(i.valor_parcela) || 0))
+  : 0);
 
 // Preço para a TELA: vírgula e dois decimais. `R$ {precoMes}` direto saía
 // "R$ 279.9/mês" — ponto americano e sem o zero final — justo na tela de
