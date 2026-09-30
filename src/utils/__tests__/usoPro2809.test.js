@@ -16,10 +16,11 @@ describe('perda e validades', () => {
     expect(perdas).toMatch(/if \(prodDaPerda\?\.unidade && unidPerda !== prodDaPerda\.unidade\)/);
   });
 
-  it('"descartada" em Validades oferece registrar a perda, já preenchida', () => {
+  it('Validades dá baixa pela mesma folha da leitura do QR, que já lança a perda no estoque (30/09/2026)', () => {
     const v = ler('../../pages/Validades.jsx');
-    expect(v).toMatch(/if \(status === 'descartada' && etq\.produtoId && temRecurso\(modulo, 'perdas'\)\)/);
-    expect(v).toMatch(/navigate\('\/aparas', \{ state: \{ perda: \{ produtoId: etq\.produtoId/);
+    expect(v).toMatch(/<BaixaEtiqueta etq=\{baixando\}/);
+    expect(v).not.toMatch(/Marcar consumida/);
+    // o atalho de outras telas para a perda já preenchida continua existindo
     expect(perdas).toMatch(/const perdaSugerida = useLocation\(\)\.state\?\.perda \|\| null;/);
   });
 

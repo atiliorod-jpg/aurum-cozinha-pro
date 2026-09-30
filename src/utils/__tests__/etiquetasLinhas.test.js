@@ -63,7 +63,9 @@ describe('as peças', () => {
   it('a linha vira a etiqueta que as telas conhecem (a situação vem da coluna)', () => {
     const linha = { id: 'x1', status: 'consumida', dados: { ...etq('x1'), status: 'valida' } };
     expect(linhaParaEtiqueta(linha)).toMatchObject({ id: 'x1', status: 'consumida', nome: 'Item x1', medida: '1 kg' });
-    expect(linhaParaEtiqueta({ id: 'y', dados: null })).toEqual({ id: 'y', status: 'valida' });
+    expect(linhaParaEtiqueta({ id: 'y', dados: null })).toEqual({ id: 'y', status: 'valida', baixadas: 0 });
+    // o contador de embalagens que já saíram (M59) vem da coluna
+    expect(linhaParaEtiqueta({ id: 'z', status: 'valida', baixadas: 2, dados: { copias: 5 } })).toMatchObject({ copias: 5, baixadas: 2 });
   });
 
   it('a janela da tela: impressas nos últimos 120 dias, ou vencimento de 30 dias atrás em diante', () => {
@@ -127,7 +129,8 @@ describe('o app usa as linhas em todos os caminhos', () => {
 
   it('as telas usam os gestos novos', () => {
     expect(ler('../../components/EtiquetaPrint.jsx')).toMatch(/adicionarEtiquetas\(novas\);/);
-    expect(ler('../../pages/Validades.jsx')).toMatch(/mudarStatusEtiqueta\(etq\.id, status\);/);
+    // Validades dá baixa pela folha da leitura do QR (M59): por embalagem
+    expect(ler('../../pages/Validades.jsx')).toMatch(/<BaixaEtiqueta etq=\{baixando\}/);
     expect(ler('../../pages/etiquetas/Impressas.jsx')).toMatch(/tirarEtiquetaDaLista\(e\.id\);/);
     for (const tela of ['../../components/EtiquetaPrint.jsx', '../../pages/Validades.jsx', '../../pages/etiquetas/Impressas.jsx']) {
       expect(ler(tela), tela).not.toMatch(/setEtiquetasImpressas/);

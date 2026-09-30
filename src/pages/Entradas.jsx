@@ -111,6 +111,8 @@ export default function Entradas() {
         armazenamento: armazenamentoReal,
         prazos: prazosDoProduto(p),
         validade: dias > 0 ? addDias(data, dias) : null,
+        // a data veio do estoque: a janela avisa se a etiqueta sair diferente
+        origemRegistro: true,
         responsavel,
         quantidade: 1,
       };

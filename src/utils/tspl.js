@@ -327,6 +327,14 @@ function montarEtiqueta(campos, config, opcoes = {}) {
   // manipulou é o que a fiscalização procura quando a etiqueta viaja com o
   // alimento (RDC 216 — identificação do estabelecimento).
   const est = config?.estabelecimento || {};
+  // ⚠️ O QR DA BAIXA PELA ETIQUETA (30/09/2026, só no Pro) fica no canto
+  // direito do rodapé, com o código de 8 letras embaixo — para digitar quando
+  // o QR borrar. O texto do rodapé estreita para caber ao lado: o endereço
+  // ganha a segunda linha quando há papel (`melhorDesenho` decide).
+  const qr = opcoes.qrBitmap || null;
+  const ladoQR = qr ? qr.altura : 0;
+  const alturaCodigo = qr && opcoes.codigo ? ALTURA_FONTE[2] + 2 : 0;
+  const larguraRodape = qr ? util - ladoQR - mm(1.5) : util;
   const rodape = [];
   if (c.restaurante !== false && campos.restauranteNome) {
     rodape.push(campos.restauranteNome.toUpperCase());
@@ -340,14 +348,14 @@ function montarEtiqueta(campos, config, opcoes = {}) {
     // bairro sumia. É o endereço de quem manipulou, que a fiscalização procura
     // quando a etiqueta viaja com o alimento (RDC 216). Ganha uma segunda
     // linha quando há papel; quem decide é `melhorDesenho`.
-    if (est.endereco) rodape.push(...quebrarEmLinhas(est.endereco, 2, 1, util, opcoes.linhasEndereco ?? 1));
+    if (est.endereco) rodape.push(...quebrarEmLinhas(est.endereco, 2, 1, larguraRodape, opcoes.linhasEndereco ?? 1));
     // CEP e cidade juntos: são a mesma informação para quem lê, e uma linha a
     // menos no rodapé é uma linha a mais para o produto.
     const local = [est.cidade, est.cep].filter(Boolean).join('  ');
     if (local) rodape.push(local);
   }
   let topoDoRodape = null;
-  if (rodape.length) {
+  if (rodape.length || qr) {
     // ⚠️ FONTE 2, NÃO A 1, e o motivo saiu impresso: com a fonte 1 as quatro
     // linhas do rodapé saíram UMA POR CIMA DA OUTRA, ilegíveis. A altura real
     // da fonte no firmware é bem maior que a da tabela do manual — o mesmo
@@ -357,12 +365,24 @@ function montarEtiqueta(campos, config, opcoes = {}) {
     // CNPJ ganhou linha própria — junto com o CEP ele estourava e a etiqueta
     // saía com o CNPJ cortado, que é justo o dado que identifica a cozinha.
     const alturaLinha = ALTURA_FONTE[2] + mm(1);
-    let yRodape = A - mm(2) - rodape.length * alturaLinha;
-    topoDoRodape = yRodape - mm(1.2);   // a barra separadora e onde o corpo tem que parar
+    const base = A - mm(2);                       // o rodapé é ancorado embaixo
+    const alturaTexto = rodape.length * alturaLinha;
+    const alturaBloco = Math.max(alturaTexto, ladoQR + alturaCodigo);
+    let yRodape = base - alturaTexto;
+    topoDoRodape = base - alturaBloco - mm(1.2);  // a barra separadora e onde o corpo tem que parar
     linhas.push(`BAR ${margem},${topoDoRodape},${util},2`);
     for (const l of rodape) {
-      linhas.push(...texto(margem, yRodape, 2, 1, cortarParaLargura(l, 2, 1, util)));
+      linhas.push(...texto(margem, yRodape, 2, 1, cortarParaLargura(l, 2, 1, larguraRodape)));
       yRodape += alturaLinha;
+    }
+    if (qr) {
+      const xQR = margem + util - ladoQR;
+      const yQR = base - ladoQR - alturaCodigo;
+      linhas.push(comandoBITMAP(xQR, yQR, qr));
+      if (alturaCodigo) {
+        const cod = opcoes.codigo;
+        linhas.push(...texto(xQR + Math.max(0, Math.round((ladoQR - larguraTexto(cod, 2, 1)) / 2)), yQR + ladoQR + 2, 2, 1, cod));
+      }
     }
   }
 
@@ -508,7 +528,7 @@ export function medirEtiqueta(campos, config, opcoes = {}) {
  */
 export const loteTSPL = (etiquetas, config) =>
   etiquetas
-    .map(({ campos, copias, nomeBitmaps }) => etiquetaTSPL(campos, config, { copias, nomeBitmaps }))
+    .map(({ campos, copias, nomeBitmaps, qrBitmap, codigo }) => etiquetaTSPL(campos, config, { copias, nomeBitmaps, qrBitmap, codigo }))
     .join('');
 
 /**

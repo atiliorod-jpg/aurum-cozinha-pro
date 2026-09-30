@@ -24,6 +24,8 @@
 //  o teste disso sai em etiqueta de verdade, não na tela.
 // =====================================================================
 
+import QRCode from 'qrcode';
+
 /** Um pixel é tinta? Acima do limiar é claro demais e vira branco. */
 const ehTinta = (cinza, alfa, limiar) => alfa > 128 && cinza < limiar;
 
@@ -68,5 +70,49 @@ export function bitmapTSPL(pixels, largura, altura, limiar = 160) {
  * ou 0x0A dentro da imagem não confunde o parser — ele não está procurando
  * fim de linha, está contando bytes.
  */
+/**
+ * O QR da etiqueta como BITMAP do TSPL (30/09/2026, baixa pela etiqueta).
+ *
+ * ⚠️ BITMAP E NÃO O COMANDO `QRCODE`. A MDK-022 é clone de firmware TSC, e
+ * não há como saber pelo app se ela entende `QRCODE` — um comando que ela
+ * não conhece sai como etiqueta sem o código, sem erro nenhum. O BITMAP ela
+ * já imprime todo dia (é o nome do produto), então o QR vai pelo mesmo
+ * caminho: os módulos desenhados ponto a ponto.
+ *
+ * `pontos` por módulo: 4 é o mínimo para a borda sair limpa numa térmica de
+ * 203 DPI (ver o QR da etiqueta do computador). `margem` em módulos: a zona
+ * de silêncio que a câmera precisa para achar a borda — o resto dela é o
+ * papel em branco em volta.
+ *
+ * O endereço do pote (42 caracteres, modo alfanumérico) dá a versão 3: 29
+ * módulos → (29 + 2) × 4 = 124 pontos = 15,5 mm, uns 2 KB pelo Bluetooth.
+ */
+export function bitmapDoQR(texto, pontos = 4, margem = 1) {
+  if (!texto) return null;
+  let qr;
+  try { qr = QRCode.create(texto, { errorCorrectionLevel: 'M' }); } catch { return null; }
+  const n = qr.modules.size;
+  const lado = (n + 2 * margem) * pontos;
+  const bytesPorLinha = Math.ceil(lado / 8);
+  const saida = new Array(bytesPorLinha * lado);
+  let k = 0;
+  for (let y = 0; y < lado; y++) {
+    const my = Math.floor(y / pontos) - margem;
+    for (let bx = 0; bx < bytesPorLinha; bx++) {
+      // tudo BRANCO (bit 1) e apaga o bit de cada ponto preto — a polaridade
+      // invertida do TSPL, como em `bitmapTSPL`
+      let byte = 0xff;
+      for (let bit = 0; bit < 8; bit++) {
+        const x = bx * 8 + bit;
+        if (x >= lado) break;
+        const mx = Math.floor(x / pontos) - margem;
+        if (mx >= 0 && my >= 0 && mx < n && my < n && qr.modules.get(my, mx)) byte &= ~(1 << (7 - bit)) & 0xff;
+      }
+      saida[k++] = String.fromCharCode(byte);
+    }
+  }
+  return { bytesPorLinha, altura: lado, largura: lado, modulos: n, dados: saida.join('') };
+}
+
 export const comandoBITMAP = (x, y, bmp, modo = 0) =>
   `BITMAP ${x},${y},${bmp.bytesPorLinha},${bmp.altura},${modo},${bmp.dados}`;

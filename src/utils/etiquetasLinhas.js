@@ -27,6 +27,8 @@ export const linhaParaEtiqueta = (linha) => ({
   ...((linha && typeof linha.dados === 'object' && linha.dados) || {}),
   id: linha?.id,
   status: linha?.status || 'valida',
+  // quantas embalagens deste código já saíram (M59, baixa pela etiqueta)
+  baixadas: Number(linha?.baixadas) || 0,
 });
 
 const diasAntes = (hojeISO, dias) =>

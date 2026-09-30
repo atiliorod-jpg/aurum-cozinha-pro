@@ -102,6 +102,9 @@ export default function Impressas() {
       // sinal de etiqueta estragando no pote, e o dono só enxerga isso se ela
       // não se misturar com a produção do dia.
       reimpressao: true,
+      // ⚠️ O MESMO CÓDIGO da etiqueta estragada (baixa pela etiqueta, M59):
+      // a nova a substitui, e a embalagem continua sendo UMA
+      codigo: e.id,
     }]);
   };
 

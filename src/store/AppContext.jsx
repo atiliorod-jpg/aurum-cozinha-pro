@@ -27,7 +27,8 @@ import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../u
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 import { armazenamentosAtivos, comEspelhoDePrazos } from '../utils/armazenamento';
-import { hoje } from '../utils/formatters';
+import { hoje, fmtHora } from '../utils/formatters';
+import { registroDaBaixa, novaBaixaId, copiasDaEtiqueta, codigoLegivel, candidatosDoCodigo } from '../utils/baixaEtiqueta';
 import { pode } from '../utils/permissoes';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -122,6 +123,19 @@ const avisaBloqueioLeitura = () => { try { window.dispatchEvent(new Event('escri
 const avisaErroDefinitivo = (msg) => {
   try { window.dispatchEvent(new CustomEvent('registro-recusado', { detail: msg })); }
   catch { /* sem window (SSR/teste) */ }
+};
+
+// A baixa pela etiqueta (M59) voltou atrás sozinha: o banco recusou (outro
+// aparelho levou a última embalagem, conta travada). A UI mostra o porquê.
+const avisaBaixaDesfeita = (msg) => {
+  try { window.dispatchEvent(new CustomEvent('baixa-desfeita', { detail: msg })); }
+  catch { /* sem window (SSR/teste) */ }
+};
+const MOTIVO_BAIXA_DESFEITA = {
+  ja_baixada: 'Esta embalagem já tinha saído por outro aparelho. A baixa repetida foi desfeita.',
+  poucos_potes: 'Não há tantas embalagens com este código. A baixa foi desfeita.',
+  avulsa: 'Esta etiqueta não tem item do estoque. A baixa foi desfeita.',
+  nao_encontrada: 'O banco não achou esta etiqueta. A baixa foi desfeita.',
 };
 
 // Modo demonstração: rid 'demo' NUNCA fala com o Supabase — tudo fica só no
@@ -687,6 +701,145 @@ export function AppProvider({ children }) {
     if (!row?.id || !row.restaurante_id) return;
     setBrutos(b => ({ ...b, registros: juntarDelta(b.registros, [row], row.restaurante_id) }));
   }, []);
+
+  // ── BAIXA PELA ETIQUETA (M59, 30/09/2026) ───────────────────────────
+  // Otimista: a tela mostra na hora; o banco confere e grava tudo junto
+  // (lançamento + contador) numa transação. Se ele recusar — outro aparelho
+  // levou a última embalagem, conta travada — o lançamento local é DESFEITO e
+  // a tela diz o porquê. Nunca fica um "sucesso" que o banco não tem.
+  //
+  // `sinal` +1 aplica, -1 desfaz. A cozinha é a da baixa: se a pessoa trocou
+  // de cozinha no meio, mexe no cache dela, não na lista aberta.
+  const mexerNaBaixaLocal = useCallback((b, sinal) => {
+    const r = ridRef.current;
+    if (!r || !b) return;
+    const aberta = moduloRef.current === b.cozinha;
+    const chaveEtq = chaveModulo(b.cozinha, 'etiquetasImpressas');
+    const mudaEtq = (lista) => (lista || []).map(e => {
+      if (e.id !== b.etiquetaId) return e;
+      const copias = copiasDaEtiqueta(e);
+      const baixadas = Math.min(copias, Math.max(0, (parseInt(e.baixadas, 10) || 0) + sinal * b.potes));
+      const status = baixadas >= copias ? (b.acao === 'perda' ? 'descartada' : 'consumida') : 'valida';
+      return { ...e, baixadas, status };
+    });
+    if (aberta) setEtiquetasImpressasRaw(prev => { const l = mudaEtq(prev); cacheSet(r, chaveEtq, l); return l; });
+    else cacheSet(r, chaveEtq, mudaEtq(cacheGet(r, chaveEtq, [])));
+    if (!b.registro) return;
+    const key = b.acao === 'saida' ? 'saidas' : 'desperdicio';
+    const setRaw = b.acao === 'saida' ? setSaidasRaw : setDesperdicioRaw;
+    const chave = chaveModulo(b.cozinha, key);
+    const muda = (lista) => (sinal > 0
+      ? [...(lista || []).filter(x => x.id !== b.registro.id), b.registro]
+      : (lista || []).filter(x => x.id !== b.registro.id));
+    if (aberta) setRaw(prev => { const l = muda(prev); cacheSet(r, chave, l); return l; });
+    else cacheSet(r, chave, muda(cacheGet(r, chave, [])));
+    if (nuvemDe(r)) {
+      acompanharBrutos(sinal > 0
+        ? { id: b.registro.id, restaurante_id: r, tipo: tipoModulo(b.cozinha, b.acao === 'saida' ? 'saida' : 'perda'), ts: b.registro.ts, dados: semIdTs(b.registro), deleted: false }
+        : { id: b.registro.id, restaurante_id: r, deleted: true });
+    }
+  }, [acompanharBrutos]);
+
+  // o banco recusou: desfaz aqui e conta o porquê
+  const recusarBaixa = useCallback((b, motivo) => {
+    mexerNaBaixaLocal(b, -1);
+    avisaBaixaDesfeita(MOTIVO_BAIXA_DESFEITA[motivo] || `A baixa não foi aceita: ${motivo}`);
+  }, [mexerNaBaixaLocal]);
+  // a fila (no efeito de sincronização) usa a versão mais nova
+  const recusarBaixaRef = useRef(recusarBaixa);
+  useEffect(() => { recusarBaixaRef.current = recusarBaixa; }, [recusarBaixa]);
+
+  /**
+   * Dá baixa em `potes` embalagens da etiqueta `etq`.
+   * acao: 'saida' (com destino) | 'perda' (com motivo) | 'usada' (só marca).
+   * Devolve o que o "Desfazer" precisa, ou null se não pôde.
+   */
+  const baixarEtiqueta = useCallback(({ etq, acao, potes = 1, quantidade = null, destino = '', responsavel = '', turno = '', motivo = null, produto = null }) => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return null; }
+    if (!etq?.id || !['saida', 'perda', 'usada'].includes(acao)) return null;
+    const r = ridRef.current;
+    const cozinha = moduloRef.current;
+    const baixaId = novaBaixaId();
+    let registro = null;
+    if (acao !== 'usada') {
+      const dados = registroDaBaixa({ acao, etq, produto, quantidade, destino, responsavel, turno, dia: hoje(), hora: fmtHora(), baixaId, motivo });
+      registro = { ...dados, id: `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`, ts: Date.now() };
+    }
+    const b = { baixaId, etiquetaId: etq.id, nome: etq.nome, potes, acao, registro, cozinha, quando: Date.now() };
+    mexerNaBaixaLocal(b, +1);
+    logAudit(acao === 'usada' ? 'marcou embalagem como usada' : `registrou ${acao === 'saida' ? 'saída' : 'perda'} pela etiqueta`,
+      `${etq.nome || ''} · ${codigoLegivel(etq.id)}${potes > 1 ? ` · ${potes} embalagens` : ''}`);
+    if (!nuvemDe(r)) return b;
+    const args = {
+      p_baixa: baixaId, p_etiqueta: etq.id, p_acao: acao, p_potes: potes,
+      p_registro_id: registro?.id || null, p_dados: registro ? semIdTs(registro) : null, p_ts: registro?.ts || null,
+    };
+    const naFila = () => outboxAdd(r, { kind: 'baixaEtiqueta', op: 'rpc', payload: { args, local: b } });
+    // ⚠️ A ETIQUETA AINDA ESTÁ NA FILA (impressa sem internet): o banco ainda
+    // não a tem. A baixa entra na fila DEPOIS dela — a fila sobe em ordem.
+    if (outboxGet(r).some(i => !i._morto && i.kind === 'etiquetas' && (i.payload?.itens || []).some(e => e.id === etq.id))) {
+      naFila();
+      return b;
+    }
+    supabase.rpc('baixar_etiqueta', args).then(({ data, error }) => {
+      if (error) {
+        // exceção do banco (conta travada, lançamento inválido) não passa numa
+        // nova tentativa; falta de rede, sim
+        if (error.code === 'P0001' || ehErroDefinitivo(error.message)) recusarBaixa(b, error.message);
+        else naFila();
+        return;
+      }
+      if (data?.ok === false) {
+        // outro aparelho ainda não subiu esta etiqueta: tenta na próxima subida
+        if (data.motivo === 'nao_encontrada') naFila();
+        else recusarBaixa(b, data.motivo);
+      }
+    }, naFila);
+    return b;
+  }, [mexerNaBaixaLocal, recusarBaixa, logAudit]);
+
+  /** Desfaz uma baixa (o "Desfazer" do aviso; até 24 horas). */
+  const desfazerBaixa = useCallback((b) => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; }
+    if (!b?.baixaId) return;
+    const r = ridRef.current;
+    mexerNaBaixaLocal(b, -1);
+    logAudit('desfez baixa pela etiqueta', `${b.nome || ''} · ${codigoLegivel(b.etiquetaId)}`);
+    if (!nuvemDe(r)) return;
+    // ainda na fila (sem internet): nunca chegou ao banco — basta tirar de lá
+    const fila = outboxGet(r);
+    const pendente = fila.find(i => !i._morto && i.kind === 'baixaEtiqueta' && i.payload?.args?.p_baixa === b.baixaId);
+    if (pendente) { outboxSet(r, fila.filter(i => i !== pendente)); return; }
+    const naFila = () => outboxAdd(r, { kind: 'desfazerBaixa', op: 'rpc', payload: { p_baixa: b.baixaId } });
+    supabase.rpc('desfazer_baixa', { p_baixa: b.baixaId }).then(({ data, error }) => {
+      if (error) { naFila(); return; }
+      // a baixa ainda está a caminho do banco: desfaz quando ela chegar
+      if (data?.ok === false && data.motivo === 'nao_encontrada') naFila();
+      if (data?.ok === false && data.motivo === 'antiga') {
+        mexerNaBaixaLocal(b, +1);
+        avisaBaixaDesfeita('Passaram mais de 24 horas: corrija esta baixa pelo Histórico.');
+      }
+    }, naFila);
+  }, [mexerNaBaixaLocal, logAudit]);
+
+  /**
+   * A etiqueta pelo código, direto do banco — para o QR de uma etiqueta que
+   * não está na lista aberta (outra cozinha, impressa há muito tempo).
+   * Devolve a etiqueta com a `cozinha` dona, ou null.
+   */
+  const buscarEtiqueta = useCallback(async (id) => {
+    const r = nuvemDe(ridRef.current);
+    if (!r || !id) return null;
+    // o código exato e as variações com letra parecida (O/0, I/L/1): o
+    // exato ganha; entre variações, só vale se der UMA etiqueta
+    const { data, error } = await supabase.from('etiquetas')
+      .select('id, cozinha, status, baixadas, dados, apagada_em').eq('restaurante_id', r)
+      .in('id', candidatosDoCodigo(id)).is('apagada_em', null).limit(5);
+    if (error || !data?.length) return null;
+    const linha = data.find(l => l.id === id) || (data.length === 1 ? data[0] : null);
+    return linha ? { ...linhaParaEtiqueta(linha), cozinha: linha.cozinha } : null;
+  }, []);
+
   const addRegistro = useCallback((tipo, setRaw, key, registro) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
     const r = ridRef.current;
@@ -1213,6 +1366,20 @@ export function AppProvider({ children }) {
             ({ error } = await supabase.rpc('registrar_etiquetas', { p_itens: item.payload?.itens || [] }));
           else if (item.kind === 'etiquetaStatus' && item.op === 'rpc')
             ({ error } = await supabase.rpc('mudar_status_etiqueta', { p_id: item.payload?.id, p_status: item.payload?.status }));
+          // baixa pela etiqueta feita sem internet (M59): idempotente pelo id
+          // da baixa. Recusada (outro aparelho levou a última embalagem), sai
+          // da fila e é desfeita aqui, com aviso.
+          else if (item.kind === 'baixaEtiqueta' && item.op === 'rpc') {
+            const { data, error: eB } = await supabase.rpc('baixar_etiqueta', item.payload?.args || {});
+            if (eB) error = eB;
+            else if (data?.ok === false && data.motivo === 'nao_encontrada') error = { message: 'a etiqueta ainda não subiu' };
+            else if (data?.ok === false) recusarBaixaRef.current(item.payload?.local, data.motivo);
+          }
+          else if (item.kind === 'desfazerBaixa' && item.op === 'rpc') {
+            const { data, error: eD } = await supabase.rpc('desfazer_baixa', item.payload || {});
+            if (eD) error = eD;
+            else if (data?.ok === false && data.motivo === 'nao_encontrada') error = { message: 'a baixa ainda não subiu' };
+          }
           else if (item.kind === 'doc' && item.op === 'upsert') {
             // replay offline: RPC com versão -1 (força com bump — mantém o
             // contador coerente); fallback pro upsert se a migração 8 faltar
@@ -1376,7 +1543,7 @@ export function AppProvider({ children }) {
         // por cliente. O aparelho guarda a lista desta cozinha e pede só as
         // linhas mudadas (apagadas inclusive); a conferência pelo NÚMERO de
         // linhas da janela garante que nada ficou para trás. Falhou: baixa tudo.
-        const COLS_ETQ = 'id, restaurante_id, status, dados, apagada_em, impresso_em, validade, atualizado_em';
+        const COLS_ETQ = 'id, restaurante_id, status, baixadas, dados, apagada_em, impresso_em, validade, atualizado_em';
         const naJanela = (l) => !l.apagada_em
           && ((l.impresso_em || '') >= impressasDesde || (l.validade || '') >= vencidasDesde);
         const daJanela = (q) => q.eq('restaurante_id', rid).eq('cozinha', moduloEfetivo).is('apagada_em', null)
@@ -1889,6 +2056,7 @@ export function AppProvider({ children }) {
       listaManual, setListaManual,
       etiquetasAvulsas, setEtiquetasAvulsas,
       etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada,
+      baixarEtiqueta, desfazerBaixa, buscarEtiqueta,
       permissoes, setPermissoes,
       precos, setPrecos,
       estoques, estoqueAtual, estoquesDoc, setEstoquesDoc, visoesPorEstoque,
@@ -1920,6 +2088,7 @@ export function AppProvider({ children }) {
     addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, fichas,
     setFichas, producoes, setProducoes, locais, setLocais, listaManual,
     setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada, permissoes,
+    baixarEtiqueta, desfazerBaixa, buscarEtiqueta,
     setPermissoes, precos, setPrecos, estoques, estoqueAtual, estoquesDoc,
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,

@@ -8,6 +8,7 @@ import ResponsavelSelect from '../components/ResponsavelSelect';
 import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
 import LeitorQR from '../components/LeitorQR';
 import { lerLoteIdDoQR, quantoSomaNaContagem } from '../utils/etiquetas';
+import { embalagensRestantes } from '../utils/baixaEtiqueta';
 import { cacheGet, cacheSet } from '../lib/cache';
 import { casaBusca } from '../utils/busca';
 
@@ -64,12 +65,19 @@ export default function Inventario() {
     // closure: com `lidos` nas dependências, cada leitura recriava aoLerQR, o
     // LeitorQR desmontava o stream e a câmera reabria — e o mesmo QR ainda
     // enquadrado disparava de novo, cuspindo "já foi contado" após cada acerto.
+    // ⚠️ UM CÓDIGO PODE SER VÁRIAS EMBALAGENS (30/09/2026): pelo Bluetooth as
+    // N cópias saem com o mesmo QR. Conta até o número de embalagens que ainda
+    // estão na prateleira — além disso, é a mesma lida de novo.
+    const cabe = embalagensRestantes(etq);
     let repetido = false;
     setLidos(prev => {
-      if (prev.some(l => l.loteId === loteId)) { repetido = true; return prev; }
+      if (prev.filter(l => l.loteId === loteId).length >= cabe) { repetido = true; return prev; }
       return [{ loteId, nome: etq.nome, validade: etq.validade }, ...prev];
     });
-    if (repetido) { toast(`"${etq.nome}" já foi contado.`, 'aviso'); return; }
+    if (repetido) {
+      toast(cabe > 1 ? `As ${cabe} embalagens de "${etq.nome}" com este código já foram contadas.` : `"${etq.nome}" já foi contado.`, 'aviso');
+      return;
+    }
     if (!etq.produtoId) { toast(`"${etq.nome}" é etiqueta avulsa — não entra na contagem.`, 'aviso'); return; }
     const prod = produtos.find(p => p.id === etq.produtoId);
     // Quanto cada etiqueta SOMA depende da unidade do produto. Somar sempre 1

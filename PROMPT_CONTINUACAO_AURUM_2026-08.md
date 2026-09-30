@@ -181,6 +181,52 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (30/09/2026, noite) — BAIXA PELA ETIQUETA (M59, só Pro)
+
+Decidido com o dono por perguntas clicáveis (30/09). **Um código por LOTE**
+(o Bluetooth manda `PRINT 1,N`): a linha da etiqueta tem `copias`, e o banco
+conta `baixadas` ("embalagem 2 de 5"). Potes de validade diferente nunca
+dividem código. Palavra nas telas: **embalagem**.
+
+- **M59**: `etiquetas.baixadas`; `etiqueta_baixas` (log, idempotência,
+  desfazer); `baixar_etiqueta(p_baixa, p_etiqueta, p_acao, p_potes,
+  p_registro_id, p_dados, p_ts)` — atômica (`for update`), idempotente pelo id
+  da baixa, o ITEM/VALIDADE/COZINHA do lançamento vêm da etiqueta (o tipo do
+  registro sai de `etiquetas.cozinha`); `desfazer_baixa` (24 h); gatilho em
+  `registros`: apagar pelo Histórico devolve a embalagem, restaurar tira de
+  novo. Conferida em transação desfeita (14 casos).
+- **QR = endereço do pote** `HTTPS://APP.AURUMCOZINHA.COM.BR/Q/<ID>`
+  (maiúsculas → modo alfanumérico, versão 3, 29 módulos). Etiqueta antiga
+  ("L: id") ainda é lida. Código de 8 letras IMPRESSO embaixo do QR
+  (`codigoLegivel`, "K3F9-X2AB"); a busca tolera O/0 e I/L/1.
+- **Bluetooth**: o QR vai como BITMAP (`bitmapDoQR`, 4 pontos/módulo,
+  124 pontos = 15,5 mm) no canto direito do rodapé; o texto do rodapé
+  estreita (`larguraRodape`). A prévia do celular pinta o bitmap dos bytes.
+  Computador: SVG a 0,5 mm/módulo + código; corpo aperta com QR e ≥ 5 linhas.
+- **Só no Pro, ligado por padrão** (`qrLigado = guardaHistorico &&
+  incluirQR !== false`). Reimpressão MANTÉM o código (`item.codigo`, não cria
+  linha). Entrada/Produção/Histórico mandam `origemRegistro`: a janela avisa
+  se a validade da etiqueta divergir da do estoque ("Voltar à data do
+  estoque").
+- **Telas**: `/ler` e `/q/:codigo` (LerEtiquetas: câmera contínua — nativa
+  ou jsQR sob demanda —, código digitado, MODO RÁPIDO com Desfazer);
+  `BaixaEtiqueta` (a folha): Produção/Seco = Saída (destino) / Perda
+  (motivo) / Usado; Finalização = Perda / Usado. **Usado só marca** (a
+  produção ainda desconta pela receita — o dono vai reformular). Vencida na
+  Saída pede confirmação e sugere Perda. Sem medida: pergunta (unid = 1).
+  Validades troca "Marcar consumida/Descartada" por "Dar baixa" e ganha o
+  botão "Ler etiquetas"; Etiquetas (Pro) também. Inventário conta até N
+  embalagens por código.
+- **Estoque**: `calcLotes` abate primeiro o lote da VALIDADE do item (saída
+  e perda levam `validade`); sem lote igual, FEFO.
+- **Robô novo** `e2e/baixaEtiqueta.pw.js` (imprime com QR, lê o código, saída,
+  desfazer, sem baixa dupla, código alheio). 806 testes + 13 do robô.
+- **2ª etapa (pendente, decisão do dono):** entrada pelo QR na cozinha que
+  recebe (liga/desliga pelo administrador) e a validade chegando à
+  Finalização pelos recebimentos.
+- **Pedir ao dono:** imprimir no papel pelo Bluetooth e ler com o celular
+  (tamanho do QR, código legível, rodapé com endereço em 2 linhas).
+
 ## Onde paramos (30/09/2026, tarde) — PREÇO NOVO E IMPRESSORA PARCELADA (M60)
 
 Decisões do dono (perguntas clicáveis, 30/09): **Etiquetas R$ 149,90/mês**

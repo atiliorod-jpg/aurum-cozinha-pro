@@ -69,7 +69,9 @@ export default defineConfig({
         // planilha (xlsx, ~500 KB) e o painel da Aurum ficam de fora da
         // instalação e são guardados na primeira vez que alguém abrir (ver
         // runtimeCaching). icon-192/512 não são usados por nada.
-        globIgnores: ['**/xlsx-*.js', '**/Admin-*.js', 'icon-*.png'],
+        // jsQR (130 KB): leitor de QR do iPhone, só da tela Ler etiquetas do
+        // Pro — baixa na primeira vez que a câmera abre e fica guardado
+        globIgnores: ['**/xlsx-*.js', '**/Admin-*.js', '**/jsQR-*.js', 'icon-*.png'],
         runtimeCaching: [{
           urlPattern: ({ url }) => url.pathname.includes('/assets/'),
           handler: 'CacheFirst',

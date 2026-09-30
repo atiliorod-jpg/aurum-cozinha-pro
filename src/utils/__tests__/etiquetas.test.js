@@ -69,45 +69,26 @@ describe('etiquetas — montagem dos campos', () => {
     expect(semPrazo.validadeFmt).toBe('');
   });
 
-  it('payload do QR é uma ficha legível linha a linha (Chave: valor)', () => {
+  it('o QR é o ENDEREÇO do pote no app, em maiúsculas (30/09/2026, baixa pela etiqueta)', () => {
     const campos = montarCamposEtiqueta({
       nome: 'Molho misto', dataFabricacao: '2026-06-10', diasValidade: 4, restauranteNome: 'Polo', responsavel: 'Ceará',
-      hora: '10:52', armazenamento: 'congelado',
+      hora: '10:52', armazenamento: 'congelado', loteId: 'k3f9x2ab',
     });
     const qr = montarPayloadQR(campos);
-    expect(qr).toContain('Prod: Molho misto');
-    expect(qr).toContain('Manip: 10/06/2026');
-    expect(qr).toContain('Val: 14/06/2026');
-    // 'Rest:' saiu do QR para abrir espaço ao id de lote — o nome do
-    // restaurante continua impresso em destaque na etiqueta impressa.
-    expect(qr).not.toContain('Rest:');
-    expect(qr.split('\n').length).toBe(4); // só as linhas com valor entram
+    expect(qr).toBe('HTTPS://APP.AURUMCOZINHA.COM.BR/Q/K3F9X2AB');
+    // só A-Z, 0-9 e ":/." — é o que põe o QR no modo alfanumérico
+    expect(qr).toMatch(/^[A-Z0-9:/.]+$/);
+    expect(qr.length).toBeLessThanOrEqual(QR_MAX_CARACTERES);
   });
 
-  it('QR do pior caso ainda imprime legível numa térmica de 203 DPI', async () => {
-    // Este é o teste que importa de verdade: não basta o conteúdo estar certo,
-    // o código PRECISA sair com módulo grande o bastante pro leitor pegar.
-    // Térmica de 203 DPI = 8 pontos/mm; o QR sai com ~21mm; cada módulo precisa
-    // de ~4 pontos pra ter borda limpa → no máximo 41 módulos (versão 6).
-    // Texto a mais empurra a versão pra cima e o QR volta a não escanear.
+  it('o QR sai pequeno e legível numa térmica de 203 DPI (versão 3, 4 pontos por módulo)', async () => {
     const { default: QRCode } = await import('qrcode');
-    const campos = montarCamposEtiqueta({
-      nome: 'EMPANADO DE FILÉ MIGNON PORCIONADO (PORÇÃO)', // pior caso realista
-      dataFabricacao: '2026-06-10', diasValidade: 90, hora: '10:52',
-      armazenamento: 'congelado', restauranteNome: 'Restaurante Muito Longo Ltda',
-      responsavel: 'Joana da Silva Sobrinho', marca: 'Friboi', sif: '1234',
-      valOriginal: '2026-12-01', medida: '1 kg',
-    });
-    const qr = montarPayloadQR(campos);
-    expect(qr).not.toMatch(/[À-ÿ]/);       // sem acento (acento = 2 bytes no QR)
-    expect(qr).not.toMatch(/\d{2}:\d{2}/); // datas sem hora
-    expect(qr.length).toBeLessThanOrEqual(QR_MAX_CARACTERES);
-
+    const qr = montarPayloadQR({ loteId: 'zzzzzzzz' });
     const { version, modules } = QRCode.create(qr, { errorCorrectionLevel: 'M' });
-    expect(version).toBeLessThanOrEqual(6);
-    expect(modules.size).toBeLessThanOrEqual(41);
-    const pontosPorModulo = (21 / modules.size) * (203 / 25.4);
-    expect(pontosPorModulo).toBeGreaterThanOrEqual(4);
+    expect(version).toBeLessThanOrEqual(3);
+    expect(modules.size).toBeLessThanOrEqual(29);
+    // 4 pontos por módulo (o que a impressora desenha) = ~14,5 mm de código
+    expect((modules.size * 4) / 8).toBeLessThanOrEqual(15);
   });
 });
 
@@ -339,24 +320,28 @@ describe('biblioteca de itens prontos', () => {
 });
 
 describe('etiqueta com id de lote (leitura por QR)', () => {
-  it('id de lote entra no QR e volta na leitura', () => {
-    const campos = montarCamposEtiqueta({
-      nome: 'Molho da casa', dataFabricacao: '2026-08-05', diasValidade: 5,
-      responsavel: 'Joana', loteId: 'k3f9x2',
-    });
-    const qr = montarPayloadQR(campos);
-    expect(qr).toContain('L: k3f9x2');
-    expect(lerLoteIdDoQR(qr)).toBe('k3f9x2');
+  it('o código do pote volta na leitura: endereço, código digitado e o QR antigo em texto', () => {
+    const qr = montarPayloadQR(montarCamposEtiqueta({ nome: 'Molho da casa', dataFabricacao: '2026-08-05', diasValidade: 5, loteId: 'k3f9x2ab' }));
+    expect(lerLoteIdDoQR(qr)).toBe('k3f9x2ab');
+    expect(lerLoteIdDoQR('https://app.aurumcozinha.com.br/q/k3f9x2ab')).toBe('k3f9x2ab');
+    expect(lerLoteIdDoQR('app.aurumcozinha.com.br/q/K3F9X2AB/')).toBe('k3f9x2ab');
+    // digitado da etiqueta, do jeito que sai impresso (com hífen) ou junto
+    expect(lerLoteIdDoQR('K3F9-X2AB')).toBe('k3f9x2ab');
+    expect(lerLoteIdDoQR(' k3f9x2ab ')).toBe('k3f9x2ab');
+    // etiqueta impressa ANTES de 30/09 (QR em texto)
+    expect(lerLoteIdDoQR('Prod: Molho\nVal: 10/08/2026\nL: k3f9x2')).toBe('k3f9x2');
   });
 
-  it('QR sem id de lote (etiqueta antiga) não quebra a leitura', () => {
-    const qr = montarPayloadQR(montarCamposEtiqueta({ nome: 'Molho', dataFabricacao: '2026-08-05', diasValidade: 5 }));
-    expect(lerLoteIdDoQR(qr)).toBeNull();
+  it('sem código de pote, a etiqueta sai sem QR (nunca um QR vazio)', () => {
+    expect(montarPayloadQR(montarCamposEtiqueta({ nome: 'Molho', dataFabricacao: '2026-08-05', diasValidade: 5 }))).toBe('');
+    expect(montarPayloadQR({ loteId: 'x; drop' })).toBe('');
   });
 
   it('texto de QR alheio não é confundido com etiqueta nossa', () => {
     expect(lerLoteIdDoQR('https://exemplo.com')).toBeNull();
+    expect(lerLoteIdDoQR('https://outrosite.com.br/q/k3f9x2ab')).toBeNull();
     expect(lerLoteIdDoQR('')).toBeNull();
+    expect(lerLoteIdDoQR('pix copia e cola 000201')).toBeNull();
   });
 
   it('ids de lote não repetem nem em lote grande', () => {
@@ -366,24 +351,6 @@ describe('etiqueta com id de lote (leitura por QR)', () => {
     expect(new Set(ids).size).toBe(2000);
   });
 
-  it('COM id de lote o QR continua na versão 6 (limite de legibilidade)', async () => {
-    // O id só pôde entrar porque o nome do restaurante saiu. Este teste trava
-    // isso: se alguém devolver o Rest: ao payload, o QR passa de 41 módulos e
-    // volta a não escanear na térmica.
-    const { default: QRCode } = await import('qrcode');
-    const campos = montarCamposEtiqueta({
-      nome: 'EMPANADO DE FILÉ MIGNON PORCIONADO (PORÇÃO)',
-      dataFabricacao: '2026-08-05', diasValidade: 90, hora: '10:52',
-      responsavel: 'Joana da Silva Sobrinho', restauranteNome: 'Restaurante Muito Longo Ltda',
-      loteId: 'k3f9x2',
-    });
-    const qr = montarPayloadQR(campos);
-    expect(qr).not.toContain('Rest:');
-    expect(qr.length).toBeLessThanOrEqual(QR_MAX_CARACTERES);
-    const { version, modules } = QRCode.create(qr, { errorCorrectionLevel: 'M' });
-    expect(version).toBeLessThanOrEqual(6);
-    expect((22 / modules.size) * (203 / 25.4)).toBeGreaterThanOrEqual(4);
-  });
 });
 
 describe('ciclo de vida da etiqueta', () => {

@@ -287,6 +287,15 @@ export default function Etiquetas() {
           <p className="text-xs text-gray-600 px-1">
             Toque em Imprimir no item. A validade sai calculada pelo prazo que você cadastrou em Meus itens.
           </p>
+          {/* ⚠️ BAIXA PELA ETIQUETA (M59): só no Pro, que imprime o QR. É a
+              porta de quem está com a embalagem na mão — a de Validades é a
+              da lista. */}
+          {!soEtiq && (
+            <Link to="/ler"
+              className="min-h-11 rounded-xl border border-polo-navy/30 bg-white text-polo-navy font-bold text-sm flex items-center justify-center gap-2">
+              <Icon name="camera" size={18} />Ler etiqueta (dar baixa)
+            </Link>
+          )}
           {/* ⚠️ MAIS USADOS NO TOPO (pedido do dono, 23/09/2026): cada etiqueta
               começava rolando uma lista de 60 a 200 itens. Um toque no bloco
               abre a MESMA impressão do botão da lista. Some enquanto a pessoa

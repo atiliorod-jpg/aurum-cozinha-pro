@@ -1,5 +1,12 @@
 // Controle de lotes por validade (FEFO — vence primeiro, sai primeiro).
 //
+// ⚠️ BAIXA PELA ETIQUETA (M59, 30/09/2026): a saída ou a perda lançada pela
+// leitura do QR sabe a VALIDADE da embalagem que saiu (`validade` no item).
+// Ela abate primeiro o lote dessa validade — senão o estoque tiraria o que
+// vence antes e as datas da prateleira deixariam de bater com as do sistema.
+// Sem lote daquela validade (etiqueta impressa com outra data), o resto cai no
+// FEFO de sempre. Lançamento sem validade (o manual) continua só FEFO.
+//
 // Cada item de entrada com validade vira um lote. As saídas e perdas de
 // estoque consomem os lotes em ordem de vencimento, na ordem em que os
 // eventos aconteceram. Assim, "20 charques venc. 20/06 + 20 venc. 26/06"
@@ -23,12 +30,12 @@ export function calcLotes(entradas, saidas, desperdicio, produtos = []) {
   });
   saidas.forEach(s => {
     (s.itens || []).forEach(it => {
-      eventos.push({ ts: s.ts || 0, tipo: 'out', produtoId: it.produtoId, qtd: num(it.quantidade) });
+      eventos.push({ ts: s.ts || 0, tipo: 'out', produtoId: it.produtoId, qtd: num(it.quantidade), validade: it.validade || null });
     });
   });
   desperdicio.forEach(d => {
     if (d.origem === 'estoque' && d.produtoId) {
-      eventos.push({ ts: d.ts || 0, tipo: 'out', produtoId: d.produtoId, qtd: num(d.quantidade) });
+      eventos.push({ ts: d.ts || 0, tipo: 'out', produtoId: d.produtoId, qtd: num(d.quantidade), validade: d.validade || null });
     }
   });
 
@@ -44,8 +51,18 @@ export function calcLotes(entradas, saidas, desperdicio, produtos = []) {
       });
       arr.sort((a, b) => a.validade.localeCompare(b.validade));
     } else {
-      // consome FEFO: primeiro o lote que vence antes
       let q = ev.qtd;
+      // a embalagem lida pela etiqueta: primeiro o lote da validade DELA
+      if (ev.validade) {
+        for (const l of arr) {
+          if (q <= 0) break;
+          if (l.validade !== ev.validade) continue;
+          const tira = Math.min(l.restante, q);
+          l.restante -= tira;
+          q -= tira;
+        }
+      }
+      // consome FEFO: primeiro o lote que vence antes
       for (const l of arr) {
         if (q <= 0) break;
         const tira = Math.min(l.restante, q);

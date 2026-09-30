@@ -55,6 +55,8 @@ const Estoques = lazy(() => import('./pages/Estoques'));
 const Balanco = lazy(() => import('./pages/Balanco'));
 // Os dois planos usam a mesma tela; ela só baixa quando alguém abre.
 const RelatorioEtiquetas = lazy(() => import('./pages/RelatorioEtiquetas'));
+// Baixa pela etiqueta (M59): só o Pro imprime QR, então só o Pro tem a tela
+const LerEtiquetas = lazy(() => import('./pages/LerEtiquetas'));
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
 function Restrito({ cargo = 'gerencia', children }) {
@@ -477,6 +479,11 @@ function Rotas() {
           abria por URL direta mesmo com o card escondido. */}
       <Route path="/etiquetas" element={temRecurso(modulo, 'etiquetas') ? <Etiquetas /> : <Navigate to="/registrar" replace />} />
       <Route path="/validades" element={<Validades />} />
+      {/* ⚠️ BAIXA PELA ETIQUETA (M59, 30/09/2026). `/q/CÓDIGO` é o endereço
+          que vai DENTRO do QR: a câmera comum do celular abre a etiqueta
+          direto aqui. Sem login, a pessoa entra e cai na mesma rota. */}
+      <Route path="/ler" element={<LerEtiquetas />} />
+      <Route path="/q/:codigo" element={<LerEtiquetas />} />
       {/* fechamento de turno só existe na Cozinha de Finalização */}
       <Route path="/fechar-turno" element={temRecurso(modulo, 'fecharTurno') ? <FecharTurno /> : <Navigate to="/" replace />} />
       <Route path="/novidades" element={<Novidades />} />

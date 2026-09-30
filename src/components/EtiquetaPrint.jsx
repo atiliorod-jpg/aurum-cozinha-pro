@@ -21,7 +21,9 @@ import { loteTSPL, medirEtiqueta, nivelDeDesenho } from '../utils/tspl';
 import EtiquetaTSPL from './EtiquetaTSPL';
 import { bitmapsDoNome } from '../lib/nomeEmBitmap';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
-import { hoje, fmtHora } from '../utils/formatters';
+import { hoje, fmtHora, fmtData } from '../utils/formatters';
+import { bitmapDoQR } from '../utils/tsplBitmap';
+import { codigoLegivel } from '../utils/baixaEtiqueta';
 import { idDeImpressao } from '../utils/relatorioEtiquetas';
 import { etiquetaComArmazenamento } from '../utils/modulos';
 import { produtoAtivo, produtoTem } from '../utils/produto';
@@ -38,8 +40,12 @@ import { produtoAtivo, produtoTem } from '../utils/produto';
 // encurtar o payload.
 // 0,5mm dá exatamente 3,99 pontos/módulo (203dpi = 7,99 pontos/mm, não 8) —
 // ou seja, em cima do limite, sem folga nenhuma para variação da impressora.
-// 0,55mm sobe para ~4,4 pontos/módulo e deixa margem real.
-const MM_POR_MODULO = 0.55;
+// ⚠️ VOLTOU PARA 0,5 EM 30/09/2026, e dá: o QR virou o endereço do pote
+// (versão 3, 29 módulos, contra os 41 da ficha em texto), e com 0,55 ele mais
+// o código escrito embaixo comiam o rodapé e escondiam o RESP. da etiqueta
+// cheia (medido na tela). 0,5 é o mesmo tamanho que o Bluetooth imprime
+// (4 pontos por módulo, 15,5 mm).
+const MM_POR_MODULO = 0.5;
 const tamanhoQRmm = (modulosTotais, alturaMm) => {
   const ideal = (modulosTotais || 41) * MM_POR_MODULO;
   // não pode passar de metade da etiqueta (senão não sobra espaço pro texto)
@@ -148,7 +154,9 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
   ].filter(Boolean).length + (sifLoteSeparado ? 1 : 0);
   const linhasDeRodape = (c.restaurante !== false && campos.restauranteNome ? 1 : 0)
     + (c.estabelecimento === false ? 0 : [est.cnpj, est.endereco, est.cidade || est.cep].filter(Boolean).length);
-  const apertado = linhasDeDados + linhasDeRodape >= 8;
+  // ⚠️ Com o QR (15,5 mm + o código), o rodapé fica alto: a partir de cinco
+  // linhas de dados o corpo tem de apertar, senão a última some no papel.
+  const apertado = linhasDeDados + linhasDeRodape >= 8 || (comQR && linhasDeDados >= 5);
   // ⚠️ A validade NÃO muda de tamanho — o destaque dela é o sublinhado, por
   // decisão do dono: valores de tamanhos diferentes quebram o alinhamento à
   // direita, e foi isso que a gente já corrigiu uma vez.
@@ -251,10 +259,19 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
           // preto ou branco). Um PNG reduzido para ~20mm chega borrado/cinza,
           // vira meio-tom e o leitor não pega. O SVG é rasterizado direto na
           // resolução da impressora, com borda dura (shape-rendering=crispEdges).
-          <div aria-hidden="true"
-            style={{ width: `${qrMm}mm`, height: `${qrMm}mm`, flexShrink: 0 }}
-            className="[&>svg]:w-full [&>svg]:h-full [&>svg]:block"
-            dangerouslySetInnerHTML={{ __html: qr.svg }} />
+          // ⚠️ O CÓDIGO ESCRITO embaixo (baixa pela etiqueta, 30/09/2026): é
+          // o que se digita quando o QR borra ou molha.
+          <div style={{ width: `${qrMm}mm`, flexShrink: 0, textAlign: 'center' }}>
+            <div aria-hidden="true"
+              style={{ width: `${qrMm}mm`, height: `${qrMm}mm` }}
+              className="[&>svg]:w-full [&>svg]:h-full [&>svg]:block"
+              dangerouslySetInnerHTML={{ __html: qr.svg }} />
+            {campos.loteId && (
+              <div style={{ fontSize: '2.4mm', fontWeight: 800, lineHeight: 1.1, letterSpacing: '0.15mm' }}>
+                {codigoLegivel(campos.loteId)}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -285,7 +302,14 @@ export default function EtiquetaPrint() {
   // despensa não tem congelado/resfriado: a etiqueta do seco não pergunta isso
   // câmara fria — ou o Estoque Seco depois de aberto (ambiente ou geladeira)
   const comArmazenamento = etiquetaComArmazenamento(modulo);
-  const config = configEtiqueta(prefs);
+  // ⚠️ QR SÓ NO PRO (baixa pela etiqueta, M59, 30/09/2026): no plano
+  // Etiquetas nenhuma tela lê o código, e ele só ocuparia papel. No Pro vem
+  // ligado por padrão (Configurações → Etiquetas desliga).
+  // ⚠️ `guardaHistorico` mora AQUI porque o QR depende dele — ver o porquê
+  // do nome em `registrarImpressao`, mais abaixo.
+  const guardaHistorico = produtoTem(produtoAtivo(sessao, impersonando), 'historicoEtiquetas');
+  const qrLigado = guardaHistorico && configEtiqueta(prefs).incluirQR !== false;
+  const config = useMemo(() => ({ ...configEtiqueta(prefs), incluirQR: qrLigado }), [prefs, qrLigado]);
   // Estados de armazenamento configuráveis (Configurações → Sistema).
   const armazenamentos = armazenamentosAtivos(prefs);
 
@@ -377,7 +401,11 @@ export default function EtiquetaPrint() {
         return {
           ...resolvido,
           diasOverride: diasIniciais > 0 ? String(diasIniciais) : '',
-          _lotes: Array.from({ length: n }, () => gerarLoteId()),
+          _diasOriginal: diasIniciais > 0 ? String(diasIniciais) : '',
+          // ⚠️ REIMPRESSÃO MANTÉM O CÓDIGO (30/09/2026): a etiqueta nova
+          // substitui a estragada. Com código novo, o sistema contaria uma
+          // embalagem a mais — e a velha continuaria "na prateleira".
+          _lotes: Array.from({ length: n }, () => i.codigo || gerarLoteId()),
           _dataOriginal: resolvido.dataFabricacao,
           _armazOriginal: resolvido.armazenamento,
         };
@@ -478,7 +506,21 @@ export default function EtiquetaPrint() {
   const loteDaCopia = (item, copia) => item._lotes?.[copia] || '';
 
   // Payload do QR de cada item — é também a chave do cache de QR
-  const payloadDe = (item, loteId) => montarPayloadQR(camposDe(item, loteId));
+  const payloadDe = (item, loteId) => (qrLigado && !item.teste ? montarPayloadQR(camposDe(item, loteId)) : '');
+
+  // O QR em BITMAP para o Bluetooth, e o código escrito embaixo dele — um por
+  // item (as cópias do Bluetooth saem iguais: `PRINT 1,N`, um código por lote).
+  const qrPorItem = useMemo(
+    () => itens.map(it => {
+      const lote = loteDaCopia(it, 0);
+      const pl = payloadDe(it, lote);
+      const bitmap = pl ? bitmapDoQR(pl) : null;
+      return bitmap ? { bitmap, codigo: codigoLegivel(lote) } : null;
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- o conteúdo do QR depende só do código do lote (itens) e do plano
+    [itens, qrLigado],
+  );
+  const opcoesDoQR = (idx) => (qrPorItem[idx] ? { qrBitmap: qrPorItem[idx].bitmap, codigo: qrPorItem[idx].codigo } : {});
 
   // ⚠️ O NOME COM A LETRA DA TELA, sempre que a impressão for pelo Bluetooth.
   // Pelo Bluetooth quem desenha é a fonte INTERNA da impressora, quadrada e
@@ -523,11 +565,13 @@ export default function EtiquetaPrint() {
     () => itens.map((it, idx) => {
       const campos = camposDe(it, loteDaCopia(it, 0));
       const alvo = { ...config, estabelecimento };
-      const op = bitmapsPorItem[idx] ? { nomeBitmaps: bitmapsPorItem[idx].bitmaps } : {};
+      // ⚠️ MEDE COM O QR quando ele vai sair: ele estreita o rodapé e pode
+      // empurrar o endereço para a segunda linha
+      const op = { ...(bitmapsPorItem[idx] ? { nomeBitmaps: bitmapsPorItem[idx].bitmaps } : {}), ...opcoesDoQR(idx) };
       return { nivel: nivelDeDesenho(campos, alvo, op), cabe: medirEtiqueta(campos, alvo, op).cabe };
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe/loteDaCopia leem só itens, responsavel e props estáveis (mesmo padrão do efeito de QR acima)
-    [itens, config, estabelecimento, responsavel, bitmapsPorItem],
+    [itens, config, estabelecimento, responsavel, bitmapsPorItem, qrPorItem],
   );
   const nivelDoItem = (idx) => desenhos[idx]?.nivel ?? NIVEL_PADRAO;
 
@@ -543,11 +587,11 @@ export default function EtiquetaPrint() {
   const tsplDaPrevia = useMemo(
     () => (itens.length
       ? loteTSPL([{ campos: camposDe(itens[0], loteDaCopia(itens[0], 0)), copias: 1,
-                    nomeBitmaps: bitmapsPorItem[0]?.bitmaps }],
+                    nomeBitmaps: bitmapsPorItem[0]?.bitmaps, ...opcoesDoQR(0) }],
                  { ...config, estabelecimento })
       : ''),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mesmas dependências reais de `desenhos` acima
-    [itens, config, estabelecimento, responsavel, bitmapsPorItem],
+    [itens, config, estabelecimento, responsavel, bitmapsPorItem, qrPorItem],
   );
 
   // Gera os QR codes quando ligado (async — toDataURL é Promise).
@@ -559,7 +603,10 @@ export default function EtiquetaPrint() {
     (async () => {
       const todos = [];
       itens.forEach((it) => {
-        for (let c = 0; c < limitarCopias(it.quantidade); c++) todos.push(payloadDe(it, loteDaCopia(it, c)));
+        for (let c = 0; c < limitarCopias(it.quantidade); c++) {
+          const pl = payloadDe(it, loteDaCopia(it, c));
+          if (pl) todos.push(pl);
+        }
       });
       const pendentes = [...new Set(todos)].filter(p => !qrs[p]);
       if (!pendentes.length) return;
@@ -569,8 +616,9 @@ export default function EtiquetaPrint() {
           const svg = await QRCode.toString(payload, {
             type: 'svg',
             // margin em "módulos" — a zona de silêncio faz parte do padrão QR;
-            // sem ela a câmera não acha a borda do código.
-            margin: 2,
+            // sem ela a câmera não acha a borda do código. Um módulo dentro do
+            // desenho + o papel em branco em volta (o mesmo do Bluetooth).
+            margin: 1,
             // 'M' recupera ~15% de dano (vinco, condensação do freezer, borrão)
             // sem inflar demais o número de módulos. Ver montarPayloadQR.
             errorCorrectionLevel: 'M',
@@ -604,7 +652,7 @@ export default function EtiquetaPrint() {
     const atuais = it._lotes || [];
     if (atuais.length === n) return it;
     const novos = atuais.slice(0, n);
-    while (novos.length < n) novos.push(gerarLoteId());
+    while (novos.length < n) novos.push(it.codigo || gerarLoteId());
     return { ...it, _lotes: novos };
   };
 
@@ -620,7 +668,10 @@ export default function EtiquetaPrint() {
   // nunca sai etiqueta com texto novo e QR velho.
   const qrPendente = config.incluirQR && itens.some(it => {
     const n = limitarCopias(it.quantidade);
-    for (let c = 0; c < n; c++) if (!qrs[payloadDe(it, loteDaCopia(it, c))]) return true;
+    for (let c = 0; c < n; c++) {
+      const pl = payloadDe(it, loteDaCopia(it, c));
+      if (pl && !qrs[pl]) return true;
+    }
     return false;
   });
 
@@ -639,7 +690,7 @@ export default function EtiquetaPrint() {
   // ⚠️ Quem faz UPGRADE começa o histórico do dia do upgrade. É consequência
   // aceita: ele nunca teve a tela que usa esse histórico, então não perde nada
   // que já enxergasse.
-  const guardaHistorico = produtoTem(produtoAtivo(sessao, impersonando), 'historicoEtiquetas');
+  // (`guardaHistorico` é calculado lá em cima, junto do QR)
 
   // ⚠️ RECEBE QUAIS ITENS SAÍRAM DE VERDADE. Antes registrava sempre a lista
   // inteira, e isso só era verdade quando o envio ia até o fim. Se a impressora
@@ -671,6 +722,8 @@ export default function EtiquetaPrint() {
     (soEstes || itens).forEach(item => {
       const n = limitarCopias(item.quantidade);
       if (!n) return;
+      // reimpressão com o MESMO código: a linha da etiqueta já existe
+      if (item.codigo) return;
       const c = camposDe(item);
       const quantos = umCodigoPorCopia ? n : 1;
       for (let i = 0; i < quantos; i++) {
@@ -894,7 +947,7 @@ export default function EtiquetaPrint() {
         // diferente, e reaproveitar o do primeiro mandaria o mesmo nome em
         // todas as etiquetas. Vão os dois tamanhos — quem escolhe é a escalada.
         const bloco = [{ campos, copias: limitarCopias(it.quantidade),
-                         nomeBitmaps: bitmapsPorItem[itens.indexOf(it)]?.bitmaps }];
+                         nomeBitmaps: bitmapsPorItem[itens.indexOf(it)]?.bitmaps, ...opcoesDoQR(itens.indexOf(it)) }];
         // O estabelecimento não vive em `config`, mas o rodapé do papel precisa
         // dele para ficar igual à prévia da tela.
         await enviarTSPL(loteTSPL(bloco, { ...config, estabelecimento }));
@@ -1129,6 +1182,22 @@ export default function EtiquetaPrint() {
                   {campos.passaDoFornecedor && (
                     <Aviso tom="erro">
                       Passa da validade do fornecedor ({campos.valOriginalFmt}). Reduza os dias.
+                    </Aviso>
+                  )}
+                  {/* ⚠️ A ETIQUETA E O ESTOQUE COM DATAS DIFERENTES (30/09/2026):
+                      a entrada/produção já registrou uma validade, e trocar o
+                      armazenamento ou a data aqui muda só o papel. A baixa pela
+                      etiqueta abate o lote da validade dela — sem lote igual,
+                      cai no que vence primeiro. Então avisa, e oferece voltar. */}
+                  {item.origemRegistro && item.validade && campos.validade && campos.validade !== item.validade && (
+                    <Aviso tom="atencao">
+                      O estoque registrou vencimento em <strong>{fmtData(item.validade)}</strong>; esta etiqueta vai
+                      sair com <strong>{campos.validadeFmt}</strong>. Para guardar parte em outro armazenamento,
+                      registre em duas partes.{' '}
+                      <button type="button" className="underline font-semibold min-h-11"
+                        onClick={() => setItem(idx, { dataFabricacao: item._dataOriginal, armazenamento: item._armazOriginal, diasOverride: item._diasOriginal })}>
+                        Voltar à data do estoque
+                      </button>
                     </Aviso>
                   )}
                   <p className="text-sm text-gray-700">

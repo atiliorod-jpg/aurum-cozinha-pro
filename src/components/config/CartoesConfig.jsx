@@ -238,7 +238,7 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
       <div className="flex items-center justify-between border-t border-gray-100 pt-3">
         <div>
           <p className="text-xs font-semibold text-gray-600">QR code na etiqueta</p>
-          <p className="text-[11px] text-gray-600">Para a contagem por câmera no Inventário.</p>
+          <p className="text-[11px] text-gray-600">Para dar baixa lendo a etiqueta (saída, perda, usado) e contar no Inventário.</p>
         </div>
         <button role="switch" aria-checked={!!cfg.incluirQR}
           onClick={() => { salvar({ incluirQR: !cfg.incluirQR }); toast(!cfg.incluirQR ? 'QR code LIGADO nas etiquetas.' : 'QR code desligado.', 'sucesso'); }}

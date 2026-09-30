@@ -105,6 +105,8 @@ export default function Historico() {
         armazenamento: r.armazenamento || null,
         prazos: prazosDoProduto(p),
         validade: item.validade || null,
+        // a data veio do estoque: a janela avisa se a etiqueta sair diferente
+        origemRegistro: true,
         responsavel: r.responsavel || '',
         quantidade: 1,
       };

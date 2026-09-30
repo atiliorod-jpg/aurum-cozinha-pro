@@ -102,6 +102,8 @@ export default function Producao() {
       armazenamento,
       prazos: prazosDoProduto(produto),
       validade: validade || null,
+      // a data veio do estoque: a janela avisa se a etiqueta sair diferente
+      origemRegistro: true,
       responsavel,
       quantidade: 1,
     }]);

@@ -5,7 +5,11 @@ import { useUI } from '../store/UIContext';
 import { fmtData, fmtNum, hoje } from '../utils/formatters';
 import { addDias, diasAte } from '../utils/datas';
 import { calcLotes } from '../utils/lotes';
-import { STATUS_ETIQUETA, statusEtiqueta, quantoSomaNaContagem } from '../utils/etiquetas';
+import { STATUS_ETIQUETA, statusEtiqueta } from '../utils/etiquetas';
+import { embalagensRestantes, codigoLegivel } from '../utils/baixaEtiqueta';
+import BaixaEtiqueta from '../components/BaixaEtiqueta';
+import Dialogo from '../components/Dialogo';
+import Icon from '../components/Icons';
 import { useNavigate } from 'react-router-dom';
 import { temRecurso } from '../utils/modulos';
 import { produtoTem, produtoAtivo } from '../utils/produto';
@@ -29,9 +33,11 @@ const FILTROS = [
  * permite achar o pote específico na prateleira.
  */
 export default function Validades() {
-  const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, mudarStatusEtiqueta, modulo } = useApp();
+  const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, modulo } = useApp();
   const navigate = useNavigate();
-  const { toast, confirm } = useUI();
+  const { toast } = useUI();
+  // a etiqueta na folha "Dar baixa" (a mesma da leitura do QR)
+  const [baixando, setBaixando] = useState(null);
   const { sessao, impersonando } = useAuth();
   const [filtro, setFiltro] = useState('7d');
   const [ate, setAte] = useState(addDias(hoje(), 7));
@@ -86,38 +92,25 @@ export default function Validades() {
   // senão a tela renderiza vazio sem nenhum aviso.
   const abaAtual = abas.some(([v]) => v === aba) ? aba : (abas[0]?.[0] || 'etiquetas');
 
-  const marcar = async (etq, status) => {
-    const rotulo = status === 'consumida' ? 'consumida' : 'descartada';
-    const ok = await confirm({
-      titulo: `Marcar como ${rotulo}`,
-      mensagem: `Tirar "${etq.nome}" da lista de potes? O estoque não muda.`,
-      confirmar: `Marcar ${rotulo}`,
-    });
-    if (!ok) return;
-    // só a situação desta etiqueta vai ao banco (M49)
-    mudarStatusEtiqueta(etq.id, status);
-    toast(`Etiqueta marcada como ${rotulo}.`, 'sucesso');
-    // ⚠️ DESCARTADO É PERDA (28/09/2026): a tela parava aqui e a perda nunca
-    // entrava no estoque nem no custo — a pessoa teria de saber que precisava
-    // ir a Registrar e digitar tudo de novo. Agora oferece, já preenchida.
-    if (status === 'descartada' && etq.produtoId && temRecurso(modulo, 'perdas')) {
-      const prod = produtos.find(p => p.id === etq.produtoId);
-      const qtd = prod ? quantoSomaNaContagem(etq.medida, prod.unidade) : null;
-      const quer = await confirm({
-        titulo: 'Registrar a perda?',
-        mensagem: `${etq.nome}${qtd ? ` (${fmtNum(qtd)} ${prod.unidade})` : ''} vencido. Registrar a perda tira do estoque e entra no relatório de perdas.`,
-        confirmar: 'Registrar a perda',
-      });
-      if (quer) navigate('/aparas', { state: { perda: { produtoId: etq.produtoId, quantidade: qtd ? String(qtd) : '', motivo: 'V' } } });
-    }
-  };
-
+  // ⚠️ "MARCAR CONSUMIDA/DESCARTADA" VIROU "DAR BAIXA" (30/09/2026, M59). O
+  // botão antigo mudava a LINHA inteira e só oferecia ir registrar a perda em
+  // outra tela. Agora é a mesma folha da leitura do QR: por embalagem, com a
+  // saída ou a perda lançadas no estoque na hora, pela validade dela.
   // contraste de 4,5:1 (antes laranja-600 em 11 px, o aviso mais importante com a cor mais fraca)
   const corDias = (d) => d <= 0 ? 'text-red-700' : d <= 3 ? 'text-orange-800' : 'text-gray-600';
   const textoDias = (d) => d < 0 ? `venceu há ${Math.abs(d)} ${Math.abs(d) === 1 ? 'dia' : 'dias'}` : d === 0 ? 'vence hoje' : `em ${d} ${d === 1 ? 'dia' : 'dias'}`;
 
   return (
     <Layout title="Validades">
+      {/* ⚠️ A CÂMERA ANDA JUNTO DA LISTA (baixa pela etiqueta, M59): ler o QR
+          é o jeito rápido; a lista abaixo é o jeito manual, com os mesmos
+          botões. Só aparece onde há etiqueta (não no Estoque Seco sem ela). */}
+      {temRecurso(modulo, 'etiquetas') && (
+        <button type="button" onClick={() => navigate('/ler')}
+          className="w-full mb-4 min-h-11 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm flex items-center justify-center gap-2">
+          <Icon name="camera" size={18} />Ler etiquetas (dar baixa pelo QR)
+        </button>
+      )}
       <div className="space-y-4">
         <div className="bg-white rounded-xl p-3">
           <div className="flex flex-wrap gap-1.5">
@@ -212,8 +205,8 @@ export default function Validades() {
                             Linha antiga não tem o campo — daí o `> 1` em vez de
                             imprimir "1 etiqueta" em tudo que é histórico velho. */}
                         <p className="text-[11px] text-gray-500">
-                          lote <span className="font-mono">{e.id}</span>
-                          {e.copias > 1 && ` · ${e.copias} etiquetas`}
+                          código <span className="font-mono">{codigoLegivel(e.id)}</span>
+                          {e.copias > 1 && ` · restam ${embalagensRestantes(e)} de ${e.copias} embalagens`}
                           {e.medida && ` · ${e.medida}`}
                           {e.responsavel && ` · ${e.responsavel}`}
                         </p>
@@ -230,13 +223,9 @@ export default function Validades() {
                         empurrado para a direita. */}
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                       <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${st.cor}`}>{st.label}</span>
-                      <button onClick={() => marcar(e, 'consumida')}
-                        className="min-h-11 px-4 rounded-lg text-sm font-semibold text-polo-navy bg-gray-100 active:bg-gray-200">
-                        Marcar consumida
-                      </button>
-                      <button onClick={() => marcar(e, 'descartada')}
-                        className="min-h-11 px-4 rounded-lg text-sm font-semibold text-orange-800 bg-orange-50 border border-orange-200 ml-auto">
-                        Descartada
+                      <button onClick={() => setBaixando({ ...e, cozinha: modulo })}
+                        className="min-h-11 px-4 rounded-lg text-sm font-semibold text-polo-navy bg-gray-100 active:bg-gray-200 ml-auto">
+                        Dar baixa
                       </button>
                     </div>
                   </div>
@@ -246,6 +235,11 @@ export default function Validades() {
           )
         )}
       </div>
+      {baixando && (
+        <Dialogo aoFechar={() => setBaixando(null)} titulo="Dar baixa" forma="folha" largura="md">
+          <BaixaEtiqueta etq={baixando} onFeito={() => { setBaixando(null); toast('Baixa registrada.', 'sucesso'); }} />
+        </Dialogo>
+      )}
     </Layout>
   );
 }

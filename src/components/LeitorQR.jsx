@@ -3,16 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 /**
  * Leitor de QR pela câmera do aparelho.
  *
- * Usa a `BarcodeDetector` nativa (Chrome/Android, Edge) — zero dependência
- * nova, zero peso no bundle. Onde ela não existe (Safari/iOS até hoje, Firefox)
- * a tela avisa e a pessoa segue digitando: a contagem manual continua inteira,
- * o leitor é atalho, nunca requisito.
+ * Usa a `BarcodeDetector` nativa (Chrome/Android, Edge) — zero peso. Onde ela
+ * não existe (Safari/iOS, Firefox) usa o `jsQR`, carregado SÓ quando a câmera
+ * abre (30/09/2026, decisão do dono: leitor contínuo também no iPhone). Sem
+ * câmera nenhuma, a tela avisa e a pessoa segue pelo código digitado — o
+ * leitor é atalho, nunca requisito.
  *
  * `onLer(texto)` dispara a cada código NOVO — o mesmo código lido em sequência
- * é ignorado por alguns segundos, senão a câmera contaria o mesmo pote dezenas
- * de vezes enquanto a pessoa ainda está mirando.
+ * é ignorado por alguns segundos, senão a câmera lançaria a mesma embalagem
+ * dezenas de vezes enquanto a pessoa ainda está mirando.
  */
-const SUPORTADO = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+const NATIVO = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+const TEM_CAMERA = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
 const REPETIR_APOS_MS = 2500;
 
 export default function LeitorQR({ onLer, onFechar }) {
@@ -21,16 +23,23 @@ export default function LeitorQR({ onLer, onFechar }) {
   const [ativo, setAtivo] = useState(false);
 
   useEffect(() => {
-    if (!SUPORTADO) return;
+    if (!TEM_CAMERA) return undefined;
     let stream = null;
     let parar = false;
     let timer = null;
     const ultimos = new Map();
+    const avisar = (txt) => {
+      if (!txt) return;
+      const agora = Date.now();
+      if ((ultimos.get(txt) || 0) + REPETIR_APOS_MS > agora) return; // já lido agora há pouco
+      ultimos.set(txt, agora);
+      onLer?.(txt);
+    };
 
     (async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }, // câmera traseira no tablet
+          video: { facingMode: 'environment' }, // câmera traseira
         });
         if (parar) { stream.getTracks().forEach(t => t.stop()); return; }
         const v = videoRef.current;
@@ -39,21 +48,32 @@ export default function LeitorQR({ onLer, onFechar }) {
         await v.play();
         setAtivo(true);
 
-        const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+        // um jeito de ler por quadro: o nativo, ou o jsQR sobre um canvas
+        let lerQuadro;
+        if (NATIVO) {
+          const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+          lerQuadro = async () => (await detector.detect(v)).map(c => c.rawValue);
+        } else {
+          const { default: jsQR } = await import('jsqr');
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          lerQuadro = async () => {
+            // o quadro reduzido (lado maior 640): o QR da etiqueta é grande o
+            // bastante e o celular antigo não engasga
+            const escala = Math.min(1, 640 / Math.max(v.videoWidth || 1, v.videoHeight || 1));
+            const w = Math.max(1, Math.round((v.videoWidth || 0) * escala));
+            const h = Math.max(1, Math.round((v.videoHeight || 0) * escala));
+            if (w < 2 || h < 2) return [];
+            canvas.width = w; canvas.height = h;
+            ctx.drawImage(v, 0, 0, w, h);
+            const achado = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+            return achado?.data ? [achado.data] : [];
+          };
+        }
         const tick = async () => {
           if (parar) return;
-          try {
-            const codigos = await detector.detect(v);
-            const agora = Date.now();
-            codigos.forEach(c => {
-              const txt = c.rawValue;
-              if (!txt) return;
-              if ((ultimos.get(txt) || 0) + REPETIR_APOS_MS > agora) return; // já contado agora há pouco
-              ultimos.set(txt, agora);
-              onLer?.(txt);
-            });
-          } catch { /* quadro ruim — tenta no próximo */ }
-          timer = setTimeout(tick, 250);
+          try { (await lerQuadro()).forEach(avisar); } catch { /* quadro ruim — tenta no próximo */ }
+          timer = setTimeout(tick, NATIVO ? 250 : 200);
         };
         tick();
       } catch (e) {
@@ -70,14 +90,13 @@ export default function LeitorQR({ onLer, onFechar }) {
     };
   }, [onLer]);
 
-  if (!SUPORTADO) {
+  if (!TEM_CAMERA) {
     return (
       <div className="bg-amber-50 border border-amber-300 rounded-xl p-3">
         <p className="text-xs text-amber-800">
-          Este navegador não lê QR pela câmera. Funciona no <strong>Chrome do Android</strong>.
-          No iPhone, e em qualquer aparelho, dá para continuar digitando a contagem normalmente.
+          Este navegador não abre a câmera. Digite o código escrito embaixo do QR da etiqueta.
         </p>
-        <button onClick={onFechar} className="mt-2 text-xs font-semibold text-polo-navy underline underline-offset-2">
+        <button onClick={onFechar} className="mt-2 text-xs font-semibold text-polo-navy underline underline-offset-2 min-h-11">
           Fechar
         </button>
       </div>
@@ -95,10 +114,10 @@ export default function LeitorQR({ onLer, onFechar }) {
         <p className="text-[11px] text-white/90">
           {erro ? erro : ativo ? 'Aponte para o QR da etiqueta' : 'Abrindo a câmera…'}
         </p>
-        <button onClick={onFechar} className="text-xs font-bold text-polo-gold px-2 py-1">Fechar</button>
+        <button onClick={onFechar} className="text-xs font-bold text-polo-gold px-2 py-1 min-h-11">Fechar</button>
       </div>
     </div>
   );
 }
 
-export { SUPORTADO as LEITOR_QR_SUPORTADO };
+export { TEM_CAMERA as LEITOR_QR_SUPORTADO };

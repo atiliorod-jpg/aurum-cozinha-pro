@@ -15,6 +15,25 @@ import { interpretarTSPL, larguraDoTexto, alturaDoTexto, papelEmPontos } from '.
  * o HTML do `EtiquetaLabel` — mostrar este SVG ali seria trocar uma prévia
  * mentirosa por outra.
  */
+// Pinta um BITMAP do TSPL a partir dos bytes (bit 0 = preto): cada trecho
+// preto de uma linha vira um retângulo de 1 ponto de altura. É o QR da
+// etiqueta — o nome tem a própria imagem, logo abaixo.
+function caminhoDoBitmap(d) {
+  const larg = d.bytesPorLinha * 8;
+  const preto = (y, x) => ((d.dados.charCodeAt(y * d.bytesPorLinha + (x >> 3)) >> (7 - (x & 7))) & 1) === 0;
+  let caminho = '';
+  for (let y = 0; y < d.altura; y++) {
+    let x = 0;
+    while (x < larg) {
+      if (!preto(y, x)) { x++; continue; }
+      const ini = x;
+      while (x < larg && preto(y, x)) x++;
+      caminho += `M${d.x + ini} ${d.y + y}h${x - ini}v1h${ini - x}z`;
+    }
+  }
+  return caminho;
+}
+
 export default function EtiquetaTSPL({ tspl, nomeImagem = null }) {
   const { larguraMm, alturaMm, desenho } = useMemo(() => interpretarTSPL(tspl), [tspl]);
   const papel = papelEmPontos({ larguraMm, alturaMm });
@@ -35,8 +54,13 @@ export default function EtiquetaTSPL({ tspl, nomeImagem = null }) {
           width={nomeImagem.caixa.largura} height={nomeImagem.caixa.altura} />
       )}
       {desenho.map((d, i) => {
-        // Já desenhado pela imagem acima; os dados dele não passam por aqui.
-        if (d.tipo === 'bitmap') return null;
+        // O NOME já foi desenhado pela imagem acima; qualquer outro bitmap
+        // (o QR da baixa pela etiqueta) é pintado dos próprios bytes.
+        if (d.tipo === 'bitmap') {
+          const ehNome = nomeImagem && d.x === nomeImagem.caixa.x && d.y === nomeImagem.caixa.y;
+          if (ehNome || !d.dados) return null;
+          return <path key={i} d={caminhoDoBitmap(d)} fill="#000" shapeRendering="crispEdges" />;
+        }
         if (d.tipo === 'barra') {
           return <rect key={i} x={d.x} y={d.y} width={d.largura} height={d.altura} fill="#000" />;
         }

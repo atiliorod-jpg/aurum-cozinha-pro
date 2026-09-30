@@ -24,7 +24,10 @@ export const ALTURA_ETIQUETA_MM = 50;
 export const ETIQUETA_CONFIG_PADRAO = {
   larguraMm: LARGURA_ETIQUETA_MM,
   alturaMm: ALTURA_ETIQUETA_MM,
-  incluirQR: false,
+  // ⚠️ LIGADO desde 30/09/2026 (baixa pela etiqueta, M59) — mas SÓ O PRO
+  // imprime QR: quem decide é `qrNaEtiqueta`, que olha o plano. No plano
+  // Etiquetas não há tela que leia o código, e ele só ocuparia papel.
+  incluirQR: true,
   campos: {
     restaurante: true, validade: true, fabricacao: true, armazenamento: true,
     responsavel: true, marca: true, sif: true, estabelecimento: true,
@@ -260,32 +263,11 @@ export function totaisImpressos(lista = [], hojeISO) {
   };
 }
 
-// Acento vira 2 bytes no QR (UTF-8) e empurra a versão do código para cima.
-// Como o texto acentuado já está impresso em tamanho grande na etiqueta, o QR
-// usa a versão sem acento só para caber em menos módulos.
-const semAcento = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '');
-const corta = (s, n) => { const t = semAcento(s).trim(); return t.length > n ? `${t.slice(0, n - 1)}.` : t; };
-
-/**
- * Conteúdo do QR code — texto legível linha a linha ("Chave: valor").
- * Quem escanear com a câmera do celular vê a ficha da etiqueta na hora.
- *
- * ⚠️ PAYLOAD CURTO DE PROPÓSITO — é o que decide se o QR IMPRESSO escaneia.
- * O QR sai com ~20mm numa impressora térmica de 203 DPI (8 pontos/mm). Cada
- * "módulo" (quadradinho) precisa de ~4 pontos da impressora para sair com a
- * borda limpa; abaixo disso o leitor não pega, por mais correto que o
- * conteúdo esteja. Como o número de módulos cresce com o tamanho do texto:
- *
- *   11 campos, com acento e hora (212 ch) → versão 9-10, 53-57 módulos → 2,2 ❌
- *   5 campos, sem acento e sem hora (~100 ch) → versão 6, 41 módulos → 4,1-4,7 ✅
- *
- * Por isso aqui ficam só os campos que alguém precisaria LER na hora, e as
- * datas vão SEM hora. Armazenamento, hora, marca, SIF, CNPJ, medida e validade
- * do fornecedor continuam impressos na etiqueta em texto — só não entram no
- * QR, que não tem espaço físico para eles. Mexer nesta lista (ou nos limites
- * do `corta`) muda direto a legibilidade do código impresso.
- */
-export const QR_MAX_CARACTERES = 106;
+// ⚠️ O TAMANHO DO QR DECIDE SE ELE ESCANEIA. Térmica de 203 DPI: cada
+// módulo precisa de ~4 pontos para sair com borda limpa. O endereço do pote
+// (42 caracteres alfanuméricos) dá a versão 3 — 29 módulos, ~15 mm. O texto
+// antigo, uma ficha de ~100 caracteres, dava a versão 6 (41 módulos, ~22 mm).
+export const QR_MAX_CARACTERES = 42;
 
 /**
  * ID curto e único da ETIQUETA FÍSICA (o lote daquele pote).
@@ -336,26 +318,43 @@ export const gerarLoteId = () => {
   return `${t}${c}${r}`.toLowerCase();
 };
 
+// ── O QR da etiqueta (30/09/2026, baixa pela etiqueta — M59) ─────
+//
+// ⚠️ O QR VIROU ENDEREÇO. Era uma ficha em texto ("Prod: ... Val: ... L: id")
+// que a câmera do celular só MOSTRAVA — ninguém fazia nada com ela, e o
+// código ficava grande (versão 6, ~22 mm). Agora é o endereço do pote no app:
+// a câmera comum de qualquer celular (iPhone inclusive) abre a etiqueta com os
+// botões de baixa. O texto que importa continua IMPRESSO na etiqueta.
+//
+// ⚠️ EM MAIÚSCULAS DE PROPÓSITO. Com só A-Z, 0-9 e ":/." o QR usa o modo
+// alfanumérico, que gasta ~5,5 bits por letra em vez de 8: 42 caracteres cabem
+// na versão 3 (29 módulos) com correção M. Endereço e domínio não ligam para
+// maiúscula; o código do pote é lido de volta em minúsculas.
+export const ENDERECO_DA_ETIQUETA = 'https://app.aurumcozinha.com.br/q/';
+
+/** Conteúdo do QR: o endereço do pote, ou vazio se não há código. */
 export function montarPayloadQR(campos) {
-  // Orçamento apertado de propósito — ver o bloco acima sobre pontos/módulo.
-  // O nome do RESTAURANTE saiu daqui quando o id de lote entrou: ele já aparece
-  // em destaque na etiqueta impressa, e quem escaneia está dentro da própria
-  // cozinha. Trocar 22 caracteres de redundância pelo id foi o que manteve o
-  // código na versão 6 (41 módulos, 4,3 pontos/módulo).
-  const linhas = [
-    `Prod: ${corta(campos.nome, 26)}`,
-    campos.dataFabricacao ? `${campos.rotuloData === 'ABERTURA' ? 'Abert' : 'Manip'}: ${fmtData(campos.dataFabricacao)}` : null,
-    campos.validade ? `Val: ${fmtData(campos.validade)}` : null,
-    campos.responsavel ? `Resp: ${corta(campos.responsavel, 12)}` : null,
-    campos.loteId ? `L: ${campos.loteId}` : null,
-  ];
-  return linhas.filter(Boolean).join('\n');
+  const id = String(campos?.loteId || '').trim().toLowerCase();
+  if (!/^[a-z0-9]{4,12}$/.test(id)) return '';
+  return `${ENDERECO_DA_ETIQUETA}${id}`.toUpperCase();
 }
 
-/** Lê de volta o id de lote de um QR escaneado. */
+/**
+ * Lê de volta o código do pote de um QR escaneado ou digitado.
+ * Aceita o endereço novo (qualquer caixa, com ou sem https://), o código puro
+ * de 8 letras (digitado da etiqueta) e o QR antigo em texto ("L: id").
+ */
 export function lerLoteIdDoQR(texto) {
-  const m = String(texto || '').match(/^L:\s*([a-z0-9]{4,12})$/im);
-  return m ? m[1].toLowerCase() : null;
+  const t = String(texto || '').trim();
+  if (!t) return null;
+  const url = t.match(/^(?:https?:\/\/)?app\.aurumcozinha\.com\.br\/q\/([a-z0-9]{4,12})\/?$/i);
+  if (url) return url[1].toLowerCase();
+  const antigo = t.match(/^L:\s*([a-z0-9]{4,12})$/im);
+  if (antigo) return antigo[1].toLowerCase();
+  // digitado: só o código, com ou sem espaços/hífen no meio
+  const puro = t.replace(/[\s-]/g, '');
+  if (/^[a-z0-9]{8}$/i.test(puro)) return puro.toLowerCase();
+  return null;
 }
 
 // ── Medida impressa na etiqueta ───────────────────────────────

@@ -62,8 +62,13 @@ export function interpretarTSPL(texto) {
     if (cab) {
       const bytesPorLinha = +cab[3];
       const altura = +cab[4];
-      desenho.push({ tipo: 'bitmap', x: +cab[1], y: +cab[2], bytesPorLinha, altura });
-      pos += cab[0].length + bytesPorLinha * altura;
+      const inicioDados = pos + cab[0].length;
+      desenho.push({
+        tipo: 'bitmap', x: +cab[1], y: +cab[2], bytesPorLinha, altura,
+        // os bytes do desenho, para a prévia pintar o que não é o nome (o QR)
+        dados: s.slice(inicioDados, inicioDados + bytesPorLinha * altura),
+      });
+      pos = inicioDados + bytesPorLinha * altura;
       // o CRLF que fecha o comando
       if (s[pos] === '\r') pos += 1;
       if (s[pos] === '\n') pos += 1;

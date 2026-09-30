@@ -81,9 +81,9 @@ describe('telas e instalação mais leves', () => {
     expect(tela).toMatch(/const buscaAdiada = useDeferredValue\(busca\);/);
   });
 
-  it('o app instalado não baixa a planilha nem o painel da Aurum', () => {
+  it('o app instalado não baixa a planilha, o painel da Aurum nem o leitor de QR do iPhone', () => {
     const cfg = ler('../../../vite.config.js');
-    expect(cfg).toMatch(/globIgnores: \['\*\*\/xlsx-\*\.js', '\*\*\/Admin-\*\.js', 'icon-\*\.png'\]/);
+    expect(cfg).toMatch(/globIgnores: \['\*\*\/xlsx-\*\.js', '\*\*\/Admin-\*\.js', '\*\*\/jsQR-\*\.js', 'icon-\*\.png'\]/);
     expect(cfg).toMatch(/handler: 'CacheFirst'/);
   });
 });
