@@ -199,8 +199,9 @@ describe('as travas no código', () => {
     expect(app).toMatch(/kind: 'baixaEtiqueta', op: 'rpc'/);
     // etiqueta impressa sem internet: a baixa espera atrás dela na fila
     expect(app).toMatch(/i\.kind === 'etiquetas' && \(i\.payload\?\.itens \|\| \[\]\)\.some\(e => e\.id === etq\.id\)/);
-    // desfazer de baixa que nem subiu: só tira da fila
-    expect(app).toMatch(/if \(pendente\) \{ outboxSet\(r, fila\.filter\(i => i !== pendente\)\); return; \}/);
+    // desfazer de baixa na fila (M61): tira da fila E pede ao banco — ela pode
+    // ter chegado antes de a internet cair; se não chegou, fica a marca
+    expect(app).toMatch(/if \(pendente\) outboxSet\(r, fila\.filter\(i => i !== pendente\)\);\s+const naFila = \(\) => outboxAdd\(r, \{ kind: 'desfazerBaixa'/);
   });
 
   it('o banco: atômico, idempotente, a cozinha e o item vêm da etiqueta, desfazer e Histórico coerentes', () => {

@@ -10,6 +10,7 @@ import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, diasAte } from '../utils/datas';
 import { partirPorValidade } from '../utils/lotes';
 import { tipoBase } from '../utils/modulos';
+import { avisoAoApagarRemessa } from '../utils/posse';
 import { casaBusca } from '../utils/busca';
 
 
@@ -53,6 +54,12 @@ export default function Saidas() {
   const paraFinalizacao = tipoBase(destino) === 'finalizacao';
   const porValidadeDe = (produtoId, quantidade) =>
     (paraFinalizacao ? partirPorValidade(quantidade, lotes[produtoId]) : []);
+  // ⚠️ A FINALIZAÇÃO JÁ DEU ENTRADA PELO QR (M61): lançar de novo aqui
+  // contaria a mesma comida duas vezes. Avisa o que ela recebeu hoje.
+  const jaRecebidoHoje = (produtoId) => (paraFinalizacao ? saidas : [])
+    .filter(s => s.recebidaPelaFinalizacao && s.destino === destino && s.data === hoje()
+      && (s.itens || []).some(i => i.produtoId === produtoId))
+    .reduce((t, s) => t + (s.itens || []).filter(i => i.produtoId === produtoId).reduce((u, i) => u + (Number(i.quantidade) || 0), 0), 0);
 
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
   const registrar = () => {
@@ -284,6 +291,11 @@ export default function Saidas() {
                         {partes.map(x => `${fmtNum(x.quantidade)} vence ${fmtData(x.validade)}`).join(' + ')}
                       </p>
                     )}
+                    {jaRecebidoHoje(id) > 0 && (
+                      <p className="text-[11px] font-semibold text-amber-800">
+                        A Finalização já deu entrada pelo QR de {fmtNum(jaRecebidoHoje(id))} {p?.unidade} hoje. Não lance de novo o que ela já recebeu.
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -310,7 +322,10 @@ export default function Saidas() {
                   </div>
                   {podeRemover && (
                   <button onClick={async () => {
-                      const ok = await confirm({ titulo: 'Remover saída', mensagem: 'Remover esta saída? O estoque será recalculado.', perigo: true, confirmar: 'Remover' });
+                      const aviso = avisoAoApagarRemessa(s);
+                      const ok = await confirm({ titulo: 'Remover saída', mensagem: `Remover esta saída? O estoque será recalculado.${aviso ? `
+
+${aviso}` : ''}`, perigo: true, confirmar: 'Remover' });
                       if (ok) {
                         removeSaida(s.id);
                         toast('Saída removida.', 'sucesso', { acao: { label: 'Desfazer', onClick: () => restaurarRegistro('saida', s) } });

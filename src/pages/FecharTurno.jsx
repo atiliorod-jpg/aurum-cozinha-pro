@@ -4,6 +4,7 @@ import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import ResponsavelSelect from '../components/ResponsavelSelect';
+import AConferir from '../components/AConferir';
 import { hoje, fmtHora, fmtNum, fmtData } from '../utils/formatters';
 import { turnoAberto, consumoDoTurno, linhasParaGravar } from '../utils/turno';
 import { plural } from '../utils/formatters';
@@ -18,7 +19,7 @@ const TURNOS = ['Almoço', 'Jantar'];
  * vira a abertura do próximo turno.
  */
 export default function FecharTurno() {
-  const { produtos, recebimentos, desperdicio, ajustes, addAjuste, prefs, setPref } = useApp();
+  const { produtos, recebimentos, desperdicio, ajustes, addAjuste, prefs, setPref, conferenciaAqui } = useApp();
   const { toast, confirm } = useUI();
 
   const [data, setData] = useState(hoje());
@@ -85,6 +86,14 @@ export default function FecharTurno() {
             Conte o que <strong>sobrou na bancada</strong>.
           </p>
         </div>
+
+        {/* ⚠️ ANTES DE CONTAR (M61, conferência ligada): o que a Produção
+            mandou e ninguém conferiu. "Não chegou" vira perda — e precisa
+            entrar ANTES da contagem, senão o turno contaria como consumo. */}
+        {conferenciaAqui && (
+          <AConferir titulo="Antes de contar: a conferir"
+            explicacao="A Produção mandou e ninguém conferiu. Resolva antes de contar a sobra — o que não chegou vira perda, não consumo." />
+        )}
 
         <Botao onClick={fechar} disabled={salvando || !aberto.linhas.length}>
           {salvando ? 'Fechando…' : 'Fechar turno'}

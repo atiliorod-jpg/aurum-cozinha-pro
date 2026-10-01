@@ -9,6 +9,7 @@ import { fmtData, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
 import { pode } from '../utils/permissoes';
 import { casaBusca } from '../utils/busca';
+import { avisoAoApagarRemessa } from '../utils/posse';
 
 export default function Historico() {
   const {
@@ -119,7 +120,10 @@ export default function Historico() {
   };
 
   const handleRemover = async (ev) => {
-    const ok = await confirm({ titulo: 'Remover registro', mensagem: 'Remover este lançamento? O estoque será recalculado.', perigo: true, confirmar: 'Remover' });
+    const aviso = ev.grupo === 'saidas' ? avisoAoApagarRemessa(ev.r) : '';
+    const ok = await confirm({ titulo: 'Remover registro', mensagem: `Remover este lançamento? O estoque será recalculado.${aviso ? `
+
+${aviso}` : ''}`, perigo: true, confirmar: 'Remover' });
     if (!ok) return;
     const undo = ev.remover();
     if (undo?.producao) {

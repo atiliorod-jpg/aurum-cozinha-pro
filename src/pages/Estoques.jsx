@@ -34,7 +34,7 @@ import { CartaoEquipeDasUnidades } from '../components/config/CartoesConfig';
  * mantém tudo legível no histórico.
  */
 export default function Estoques() {
-  const { estoques, estoquesDoc, setEstoquesDoc, unidades } = useApp();
+  const { estoques, estoquesDoc, setEstoquesDoc, unidades, setConferenciaDaFinalizacao } = useApp();
   const { sessao, impersonando } = useAuth();
   const { toast, confirm } = useUI();
   const [criando, setCriando] = useState(null);   // { unidade, tipo }
@@ -122,6 +122,16 @@ export default function Estoques() {
     toast('Pronto. A etiqueta sai com o nome da conta.', 'sucesso');
   };
 
+  // ⚠️ A CONFERÊNCIA PELO QR É DE CADA FINALIZAÇÃO (decisão do dono, 01/10/2026):
+  // uma unidade pode usar e outra não. Fica no documento `estoques`, que só a
+  // diretoria grava — e o banco lê a mesma chave antes de deixar dar entrada.
+  const alternarConferencia = (e, ligada) => {
+    setConferenciaDaFinalizacao(e.id, ligada);
+    toast(ligada
+      ? `Conferência ligada em ${e.nome}: a equipe recebe lendo o QR.`
+      : `Conferência desligada em ${e.nome}.`, 'sucesso');
+  };
+
   const campo = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
 
   return (
@@ -202,6 +212,20 @@ export default function Estoques() {
                             : <button onClick={() => arquivar(e)}
                                 className="text-[11px] font-semibold text-gray-500 px-2 py-1 rounded hover:bg-gray-50 flex-shrink-0">Arquivar</button>)}
                         </div>
+                        {e.tipo === 'finalizacao' && !e.arquivado && !g.arquivada && (
+                          <label className="flex items-start gap-2.5 min-h-11 pt-2 mt-1 border-t border-gray-100 cursor-pointer">
+                            <input type="checkbox" checked={!!estoquesDoc?.receberPeloQR?.[e.id]}
+                              onChange={ev => alternarConferencia(e, ev.target.checked)}
+                              className="mt-0.5 w-5 h-5 flex-shrink-0 accent-polo-navy" />
+                            <span className="text-xs text-gray-700">
+                              <strong className="text-polo-navy">Conferir pelo QR o que chega da Produção</strong>
+                              <span className="block text-[11px] text-gray-600 mt-0.5">
+                                A equipe lê as embalagens ao receber. O que a Produção não lançou dá entrada na hora, e o
+                                que foi mandado e não chegou aparece no Fechar Turno.
+                              </span>
+                            </span>
+                          </label>
+                        )}
                         {e.estabelecimento && (
                           <div className="bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
                             <p className="text-[11px] text-amber-900 min-w-0">

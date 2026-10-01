@@ -33,7 +33,7 @@ const FILTROS = [
  * permite achar o pote específico na prateleira.
  */
 export default function Validades() {
-  const { produtos, estoque, lotes, etiquetasImpressas, modulo } = useApp();
+  const { produtos, estoque, lotes, etiquetasImpressas, modulo, embalagensAqui } = useApp();
   const navigate = useNavigate();
   const { toast } = useUI();
   // a etiqueta na folha "Dar baixa" (a mesma da leitura do QR)
@@ -78,8 +78,11 @@ export default function Validades() {
     .sort((a, b) => a.produto.nome.localeCompare(b.produto.nome)),
   [produtos, estoque, lotes]);
 
+  // ⚠️ NA FINALIZAÇÃO, AS QUE VIERAM DA PRODUÇÃO TAMBÉM (M61): a lista era só
+  // das etiquetas impressas aqui — a embalagem mandada pela Produção não
+  // aparecia em lugar nenhum desta cozinha
   const linhasEtiquetas = useMemo(() => {
-    return (etiquetasImpressas || [])
+    return [...(etiquetasImpressas || []), ...(embalagensAqui || [])]
       .map(e => ({ ...e, st: statusEtiqueta(e, hj) }))
       .filter(e => {
         if (e.st === 'consumida' || e.st === 'descartada') return false;
@@ -87,7 +90,7 @@ export default function Validades() {
         return soVencidos ? e.validade < hj : (e.validade >= hj && e.validade <= limite);
       })
       .sort((a, b) => a.validade.localeCompare(b.validade));
-  }, [etiquetasImpressas, limite, soVencidos, hj]);
+  }, [etiquetasImpressas, embalagensAqui, limite, soVencidos, hj]);
 
   // Quais abas existem aqui.
   //  • Estoque Seco não tem etiqueta (mantimento chega lacrado e já etiquetado
@@ -244,7 +247,9 @@ export default function Validades() {
                             imprimir "1 etiqueta" em tudo que é histórico velho. */}
                         <p className="text-[11px] text-gray-500">
                           código <span className="font-mono">{codigoLegivel(e.id)}</span>
-                          {e.copias > 1 && ` · restam ${embalagensRestantes(e)} de ${e.copias} embalagens`}
+                          {e.naFinalizacao
+                            ? ` · veio da Produção${e.copias > 1 ? ` · ${e.copias} embalagens aqui` : ''}`
+                            : e.copias > 1 && ` · restam ${embalagensRestantes(e)} de ${e.copias} embalagens`}
                           {e.medida && ` · ${e.medida}`}
                           {e.responsavel && ` · ${e.responsavel}`}
                         </p>
@@ -261,7 +266,7 @@ export default function Validades() {
                         empurrado para a direita. */}
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                       <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${st.cor}`}>{st.label}</span>
-                      <button onClick={() => setBaixando({ ...e, cozinha: modulo })}
+                      <button onClick={() => setBaixando(e.naFinalizacao ? e : { ...e, cozinha: modulo })}
                         className="min-h-11 px-4 rounded-lg text-sm font-semibold text-polo-navy bg-gray-100 active:bg-gray-200 ml-auto">
                         Dar baixa
                       </button>

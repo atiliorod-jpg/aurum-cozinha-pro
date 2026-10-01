@@ -224,19 +224,45 @@ deixando o MAIS NOVO; "Descongelei" e "Devolver à Produção" ficam para depois
   O Fechar Turno já avisa "sobra maior que o disponível".
 - Robô novo `e2e/validadeFinalizacao.pw.js`; 836 testes + 14 do robô.
 
-**Lote B (próximo, M61):** posse da embalagem na Finalização (Perda/Usado lá
-descontam do estoque dela), "Receber" no servidor (`receber_etiqueta`: confere
-a remessa pelo QR / liga à saída manual / dá entrada), conferência por
-Finalização com "A conferir" no topo do Fechar Turno e "Não chegou". Achados
-da revisão adversarial a respeitar: NÃO mudar a assinatura de
-`baixar_etiqueta` (cria sobrecarga → PGRST203); gatilho por
-`etiqueta_baixas.registro_id`, não por `dados.baixaId`; vínculo com saída
-manual em coluna própria (nunca apagar a saída ao desfazer o vínculo);
-absorver a saída da Produção que sobe depois de um "Dar entrada"; desfazer na
-Finalização nunca mexe no contador da Produção; reconferir idempotência depois
-do `for update`; chave guardada num mapa na RAIZ do documento `estoques`
-(`salvarEstoque` apaga campo desconhecido do item); motivos novos tratados
-nos dois caminhos (direto e fila).
+**Lote B (FEITO no código, commit LOCAL, NÃO publicado — falta aplicar a M61):**
+- ⚠️ O `SUPABASE_ACCESS_TOKEN` do `.env.local` passou a responder
+  "Unauthorized" em 01/10 (venceu ou foi revogado). O dono precisa gerar um
+  novo token em supabase.com/dashboard/account/tokens e trocar a linha no
+  `.env.local` (Claude não digita token). Depois:
+  1. `node <scratchpad>/m61-conferir.mjs` (testa a M61 SEM aplicar: corpo +
+     16 cenários numa transação que termina em RAISE); copiar o script se o
+     scratchpad sumir — ele está descrito aqui: etiquetas tm61a/b/c/s, chave
+     ligada, saída QR → conferir → entrada → perda/usado no destino →
+     absorção da saída atrasada → vínculo com saída à mão → apagar/restaurar
+     → não chegou → chave desligada → tombstone do desfazer.
+  2. `node scripts/rodar-migracao.mjs 61`, conferir de novo com `--depois`.
+  3. `git push` (o deploy roda os 16 testes do robô).
+- **M61** `migration61_embalagem_na_finalizacao.sql`: `etiqueta_baixas` ganha
+  cozinha/destino/saida_vinculada/remessa_id/quantidade/conferida_em/
+  absorvida/absorvidas/detalhe e as ações entrada/vinculo/conferida;
+  `_posse_no_destino`; `baixar_etiqueta` (MESMA assinatura) guarda o destino,
+  grava `potes` e `etiqueta{nome,medida}` na saída, absorve a entrada que a
+  Finalização deu antes, reconfere idempotência depois da trava;
+  `receber_etiqueta` (o banco decide: conferida → vínculo com saída à mão de
+  até 3 dias e impressa antes → entrada, esta só com `receberPeloQR` ligado no
+  documento `estoques`); `baixar_no_destino` (perda vira
+  `finalizacao…:perda`; usado anota `usadas` na remessa); `conferir_remessa`;
+  `desfazer_baixa` com marca de desfeita (tombstone) e `usada_no_destino`;
+  gatilho por `registro_id/saida_vinculada/remessa_id`; restaurar não religa
+  vínculo nem "usado" (`_remessa_restaurada`).
+- App: `utils/posse.js` (embalagensNaCozinha com teto do saldo,
+  pendentesDeConferencia, decidirRecebimento = palpite, aplicarFilaNosRecebimentos,
+  avisoAoApagarRemessa); AppContext: receberEtiqueta/baixarNoDestino/
+  conferirRemessa/setConferenciaDaFinalizacao + memos conferenciaAqui/
+  embalagensAqui/pendentesConferir; fila com 3 tipos novos, ordem por
+  etiqueta e "tipo desconhecido" vira erro; desfazer de item na fila também
+  pede ao banco; demonstração acha etiqueta de outra cozinha no cache.
+  Telas: BaixaEtiqueta (Finalização: Perda/Usado daqui, "Ainda na Produção" →
+  Receber aqui / perda na Produção), Ler etiquetas (modo Receber, A conferir),
+  Validades (embalagens que vieram da Produção), Fechar Turno (A conferir no
+  topo), Unidades e cozinhas (chave por Finalização), Histórico/Saídas avisam
+  ao apagar remessa já tocada pela Finalização, Saídas avisa entrada já dada.
+- 854 testes + 16 do robô (novo `e2e/embalagemNaFinalizacao.pw.js`).
 
 ## Onde paramos (30/09/2026, noite) — BAIXA PELA ETIQUETA (M59, só Pro)
 

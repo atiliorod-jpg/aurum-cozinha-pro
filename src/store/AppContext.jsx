@@ -26,10 +26,15 @@ import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
 import { calcLotes } from '../utils/lotes';
+import {
+  conferenciaDe, comConferencia, embalagensNaCozinha, pendentesDeConferencia, ultimoFechamentoTs,
+  decidirRecebimento, remessaConferida, remessaSemConferencia, remessaComVinculo, remessaSemVinculo,
+  remessaComUsadas, remessaDaEmbalagem, aplicarFilaNosRecebimentos,
+} from '../utils/posse';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 import { armazenamentosAtivos, comEspelhoDePrazos } from '../utils/armazenamento';
 import { hoje, fmtHora } from '../utils/formatters';
-import { registroDaBaixa, novaBaixaId, copiasDaEtiqueta, codigoLegivel, candidatosDoCodigo } from '../utils/baixaEtiqueta';
+import { registroDaBaixa, novaBaixaId, copiasDaEtiqueta, codigoLegivel, candidatosDoCodigo, normalizarCodigo } from '../utils/baixaEtiqueta';
 import { pode } from '../utils/permissoes';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
@@ -137,6 +142,13 @@ const MOTIVO_BAIXA_DESFEITA = {
   poucos_potes: 'Não há tantas embalagens com este código. A baixa foi desfeita.',
   avulsa: 'Esta etiqueta não tem item do estoque. A baixa foi desfeita.',
   nao_encontrada: 'O banco não achou esta etiqueta. A baixa foi desfeita.',
+  // o lado da Finalização (M61)
+  ja_recebida: 'Esta embalagem já tinha sido recebida aqui.',
+  ja_saiu: 'Todas as embalagens deste código já tinham saído da Produção.',
+  nao_saiu: 'A Produção ainda não deu saída desta embalagem e a conferência desta Finalização está desligada.',
+  outra_cozinha: 'Esta etiqueta não é da Produção.',
+  nao_esta_aqui: 'Esta embalagem não está nesta Finalização. A baixa foi desfeita.',
+  usada_no_destino: 'A Finalização já usou ou perdeu esta embalagem: corrija por lá primeiro.',
 };
 
 // Modo demonstração: rid 'demo' NUNCA fala com o Supabase — tudo fica só no
@@ -332,7 +344,7 @@ export function AppProvider({ children }) {
   // devolvia sempre { catalogo: <lista com mín/máx dentro>, metas: null }, e o
   // documento `metas` nunca era gravado — o mín/máx de um restaurante ia para a
   // chave compartilhada por tipo e sobrescrevia o do outro, em silêncio.
-  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria, unidades };
+  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria, unidades, recebimentos, estoquesDoc };
   /* eslint-enable react-hooks/refs */
 
   // Só lê refs (estáveis) — identidade fixa para entrar nos deps dos callbacks.
@@ -759,7 +771,10 @@ export function AppProvider({ children }) {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return null; }
     if (!etq?.id || !['saida', 'perda', 'usada'].includes(acao)) return null;
     const r = ridRef.current;
-    const cozinha = moduloRef.current;
+    // ⚠️ A COZINHA DA BAIXA É A DONA DA ETIQUETA (M61): da Finalização dá
+    // para registrar a perda de uma embalagem que ainda está na Produção — o
+    // lançamento vai para o estoque de lá (o banco decide igual)
+    const cozinha = etq.cozinha || moduloRef.current;
     const baixaId = novaBaixaId();
     let registro = null;
     if (acao !== 'usada') {
@@ -799,29 +814,6 @@ export function AppProvider({ children }) {
     return b;
   }, [mexerNaBaixaLocal, recusarBaixa, logAudit]);
 
-  /** Desfaz uma baixa (o "Desfazer" do aviso; até 24 horas). */
-  const desfazerBaixa = useCallback((b) => {
-    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; }
-    if (!b?.baixaId) return;
-    const r = ridRef.current;
-    mexerNaBaixaLocal(b, -1);
-    logAudit('desfez baixa pela etiqueta', `${b.nome || ''} · ${codigoLegivel(b.etiquetaId)}`);
-    if (!nuvemDe(r)) return;
-    // ainda na fila (sem internet): nunca chegou ao banco — basta tirar de lá
-    const fila = outboxGet(r);
-    const pendente = fila.find(i => !i._morto && i.kind === 'baixaEtiqueta' && i.payload?.args?.p_baixa === b.baixaId);
-    if (pendente) { outboxSet(r, fila.filter(i => i !== pendente)); return; }
-    const naFila = () => outboxAdd(r, { kind: 'desfazerBaixa', op: 'rpc', payload: { p_baixa: b.baixaId } });
-    supabase.rpc('desfazer_baixa', { p_baixa: b.baixaId }).then(({ data, error }) => {
-      if (error) { naFila(); return; }
-      // a baixa ainda está a caminho do banco: desfaz quando ela chegar
-      if (data?.ok === false && data.motivo === 'nao_encontrada') naFila();
-      if (data?.ok === false && data.motivo === 'antiga') {
-        mexerNaBaixaLocal(b, +1);
-        avisaBaixaDesfeita('Passaram mais de 24 horas: corrija esta baixa pelo Histórico.');
-      }
-    }, naFila);
-  }, [mexerNaBaixaLocal, logAudit]);
 
   /**
    * A etiqueta pelo código, direto do banco — para o QR de uma etiqueta que
@@ -829,6 +821,18 @@ export function AppProvider({ children }) {
    * Devolve a etiqueta com a `cozinha` dona, ou null.
    */
   const buscarEtiqueta = useCallback(async (id) => {
+    // ⚠️ DEMONSTRAÇÃO (sem banco): procura nas listas das cozinhas guardadas
+    // neste aparelho — senão a Finalização da demo nunca acharia a etiqueta
+    // impressa na Produção, e o "Receber" não teria como ser mostrado
+    if (ridRef.current === 'demo' && id) {
+      const alvo = normalizarCodigo(id);
+      for (const e of estoquesRef.current) {
+        const achada = cacheGet('demo', chaveModulo(e.id, 'etiquetasImpressas'), [])
+          .find(x => x && (x.id === id || normalizarCodigo(x.id) === alvo));
+        if (achada) return { ...achada, cozinha: e.id };
+      }
+      return null;
+    }
     const r = nuvemDe(ridRef.current);
     if (!r || !id) return null;
     // o código exato e as variações com letra parecida (O/0, I/L/1): o
@@ -840,6 +844,317 @@ export function AppProvider({ children }) {
     const linha = data.find(l => l.id === id) || (data.length === 1 ? data[0] : null);
     return linha ? { ...linhaParaEtiqueta(linha), cozinha: linha.cozinha } : null;
   }, []);
+
+  // ── A EMBALAGEM NA FINALIZAÇÃO (M61, 2ª etapa, 01/10/2026) ───────────
+  // Muda uma remessa (a saída da Produção para cá) neste aparelho: na lista
+  // aberta e no cache da Produção onde ela mora (a demonstração monta os
+  // recebimentos de lá). Na conta real o banco grava a mesma coisa e a versão
+  // dele chega pelo tempo real.
+  const mudarRemessaLocal = useCallback((registroId, fn) => {
+    const r = ridRef.current;
+    if (!r || !registroId) return;
+    const chaveReceb = chaveModulo(moduloRef.current, 'recebimentos');
+    setRecebimentosRaw(prev => {
+      if (!prev.some(x => x.id === registroId)) return prev;
+      const l = prev.map(x => (x.id === registroId ? fn(x) : x));
+      cacheSet(r, chaveReceb, l);
+      return l;
+    });
+    estoquesRef.current.filter(e => e.tipo === MODULO_PADRAO).forEach(e => {
+      const chave = chaveModulo(e.id, 'saidas');
+      const semente = r === 'demo' && !ehIdInstancia(e.id) ? (gerarDemoSeed(MODULO_PADRAO).registros.saidas || []) : null;
+      const lista = cacheGet(r, chave, semente);
+      if (Array.isArray(lista) && lista.some(x => x.id === registroId)) {
+        cacheSet(r, chave, lista.map(x => (x.id === registroId ? fn(x) : x)));
+      }
+    });
+  }, []);
+
+  // A remessa NOVA do "Receber" (a Produção não tinha lançado): entra nos
+  // recebimentos daqui e nas saídas da Produção dona da etiqueta.
+  const remessaNovaLocal = useCallback((reg, cozinhaDona, sinal) => {
+    const r = ridRef.current;
+    if (!r || !reg || !cozinhaDona) return;
+    const chaveReceb = chaveModulo(moduloRef.current, 'recebimentos');
+    setRecebimentosRaw(prev => {
+      const sem = prev.filter(x => x.id !== reg.id);
+      const l = sinal > 0 ? [...sem, reg].sort((a, b) => (a.ts || 0) - (b.ts || 0)) : sem;
+      cacheSet(r, chaveReceb, l);
+      return l;
+    });
+    const chave = chaveModulo(cozinhaDona, 'saidas');
+    const semente = r === 'demo' && !ehIdInstancia(cozinhaDona) ? (gerarDemoSeed(MODULO_PADRAO).registros.saidas || []) : [];
+    const lista = (cacheGet(r, chave, semente) || []).filter(x => x.id !== reg.id);
+    cacheSet(r, chave, sinal > 0 ? [...lista, reg] : lista);
+    if (nuvemDe(r)) {
+      acompanharBrutos(sinal > 0
+        ? { id: reg.id, restaurante_id: r, tipo: tipoModulo(cozinhaDona, 'saida'), ts: reg.ts, dados: semIdTs(reg), deleted: false }
+        : { id: reg.id, restaurante_id: r, deleted: true });
+    }
+  }, [acompanharBrutos]);
+
+  // o contador da etiqueta na cozinha dona (Produção), se este aparelho a tem
+  const mexerContadorLocal = useCallback((cozinha, etiquetaId, potes, sinal) => {
+    const r = ridRef.current;
+    if (!r || !cozinha || !etiquetaId) return;
+    const chaveEtq = chaveModulo(cozinha, 'etiquetasImpressas');
+    const muda = (lista) => (lista || []).map(e => {
+      if (e.id !== etiquetaId) return e;
+      const copias = copiasDaEtiqueta(e);
+      const baixadas = Math.min(copias, Math.max(0, (parseInt(e.baixadas, 10) || 0) + sinal * potes));
+      return { ...e, baixadas, status: baixadas >= copias ? 'consumida' : 'valida' };
+    });
+    if (moduloRef.current === cozinha) setEtiquetasImpressasRaw(prev => { const l = muda(prev); cacheSet(r, chaveEtq, l); return l; });
+    else cacheSet(r, chaveEtq, muda(cacheGet(r, chaveEtq, [])));
+  }, []);
+
+  const mexerNoRecebimentoLocal = useCallback((b, sinal) => {
+    if (!b) return;
+    if (b.caso === 'conferida') {
+      (b.registros || []).forEach(id => mudarRemessaLocal(id, (x) => (sinal > 0
+        ? remessaConferida(x, b.produtoId, b.quem) : remessaSemConferencia(x, b.produtoId))));
+    } else if (b.caso === 'vinculo') {
+      mudarRemessaLocal(b.registroId, (x) => (sinal > 0
+        ? remessaConferida(remessaComVinculo(x, b.vinculo), b.produtoId, b.quem) : remessaSemVinculo(x, b.baixaId)));
+    } else if (b.caso === 'entrada') {
+      remessaNovaLocal(b.registro, b.cozinhaDona, sinal);
+    }
+    if (b.caso === 'vinculo' || b.caso === 'entrada') mexerContadorLocal(b.cozinhaDona, b.etiquetaId, b.potes, sinal);
+  }, [mudarRemessaLocal, remessaNovaLocal, mexerContadorLocal]);
+
+  const mexerNoDestinoLocal = useCallback((b, sinal) => {
+    const r = ridRef.current;
+    if (!r || !b) return;
+    if (b.acao === 'usada') {
+      if (b.remessaId) mudarRemessaLocal(b.remessaId, (x) => remessaComUsadas(x, b.etiquetaId, sinal * b.potes));
+      return;
+    }
+    if (!b.registro) return;
+    const chave = chaveModulo(b.cozinha, 'desperdicio');
+    const muda = (lista) => (sinal > 0
+      ? [...(lista || []).filter(x => x.id !== b.registro.id), b.registro]
+      : (lista || []).filter(x => x.id !== b.registro.id));
+    if (moduloRef.current === b.cozinha) setDesperdicioRaw(prev => { const l = muda(prev); cacheSet(r, chave, l); return l; });
+    else cacheSet(r, chave, muda(cacheGet(r, chave, [])));
+    if (nuvemDe(r)) {
+      acompanharBrutos(sinal > 0
+        ? { id: b.registro.id, restaurante_id: r, tipo: tipoModulo(b.cozinha, 'perda'), ts: b.registro.ts, dados: semIdTs(b.registro), deleted: false }
+        : { id: b.registro.id, restaurante_id: r, deleted: true });
+    }
+  }, [mudarRemessaLocal, acompanharBrutos]);
+
+  // o banco respondeu ao "Receber": se o caminho dele foi outro, desfaz o
+  // palpite (a versão dele chega pelo tempo real); se recusou, desfaz e avisa
+  const resultadoDoRecebimento = useCallback((b, data) => {
+    if (!b || !data) return;
+    if (data.ok === false) {
+      mexerNoRecebimentoLocal(b, -1);
+      avisaBaixaDesfeita(MOTIVO_BAIXA_DESFEITA[data.motivo] || `O recebimento não foi aceito: ${data.motivo}`);
+      return;
+    }
+    if (data.repetida || !data.caso || data.caso === b.caso) return;
+    mexerNoRecebimentoLocal(b, -1);
+    // o "Desfazer" da lista passa a valer pelo caminho que o banco fez
+    Object.assign(b, {
+      caso: data.caso,
+      registros: Array.isArray(data.registros) ? data.registros : b.registros,
+      registroId: data.registro || b.registroId,
+      registro: data.caso === 'entrada' ? b.registro : null,
+    });
+  }, [mexerNoRecebimentoLocal]);
+  const resultadoDoRecebimentoRef = useRef(resultadoDoRecebimento);
+  useEffect(() => { resultadoDoRecebimentoRef.current = resultadoDoRecebimento; }, [resultadoDoRecebimento]);
+
+  const recusarNoDestino = useCallback((b, motivo) => {
+    mexerNoDestinoLocal(b, -1);
+    avisaBaixaDesfeita(MOTIVO_BAIXA_DESFEITA[motivo] || `A baixa não foi aceita: ${motivo}`);
+  }, [mexerNoDestinoLocal]);
+  const recusarNoDestinoRef = useRef(recusarNoDestino);
+  useEffect(() => { recusarNoDestinoRef.current = recusarNoDestino; }, [recusarNoDestino]);
+
+  /**
+   * RECEBER a embalagem `etq` nesta Finalização. O banco decide o caminho
+   * (conferir a remessa do QR, ligar à saída lançada à mão, ou dar entrada);
+   * aqui vai o PALPITE, para a tela responder na hora.
+   * Devolve o que o "Desfazer" precisa; `{ erro }` quando não há o que fazer.
+   */
+  const receberEtiqueta = useCallback(({ etq, potes = 1, quantidade = null, responsavel = '' }) => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return null; }
+    const r = ridRef.current;
+    const cozinha = moduloRef.current;
+    if (!etq?.id || tipoBase(cozinha) !== 'finalizacao') return null;
+    const recebs = dadosRef.current.recebimentos || [];
+    const ligada = !!conferenciaDe(dadosRef.current.estoquesDoc, cozinha);
+    const palpite = decidirRecebimento({ etq, recebimentos: recebs, ligada, potes, quantidade });
+    if (!palpite.caso) return { erro: palpite.motivo };
+    const agora = Date.now();
+    const q = Number(quantidade) > 0 ? Math.round(Number(quantidade) * 1000) / 1000 : null;
+    if (palpite.caso === 'entrada' && !(q > 0)) return { erro: 'sem_quantidade' };
+    const baixaId = novaBaixaId();
+    const quem = responsavel || '';
+    const registroId = `${agora.toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const b = {
+      tipo: 'receber', baixaId, etiquetaId: etq.id, nome: etq.nome, produtoId: etq.produtoId,
+      potes: palpite.caso === 'conferida' ? palpite.potes : potes, quem, cozinha,
+      cozinhaDona: etq.naFinalizacao ? null : etq.cozinha, quando: agora,
+      caso: palpite.caso, registros: palpite.registros || null, registroId: palpite.registroId || null,
+    };
+    if (palpite.caso === 'vinculo') {
+      b.vinculo = {
+        etiquetaId: etq.id, potes, quantidade: q, validade: etq.validade || null, nome: etq.nome || '',
+        medida: etq.medida || '', produtoId: etq.produtoId, baixaId,
+      };
+    }
+    if (palpite.caso === 'entrada') {
+      b.registroId = registroId;
+      b.registro = {
+        id: registroId, ts: agora, data: hoje(), hora: fmtHora(), responsavel: quem, destino: cozinha,
+        obs: `Recebida pela Finalização (etiqueta ${codigoLegivel(etq.id)})`,
+        itens: [{ produtoId: etq.produtoId, quantidade: q, validade: etq.validade || null, etiquetaId: etq.id, potes }],
+        etiquetaId: etq.id, baixaId, potes, etiqueta: { nome: etq.nome || '', medida: etq.medida || '' },
+        recebidaPelaFinalizacao: true, conferida: { [etq.produtoId]: { em: agora, por: quem } },
+      };
+    }
+    mexerNoRecebimentoLocal(b, +1);
+    logAudit('recebeu embalagem pela etiqueta', `${etq.nome || ''} · ${codigoLegivel(etq.id)}${b.potes > 1 ? ` · ${b.potes} embalagens` : ''}`);
+    if (!nuvemDe(r)) return b;
+    const args = {
+      p_baixa: baixaId, p_etiqueta: etq.id, p_cozinha: cozinha, p_potes: b.potes, p_registro_id: registroId,
+      p_dados: { quantidade: q, responsavel: quem, data: hoje(), hora: fmtHora() }, p_ts: agora,
+    };
+    const naFila = () => outboxAdd(r, { kind: 'receberEtiqueta', op: 'rpc', payload: { args, local: b } });
+    // a etiqueta ainda subindo pela fila deste aparelho: espera ela
+    if (outboxGet(r).some(i => !i._morto && i.kind === 'etiquetas' && (i.payload?.itens || []).some(e => e.id === etq.id))) {
+      naFila();
+      return b;
+    }
+    supabase.rpc('receber_etiqueta', args).then(({ data, error }) => {
+      if (error) {
+        if (error.code === 'P0001' || ehErroDefinitivo(error.message)) {
+          mexerNoRecebimentoLocal(b, -1);
+          avisaBaixaDesfeita(`O recebimento não foi aceito: ${error.message}`);
+        } else naFila();
+        return;
+      }
+      if (data?.ok === false && ['nao_encontrada', 'mudou'].includes(data.motivo)) { naFila(); return; }
+      resultadoDoRecebimento(b, data);
+    }, naFila);
+    return b;
+  }, [mexerNoRecebimentoLocal, resultadoDoRecebimento, logAudit]);
+
+  /**
+   * PERDA ou USADO de uma embalagem que está NESTA Finalização. A perda
+   * desconta do estoque daqui, com a validade da embalagem; "usado" só anota
+   * (o consumo daqui é o Fechar Turno).
+   */
+  const baixarNoDestino = useCallback(({ etq, acao, potes = 1, quantidade = null, responsavel = '', turno = '', motivo = null, motivoOutro = '', produto = null }) => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return null; }
+    if (!etq?.id || !['perda', 'usada'].includes(acao)) return null;
+    const r = ridRef.current;
+    const cozinha = moduloRef.current;
+    const baixaId = novaBaixaId();
+    const agora = Date.now();
+    const b = { tipo: 'destino', baixaId, etiquetaId: etq.id, nome: etq.nome, potes, acao, cozinha, quando: agora };
+    if (acao === 'perda') {
+      const dados = registroDaBaixa({ acao: 'perda', etq, produto, quantidade, responsavel, turno, dia: hoje(), hora: fmtHora(), baixaId, motivo });
+      b.registro = {
+        ...dados, ...(motivoOutro ? { motivoOutro } : {}), potes,
+        id: `${agora.toString(36)}_${Math.random().toString(36).slice(2, 8)}`, ts: agora,
+      };
+    } else {
+      b.remessaId = remessaDaEmbalagem(dadosRef.current.recebimentos, etq.id)?.id || null;
+    }
+    mexerNoDestinoLocal(b, +1);
+    logAudit(acao === 'usada' ? 'marcou embalagem como usada' : 'registrou perda pela etiqueta',
+      `${etq.nome || ''} · ${codigoLegivel(etq.id)}${potes > 1 ? ` · ${potes} embalagens` : ''}`);
+    if (!nuvemDe(r)) return b;
+    const args = {
+      p_baixa: baixaId, p_etiqueta: etq.id, p_cozinha: cozinha, p_acao: acao, p_potes: potes,
+      p_registro_id: b.registro?.id || null, p_dados: b.registro ? semIdTs(b.registro) : null, p_ts: b.registro?.ts || null,
+    };
+    const naFila = () => outboxAdd(r, { kind: 'baixaNoDestino', op: 'rpc', payload: { args, local: b } });
+    // o "Receber" desta embalagem ainda está na fila: a baixa vai atrás dele
+    if (outboxGet(r).some(i => !i._morto && i.kind === 'receberEtiqueta' && i.payload?.args?.p_etiqueta === etq.id)) {
+      naFila();
+      return b;
+    }
+    supabase.rpc('baixar_no_destino', args).then(({ data, error }) => {
+      if (error) {
+        if (error.code === 'P0001' || ehErroDefinitivo(error.message)) recusarNoDestino(b, error.message);
+        else naFila();
+        return;
+      }
+      // ⚠️ "não está aqui" pode ser a saída da Produção ainda subindo pela fila
+      // de OUTRO aparelho: tenta de novo depois, não desfaz na hora
+      if (data?.ok === false && ['nao_encontrada', 'nao_esta_aqui'].includes(data.motivo)) naFila();
+      else if (data?.ok === false) recusarNoDestino(b, data.motivo);
+    }, naFila);
+    return b;
+  }, [mexerNoDestinoLocal, recusarNoDestino, logAudit]);
+
+  /** "Chegou" / "Não chegou" / desfazer, de um item de uma remessa (a lista A conferir). */
+  const conferirRemessa = useCallback((registroId, produtoId, resultado, responsavel = '') => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; }
+    const r = ridRef.current;
+    if (!registroId || !produtoId) return;
+    mudarRemessaLocal(registroId, (x) => (resultado === 'desfazer'
+      ? remessaSemConferencia(x, produtoId) : remessaConferida(x, produtoId, responsavel, resultado === 'nao_chegou')));
+    if (!nuvemDe(r)) return;
+    const args = { p_registro: registroId, p_produto: produtoId, p_resultado: resultado, p_responsavel: responsavel || '' };
+    const naFila = () => outboxAdd(r, {
+      kind: 'conferirRemessa', op: 'rpc',
+      payload: { args, local: { registroId, produtoId, resultado, quem: responsavel || '' } },
+    });
+    supabase.rpc('conferir_remessa', args).then(({ data, error }) => {
+      if (error) { if (!(error.code === 'P0001' || ehErroDefinitivo(error.message))) naFila(); return; }
+      if (data?.ok === false && data.motivo === 'nao_encontrada') naFila();
+    }, naFila);
+  }, [mudarRemessaLocal]);
+
+  /** Liga/desliga a conferência pelo QR de uma Finalização (só a diretoria grava). */
+  const setConferenciaDaFinalizacao = useCallback((cozinha, ligada) => {
+    setEstoquesDoc(comConferencia(dadosRef.current.estoquesDoc, cozinha, ligada));
+  }, [setEstoquesDoc]);
+
+  /** Desfaz uma baixa (o "Desfazer" do aviso; até 24 horas). */
+  // ⚠️ TRÊS LADOS (M61): a baixa da cozinha dona, o "Receber" e a baixa feita
+  // NA Finalização. O banco desfaz pelo id; aqui cada lado desfaz o seu.
+  const mexerLocalDaBaixa = useCallback((b, sinal) => {
+    if (b?.tipo === 'receber') mexerNoRecebimentoLocal(b, sinal);
+    else if (b?.tipo === 'destino') mexerNoDestinoLocal(b, sinal);
+    else mexerNaBaixaLocal(b, sinal);
+  }, [mexerNaBaixaLocal, mexerNoRecebimentoLocal, mexerNoDestinoLocal]);
+  // o banco não deixou desfazer: a baixa volta para a tela, com o porquê
+  const reaplicarBaixa = useCallback((b, motivo) => {
+    mexerLocalDaBaixa(b, +1);
+    avisaBaixaDesfeita(motivo === 'antiga'
+      ? 'Passaram mais de 24 horas: corrija esta baixa pelo Histórico.'
+      : (MOTIVO_BAIXA_DESFEITA[motivo] || `Não deu para desfazer: ${motivo}`));
+  }, [mexerLocalDaBaixa]);
+  const reaplicarBaixaRef = useRef(reaplicarBaixa);
+  useEffect(() => { reaplicarBaixaRef.current = reaplicarBaixa; }, [reaplicarBaixa]);
+
+  const desfazerBaixa = useCallback((b) => {
+    if (soLeituraRef.current) { avisaBloqueioLeitura(); return; }
+    if (!b?.baixaId) return;
+    const r = ridRef.current;
+    mexerLocalDaBaixa(b, -1);
+    logAudit('desfez baixa pela etiqueta', `${b.nome || ''} · ${codigoLegivel(b.etiquetaId)}`);
+    if (!nuvemDe(r)) return;
+    const fila = outboxGet(r);
+    const pendente = fila.find(i => !i._morto && ['baixaEtiqueta', 'receberEtiqueta', 'baixaNoDestino'].includes(i.kind)
+      && i.payload?.args?.p_baixa === b.baixaId);
+    // ⚠️ NA FILA NÃO QUER DIZER QUE NÃO CHEGOU (a internet pode ter caído
+    // depois de o banco gravar): tira da fila E pede ao banco. Se ela não
+    // tinha chegado, o banco deixa a marca de desfeita (M61) e nada se aplica.
+    if (pendente) outboxSet(r, fila.filter(i => i !== pendente));
+    const naFila = () => outboxAdd(r, { kind: 'desfazerBaixa', op: 'rpc', payload: { p_baixa: b.baixaId, local: b } });
+    supabase.rpc('desfazer_baixa', { p_baixa: b.baixaId }).then(({ data, error }) => {
+      if (error) { naFila(); return; }
+      if (data?.ok === false && data.motivo === 'nao_encontrada') naFila();
+      else if (data?.ok === false) reaplicarBaixa(b, data.motivo);
+    }, naFila);
+  }, [mexerLocalDaBaixa, reaplicarBaixa, logAudit]);
 
   const addRegistro = useCallback((tipo, setRaw, key, registro) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -1025,6 +1340,16 @@ export function AppProvider({ children }) {
     () => calcLotes(entradasDoEstoque, saidas, desperdicio, produtos, ajustes),
     [entradasDoEstoque, saidas, desperdicio, produtos, ajustes]
   );
+
+  // ── A Finalização (M61): a conferência dela, as embalagens que estão aqui
+  // (montadas dos recebimentos, com o teto do saldo) e o que falta conferir
+  const conferenciaAqui = useMemo(() => conferenciaDe(estoquesDoc, moduloEfetivo), [estoquesDoc, moduloEfetivo]);
+  const embalagensAqui = useMemo(() => (tipoBase(moduloEfetivo) === 'finalizacao'
+    ? embalagensNaCozinha({ recebimentos, perdas: desperdicio, estoque, produtos, cozinha: moduloEfetivo })
+    : []), [moduloEfetivo, recebimentos, desperdicio, estoque, produtos]);
+  const pendentesConferir = useMemo(() => (conferenciaAqui
+    ? pendentesDeConferencia({ recebimentos, desde: conferenciaAqui.desde, fechadoEm: ultimoFechamentoTs(ajustes) })
+    : []), [conferenciaAqui, recebimentos, ajustes]);
 
   // ── Para onde a saída pode ir (os botões de destino) ───────────
   // ⚠️ `locais` guarda o destino fixo de toda Finalização que já existiu
@@ -1394,10 +1719,18 @@ export function AppProvider({ children }) {
       // apagava o que entrou no meio do caminho.
       const sincronizados = new Set();
       const falhados = new Map();
+      // ⚠️ A ORDEM POR ETIQUETA (M61): o laço não para na primeira falha. Se o
+      // "Receber" de uma embalagem falhou agora, a perda dela que vem depois
+      // não pode passar na frente (o banco diria "não está aqui" e ela se
+      // perderia) — espera a próxima subida, junto.
+      const etiquetasComFalha = new Set();
+      const etiquetaDoItem = (it) => (['baixaEtiqueta', 'receberEtiqueta', 'baixaNoDestino'].includes(it.kind)
+        ? it.payload?.args?.p_etiqueta : null);
       for (const item of fila) {
         // Itens mortos (falharam MAX vezes) não são retentados no loop normal;
         // ficam na fila para a lista de erro permanente / retry manual.
         if (item._morto) continue;
+        if (etiquetaDoItem(item) && etiquetasComFalha.has(etiquetaDoItem(item))) continue;
         // ⚠️ auditoria de OUTRA pessoa (saiu sem internet): espera ela voltar —
         // a função do banco assina com quem estiver logado agora (28/09/2026)
         if (item.kind === 'auditoria' && item._usuario && item._usuario !== sessaoRef.current?.usuarioId) continue;
@@ -1424,9 +1757,29 @@ export function AppProvider({ children }) {
             else if (data?.ok === false) recusarBaixaRef.current(item.payload?.local, data.motivo);
           }
           else if (item.kind === 'desfazerBaixa' && item.op === 'rpc') {
-            const { data, error: eD } = await supabase.rpc('desfazer_baixa', item.payload || {});
+            const { data, error: eD } = await supabase.rpc('desfazer_baixa', { p_baixa: item.payload?.p_baixa });
             if (eD) error = eD;
             else if (data?.ok === false && data.motivo === 'nao_encontrada') error = { message: 'a baixa ainda não subiu' };
+            // o banco não deixou (passou de 24 h, ou a Finalização já usou): volta para a tela
+            else if (data?.ok === false && item.payload?.local) reaplicarBaixaRef.current(item.payload.local, data.motivo);
+          }
+          // a Finalização recebendo (M61): o banco decide o caminho; idempotente pelo id da baixa
+          else if (item.kind === 'receberEtiqueta' && item.op === 'rpc') {
+            const { data, error: eR } = await supabase.rpc('receber_etiqueta', item.payload?.args || {});
+            if (eR) error = eR;
+            else if (data?.ok === false && ['nao_encontrada', 'mudou'].includes(data.motivo)) error = { message: 'ainda não dá para receber' };
+            else resultadoDoRecebimentoRef.current(item.payload?.local, data);
+          }
+          else if (item.kind === 'baixaNoDestino' && item.op === 'rpc') {
+            const { data, error: eN } = await supabase.rpc('baixar_no_destino', item.payload?.args || {});
+            if (eN) error = eN;
+            else if (data?.ok === false && ['nao_encontrada', 'nao_esta_aqui'].includes(data.motivo)) error = { message: 'a embalagem ainda não chegou ao banco' };
+            else if (data?.ok === false) recusarNoDestinoRef.current(item.payload?.local, data.motivo);
+          }
+          else if (item.kind === 'conferirRemessa' && item.op === 'rpc') {
+            const { data, error: eC } = await supabase.rpc('conferir_remessa', item.payload?.args || {});
+            if (eC) error = eC;
+            else if (data?.ok === false && data.motivo === 'nao_encontrada') error = { message: 'a remessa ainda não subiu' };
           }
           else if (item.kind === 'doc' && item.op === 'upsert') {
             // replay offline: RPC com versão -1 (força com bump — mantém o
@@ -1457,8 +1810,13 @@ export function AppProvider({ children }) {
             ({ error } = await supabase.from('registros').update({ deleted: true })
               .eq('restaurante_id', rid)
               .in('tipo', item.payload?.tipos?.length ? item.payload.tipos : ['__nenhum__']));
+          // ⚠️ TIPO QUE ESTA VERSÃO NÃO CONHECE: antes caía como "subiu" e saía
+          // da fila calado — o lançamento se perdia sem ninguém saber
+          else error = { message: `tipo desconhecido na fila: ${item.kind}/${item.op}` };
           // sucesso → sai da fila; falha → conta a tentativa (vira morto no limite)
           if (error) {
+            if (etiquetaDoItem(item)) etiquetasComFalha.add(etiquetaDoItem(item));
+            if (item.kind === 'etiquetas') (item.payload?.itens || []).forEach(e => e?.id && etiquetasComFalha.add(e.id));
             const falhou = registrarFalha({ ...item, _ultimoErro: error.message || 'erro' });
             // ⚠️ desistiu de vez (M50): o lançamento não vai subir sozinho — a
             // Aurum precisa saber, não só o aparelho
@@ -1763,6 +2121,12 @@ export function AppProvider({ children }) {
             // existe na cópia local é resto velho: a saída que a Produção apagou
             // enquanto este aparelho dormia continuava no saldo e no turno.
             let localOnly = tipo === 'recebimento' ? [] : prev.filter(x => !fetchedIds.has(x.id));
+            // ⚠️ ...MAS o que este aparelho fez e ainda está NA FILA (o "Receber"
+            // sem internet, M61) continua valendo até subir
+            if (tipo === 'recebimento') {
+              const comFila = aplicarFilaNosRecebimentos(arr, outboxGet(rid), moduloEfetivo);
+              if (comFila !== arr) { cacheSet(rid, k(key), comFila); return comFila; }
+            }
             // Auditoria é o único tipo cujo id DEFINITIVO nasce no banco (a RPC
             // da migração 18 gera o dela), então a linha otimista deste aparelho
             // jamais casava por id e a tela mostrava tudo em dobro — inclusive
@@ -1852,7 +2216,8 @@ export function AppProvider({ children }) {
           // lugar, OU se foi redirecionado para OUTRA finalização — senão esta
           // cozinha contaria uma entrega que é de outra casa.
           const sai = row.deleted || reg.destino !== moduloEfetivo;
-          const next = sai ? semEle : [...semEle, reg].sort((a, b) => (a.ts || 0) - (b.ts || 0));
+          const next = aplicarFilaNosRecebimentos(
+            sai ? semEle : [...semEle, reg].sort((a, b) => (a.ts || 0) - (b.ts || 0)), outboxGet(rid), moduloEfetivo);
           cacheSet(rid, chaveReceb, next);
           return next;
         });
@@ -2113,6 +2478,9 @@ export function AppProvider({ children }) {
       etiquetasAvulsas, setEtiquetasAvulsas,
       etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada,
       baixarEtiqueta, desfazerBaixa, buscarEtiqueta,
+      // a Finalização recebendo e dando baixa no que veio da Produção (M61)
+      receberEtiqueta, baixarNoDestino, conferirRemessa, setConferenciaDaFinalizacao,
+      conferenciaAqui, embalagensAqui, pendentesConferir,
       permissoes, setPermissoes,
       precos, setPrecos,
       estoques, estoqueAtual, estoquesDoc, setEstoquesDoc, visoesPorEstoque,
@@ -2145,6 +2513,8 @@ export function AppProvider({ children }) {
     setFichas, producoes, setProducoes, locais, setLocais, destinosDeSaida, listaManual,
     setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada, permissoes,
     baixarEtiqueta, desfazerBaixa, buscarEtiqueta,
+    receberEtiqueta, baixarNoDestino, conferirRemessa, setConferenciaDaFinalizacao,
+    conferenciaAqui, embalagensAqui, pendentesConferir,
     setPermissoes, precos, setPrecos, estoques, estoqueAtual, estoquesDoc,
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,

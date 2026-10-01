@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import LeitorQR from '../components/LeitorQR';
 import BaixaEtiqueta from '../components/BaixaEtiqueta';
+import AConferir from '../components/AConferir';
 import Dialogo from '../components/Dialogo';
 import Botao from '../components/Botao';
 import Icon from '../components/Icons';
@@ -10,9 +11,11 @@ import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
 import { lerLoteIdDoQR } from '../utils/etiquetas';
+import { tipoBase } from '../utils/modulos';
+import { decidirRecebimento, MOTIVO_RECEBER } from '../utils/posse';
 import {
   acoesDaCozinha, ROTULO_ACAO, proximaEmbalagem, codigoLegivel, podeDesfazer,
-  motivoParaPerguntar, AVISO_PARA_PERGUNTAR, normalizarCodigo,
+  motivoParaPerguntar, AVISO_PARA_PERGUNTAR, normalizarCodigo, quantidadeDaEmbalagem,
 } from '../utils/baixaEtiqueta';
 
 // =====================================================================
@@ -29,12 +32,14 @@ import {
 //  medida, outra cozinha) abre a folha em vez de lançar.
 // =====================================================================
 
-const MODOS = [['perguntar', 'Perguntar a cada uma'], ['saida', 'Saída'], ['perda', 'Perda'], ['usada', 'Usado']];
+const MODOS = [['perguntar', 'Perguntar a cada uma'], ['receber', 'Receber'], ['saida', 'Saída'], ['perda', 'Perda'], ['usada', 'Usado']];
+const ROTULO_FEITO = { ...ROTULO_ACAO, conferida: 'Chegada conferida', vinculo: 'Recebida (saída lançada à mão)', entrada: 'Recebida (entrada)' };
 
 export default function LerEtiquetas() {
   const { codigo: codigoDaRota } = useParams();
   const navigate = useNavigate();
-  const { etiquetasImpressas, buscarEtiqueta, baixarEtiqueta, desfazerBaixa, modulo, produtos, destinosDeSaida: locais, prefs, setPref, online } = useApp();
+  const { etiquetasImpressas, buscarEtiqueta, baixarEtiqueta, desfazerBaixa, modulo, produtos, destinosDeSaida: locais, prefs, setPref, online,
+    embalagensAqui, conferenciaAqui, receberEtiqueta, baixarNoDestino, recebimentos } = useApp();
   const { toast } = useUI();
   const [lendo, setLendo] = useState(!codigoDaRota);
   const [digitado, setDigitado] = useState('');
@@ -44,24 +49,36 @@ export default function LerEtiquetas() {
   const [feitas, setFeitas] = useState([]);         // baixas desta visita, com Desfazer
   const [procurando, setProcurando] = useState(false);
   const acoesAqui = acoesDaCozinha(modulo);
+  // ⚠️ NA FINALIZAÇÃO COM A CONFERÊNCIA LIGADA (M61) há o modo "Receber": cada
+  // embalagem lida ao chegar é conferida — ou entra, se a Produção não lançou
+  const naFinalizacao = tipoBase(modulo) === 'finalizacao';
+  const podeReceber = naFinalizacao && !!conferenciaAqui;
 
   // a etiqueta pelo código: primeiro a lista da cozinha aberta, depois o banco
   const achar = useCallback(async (id) => {
-    const lista = etiquetasImpressas || [];
-    // o exato; senão, com letra parecida (O/0, I/L/1), se for uma só
-    const parecidas = lista.filter(e => normalizarCodigo(e.id) === normalizarCodigo(id));
-    const local = lista.find(e => e.id === id) || (parecidas.length === 1 ? parecidas[0] : null);
-    if (local) return { ...local, cozinha: modulo };
+    const daqui = (lista, carimbar) => {
+      // o exato; senão, com letra parecida (O/0, I/L/1), se for uma só
+      const parecidas = (lista || []).filter(e => normalizarCodigo(e.id) === normalizarCodigo(id));
+      const achada = (lista || []).find(e => e.id === id) || (parecidas.length === 1 ? parecidas[0] : null);
+      return achada ? (carimbar ? { ...achada, cozinha: modulo } : achada) : null;
+    };
+    // as impressas aqui; depois, na Finalização, as que vieram da Produção
+    // (montadas dos recebimentos — funciona sem internet)
+    const local = daqui(etiquetasImpressas, true) || daqui(embalagensAqui, false);
+    if (local) return local;
     if (online === false) return null;
     return buscarEtiqueta(id);
-  }, [etiquetasImpressas, modulo, buscarEtiqueta, online]);
+  }, [etiquetasImpressas, embalagensAqui, modulo, buscarEtiqueta, online]);
 
   const anotar = useCallback((b, etq) => {
     const prox = proximaEmbalagem(etq);
-    const destino = b.registro?.destino ? (locais.find(l => l.id === b.registro.destino)?.nome || b.registro.destino) : '';
+    const destino = b.tipo !== 'receber' && b.registro?.destino ? (locais.find(l => l.id === b.registro.destino)?.nome || b.registro.destino) : '';
     setFeitas(f => [{
-      b, nome: etq.nome, embalagem: prox.de > 1 ? `${prox.numero}${b.potes > 1 ? `–${prox.numero + b.potes - 1}` : ''} de ${prox.de}` : '',
-      texto: `${ROTULO_ACAO[b.acao]}${destino ? ` → ${destino}` : ''}`,
+      b, nome: etq.nome,
+      embalagem: b.tipo === 'receber' || etq.naFinalizacao
+        ? (b.potes > 1 ? `${b.potes} embalagens` : '')
+        : prox.de > 1 ? `${prox.numero}${b.potes > 1 ? `–${prox.numero + b.potes - 1}` : ''} de ${prox.de}` : '',
+      texto: `${ROTULO_FEITO[b.tipo === 'receber' ? b.caso : b.acao] || 'Recebida'}${destino ? ` → ${destino}` : ''}`,
     }, ...f].slice(0, 30));
   }, [locais]);
 
@@ -80,6 +97,26 @@ export default function LerEtiquetas() {
     }
     if (modo === 'perguntar') { setAberta(etq); return; }
     const produto = etq.produtoId ? produtos.find(p => p.id === etq.produtoId) : null;
+
+    // ── RECEBER (modo rápido da Finalização) ──
+    if (modo === 'receber') {
+      const qtd = quantidadeDaEmbalagem(etq, produto);
+      const palpite = decidirRecebimento({ etq, recebimentos, ligada: podeReceber, potes: 1, quantidade: qtd });
+      if (!palpite.caso) { toast(`${etq.nome}: ${MOTIVO_RECEBER[palpite.motivo] || 'nada a receber'}`, 'aviso', { duracao: 3500 }); return; }
+      // a entrada precisa saber quanto: sem medida, abre a folha
+      if (palpite.caso === 'entrada' && !qtd) { toast(AVISO_PARA_PERGUNTAR.sem_quantidade, 'aviso', { duracao: 4000 }); setAberta(etq); return; }
+      const b = receberEtiqueta({ etq, potes: palpite.caso === 'conferida' ? palpite.potes : 1, quantidade: qtd, responsavel: prefs.responsavel || '' });
+      if (!b || b.erro) { toast(MOTIVO_RECEBER[b?.erro] || 'Não deu para receber.', 'aviso'); return; }
+      anotar(b, etq);
+      toast(`${etq.nome}: ${(ROTULO_FEITO[b.caso] || 'recebida').toLowerCase()}`, 'sucesso', { duracao: 1500 });
+      return;
+    }
+    // a embalagem da Produção que ainda não chegou aqui: a folha explica
+    if (naFinalizacao && !etq.naFinalizacao && tipoBase(etq.cozinha) === 'producao') {
+      toast('Esta embalagem ainda consta na Produção.', 'aviso', { duracao: 3000 });
+      setAberta(etq);
+      return;
+    }
     const motivo = motivoParaPerguntar(etq, modo, { modulo, produto, hojeISO: hoje() });
     if (motivo) {
       toast(AVISO_PARA_PERGUNTAR[motivo], 'aviso', { duracao: 4000 });
@@ -87,14 +124,17 @@ export default function LerEtiquetas() {
       return;
     }
     if (modo === 'saida') setPref('destino', destinoRapido);
-    const b = baixarEtiqueta({
+    const pedido = {
       etq, acao: modo, potes: 1, destino: destinoRapido, produto,
       responsavel: prefs.responsavel || '', turno: prefs.turno || '',
-    });
+    };
+    // a que veio da Produção desconta do estoque DAQUI (M61)
+    const b = etq.naFinalizacao ? baixarNoDestino(pedido) : baixarEtiqueta(pedido);
     if (!b) return;
     anotar(b, etq);
     toast(`${etq.nome}: ${ROTULO_ACAO[modo].toLowerCase()}`, 'sucesso', { duracao: 1500 });
-  }, [aberta, procurando, achar, modo, produtos, modulo, destinoRapido, setPref, baixarEtiqueta, prefs.responsavel, prefs.turno, anotar, toast, online]);
+  }, [aberta, procurando, achar, modo, produtos, modulo, destinoRapido, setPref, baixarEtiqueta, baixarNoDestino, receberEtiqueta,
+      recebimentos, podeReceber, naFinalizacao, prefs.responsavel, prefs.turno, anotar, toast, online]);
 
   // a câmera chama sempre a versão mais nova, sem reabrir a cada render
   const processarRef = useRef(processar);
@@ -130,7 +170,7 @@ export default function LerEtiquetas() {
 
       {/* modo: perguntar a cada uma, ou lançar direto */}
       <div role="radiogroup" aria-label="O que fazer a cada leitura" className="flex gap-1.5 overflow-x-auto pb-1 mb-2">
-        {MODOS.filter(([v]) => v === 'perguntar' || acoesAqui.includes(v)).map(([v, l]) => (
+        {MODOS.filter(([v]) => v === 'perguntar' || (v === 'receber' ? podeReceber : acoesAqui.includes(v))).map(([v, l]) => (
           <button key={v} type="button" role="radio" aria-checked={modo === v} onClick={() => setModo(v)}
             className={`whitespace-nowrap min-h-11 px-3 rounded-full text-sm font-bold border flex-shrink-0
               ${modo === v ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
@@ -151,8 +191,10 @@ export default function LerEtiquetas() {
       )}
       {modo !== 'perguntar' && (
         <p className="text-[11px] text-gray-600 mb-3">
-          Modo rápido: cada embalagem lida já é lançada como <strong>{ROTULO_ACAO[modo].toLowerCase()}</strong>.
-          Vencida, sem medida ou de outra cozinha abre a tela para você conferir.
+          {modo === 'receber'
+            ? <>Modo rápido: cada embalagem lida ao chegar é <strong>recebida</strong> — conferida, ou com entrada se a Produção não lançou.</>
+            : <>Modo rápido: cada embalagem lida já é lançada como <strong>{ROTULO_ACAO[modo].toLowerCase()}</strong>.
+              Vencida, sem medida ou de outra cozinha abre a tela para você conferir.</>}
         </p>
       )}
 
@@ -175,6 +217,12 @@ export default function LerEtiquetas() {
           {procurando ? 'Buscando…' : 'Buscar'}
         </button>
       </form>
+
+      {podeReceber && (
+        <div className="mb-5">
+          <AConferir titulo="A conferir" explicacao="Mandado pela Produção e ainda não conferido. Ler o QR da embalagem também confere." />
+        </div>
+      )}
 
       {feitas.length > 0 && (
         <section aria-label="Baixas desta leitura">
