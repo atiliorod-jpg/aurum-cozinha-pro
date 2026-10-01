@@ -34,7 +34,7 @@ const MODOS = [['perguntar', 'Perguntar a cada uma'], ['saida', 'Saída'], ['per
 export default function LerEtiquetas() {
   const { codigo: codigoDaRota } = useParams();
   const navigate = useNavigate();
-  const { etiquetasImpressas, buscarEtiqueta, baixarEtiqueta, desfazerBaixa, modulo, produtos, locais, prefs, setPref, online } = useApp();
+  const { etiquetasImpressas, buscarEtiqueta, baixarEtiqueta, desfazerBaixa, modulo, produtos, destinosDeSaida: locais, prefs, setPref, online } = useApp();
   const { toast } = useUI();
   const [lendo, setLendo] = useState(!codigoDaRota);
   const [digitado, setDigitado] = useState('');

@@ -4,7 +4,7 @@ import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import { fmtData, fmtNum, hoje } from '../utils/formatters';
 import { addDias, diasAte } from '../utils/datas';
-import { calcLotes } from '../utils/lotes';
+import { semValidadeConhecida } from '../utils/lotes';
 import { STATUS_ETIQUETA, statusEtiqueta } from '../utils/etiquetas';
 import { embalagensRestantes, codigoLegivel } from '../utils/baixaEtiqueta';
 import BaixaEtiqueta from '../components/BaixaEtiqueta';
@@ -33,7 +33,7 @@ const FILTROS = [
  * permite achar o pote específico na prateleira.
  */
 export default function Validades() {
-  const { produtos, entradas, saidas, desperdicio, estoque, etiquetasImpressas, modulo } = useApp();
+  const { produtos, estoque, lotes, etiquetasImpressas, modulo } = useApp();
   const navigate = useNavigate();
   const { toast } = useUI();
   // a etiqueta na folha "Dar baixa" (a mesma da leitura do QR)
@@ -42,6 +42,7 @@ export default function Validades() {
   const [filtro, setFiltro] = useState('7d');
   const [ate, setAte] = useState(addDias(hoje(), 7));
   const [aba, setAba] = useState('lotes');
+  const [verSemData, setVerSemData] = useState(false);
 
   const hj = hoje();
   const limite = filtro === 'custom' ? ate : (() => {
@@ -50,7 +51,9 @@ export default function Validades() {
   })();
   const soVencidos = filtro === 'vencidos';
 
-  const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio, produtos), [entradas, saidas, desperdicio, produtos]);
+  // ⚠️ Os lotes vêm do contexto (2ª etapa, 01/10/2026): com os RECEBIMENTOS
+  // da Finalização, as compras do Seco e as contagens. Aqui eram calculados só
+  // com `entradas` — a Finalização e o Seco nunca mostravam lote nenhum.
 
   const linhasLotes = useMemo(() => {
     const out = [];
@@ -65,6 +68,15 @@ export default function Validades() {
     });
     return out.sort((a, b) => a.lote.validade.localeCompare(b.lote.validade));
   }, [produtos, lotes, estoque, limite, soVencidos, hj]);
+
+  // o que está no estoque sem data conhecida (lançado sem validade, ou saída
+  // antiga para a Finalização): não se inventa data, mas também não se esconde
+  const semData = useMemo(() => produtos
+    .filter(p => p.ativo)
+    .map(p => ({ produto: p, qtd: semValidadeConhecida(estoque[p.id], lotes[p.id], p.unidade) }))
+    .filter(x => x.qtd > 0)
+    .sort((a, b) => a.produto.nome.localeCompare(b.produto.nome)),
+  [produtos, estoque, lotes]);
 
   const linhasEtiquetas = useMemo(() => {
     return (etiquetasImpressas || [])
@@ -155,8 +167,8 @@ export default function Validades() {
         </div>
         )}
 
-        {abaAtual === 'lotes' ? (
-          linhasLotes.length === 0 ? (
+        {abaAtual === 'lotes' ? (<>
+          {linhasLotes.length === 0 ? (
             <div className="bg-white rounded-xl p-8 text-center">
               <p className="text-sm text-gray-500">Nada {soVencidos ? 'vencido' : 'vencendo neste período'}.</p>
             </div>
@@ -178,8 +190,34 @@ export default function Validades() {
                 </div>
               ))}
             </div>
-          )
-        ) : (
+          )}
+          {semData.length > 0 && (
+            <div className="bg-white rounded-xl px-4 py-3">
+              <button type="button" onClick={() => setVerSemData(v => !v)} aria-expanded={verSemData}
+                className="w-full min-h-11 flex items-center justify-between gap-2 text-left text-sm text-gray-700">
+                <span>
+                  <strong className="text-polo-navy">{semData.length} {semData.length === 1 ? 'item tem' : 'itens têm'}</strong> parte do estoque sem validade conhecida
+                </span>
+                <span className="text-xs font-semibold text-polo-navy underline underline-offset-2">{verSemData ? 'esconder' : 'ver'}</span>
+              </button>
+              {verSemData && (
+                <>
+                  <p className="text-[11px] text-gray-600 mb-2">
+                    Entrou sem data (estoque inicial, lançamento sem validade ou saída antiga). Confira na prateleira.
+                  </p>
+                  <ul className="divide-y divide-gray-100">
+                    {semData.map(x => (
+                      <li key={x.produto.id} className="py-2 flex justify-between gap-3 text-sm">
+                        <span className="text-gray-800 truncate">{x.produto.nome}</span>
+                        <span className="text-gray-600 flex-shrink-0">{fmtNum(x.qtd)} {x.produto.unidade}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
+        </>) : (
           linhasEtiquetas.length === 0 ? (
             <div className="bg-white rounded-xl p-8 text-center">
               <p className="text-sm text-gray-500">Nenhuma etiqueta {soVencidos ? 'vencida' : 'vencendo neste período'}.</p>

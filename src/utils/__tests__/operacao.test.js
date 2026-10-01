@@ -12,7 +12,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { calcEstoquePuro } from '../estoque';
-import { consumoComoSaidas, turnoAberto, consumoDoTurno } from '../turno';
+import { consumoComoSaidas, turnoAberto, consumoDoTurno, linhasParaGravar } from '../turno';
 import { comprasQueEntram } from '../visaoEstoque';
 import { calcLotes, lotesVencendo } from '../lotes';
 import { calcSugestoesMinMax } from '../sugestoes';
@@ -762,11 +762,33 @@ describe('fechamento de turno da Finalização', () => {
     const t = turnoAberto({
       produtos,
       recebimentos: [{ ts: 10, itens: [{ produtoId: 'molho', quantidade: 12 }] }],
-      perdas: [{ ts: 11, produtoId: 'molho', quantidade: 2 }],
+      perdas: [{ ts: 11, origem: 'estoque', produtoId: 'molho', quantidade: 2 }],
       fechamentos: [],
     });
     expect(t.linhas[0].disponivel).toBe(10);
     expect(consumoDoTurno(t.linhas, { molho: 3 })[0].consumo).toBe(7);
+  });
+
+  it('perda que não abate o saldo também não abate o turno (mesma regra do estoque)', () => {
+    // 01/10/2026: o turno descontava perda de qualquer origem; o saldo, só a do estoque
+    const t = turnoAberto({
+      produtos,
+      recebimentos: [{ ts: 10, itens: [{ produtoId: 'molho', quantidade: 12 }] }],
+      perdas: [{ ts: 11, origem: 'recebimento', produtoId: 'molho', quantidade: 2 }],
+      fechamentos: [],
+    });
+    expect(t.linhas[0].disponivel).toBe(12);
+  });
+
+  it('item que perdeu tudo o que chegou também é gravado no fechamento (zera saldo e lote)', () => {
+    const t = turnoAberto({
+      produtos,
+      recebimentos: [{ ts: 10, itens: [{ produtoId: 'molho', quantidade: 2 }] }],
+      perdas: [{ ts: 11, origem: 'estoque', produtoId: 'molho', quantidade: 2 }],
+      fechamentos: [],
+    });
+    expect(t.linhas[0].disponivel).toBe(0);
+    expect(linhasParaGravar(consumoDoTurno(t.linhas, {}))).toHaveLength(1);
   });
 
   it('a sobra de um turno é a abertura do turno seguinte', () => {

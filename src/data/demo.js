@@ -105,6 +105,22 @@ function seedProducao() {
     // saída interna da produção do empanado (consumo do ingrediente controlado)
     { id: 'demo_s_prod', ts: ts(1, 14), data: d(1), hora: '14:00', responsavel: 'Maria', destino: 'producao', producaoId: 'demo_pid2',
       itens: [{ produtoId: 'file', quantidade: 6 }] },
+    // ⚠️ O QUE FOI PARA A FINALIZAÇÃO SAI DAQUI (2ª etapa, 01/10/2026). Antes a
+    // Finalização da demo tinha recebimentos "soltos", sem a saída do lado de
+    // cá e sem validade. Agora é a mesma ponte da conta real: a saída da
+    // Produção com destino Finalização, levando a validade de cada lote.
+    { id: 'demo_sf1', ts: ts(2, 9), data: d(2), hora: '09:10', responsavel: 'Maria', destino: 'finalizacao',
+      itens: [
+        { produtoId: 'picanha', quantidade: 6, porValidade: [{ validade: addDias(d(4), 20), quantidade: 6 }] },
+        { produtoId: 'frango', quantidade: 8, porValidade: [{ validade: addDias(d(6), 20), quantidade: 8 }] },
+      ] },
+    { id: 'demo_sf2', ts: ts(1, 15), data: d(1), hora: '15:00', responsavel: 'Maria', destino: 'finalizacao',
+      itens: [
+        { produtoId: 'empanado', quantidade: 10, porValidade: [{ validade: addDias(d(1), 15), quantidade: 10 }] },
+        { produtoId: 'molho', quantidade: 6, porValidade: [{ validade: addDias(d(1), 4), quantidade: 6 }] },
+      ] },
+    { id: 'demo_sf3', ts: ts(0, 9), data: d(0), hora: '09:10', responsavel: 'Maria', destino: 'finalizacao',
+      itens: [{ produtoId: 'empanado', quantidade: 6, porValidade: [{ validade: addDias(d(1), 15), quantidade: 6 }] }] },
   ];
   const compras = [
     { id: 'demo_c1', ts: ts(6, 8), data: d(6), hora: '08:20', item: 'Filé Mignon', quantidade: 20, unidade: 'kg', fornecedor: 'Frigorífico Bom Corte', responsavel: 'Maria', produtoId: 'file' },
@@ -189,16 +205,12 @@ function seedSeco() {
 //  COZINHA DE FINALIZAÇÃO — não compra nem porciona: RECEBE da produção
 //  e fecha o turno contando a sobra. O catálogo é o da produção (mesmos
 //  ids dos dois lados), como catalogoDe() define.
-//  Os `recebimentos` são derivados das saídas da produção com destino
-//  'finalizacao' — o ramo demo não passa pela ponte, então já entregamos
-//  as saídas com esse destino para a tela ter o que mostrar.
+//  Os `recebimentos` NÃO moram aqui: são as saídas da Produção com destino
+//  'finalizacao' (demo_sf*), lidas pela mesma ponte da conta real
+//  (recebimentosDaDemo, no AppContext).
 // ─────────────────────────────────────────────────────────────────────
 function seedFinalizacao() {
   const base = seedProducao();
-  const recebe = (n, itens) => ({
-    id: `demoFin_r${n}_${itens[0].produtoId}`, ts: ts(n, 9), data: d(n), hora: '09:10',
-    responsavel: 'Maria', destino: 'finalizacao', itens,
-  });
 
   return {
     catalogos: {
@@ -214,16 +226,18 @@ function seedFinalizacao() {
       desperdicio: [
         { id: 'demoFin_p1', ts: ts(1, 22), data: d(1), hora: '22:10', turno: 'Noite', item: 'Molho de Tomate da Casa', quantidade: 1.5, unidade: 'L', motivo: 'V', origem: 'estoque', produtoId: 'molho', responsavel: 'João' },
       ],
-      // contagem da sobra no fim do turno
+      // o fechamento de turno, no formato que o Fechar Turno grava (itens[]
+      // com a sobra contada) — antes era o formato do Inventário
       ajustes: [
-        { id: 'demoFin_aj1', ts: ts(1, 23), data: d(1), hora: '23:30', responsavel: 'João', produtoId: 'empanado', quantidade: 9, inventarioId: 'demoFin_turno1' },
+        { id: 'demoFin_aj1', ts: ts(1, 23), data: d(1), hora: '23:30', responsavel: 'João', turno: 'Jantar',
+          itens: [
+            { produtoId: 'empanado', quantidade: 4, recebido: 10, abertura: 0, perdido: 0, consumo: 6 },
+            { produtoId: 'molho', quantidade: 3, recebido: 6, abertura: 0, perdido: 1.5, consumo: 1.5 },
+            { produtoId: 'picanha', quantidade: 2, recebido: 6, abertura: 0, perdido: 0, consumo: 4 },
+            { produtoId: 'frango', quantidade: 3, recebido: 8, abertura: 0, perdido: 0, consumo: 5 },
+          ] },
       ],
       auditoria: [],
-      recebimentos: [
-        recebe(2, [{ produtoId: 'empanado', quantidade: 20 }, { produtoId: 'molho', quantidade: 6 }]),
-        recebe(1, [{ produtoId: 'picanha', quantidade: 12 }, { produtoId: 'frango', quantidade: 10 }]),
-        recebe(0, [{ produtoId: 'empanado', quantidade: 15 }]),
-      ],
     },
   };
 }

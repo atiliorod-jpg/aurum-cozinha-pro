@@ -4,7 +4,7 @@
 
 // IDs são `Date.now().toString(36)_random`, então o fallback precisa ler base36
 // (não base10) para recuperar o timestamp de registros antigos sem `ts`.
-const ordemTs = (r) => {
+export const ordemTs = (r) => {
   if (r.ts) return r.ts;
   if (typeof r.id === 'string') {
     const v = parseInt(r.id.split('_')[0], 36);

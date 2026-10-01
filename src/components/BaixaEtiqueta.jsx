@@ -23,7 +23,7 @@ import Aviso from './Aviso';
 const MOTIVOS_RAPIDOS = ['V', 'A', 'S', 'O'];
 
 export default function BaixaEtiqueta({ etq, onFeito, acaoInicial = null }) {
-  const { produtos, modulo, locais, prefs, setPref, baixarEtiqueta, estoques, setModulo } = useApp();
+  const { produtos, modulo, destinosDeSaida: locais, prefs, setPref, baixarEtiqueta, estoques, setModulo } = useApp();
   const { confirm, toast } = useUI();
   const hj = hoje();
   const produto = etq.produtoId ? produtos.find(p => p.id === etq.produtoId) : null;

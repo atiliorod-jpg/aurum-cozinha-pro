@@ -8,12 +8,13 @@ import ResponsavelSelect from '../components/ResponsavelSelect';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, diasAte } from '../utils/datas';
-import { calcLotes } from '../utils/lotes';
+import { partirPorValidade } from '../utils/lotes';
+import { tipoBase } from '../utils/modulos';
 import { casaBusca } from '../utils/busca';
 
 
 export default function Saidas() {
-  const { produtos, addSaida, saidas, removeSaida, restaurarRegistro, estoque, entradas, desperdicio, categorias, locais, prefs, setPref, permissoes } = useApp();
+  const { produtos, addSaida, saidas, removeSaida, restaurarRegistro, estoque, lotes, categorias, locais, destinosDeSaida, prefs, setPref, permissoes } = useApp();
   const { toast, confirm } = useUI();
   const { sessao } = useAuth();
   // Mesma trava do Histórico: sem isto o cozinheiro não via 'Remover' lá, mas
@@ -23,7 +24,7 @@ export default function Saidas() {
   const rotuloDestino = (v) => v === 'producao' ? 'Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
-  const [destino, setDestino] = useState(prefs.destino || locais[0]?.id || '');
+  const [destino, setDestino] = useState(destinosDeSaida.some(l => l.id === prefs.destino) ? prefs.destino : (destinosDeSaida[0]?.id || ''));
   const [obs, setObs] = useState('');
   const [qtds, setQtds] = useState({});
   const [catAtiva, setCatAtiva] = useState('');
@@ -31,7 +32,6 @@ export default function Saidas() {
   const [tab, setTab] = useState('novo');
 
   const produtosAtivos = produtos.filter(p => p.ativo);
-  const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio, produtos), [entradas, saidas, desperdicio, produtos]);
   const buscando = busca.trim().length > 0;
   const produtosVisiveis = buscando
     ? produtosAtivos.filter(p => casaBusca(busca, p.nome))
@@ -46,6 +46,14 @@ export default function Saidas() {
 
   const itensPreenchidos = Object.entries(qtds).filter(([, v]) => parseFloat(v) > 0);
 
+  // ⚠️ A VALIDADE VAI JUNTO PARA A FINALIZAÇÃO (2ª etapa, 01/10/2026). A saída
+  // manual saía sem data e, do outro lado, a comida ficava sem validade. Ela
+  // leva a validade dos lotes que vencem primeiro — a mesma sugestão "← pegar
+  // deste" desta tela. O que passar dos lotes segue sem data (não se inventa).
+  const paraFinalizacao = tipoBase(destino) === 'finalizacao';
+  const porValidadeDe = (produtoId, quantidade) =>
+    (paraFinalizacao ? partirPorValidade(quantidade, lotes[produtoId]) : []);
+
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
   const registrar = () => {
     setTimeout(() => setSalvando(false), 800);
@@ -55,7 +63,11 @@ export default function Saidas() {
       responsavel,
       destino,
       obs,
-      itens: itensPreenchidos.map(([produtoId, quantidade]) => ({ produtoId, quantidade: parseFloat(quantidade) })),
+      itens: itensPreenchidos.map(([produtoId, quantidade]) => {
+        const q = parseFloat(quantidade);
+        const porValidade = porValidadeDe(produtoId, q);
+        return porValidade.length ? { produtoId, quantidade: q, porValidade } : { produtoId, quantidade: q };
+      }),
     });
     if (responsavel) setPref('responsavel', responsavel);
     setPref('destino', destino);
@@ -155,11 +167,11 @@ export default function Saidas() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Destino</label>
-              {locais.length === 0 ? (
+              {destinosDeSaida.length === 0 ? (
                 <p className="text-xs text-amber-600">Nenhum destino cadastrado. Crie em Configurações → Sistema.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
-                  {locais.map(l => (
+                  {destinosDeSaida.map(l => (
                     <button key={l.id} onClick={() => setDestino(l.id)}
                       className={`flex-1 min-w-[40%] py-3 rounded-xl text-sm font-semibold border-2 transition-colors
                         ${destino === l.id
@@ -260,10 +272,18 @@ export default function Saidas() {
               </p>
               {itensPreenchidos.map(([id, qtd]) => {
                 const p = produtos.find(x => x.id === id);
+                const partes = porValidadeDe(id, parseFloat(qtd));
                 return (
-                  <div key={id} className="flex justify-between text-sm">
-                    <span>{p?.nome}</span>
-                    <span className="font-bold text-red-700">−{qtd} {p?.unidade}</span>
+                  <div key={id} className="text-sm">
+                    <div className="flex justify-between">
+                      <span>{p?.nome}</span>
+                      <span className="font-bold text-red-700">−{qtd} {p?.unidade}</span>
+                    </div>
+                    {partes.length > 0 && (
+                      <p className="text-[11px] text-gray-600">
+                        {partes.map(x => `${fmtNum(x.quantidade)} vence ${fmtData(x.validade)}`).join(' + ')}
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -301,12 +321,21 @@ export default function Saidas() {
                   </button>
                   )}
                 </div>
-                {s.itens.map(item => {
+                {s.itens.map((item, i) => {
                   const p = produtos.find(x => x.id === item.produtoId);
                   return (
-                    <div key={item.produtoId} className="flex justify-between text-sm border-t border-gray-50 pt-1 mt-1">
-                      <span className="text-gray-700">{p?.nome || item.produtoId}</span>
-                      <span className="font-semibold text-red-600">−{item.quantidade} {p?.unidade}</span>
+                    <div key={`${item.produtoId}_${i}`} className="text-sm border-t border-gray-50 pt-1 mt-1">
+                      <div className="flex justify-between">
+                        <span className="text-gray-700">{p?.nome || item.produtoId}</span>
+                        <span className="font-semibold text-red-600">−{item.quantidade} {p?.unidade}</span>
+                      </div>
+                      {(item.porValidade?.length > 0 || item.validade) && (
+                        <p className="text-[11px] text-gray-600">
+                          {item.porValidade?.length
+                            ? item.porValidade.map(x => `${fmtNum(x.quantidade)} vence ${fmtData(x.validade)}`).join(' + ')
+                            : `vence ${fmtData(item.validade)}`}
+                        </p>
+                      )}
                     </div>
                   );
                 })}

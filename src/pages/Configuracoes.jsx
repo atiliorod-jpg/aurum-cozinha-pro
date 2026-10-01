@@ -784,7 +784,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
 }
 
 export default function Configuracoes() {
-  const { produtos, setProdutos, saidas, limparTudo, resetarProdutos, exportarBackup, importarBackup,
+  const { produtos, setProdutos, saidasParaConsumo, limparTudo, resetarProdutos, exportarBackup, importarBackup,
           pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref, setPrefs,
           compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo, permissoes, setPermissoes } = useApp();
@@ -792,7 +792,9 @@ export default function Configuracoes() {
           desativarUsuario, reativarUsuario,
           criarConta, trocarSenhaDe, removerConta, definirApelido } = useAuth();
   const { toast, confirm } = useUI();
-  const sugestoes = calcSugestoesMinMax(produtos, saidas, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
+  // `saidasParaConsumo`: na Finalização o consumo vem do Fechar Turno (lá não
+  // existe saída) — com `saidas` as sugestões ficavam sempre vazias
+  const sugestoes = calcSugestoesMinMax(produtos, saidasParaConsumo, undefined, prefs.diasMin || 3, prefs.diasMax || 6, prefs.minMaxPorDiaSemana);
 
   // Capacidades da sessão atual (matriz de permissões). Diretoria/super-admin = tudo.
   const subgruposExistentes = [...new Set(produtos.map(p => (p.subgrupo || '').trim()).filter(Boolean))].sort();

@@ -181,6 +181,63 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (01/10/2026) — 2ª ETAPA DA BAIXA PELA ETIQUETA, LOTE A (sem migração)
+
+Decisões do dono (perguntas clicáveis, 01/10): a conferência na Finalização é
+OPCIONAL, ligada pelo dono EM CADA FINALIZAÇÃO (Unidades e cozinhas, só a
+diretoria); o estoque da Finalização continua contando NA SAÍDA da Produção;
+a Finalização lendo embalagem que a Produção não lançou → DÁ ENTRADA NA HORA
+(só com a chave ligada); lançou e não chegou → pendente + "Não chegou" vira
+PERDA na Finalização (remessa de turno já fechado: só arquiva); imprimir pela
+tela Etiquetas → PERGUNTA "Dar entrada" (marcado); contagem acerta os lotes
+deixando o MAIS NOVO; "Descongelei" e "Devolver à Produção" ficam para depois.
+
+**Lote A (publicado):**
+- `lotes` calculado UMA vez no AppContext com as mesmas entradas do saldo
+  (`entradasDoEstoque` = entradas + recebimentos + compras do Seco) e as
+  CONTAGENS (`calcLotes(..., ajustes)`: no ts da contagem, o excesso sai dos
+  lotes que vencem primeiro; empate de ts → entradas/saídas antes). Validades,
+  Painel e Saídas leem do contexto. Corrige: Finalização e Seco sem lote
+  nenhum; lote fantasma depois do Inventário.
+- Saída MANUAL para uma Finalização grava `porValidade` por item
+  (`partirPorValidade`, FEFO, só as partes com lote). `calcLotes` lê
+  `porValidade` na entrada (recebimento) e na saída. Validades mostra "N itens
+  têm parte do estoque sem validade conhecida".
+- EtiquetaPrint: "Dar entrada no estoque" (Pro, cozinha com `entradas`, item do
+  catálogo, não `origemRegistro`/reimpressão/teste); cópias × medida
+  (`quantoSomaNaContagem`), sem medida pede o número; só o que SAIU no papel;
+  toast com Desfazer (`addRegistro` agora devolve o registro).
+- Erros antigos corrigidos: importar backup trocava os `prefs` da conta
+  inteira (agora `setPrefs` mescla); apagar lançamento ainda na fila tira da
+  fila (não ressuscita); recebimento só do banco (R7, resto velho do aparelho);
+  `destinosDeSaida` tira Finalização arquivada e o destino Finalização fora da
+  Produção; Histórico mostra o fechamento de turno; sugestões de mín/máx da
+  Finalização usam o consumo do turno; câmera só relança o mesmo QR depois de
+  sair do quadro (`novoFiltroDeLeitura`); "4 un" na medida de item em unidade
+  conta 4; turno só desconta perda de origem 'estoque' e grava a linha de item
+  que teve movimento.
+- Demo: as entregas para a Finalização são saídas da Produção (`demo_sf*`, com
+  validade) e o ramo demo monta os recebimentos pela mesma ponte; locais da
+  demo passam por `locaisPadrao` (a Produção oferece a Finalização).
+- ⚠️ NÃO feito, de propósito: carimbar a hora de CHEGADA da saída que sobe
+  atrasada — no caso comum (entregue antes do fechamento) contaria duas vezes.
+  O Fechar Turno já avisa "sobra maior que o disponível".
+- Robô novo `e2e/validadeFinalizacao.pw.js`; 836 testes + 14 do robô.
+
+**Lote B (próximo, M61):** posse da embalagem na Finalização (Perda/Usado lá
+descontam do estoque dela), "Receber" no servidor (`receber_etiqueta`: confere
+a remessa pelo QR / liga à saída manual / dá entrada), conferência por
+Finalização com "A conferir" no topo do Fechar Turno e "Não chegou". Achados
+da revisão adversarial a respeitar: NÃO mudar a assinatura de
+`baixar_etiqueta` (cria sobrecarga → PGRST203); gatilho por
+`etiqueta_baixas.registro_id`, não por `dados.baixaId`; vínculo com saída
+manual em coluna própria (nunca apagar a saída ao desfazer o vínculo);
+absorver a saída da Produção que sobe depois de um "Dar entrada"; desfazer na
+Finalização nunca mexe no contador da Produção; reconferir idempotência depois
+do `for update`; chave guardada num mapa na RAIZ do documento `estoques`
+(`salvarEstoque` apaga campo desconhecido do item); motivos novos tratados
+nos dois caminhos (direto e fila).
+
 ## Onde paramos (30/09/2026, noite) — BAIXA PELA ETIQUETA (M59, só Pro)
 
 Decidido com o dono por perguntas clicáveis (30/09). **Um código por LOTE**

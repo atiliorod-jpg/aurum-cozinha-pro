@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { novoFiltroDeLeitura } from '../utils/baixaEtiqueta';
 
 /**
  * Leitor de QR pela câmera do aparelho.
@@ -9,13 +10,13 @@ import { useEffect, useRef, useState } from 'react';
  * câmera nenhuma, a tela avisa e a pessoa segue pelo código digitado — o
  * leitor é atalho, nunca requisito.
  *
- * `onLer(texto)` dispara a cada código NOVO — o mesmo código lido em sequência
- * é ignorado por alguns segundos, senão a câmera lançaria a mesma embalagem
- * dezenas de vezes enquanto a pessoa ainda está mirando.
+ * `onLer(texto)` dispara a cada código NOVO. ⚠️ O mesmo código só dispara de
+ * novo depois de SAIR do quadro (01/10/2026): antes ele voltava a cada 2,5 s
+ * enquanto continuasse à vista, e no modo rápido a câmera parada sobre a
+ * embalagem lançava a mesma baixa duas, três vezes.
  */
 const NATIVO = typeof window !== 'undefined' && 'BarcodeDetector' in window;
 const TEM_CAMERA = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
-const REPETIR_APOS_MS = 2500;
 
 export default function LeitorQR({ onLer, onFechar }) {
   const videoRef = useRef(null);
@@ -27,14 +28,8 @@ export default function LeitorQR({ onLer, onFechar }) {
     let stream = null;
     let parar = false;
     let timer = null;
-    const ultimos = new Map();
-    const avisar = (txt) => {
-      if (!txt) return;
-      const agora = Date.now();
-      if ((ultimos.get(txt) || 0) + REPETIR_APOS_MS > agora) return; // já lido agora há pouco
-      ultimos.set(txt, agora);
-      onLer?.(txt);
-    };
+    const novo = novoFiltroDeLeitura();
+    const avisar = (txt) => { if (novo(txt, Date.now())) onLer?.(txt); };
 
     (async () => {
       try {

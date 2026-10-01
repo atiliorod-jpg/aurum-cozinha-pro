@@ -386,7 +386,16 @@ export const gramasDeMedida = (txt) => {
 const FATOR = { g: ['g', 1], kg: ['g', 1000], ml: ['ml', 1], l: ['ml', 1000] };
 export function quantoSomaNaContagem(medida, unidadeProduto) {
   const un = String(unidadeProduto || '').trim().toLowerCase();
-  if (un === 'unid' || un === 'un' || un === 'unidade') return 1;
+  if (un === 'unid' || un === 'un' || un === 'unidade') {
+    // ⚠️ "4 un" NA MEDIDA = 4 UNIDADES NA EMBALAGEM (01/10/2026). Contava 1
+    // sempre: a bandeja com 12 embalagens de 4 hambúrgueres saía como 12. Só
+    // vale com a palavra de contagem escrita — "150 g" num item contado em
+    // unidade é o peso de UMA unidade, e um número solto continua valendo 1.
+    const c = String(medida || '').trim().toLowerCase()
+      .match(/^(\d{1,4})\s*(un|und|unid|unids|unidade|unidades|p[çc]|pcs|pçs|pe[çc]a|pe[çc]as)\.?$/);
+    const n = c ? parseInt(c[1], 10) : 0;
+    return n >= 1 ? n : 1;
+  }
   const m = String(medida || '').trim().toLowerCase().replace(',', '.').match(/^([\d.]+)\s*([a-zç]*)/);
   const n = m ? parseFloat(m[1]) : NaN;
   if (!Number.isFinite(n) || n <= 0) return null;

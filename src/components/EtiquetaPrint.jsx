@@ -15,17 +15,17 @@ import { linkSuporte } from '../utils/suporte';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId,
          DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo,
          diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura,
-         lembrarArmazenamentos } from '../utils/etiquetas';
+         lembrarArmazenamentos, quantoSomaNaContagem } from '../utils/etiquetas';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL, medirEtiqueta, nivelDeDesenho } from '../utils/tspl';
 import EtiquetaTSPL from './EtiquetaTSPL';
 import { bitmapsDoNome } from '../lib/nomeEmBitmap';
 import { caminhosDeImpressao, impressoraConectada, escolherImpressora, reconectarSePuder, enviarTSPL, desconectar, ehIOS } from '../lib/impressoraBLE';
-import { hoje, fmtHora, fmtData } from '../utils/formatters';
+import { hoje, fmtHora, fmtData, fmtNum } from '../utils/formatters';
 import { bitmapDoQR } from '../utils/tsplBitmap';
 import { codigoLegivel } from '../utils/baixaEtiqueta';
 import { idDeImpressao } from '../utils/relatorioEtiquetas';
-import { etiquetaComArmazenamento } from '../utils/modulos';
+import { etiquetaComArmazenamento, temRecurso } from '../utils/modulos';
 import { produtoAtivo, produtoTem } from '../utils/produto';
 
 // Tamanho impresso do QR, calculado a partir do NÚMERO DE MÓDULOS do código.
@@ -279,10 +279,10 @@ function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADR
 }
 
 export default function EtiquetaPrint() {
-  const { etiquetaState, fecharEtiquetas } = useUI();
+  const { etiquetaState, fecharEtiquetas, toast } = useUI();
   const { sessao, impersonando } = useAuth();
   const { prefs, setPrefs, produtos, modulo, estoqueAtual, adicionarEtiquetas,
-          registrarImpressoes, unidades, unidadeAtual, unidadeFixa } = useApp();
+          registrarImpressoes, unidades, unidadeAtual, unidadeFixa, addEntrada, removeEntrada } = useApp();
   // ⚠️ O QUE SAI IMPRESSO NO POTE — nome no topo, CNPJ e endereço no rodapé —
   // é o da UNIDADE da cozinha aberta (M46). Na unidade principal é o de
   // sempre: o nome do estoque (texto antigo) ou o da conta, o CNPJ da CONTA
@@ -312,6 +312,15 @@ export default function EtiquetaPrint() {
   const config = useMemo(() => ({ ...configEtiqueta(prefs), incluirQR: qrLigado }), [prefs, qrLigado]);
   // Estados de armazenamento configuráveis (Configurações → Sistema).
   const armazenamentos = armazenamentosAtivos(prefs);
+  // ⚠️ IMPRIMIR DÁ ENTRADA, SE A PESSOA QUISER (decisão do dono, 01/10/2026).
+  // Imprimir pela tela Etiquetas não lançava nada no estoque: a saída pelo QR
+  // depois deixava o saldo negativo e não achava o lote da validade. No Pro,
+  // na cozinha que tem Entradas, a janela traz marcado "Dar entrada no
+  // estoque". Não aparece quando a impressão já vem de uma entrada/produção
+  // (`origemRegistro`), na reimpressão (mesmo código) nem na de teste.
+  const podeDarEntrada = guardaHistorico && temRecurso(modulo, 'entradas');
+  const elegivelEntrada = (item) => podeDarEntrada && !!item?.produtoId && !item.origemRegistro
+    && !item.codigo && !item.reimpressao && !item.teste;
 
   // Cópia local editável dos itens + hora congelada na abertura do modal
   const [itens, setItens] = useState([]);
@@ -715,6 +724,48 @@ export default function EtiquetaPrint() {
   // histórico conta LOTES e não potes. Três potes iguais aparecem como uma
   // linha — por isso `copias` vai gravado junto, para a tela poder dizer
   // quantos foram sem precisar inventar identidade para cada um.
+  // quanto do item entra no estoque com estas etiquetas: cópias × medida
+  // (na unidade do item); sem medida que converta, o número digitado
+  const entradaDoItem = (item, c = camposDe(item)) => {
+    const p = produtos.find(x => x.id === item.produtoId);
+    const n = limitarCopias(item.quantidade);
+    const por = p ? quantoSomaNaContagem(c.medida, p.unidade) : null;
+    const total = por
+      ? Math.round(por * n * 1000) / 1000
+      : (parseFloat(String(item._qtdEntrada || '').replace(',', '.')) || 0);
+    return { porEmbalagem: por, total: total > 0 ? total : 0, unidade: p?.unidade || '' };
+  };
+
+  const darEntrada = (lista) => {
+    const itensEntrada = lista
+      .filter(i => elegivelEntrada(i) && i._darEntrada !== false)
+      .map(i => {
+        const c = camposDe(i);
+        const e = entradaDoItem(i, c);
+        if (!(e.total > 0)) return null;
+        return {
+          produtoId: i.produtoId, quantidade: e.total,
+          ...(c.validade ? { validade: c.validade } : {}),
+          ...(c.armazenamento ? { armazenamento: c.armazenamento } : {}),
+        };
+      })
+      .filter(Boolean);
+    if (!itensEntrada.length) return;
+    const novo = addEntrada({
+      data: hoje(), hora: fmtHora(), responsavel: responsavel.trim(),
+      obs: 'Pela impressão das etiquetas',
+      armazenamento: itensEntrada[0].armazenamento || null,
+      itens: itensEntrada,
+    });
+    if (novo?.id) {
+      const nomes = itensEntrada.map(x => {
+        const p = produtos.find(y => y.id === x.produtoId);
+        return `${fmtNum(x.quantidade)} ${p?.unidade || ''} de ${p?.nome || ''}`.trim();
+      }).join(', ');
+      toast(`Entrada lançada: ${nomes}.`, 'sucesso', { duracao: 6000, acao: { label: 'Desfazer', onClick: () => removeEntrada(novo.id) } });
+    }
+  };
+
   const registrarImpressao = (soEstes, umCodigoPorCopia = true, idDe = null) => {
     if (!guardaHistorico) return;
     const hojeISO = hoje();
@@ -784,6 +835,8 @@ export default function EtiquetaPrint() {
     // lista de Impressas e para a linha do relatório.
     const idDe = new Map(lista.map(item => [item, idDeImpressao()]));
     registrarImpressao(lista, umCodigoPorCopia, idDe);
+    // só o que SAIU no papel entra no estoque (`lista` já é isso)
+    darEntrada(lista);
     // ⚠️ CADA IMPRESSÃO VIRA UMA LINHA NO BANCO (M43): é o que alimenta o
     // relatório do dono por dia, semana e mês. Isto SUBSTITUI a chamada ao
     // contador da M42 — `registrar_impressoes` soma no mesmo contador do
@@ -1206,6 +1259,36 @@ export default function EtiquetaPrint() {
                       : 'Sem validade: etiqueta só de identificação.'}
                     {(item.marca || item.sif || item.lote) && <> · {item.marca}{item.sif ? ` · SIF ${item.sif}` : ''}{item.lote ? ` · lote ${item.lote}` : ''}</>}
                   </p>
+                  {elegivelEntrada(item) && (() => {
+                    const e = entradaDoItem(item, campos);
+                    const marcado = item._darEntrada !== false;
+                    return (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+                        <label className="flex items-start gap-2.5 min-h-11 py-1 cursor-pointer">
+                          <input type="checkbox" checked={marcado} className="mt-0.5 w-5 h-5 flex-shrink-0 accent-polo-navy"
+                            onChange={ev => setItem(idx, { _darEntrada: ev.target.checked })} />
+                          <span className="text-sm text-gray-800">
+                            Dar entrada no estoque{e.total > 0 && <>: <strong className="text-polo-navy">{fmtNum(e.total)} {e.unidade}</strong></>}
+                            {campos.validade && <span className="text-gray-600"> · vence {fmtData(campos.validade)}</span>}
+                            <span className="block text-[11px] text-gray-600">
+                              Desmarque se este item já entrou no estoque (lançado em Entradas ou Produção).
+                            </span>
+                          </span>
+                        </label>
+                        {marcado && !e.porEmbalagem && (
+                          <label className="block pb-1.5">
+                            <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">
+                              Quanto entra no estoque{e.unidade ? ` (em ${e.unidade})` : ''}? A medida não diz.
+                            </span>
+                            <input type="text" inputMode="decimal" value={item._qtdEntrada ?? ''} placeholder="Ex.: 2,5"
+                              onChange={ev => setItem(idx, { _qtdEntrada: ev.target.value })}
+                              aria-label={`Quanto entra no estoque${e.unidade ? ` em ${e.unidade}` : ''}`}
+                              className={inputCls} />
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}

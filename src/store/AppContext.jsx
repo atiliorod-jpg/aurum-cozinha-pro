@@ -25,6 +25,7 @@ import { relatarErro } from '../lib/relatarErro';
 import { CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas, marcaDeUpgrade } from '../utils/produto';
 import { comMetas, separarMetas, fatiarPorEstoque, visaoDoEstoque, comprasQueEntram } from '../utils/visaoEstoque';
+import { calcLotes } from '../utils/lotes';
 import { SECO_BASE, SECO_CATEGORIAS } from '../data/seco';
 import { armazenamentosAtivos, comEspelhoDePrazos } from '../utils/armazenamento';
 import { hoje, fmtHora } from '../utils/formatters';
@@ -878,6 +879,7 @@ export function AppProvider({ children }) {
       });
     }
     logAudit(`registrou ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(novo) || '');
+    return novo; // quem oferece "Desfazer" precisa do id
   }, [logAudit, RESUMOS, k, t, acompanharBrutos]);
 
   const removeRegistro = useCallback((tipo, setRaw, key, id) => {
@@ -891,6 +893,16 @@ export function AppProvider({ children }) {
     });
     if (nuvemDe(r)) {
       acompanharBrutos({ id, restaurante_id: r, deleted: true });
+      // ⚠️ AINDA NA FILA (lançado sem internet): o banco nem tem a linha — o
+      // `update` acertaria zero linhas sem erro, e a inserção, ao subir depois,
+      // ressuscitava o lançamento apagado. Tira da fila e pronto.
+      const fila = outboxGet(r);
+      const naFila = fila.find(i => !i._morto && i.kind === 'registro' && i.op === 'insert' && i.payload?.id === id);
+      if (naFila) {
+        outboxSet(r, fila.filter(i => i !== naFila));
+        if (alvo) logAudit(`removeu ${ROTULO[tipo]}`, RESUMOS[ROTULO[tipo]]?.(alvo) || '');
+        return;
+      }
       supabase.from('registros').update({ deleted: true }).eq('id', id).then(({ error }) => {
         if (error) outboxAdd(r, { kind: 'registro', op: 'delete', payload: { id } });
       });
@@ -993,15 +1005,38 @@ export function AppProvider({ children }) {
   // entrada: tudo o que chega nela vem da Produção, como recebimento. Sem esta
   // lista o estoque dela ficava sempre ZERADO — a bancada recebia 20 porções e
   // a tela mostrava 0, o que também derrubava alertas e mín/máx.
-  const estoque = useMemo(
-    () => calcEstoquePuro({
-      produtos,
-      // `comprasQueEntram` só devolve algo onde a compra É a entrada (Seco).
-      entradas: [...entradas, ...recebimentos, ...comprasQueEntram(moduloEfetivo, compras)],
-      saidas, ajustes, desperdicio,
-    }),
-    [produtos, entradas, recebimentos, compras, moduloEfetivo, saidas, ajustes, desperdicio]
+  // `comprasQueEntram` só devolve algo onde a compra É a entrada (Seco).
+  const entradasDoEstoque = useMemo(
+    () => [...entradas, ...recebimentos, ...comprasQueEntram(moduloEfetivo, compras)],
+    [entradas, recebimentos, compras, moduloEfetivo],
   );
+  const estoque = useMemo(
+    () => calcEstoquePuro({ produtos, entradas: entradasDoEstoque, saidas, ajustes, desperdicio }),
+    [produtos, entradasDoEstoque, saidas, ajustes, desperdicio]
+  );
+
+  // ── Lotes por validade (2ª etapa da baixa pela etiqueta, 01/10/2026) ─
+  // Calculado UMA vez, com as MESMAS entradas do saldo. Antes Validades,
+  // Painel e Saídas chamavam calcLotes só com `entradas`: a Finalização
+  // (que só recebe) e o Seco (onde a compra é a entrada) nunca viam lote
+  // nenhum — a validade do fabricante digitada na compra não gerava alerta.
+  // As contagens (Inventário, Fechar Turno) acertam os lotes ao que sobrou.
+  const lotes = useMemo(
+    () => calcLotes(entradasDoEstoque, saidas, desperdicio, produtos, ajustes),
+    [entradasDoEstoque, saidas, desperdicio, produtos, ajustes]
+  );
+
+  // ── Para onde a saída pode ir (os botões de destino) ───────────
+  // ⚠️ `locais` guarda o destino fixo de toda Finalização que já existiu
+  // (mesclarFixos só acrescenta). Uma Finalização ARQUIVADA continuava como
+  // botão: o que ia para ela entrava num estoque que ninguém mais abre. E fora
+  // da Produção o destino Finalização é beco sem saída (a ponte só lê saída da
+  // Produção). A lista completa continua valendo para dar NOME no histórico.
+  const destinosDeSaida = useMemo(() => {
+    const ativas = new Set(estoques.filter(e => e.tipo === 'finalizacao' && !e.arquivado).map(e => e.id));
+    const daProducao = tipoBase(moduloEfetivo) === MODULO_PADRAO;
+    return (locais || []).filter(l => l && (tipoBase(l.id) !== 'finalizacao' || (daProducao && ativas.has(l.id))));
+  }, [locais, estoques, moduloEfetivo]);
 
   // Migração única: copia gramatura/coccao de fichas para os produtos correspondentes
   const gramigrRef = useRef(false);
@@ -1224,7 +1259,10 @@ export function AppProvider({ children }) {
       setDestinosRaw(cacheGet(rid, k('destinos'), c.destinos));
       setFichasRaw(cacheGet(rid, kc('fichas'), c.fichas));
       setProducoesRaw(cacheGet(rid, k('producoes'), c.producoes));
-      setLocaisRaw(cacheGet(rid, k('locais'), c.locais));
+      // os destinos fixos (Finalizações vivas) entram como na conta real — a
+      // demo da Produção não oferecia mandar para a Finalização
+      const LOCD = locaisPadrao(c.locais, estoquesRef.current, moduloEfetivo, []);
+      setLocaisRaw(mesclarFixos(cacheGet(rid, k('locais'), LOCD), LOCD));
       setListaManualRaw(cacheGet(rid, k('listaManual'), c.listaManual));
       setEtiquetasAvulsasRaw(cacheGet(rid, k('etiquetasAvulsas'), c.etiquetasAvulsas));
       setEtiquetasImpressasRaw(cacheGet(rid, k('etiquetasImpressas'), []));
@@ -1235,7 +1273,17 @@ export function AppProvider({ children }) {
       setAparasRaw(cacheGet(rid, k('aparas'), g.aparas || []));
       setDesperdicioRaw(cacheGet(rid, k('desperdicio'), g.desperdicio || []));
       setAjustesRaw(cacheGet(rid, k('ajustes'), g.ajustes || []));
-      setRecebimentosRaw(cacheGet(rid, k('recebimentos'), g.recebimentos || []));
+      // ⚠️ A PONTE TAMBÉM NA DEMO (01/10/2026): o recebimento é a saída das
+      // Produções com destino nesta Finalização, lida do cache delas — antes
+      // era uma lista à parte, e o que o visitante mandava não chegava aqui.
+      setRecebimentosRaw(tipoBase(moduloEfetivo) === 'finalizacao'
+        ? estoquesRef.current
+          .filter(e => e.tipo === MODULO_PADRAO)
+          .flatMap(e => cacheGet(rid, chaveModulo(e.id, 'saidas'),
+            ehIdInstancia(e.id) ? [] : (gerarDemoSeed(MODULO_PADRAO).registros.saidas || [])))
+          .filter(r => r && r.destino === moduloEfetivo)
+          .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+        : []);
       setAuditoriaRaw(cacheGet(rid, 'auditoria', g.auditoria || [])); // auditoria é da conta
       // Documentos da CONTA que o ramo demo também precisa ler do cache, senão
       // o visitante cria um estoque e ele desaparece no recarregar — a queda
@@ -1710,7 +1758,11 @@ export function AppProvider({ children }) {
           const arr = (porTipo[tipo] || []).sort((a, b) => (a.ts || 0) - (b.ts || 0));
           setRaw(prev => {
             const fetchedIds = new Set(arr.map(x => x.id));
-            let localOnly = prev.filter(x => !fetchedIds.has(x.id));
+            // ⚠️ RECEBIMENTO É SEMPRE DO BANCO (R7, 01/10/2026). Ele nunca nasce
+            // neste aparelho (é a saída da Produção vista daqui), então o que só
+            // existe na cópia local é resto velho: a saída que a Produção apagou
+            // enquanto este aparelho dormia continuava no saldo e no turno.
+            let localOnly = tipo === 'recebimento' ? [] : prev.filter(x => !fetchedIds.has(x.id));
             // Auditoria é o único tipo cujo id DEFINITIVO nasce no banco (a RPC
             // da migração 18 gera o dela), então a linha otimista deste aparelho
             // jamais casava por id e a tela mostrava tudo em dobro — inclusive
@@ -1993,7 +2045,11 @@ export function AppProvider({ children }) {
       const permitidas = Object.keys(soRestaurante(CAT.prefs));
       const limpo = {};
       permitidas.forEach(k => { if (dados.prefs[k] !== undefined) limpo[k] = dados.prefs[k]; });
-      if (Object.keys(limpo).length) cat('prefs', setPrefsRaw, limpo);
+      // ⚠️ MESCLA, nunca substitui (01/10/2026). Passava pelo persistCatalogo,
+      // que TROCA o documento inteiro: um backup com `guia` apagava todas as
+      // preferências da conta (etiqueta, QR, mín/máx automático…) e, fora da
+      // Produção, ainda gravava numa chave com o nome da cozinha.
+      if (Object.keys(limpo).length) setPrefs(limpo);
     }
 
     const r = ridRef.current;
@@ -2027,7 +2083,7 @@ export function AppProvider({ children }) {
     // de linhas já existentes falharia e entupiria o outbox em retries eternos.
     reg('auditoria', setAuditoriaRaw, 'auditoria', dados.auditoria, false);
     logAudit('restaurou backup', `${(dados.entradas || []).length + (dados.saidas || []).length + (dados.compras || []).length} registros`);
-  }, [persistCatalogo, logAudit]);
+  }, [persistCatalogo, logAudit, setPrefs]);
 
   // ⚠️ MEMOIZADO, e isto não é micro-otimização — era um desperdício medido.
   // A ordem dos providers é UIProvider > AuthProvider > AppProvider, e o
@@ -2052,7 +2108,7 @@ export function AppProvider({ children }) {
       pessoas, addPessoa, removePessoa,
       fichas, setFichas,
       producoes, setProducoes,
-      locais, setLocais,
+      locais, setLocais, destinosDeSaida,
       listaManual, setListaManual,
       etiquetasAvulsas, setEtiquetasAvulsas,
       etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada,
@@ -2067,7 +2123,7 @@ export function AppProvider({ children }) {
       restaurarRegistro,
       prefs, setPref, setPrefs,
       modulo: moduloEfetivo, setModulo, recebimentos,
-      estoque,
+      estoque, lotes,
       limparTudo, resetarProdutos,
       exportarBackup, importarBackup,
       soLeitura,
@@ -2086,14 +2142,14 @@ export function AppProvider({ children }) {
     addEntrada, removeEntrada, saidas, addSaida, removeSaida, aparas,
     addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, ajustes,
     addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, fichas,
-    setFichas, producoes, setProducoes, locais, setLocais, listaManual,
+    setFichas, producoes, setProducoes, locais, setLocais, destinosDeSaida, listaManual,
     setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada, permissoes,
     baixarEtiqueta, desfazerBaixa, buscarEtiqueta,
     setPermissoes, precos, setPrecos, estoques, estoqueAtual, estoquesDoc,
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,
     prefs, setPref, setPrefs, moduloEfetivo, setModulo, recebimentos,
-    estoque, limparTudo, resetarProdutos, exportarBackup, importarBackup, soLeitura,
+    estoque, lotes, limparTudo, resetarProdutos, exportarBackup, importarBackup, soLeitura,
     rid, pendencias, online, mortos, retentarMortos, descartarMortos,
     registrarImpressoes,
     unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,

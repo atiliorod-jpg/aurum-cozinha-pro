@@ -151,6 +151,22 @@ export const AVISO_PARA_PERGUNTAR = {
   vencida: 'Embalagem vencida: confira antes de dar saída.',
 };
 
+// ── A câmera contínua ────────────────────────────────────────────────
+/**
+ * Filtro das leituras da câmera: o código só vale de novo depois de ficar
+ * `ausenteMs` FORA do quadro. Cada vez que é visto, o relógio recomeça — a
+ * câmera parada sobre a mesma embalagem não lança a mesma baixa de novo.
+ */
+export function novoFiltroDeLeitura(ausenteMs = 1500) {
+  const vistoEm = new Map();
+  return (txt, agora) => {
+    if (!txt) return false;
+    const ultimo = vistoEm.get(txt);
+    vistoEm.set(txt, agora);
+    return ultimo === undefined || agora - ultimo > ausenteMs;
+  };
+}
+
 // ── Código digitado com letra parecida ───────────────────────────────
 // ⚠️ O código é base36 (0-9 e a-z), e no papel "O" e "0", "I", "L" e "1" se
 // confundem. Quem digita o que VÊ não pode ficar sem achar a etiqueta. A

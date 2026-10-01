@@ -44,7 +44,9 @@ export function turnoAberto({ produtos = [], recebimentos = [], perdas = [], fec
 
   const perdido = {};
   perdas.filter(p => (p.ts || 0) > desde).forEach(p => {
-    if (!p.produtoId) return;
+    // a MESMA regra do saldo (calcEstoquePuro): só a perda do que está no
+    // estoque abate — senão o turno e o saldo contavam disponíveis diferentes
+    if (!p.produtoId || p.origem !== 'estoque') return;
     perdido[p.produtoId] = (perdido[p.produtoId] || 0) + num(p.quantidade);
   });
 
@@ -89,9 +91,14 @@ export function consumoDoTurno(linhas = [], sobras = {}) {
   });
 }
 
-/** Só as linhas que valem gravar no fechamento (evita poluir com zeros). */
+/**
+ * Só as linhas que valem gravar no fechamento (evita poluir com zeros).
+ * ⚠️ Item que TEVE movimento no turno entra mesmo com disponível zerado ou
+ * negativo (perdeu tudo o que chegou): é a contagem dele que zera o saldo e
+ * os lotes — sem ela o item ficava com saldo e lote fantasmas para sempre.
+ */
 export const linhasParaGravar = (linhas) =>
-  linhas.filter(l => l.disponivel > 0 || l.sobra > 0);
+  linhas.filter(l => l.disponivel > 0 || l.sobra > 0 || l.abertura > 0 || l.recebido > 0);
 
 /**
  * Consumo por produto a partir dos FECHAMENTOS DE TURNO, no formato de saídas.

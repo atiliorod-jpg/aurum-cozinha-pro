@@ -62,8 +62,13 @@ export default function Historico() {
     // Contagem física faltava aqui — e é o lançamento que MAIS muda o saldo
     // (sobrepõe o calculado). Quem procurava "por que o estoque mudou" não
     // encontrava a resposta na tela que promete mostrar tudo.
+    // ⚠️ Na Finalização a contagem é o FECHAMENTO DE TURNO: um lançamento com
+    // vários itens[] (a sobra de cada um). Lido como contagem de um item só,
+    // aparecia "contagem física: undefined → undefined".
     ...ajustes.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'contagem', cor: 'text-indigo-600', r,
-      resumo: `contagem física: ${nome(r.produtoId)} → ${fmtNum(r.quantidade)}`,
+      resumo: Array.isArray(r.itens) && r.itens.length
+        ? `fechamento de turno${r.turno ? ` (${r.turno})` : ''} · sobra: ${r.itens.map(i => `${fmtNum(i.quantidade)} ${nome(i.produtoId)}`).join(', ')}`
+        : `contagem física: ${nome(r.produtoId)} → ${fmtNum(r.quantidade)}`,
       remover: () => { removeAjuste(r.id); return { tipo: 'ajuste', reg: r }; } })),
     // Recebimento da Produção. Sem isto o Histórico da Finalização ficava
     // quase vazio, justamente onde receber é quase tudo o que acontece.

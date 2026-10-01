@@ -7,7 +7,7 @@ import { statusEstoque, corStatus, pctBarra } from '../utils/calculos';
 import { calcSugestoesMinMax, produtosDivergentes } from '../utils/sugestoes';
 import { mediaDiariaSaidas, previsaoRuptura, listaDeCompras } from '../utils/analise';
 import { diasAte } from '../utils/datas';
-import { calcLotes, lotesVencendo } from '../utils/lotes';
+import { lotesVencendo } from '../utils/lotes';
 import { producoesIncompletas } from '../utils/producao';
 import { fmtNum, fmtData, hoje } from '../utils/formatters';
 import { somaPorUnidade } from '../utils/relatorios';
@@ -21,7 +21,7 @@ import { useAuth } from '../store/AuthContext';
 import { plural } from '../utils/formatters';
 
 export default function Dashboard() {
-  const { produtos, setProdutos, saidas, saidasParaConsumo, entradas, desperdicio, compras, aparas, producoes, estoque, categorias, listaManual, prefs, modulo, permissoes } = useApp();
+  const { produtos, setProdutos, saidas, saidasParaConsumo, entradas, desperdicio, compras, aparas, producoes, estoque, lotes, categorias, listaManual, prefs, modulo, permissoes } = useApp();
   const { toast } = useUI();
   const { sessao } = useAuth();
   const navigate = useNavigate();
@@ -40,7 +40,7 @@ export default function Dashboard() {
   );
 
   // Lotes restantes por produto (FEFO) e os que vencem em até 5 dias
-  const lotes = useMemo(() => calcLotes(entradas, saidas, desperdicio, produtos), [entradas, saidas, desperdicio, produtos]);
+  // vêm do contexto: com os recebimentos (Finalização), as compras (Seco) e as contagens
   // reconciliado com o estoque: produto zerado (ex.: contagem física) não gera alerta fantasma
   const vencendo = useMemo(() => lotesVencendo(lotes, produtos, estoque, diasAte), [produtos, lotes, estoque]);
 
