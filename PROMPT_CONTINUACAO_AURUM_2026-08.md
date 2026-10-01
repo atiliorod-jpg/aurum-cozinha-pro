@@ -229,12 +229,8 @@ deixando o MAIS NOVO; "Descongelei" e "Devolver à Produção" ficam para depois
   "Unauthorized" em 01/10 (venceu ou foi revogado). O dono precisa gerar um
   novo token em supabase.com/dashboard/account/tokens e trocar a linha no
   `.env.local` (Claude não digita token). Depois:
-  1. `node <scratchpad>/m61-conferir.mjs` (testa a M61 SEM aplicar: corpo +
-     16 cenários numa transação que termina em RAISE); copiar o script se o
-     scratchpad sumir — ele está descrito aqui: etiquetas tm61a/b/c/s, chave
-     ligada, saída QR → conferir → entrada → perda/usado no destino →
-     absorção da saída atrasada → vínculo com saída à mão → apagar/restaurar
-     → não chegou → chave desligada → tombstone do desfazer.
+  1. `node scripts/conferir-m61.mjs` (testa a M61 SEM aplicar: corpo + 16
+     cenários numa transação que termina em RAISE — nada fica gravado).
   2. `node scripts/rodar-migracao.mjs 61`, conferir de novo com `--depois`.
   3. `git push` (o deploy roda os 16 testes do robô).
 - **M61** `migration61_embalagem_na_finalizacao.sql`: `etiqueta_baixas` ganha
