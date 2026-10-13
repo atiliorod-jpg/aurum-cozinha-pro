@@ -15,6 +15,7 @@ import { pode } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
 import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas, CartaoContas, CartaoCargos } from '../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
+import CartaoEquipe from '../components/config/CartaoEquipe';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../utils/armazenamento';
 import { casaBusca } from '../utils/busca';
@@ -785,7 +786,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
 
 export default function Configuracoes() {
   const { produtos, setProdutos, saidasParaConsumo, limparTudo, resetarProdutos, exportarBackup, importarBackup,
-          pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
+          destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref, setPrefs,
           compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo, permissoes, setPermissoes } = useApp();
   const { usuarios, sessao, alterarCargo,
@@ -903,7 +904,6 @@ export default function Configuracoes() {
   const [editando, setEditando] = useState(null);
   const [criando, setCriando] = useState(false);
   const [busca, setBusca] = useState('');
-  const [novaPessoa, setNovaPessoa] = useState('');
   // A aba pode vir por query (?secao=acessos): é assim que a Administração manda
   // direto para o assunto em vez de largar a pessoa em "Produtos" para procurar.
   //
@@ -939,18 +939,6 @@ export default function Configuracoes() {
   const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
   const planilhaRef = useRef(null);
-
-  const handleAddPessoa = () => {
-    const n = novaPessoa.trim();
-    if (!n) return;
-    if (pessoas.some(p => p.toLowerCase() === n.toLowerCase())) {
-      toast('Essa pessoa já está cadastrada.', 'aviso');
-      return;
-    }
-    addPessoa(n);
-    setNovaPessoa('');
-    toast('Pessoa cadastrada.', 'sucesso');
-  };
 
   const handleImportar = (e) => {
     const file = e.target.files?.[0];
@@ -1573,34 +1561,10 @@ export default function Configuracoes() {
       </>}
 
       {secaoAtiva === 'acessos' && <>
-      {/* Equipe */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
-        <div>
-          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">Equipe / Responsáveis</h2>
-          <p className="text-xs text-gray-500 mt-1">Quem aparece para selecionar ao registrar entradas, saídas, aparas e perdas.</p>
-        </div>
-        <div className="flex gap-2">
-          <input aria-label="Nome da pessoa" type="text" value={novaPessoa} onChange={e => setNovaPessoa(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAddPessoa(); }}
-            placeholder="Nome da pessoa"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          <button onClick={handleAddPessoa}
-            className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm">+ Add</button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {pessoas.length === 0 && <span className="text-xs text-gray-500">Nenhuma pessoa cadastrada ainda.</span>}
-          {pessoas.map(p => (
-            <span key={p} className="inline-flex items-center gap-2 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-sm font-medium text-polo-navy">
-              {p}
-              <button onClick={async () => {
-                  const ok = await confirm({ titulo: 'Remover pessoa', mensagem: `Remover ${p} da equipe? Registros antigos não mudam.`, perigo: true, confirmar: 'Remover' });
-                  if (ok) { removePessoa(p); toast('Pessoa removida.', 'sucesso'); }
-                }}
-                className="text-red-700 font-bold text-base leading-none">×</button>
-            </span>
-          ))}
-        </div>
-      </div>
+      {/* Equipe — os nomes de quem registra e imprime, com a senha de cada um
+          (ver CartaoEquipe). Não são as contas: essas vêm logo abaixo. */}
+      <CartaoEquipe titulo="Equipe / Responsáveis" estiloSecao
+        descricao="Quem aparece para escolher ao registrar entradas, saídas, aparas e perdas, e em “Quem vai imprimir?” nas etiquetas." />
 
       {/* Usuários e acessos */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">

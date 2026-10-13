@@ -9,6 +9,7 @@ import SeletorModulo from './components/SeletorModulo';
 import { temRecurso } from './utils/modulos';
 import { pode, podeAbrirConfig, podeAbrirAdministracao } from './utils/permissoes';
 import { AppProvider, useApp } from './store/AppContext';
+import { OperadorProvider } from './store/OperadorContext';
 import { UIProvider, useUI } from './store/UIContext';
 import { fmtData, isoLocal, plural } from './utils/formatters';
 import PwaUpdatePrompt from './components/PwaUpdatePrompt';
@@ -545,8 +546,12 @@ export default function App() {
       <UIProvider>
         <AuthProvider>
           <AppProvider>
-            <Rotas />
-            <EtiquetaPrint />
+            {/* quem está imprimindo (nome + senha da equipe) — só a tela de
+                Etiquetas e a janela de imprimir leem; ver OperadorContext */}
+            <OperadorProvider>
+              <Rotas />
+              <EtiquetaPrint />
+            </OperadorProvider>
             <PwaUpdatePrompt />
             <PwaInstallPrompt />
           </AppProvider>

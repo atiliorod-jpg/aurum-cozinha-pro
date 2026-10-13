@@ -181,6 +181,93 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (13/10/2026) — "QUEM VAI IMPRIMIR?": NOME + SENHA DA EQUIPE (sem migração)
+
+Pedido do dono, no jeito da Suflex. A tela Imprimir/Etiquetas (os dois planos)
+começa pelos NOMES da equipe. A pessoa toca no nome, digita a senha de 4
+números (se tiver) e só então busca o item. A etiqueta sai com o nome dela no
+RESP.
+
+Decisões dele (perguntas clicáveis, 11-13/10):
+- A senha é OPCIONAL, de 4 números (ex.: dia e mês do aniversário).
+- SÓ A CONTA DONA (diretoria) cria, troca ou tira a senha.
+- A tela de nomes fica SEMPRE ligada.
+- Volta aos nomes depois de 5 min sem uso.
+- Os nomes são a lista `pessoas`, NÃO as contas de acesso: a conta pode ser de
+  um posto ("Produção"), e o dono cadastra ali todo mundo que imprime.
+
+Como ficou:
+- `utils/senhaEquipe.js` (puro, com teste):
+  - PBKDF2-SHA256 com 100 mil voltas e sal de 16 bytes. O teto e o piso das
+    voltas protegem contra documento adulterado.
+  - `conferirSenha` falha FECHADA.
+  - Trava de 5 erros → 60 s, guardada no aparelho em `pe::travaSenhaEquipe`,
+    fora do `pe::<rid>::` de propósito: sobrevive a sair da conta.
+  - `assinaturaDaJanela` decide quem assina:
+
+    | Regra | Quando | Quem assina |
+    |---|---|---|
+    | `manual` | equipe vazia | o seletor de sempre |
+    | `livre` | etiqueta de teste | ninguém é exigido |
+    | `original` | reimpressão (Impressas `reimpressao`/`codigo`, Histórico `assinaturaOriginal`) | quem assinou, sem senha |
+    | `operador` | todo o resto | quem entrou; sem ninguém, os botões travam |
+
+- Documento da conta `senhasEquipe` = `{ nome: { s, h, i } }`, em `GLOBAIS`:
+  - NÃO é semeado (ausente = ninguém tem senha) e funciona pelo cache sem
+    internet.
+  - NÃO entra na cópia de segurança; a importação poda as senhas de quem saiu.
+  - `removePessoa` apaga a senha; `addPessoa` limpa a senha que tenha sobrado
+    de um nome igual.
+  - A M56 não restringe essa chave: qualquer membro poderia regravá-la pelo
+    banco. É o "limite honesto" — a senha barra o uso do nome no dia a dia,
+    não é segurança forte.
+- `store/OperadorContext.jsx`: quem está imprimindo vive SÓ na memória (nunca
+  em `prefs` ou `_prefs_device`). Fica num contexto à parte para não
+  re-renderizar as telas de `useApp`. O "sem uso" escuta `pointerdown`/
+  `keydown` em captura, `visibilitychange` e um relógio de 15 s, e confere a
+  expiração ANTES de renovar.
+- `components/QuemImprime.jsx`: grade de nomes (cadeado em quem tem senha) e
+  teclado grande que confere sozinho no 4º número.
+  - A dica "1234" aparece SÓ na demonstração (Maria sem senha, João com 1234;
+    o registro público fica em `data/demo.js`, travado por teste).
+  - `FaixaOperador` mostra "Imprimindo como X · Trocar".
+- `EtiquetaPrint`:
+  - Com a equipe cadastrada e ninguém escolhido (aberta por Entradas ou
+    Produção), a própria janela mostra "Quem vai imprimir?" e
+    trava os dois botões.
+  - O nome fica CONGELADO durante "Saiu no papel?" e o envio Bluetooth.
+- `components/config/CartaoEquipe.jsx`: um cartão só, em Responsáveis
+  (Etiquetas) e em Configurações → Acessos (Pro).
+  - Cada nome mostra "com senha"/"sem senha", com Criar/Trocar senha
+    (digitada duas vezes, `autoComplete="new-password"`), Tirar senha e
+    Remover.
+
+Também neste lote:
+- `npm audit` acusou o `braces` (GHSA-vfj7-8cjw-p6xm, SEM versão corrigida,
+  só de compilação, via Tailwind 3). Ele foi documentado em `IGNORAR_GHSA`.
+- O `audit-check` passou a não deixar causa de nível médio segurar a cadeia.
+- O `source-map-js` foi corrigido com `npm audit fix`.
+
+Verificado: lint sem erro, 861 vitest, robô 20/20 — 6 testes novos:
+- 5 em `e2e/senhaEquipe.pw.js`: nomes, senha errada → "Restam 4",
+  reimpressão mantém Maria, 5 erros → espera, janela da Entrada pede o nome,
+  o dono cria a senha, 5 min com relógio simulado;
+- 1 em `semInternet.pw.js`: a senha confere sem internet e recarregar volta
+  aos nomes.
+
+As telas foram conferidas em tamanho de celular.
+
+⚠️ O LOTE B DA 2ª ETAPA (M61) ESTÁ NO RAMO `etapa2-lote-b` (cópia no GitHub,
+sem deploy), esperando o dono renovar o token do Supabase. Quando voltar:
+1. `git rebase main` no ramo. Este arquivo vai conflitar: as duas seções
+   entram aqui no topo, e é só manter as duas.
+2. No helper `imprimirFrango` de `e2e/embalagemNaFinalizacao.pw.js`, tocar em
+   "Maria" depois de abrir /etiquetas.
+3. `node scripts/conferir-m61.mjs`, depois `rodar-migracao 61`.
+4. Publicar.
+
+---
+
 ## Onde paramos (01/10/2026) — 2ª ETAPA DA BAIXA PELA ETIQUETA, LOTE A (sem migração)
 
 Decisões do dono (perguntas clicáveis, 01/10): a conferência na Finalização é

@@ -23,14 +23,16 @@ const ruidoDeRede = /Failed to load resource|net::ERR_|ERR_INTERNET_DISCONNECTED
 
 test.skip(!CHAVE_SESSAO, 'sem VITE_SUPABASE_URL: não dá para montar a sessão guardada');
 
-async function abrirSemInternet(page, { horasDaCopia = null, assinaturaAte = null } = {}) {
+const RID_ROBO = '00000000-0000-4000-8000-00000000robo'.slice(0, 36);
+
+async function abrirSemInternet(page, { horasDaCopia = null, assinaturaAte = null, guardado = {} } = {}) {
   const erros = [];
   page.on('pageerror', (e) => { if (!ruidoDeRede.test(e.message)) erros.push(`erro de JavaScript: ${e.message}`); });
   // sem internet: tudo que vai ao banco falha como falharia com o Wi-Fi fora
   await page.route(/supabase\.co/, (r) => r.abort('internetdisconnected'));
   await page.routeWebSocket(/supabase\.co/, (ws) => ws.close());
   const agora = Date.now();
-  await page.addInitScript(({ chave, copia, agora }) => {
+  await page.addInitScript(({ chave, copia, agora, guardado }) => {
     window.open = () => null; window.print = () => {};
     // só na primeira abertura: recarregar tem de ver o que o app deixou
     if (sessionStorage.getItem('robo-montado')) return;
@@ -41,9 +43,12 @@ async function abrirSemInternet(page, { horasDaCopia = null, assinaturaAte = nul
       user: { id: 'u-robo', email: 'robo@teste.invalid' },
     }));
     if (copia) localStorage.setItem('pe::_sessao::ultima', JSON.stringify(copia));
+    // o que o aparelho já tinha guardado da conta (equipe, senhas…)
+    for (const [k, v] of Object.entries(guardado)) localStorage.setItem(k, JSON.stringify(v));
   }, {
     chave: CHAVE_SESSAO,
     agora,
+    guardado,
     copia: horasDaCopia == null ? null : {
       usuarioId: 'u-robo',
       confirmadoEm: agora - horasDaCopia * H,
@@ -51,7 +56,7 @@ async function abrirSemInternet(page, { horasDaCopia = null, assinaturaAte = nul
       usuarios: [{ id: 'u-robo', nome: 'Robô', cargo: 'diretoria', ativo: true }],
       sessao: {
         usuarioId: 'u-robo', email: 'robo@teste.invalid', nome: 'Robô', cargo: 'diretoria',
-        restauranteId: '00000000-0000-4000-8000-00000000robo'.slice(0, 36), restauranteNome: 'Casa do Robô',
+        restauranteId: RID_ROBO, restauranteNome: 'Casa do Robô',
         assinaturaLida: true, assinaturaAte: assinaturaAte || new Date(agora + 20 * 24 * H).toISOString(),
         regime: 'pagante', produto: 'etiquetas', maxUsuarios: 3, bloqueado: false, eSuperAdmin: false,
       },
@@ -106,5 +111,34 @@ test('sem internet: "Sair da conta" apaga a sessão do aparelho (antes: a conta 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Conecte à internet para continuar', { exact: true })).toHaveCount(0);
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+// ⚠️ A SENHA DA EQUIPE CONFERE SEM INTERNET (13/10/2026): ela vem da cópia
+// guardada no aparelho. E quem entrou pelo nome NÃO fica guardado —
+// recarregar o app volta para "Quem vai imprimir?".
+test('sem internet: a senha da equipe confere, e recarregar volta para os nomes', async ({ page }) => {
+  const erros = await abrirSemInternet(page, {
+    horasDaCopia: 1,
+    guardado: {
+      [`pe::${RID_ROBO}::pessoas`]: ['Ana', 'Bia'],
+      // a mesma senha de exemplo da demonstração (1234), já codificada
+      [`pe::${RID_ROBO}::senhasEquipe`]: { Ana: {
+        s: '5e1a7d0c2b9f4e3a8c6d1f0b7a2e9c4d',
+        h: 'e27a1cb151fb9b1f325be4d237a6cd3ded3ca13a148e082e3344b26b7b3904a3',
+        i: 100000,
+      } },
+    },
+  });
+  await expect(page.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible({ timeout: 20_000 });
+  // a conta "nova" no aparelho mostra as novidades por cima
+  const entendi = page.getByRole('button', { name: 'Entendi' });
+  if (await entendi.isVisible({ timeout: 3_000 }).catch(() => false)) await entendi.click();
+  await page.getByRole('button', { name: /^Ana/ }).click();
+  for (const d of '1234') await page.getByRole('button', { name: d, exact: true }).click();
+  await expect(page.getByText('Imprimindo como Ana')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Imprimindo como Ana')).toHaveCount(0);
   expect(erros, erros.join('\n')).toEqual([]);
 });

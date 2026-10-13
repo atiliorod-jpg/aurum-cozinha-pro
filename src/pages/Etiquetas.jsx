@@ -18,6 +18,9 @@ import { pode } from '../utils/permissoes';
 import Esqueleto from '../components/Esqueleto';
 import { linkSuporte } from '../utils/suporte';
 import Icon from '../components/Icons';
+import QuemImprime, { FaixaOperador } from '../components/QuemImprime';
+import { useOperador } from '../store/OperadorContext';
+import { faltasDoPrimeiroUso } from '../utils/primeiroUso';
 
 // Guia da impressora — duas situações, passo a passo curto. Imprimível.
 //
@@ -142,10 +145,18 @@ function GuiaImpressora() {
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
 export default function Etiquetas() {
-  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes, nuvemCarregada } = useApp();
+  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes, nuvemCarregada, pessoas } = useApp();
   const { abrirEtiquetas } = useUI();
+  // ⚠️ "QUEM VAI IMPRIMIR?" ANTES DE TUDO (13/10/2026, pedido do dono, como
+  // na Suflex): com a equipe cadastrada, a busca só aparece depois que a
+  // pessoa toca no nome (e digita a senha, se tiver). A etiqueta sai com o
+  // nome dela. Equipe vazia: tudo como era antes.
+  const { operador, comEquipe } = useOperador();
+  const precisaEscolher = comEquipe && !operador;
 
-  const { sessao, impersonando } = useAuth();
+  const { sessao, impersonando, temPermissao } = useAuth();
+  // o aviso de equipe vazia não repete o PrimeiroUso, que já pede os nomes
+  const primeiroUsoNaTela = faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria: temPermissao('diretoria') }).mostrar;
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   const armazenamentos = armazenamentosAtivos(prefs);
   // Prazos que o item tem, por estado, na ordem configurada. Só os preenchidos:
@@ -238,7 +249,8 @@ export default function Etiquetas() {
     prazos: prazosDoProduto(p),
     // sugestão de porcionamento: evita digitar a gramatura a cada impressão
     medida: medidaDoProduto(p),
-    responsavel: prefs.responsavel || '',
+    // com equipe, quem entrou pelo nome; sem equipe, o último lembrado
+    responsavel: (comEquipe ? operador : prefs.responsavel) || '',
     quantidade: 1,
   }]);
   };
@@ -279,6 +291,21 @@ export default function Etiquetas() {
               conta nova imprimia um rolo inteiro com o RESP. em branco e nada
               avisava. Some sozinho quando as duas coisas estão preenchidas. */}
           <PrimeiroUso />
+          {precisaEscolher ? (<>
+            <QuemImprime />
+            {/* ler a etiqueta não assina nada: não precisa do nome */}
+            {!soEtiq && (
+              <Link to="/ler"
+                className="min-h-11 rounded-xl border border-polo-navy/30 bg-white text-polo-navy font-bold text-sm flex items-center justify-center gap-2">
+                <Icon name="camera" size={18} />Ler etiqueta (dar baixa)
+              </Link>
+            )}
+          </>) : (<>
+          {comEquipe ? <FaixaOperador /> : !primeiroUsoNaTela && (
+            <p className="text-xs text-gray-600 px-1">
+              Cadastre a equipe em Administração para cada pessoa imprimir no próprio nome.
+            </p>
+          )}
           {/* ⚠️ gray-600, NÃO gray-500. Esta frase fica direto no fundo bege da
               página (#F3EFE6), e ali o gray-500 dá 4,21 de contraste — abaixo
               do mínimo de 4,5 para texto normal. Dentro dos cartões brancos o
@@ -402,6 +429,7 @@ export default function Etiquetas() {
               </div>
             ))}
           </div>
+          </>)}
         </div>
       )}
     </Layout>

@@ -113,6 +113,10 @@ export default function Historico() {
         // a data veio do estoque: a janela avisa se a etiqueta sair diferente
         origemRegistro: true,
         responsavel: r.responsavel || '',
+        // ⚠️ assina quem lançou o registro original, sem pedir senha. NÃO é
+        // `reimpressao`: essa marca separa a etiqueta no relatório do dono,
+        // e aqui o papel pode ser o primeiro daquele lote.
+        assinaturaOriginal: true,
         quantidade: 1,
       };
     }));

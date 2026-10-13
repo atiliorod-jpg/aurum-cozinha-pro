@@ -50,6 +50,8 @@ test('Cozinha Pro: imprimir dá entrada e a validade chega à Finalização', as
 
   // 1) imprime UMA etiqueta de "4 un" pela tela Etiquetas: a janela oferece a entrada
   await abrir(page, '/etiquetas');
+  // a tela começa por "Quem vai imprimir?" (Maria entra sem senha na demo)
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
   await page.getByRole('button', { name: `Imprimir etiqueta de ${FRANGO}` }).click();
   const janela = page.getByRole('dialog');
   await janela.getByLabel(/Medida/).first().fill('4 un');

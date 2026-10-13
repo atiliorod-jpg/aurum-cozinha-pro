@@ -48,6 +48,14 @@ async function entrarNaDemo(page, plano) {
   return erros;
 }
 
+// ⚠️ "QUEM VAI IMPRIMIR?" (13/10/2026): com a equipe cadastrada, a tela de
+// Etiquetas começa pelos nomes. Na demonstração, Maria entra sem senha.
+async function entrarComo(page, nome = 'Maria') {
+  await expect(page.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible();
+  await page.getByRole('button', { name: nome, exact: true }).click();
+  await expect(page.getByText(`Imprimindo como ${nome}`)).toBeVisible();
+}
+
 async function abrirTela(page, rota) {
   await page.evaluate((r) => {
     window.history.pushState({}, '', r);
@@ -69,8 +77,11 @@ test('plano Etiquetas: todas as telas abrem sem travar', async ({ page }) => {
 
 test('plano Etiquetas: imprimir pelo computador e ver na aba Impressas', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page);
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   const janela = page.getByRole('dialog');
+  // a etiqueta sai assinada por quem entrou pelo nome
+  await expect(janela.getByText('Assina: Maria')).toBeVisible();
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   // o computador pergunta se saiu no papel; "Sim" conta e fecha
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
@@ -82,6 +93,7 @@ test('plano Etiquetas: imprimir pelo computador e ver na aba Impressas', async (
 
 test('plano Etiquetas: a busca acha sem acento', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page);
   await page.getByLabel('Buscar produto').fill('porcao');
   await expect(page.getByText('Picanha (porção)')).toBeVisible();
   await expect(page.getByText('Frango desfiado')).toHaveCount(0);
@@ -102,6 +114,7 @@ test('plano Pro: todas as telas abrem sem travar', async ({ page }) => {
 test('plano Pro: imprimir, buscar sem acento e ver na aba Impressas, como no Etiquetas', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrirTela(page, '/etiquetas');
+  await entrarComo(page);
   await page.getByLabel('Buscar produto').fill('porcao');
   await expect(page.getByText('Picanha (porção)').first()).toBeVisible();
   await page.getByLabel('Buscar produto').fill('');
@@ -130,6 +143,7 @@ test('plano Pro, Estoque Seco: etiqueta de abertura, ambiente como padrão, e va
   await page.getByRole('button', { name: /Aurum Cozinha Pro/ }).click();
   await page.getByRole('button', { name: /^Estoque Seco/ }).click();
   await abrirTela(page, '/etiquetas');
+  await entrarComo(page);
   await page.getByRole('button', { name: 'Imprimir etiqueta de Extrato de tomate (340g)' }).click();
   const janela = page.getByRole('dialog');
   await expect(janela.getByText('Data de abertura').first()).toBeVisible();

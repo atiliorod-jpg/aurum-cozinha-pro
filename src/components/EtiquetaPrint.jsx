@@ -8,6 +8,9 @@ import { dadosDaEtiqueta, temUnidadesExtras, bloqueioDaFixa } from '../utils/uni
 import { formatarCNPJ } from '../utils/documentos';
 import { erroEmPortugues } from '../utils/erros';
 import ResponsavelSelect from './ResponsavelSelect';
+import QuemImprime from './QuemImprime';
+import { useOperador } from '../store/OperadorContext';
+import { assinaturaDaJanela } from '../utils/senhaEquipe';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
 import Aviso from './Aviso';
@@ -330,9 +333,12 @@ export default function EtiquetaPrint() {
   // no lugar (texto novo + QR velho) até o laço assíncrono terminar.
   const [qrs, setQrs] = useState({}); // payload -> dataURL
   const [horaImpressao, setHoraImpressao] = useState('');
-  // Responsável ÚNICO da impressão (sai no RESP. de todas as etiquetas) —
-  // escolhido entre as pessoas da equipe, como nas telas de registro
-  const [responsavel, setResponsavel] = useState('');
+  // Responsável ÚNICO da impressão (sai no RESP. de todas as etiquetas).
+  // ⚠️ SÓ É ESCOLHIDO NA MÃO COM A EQUIPE VAZIA (13/10/2026). Com a equipe
+  // cadastrada, quem assina é quem entrou pelo nome e a senha ("Quem vai
+  // imprimir?") — a lista livre deixava qualquer um imprimir no nome de
+  // qualquer outro. A regra mora em `assinaturaDaJanela`, logo abaixo.
+  const [respManual, setRespManual] = useState('');
   // Impressão direta (BLE + TSPL) — caminho a mais, nunca substituto
   const [enviando, setEnviando] = useState(false);
   // ⚠️ Guarda TOM junto do texto. "Nenhuma impressora escolhida" não é erro
@@ -349,6 +355,28 @@ export default function EtiquetaPrint() {
   // render: a conexão vive num módulo, fora do React, e mudá-la não repinta
   // nada. O rótulo do botão dependia dessa leitura e só acertava por acaso.
   const [conectada, setConectada] = useState(false);
+
+  // Pergunta "saiu no papel?" do caminho do computador — ver `responderPapel`.
+  // Guarda o PEDIDO de etiquetas que a gerou, não um sim/não: fechou e abriu
+  // outro, a pergunta some sozinha.
+  // (mora aqui em cima porque o nome de quem assina depende dela, logo abaixo)
+  const [perguntaPara, setPerguntaPara] = useState(null);
+  // respondeu "Não": a janela mostra o que conferir (preso ao mesmo pedido)
+  const [naoSaiuPara, setNaoSaiuPara] = useState(null);
+
+  // ── Quem assina (ver utils/senhaEquipe.js) ─────────────────────────
+  const { operador, comEquipe, trocar: trocarOperador } = useOperador();
+  const assinatura = assinaturaDaJanela({ itens, comEquipe, operador, manual: respManual });
+  // ⚠️ O NOME FICA CONGELADO enquanto a etiqueta está saindo: na pergunta
+  // "Saiu no papel?" e no envio pelo Bluetooth. A janela de impressão do
+  // computador pode ficar aberta mais de 5 minutos — o nome de quem entrou
+  // expiraria no meio, e o "Sim" contaria a etiqueta sem assinatura.
+  const [congelado, setCongelado] = useState(null); // { pedido, nome }
+  const congelaAgora = !!congelado && congelado.pedido === etiquetaState
+    && (perguntaPara === etiquetaState || enviando);
+  const responsavel = congelaAgora ? congelado.nome : assinatura.nome;
+  // com a equipe cadastrada e ninguém escolhido, os botões não imprimem
+  const faltaQuemImprime = !congelaAgora && assinatura.falta;
 
   // A regra de qual caminho aparece vive em impressoraBLE, com teste.
   const { direto: mostrarDireto, dialogo: mostrarDialogo, semBluetooth } = caminhosDeImpressao();
@@ -420,7 +448,7 @@ export default function EtiquetaPrint() {
         };
       }));
       setHoraImpressao(fmtHora());
-      setResponsavel(etiquetaState[0]?.responsavel || prefs.responsavel || '');
+      setRespManual(etiquetaState[0]?.responsavel || prefs.responsavel || '');
     } else {
       setItens([]); setQrs({});
     }
@@ -644,13 +672,6 @@ export default function EtiquetaPrint() {
     return () => { ativo = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens/responsavel (já na lista); qrs é lido só como cache
   }, [itens, config.incluirQR, responsavel]);
-
-  // Pergunta "saiu no papel?" do caminho do computador — ver `responderPapel`.
-  // Guarda o PEDIDO de etiquetas que a gerou, não um sim/não: fechou e abriu
-  // outro, a pergunta some sozinha.
-  const [perguntaPara, setPerguntaPara] = useState(null);
-  // respondeu "Não": a janela mostra o que conferir (preso ao mesmo pedido)
-  const [naoSaiuPara, setNaoSaiuPara] = useState(null);
 
   if (!etiquetaState) return null;
 
@@ -899,7 +920,8 @@ export default function EtiquetaPrint() {
   // a etiqueta de teste da aba Impressora: não exige quem assina, não pergunta
   // se saiu no papel e não registra nada (ver aoImprimir)
   const soTeste = itens.length > 0 && itens.every(i => i.teste);
-  const faltaResponsavel = !soTeste && config.exigirResponsavel === true && !responsavel.trim();
+  const faltaResponsavel = !soTeste && config.exigirResponsavel === true && !responsavel.trim()
+    || faltaQuemImprime;
 
   // ⚠️ O RESUMO COLADO NO BOTÃO (pedido do dono, 23/09/2026). O botão de
   // imprimir ficou fixo no rodapé da janela — antes ele morava no FIM, e a
@@ -957,7 +979,8 @@ export default function EtiquetaPrint() {
   };
 
   const imprimir = () => {
-    if (bloqueioUnidade) return;
+    if (bloqueioUnidade || faltaQuemImprime) return;
+    setCongelado({ pedido: etiquetaState, nome: responsavel });
     window.print();
     // No Chrome do computador `print()` só volta quando a janela fecha, então
     // a pergunta aparece DEPOIS de a pessoa imprimir ou cancelar.
@@ -970,7 +993,8 @@ export default function EtiquetaPrint() {
   // todos os problemas de impressão. O que o app manda é o que sai no papel.
   // Só no Chrome do Android/desktop: o Safari não implementa Web Bluetooth.
   const imprimirDireto = async () => {
-    if (bloqueioUnidade) return;
+    if (bloqueioUnidade || faltaQuemImprime) return;
+    setCongelado({ pedido: etiquetaState, nome: responsavel });
     avisarBLE(null); setEnviando(true);
     // ⚠️ UM ITEM POR ENVIO, e não o lote inteiro numa tacada. Antes tudo ia
     // numa chamada só: se a impressora desligasse ou saísse de alcance no meio,
@@ -1075,9 +1099,30 @@ export default function EtiquetaPrint() {
               )}
             </div>
           )}
-          <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+          {/* equipe vazia: o seletor de sempre */}
+          {assinatura.regra === 'manual' && <ResponsavelSelect value={respManual} onChange={setRespManual} />}
+          {/* reimpressão: o papel novo sai igual ao que estragou, sem senha */}
+          {assinatura.regra === 'original' && (
+            <p className="text-xs text-gray-700 bg-polo-beige rounded-lg px-3 py-2">
+              Assinatura da etiqueta original: <strong className="text-polo-navy">{responsavel || '—'}</strong>
+            </p>
+          )}
+          {/* ⚠️ SEM NINGUÉM ESCOLHIDO, A JANELA PERGUNTA. Ela também abre por
+              Entradas, Produção e "Mais usados" — sem isto, esses caminhos
+              seriam o atalho para imprimir sem passar pelos nomes. */}
+          {assinatura.regra === 'operador' && (faltaQuemImprime ? <QuemImprime dentroDaJanela /> : (
+            <div className="flex items-center justify-between gap-2 bg-polo-beige rounded-lg pl-3 pr-1 py-1">
+              <p className="text-xs text-gray-700 min-w-0 truncate">Assina: <strong className="text-polo-navy">{responsavel}</strong></p>
+              {!congelaAgora && (
+                <button type="button" onClick={trocarOperador}
+                  className="min-h-11 px-3 rounded-lg text-xs font-bold text-polo-navy flex-shrink-0">
+                  Trocar
+                </button>
+              )}
+            </div>
+          ))}
           {bloqueioUnidade && <Aviso tom="atencao">{bloqueioUnidade}</Aviso>}
-          {faltaResponsavel && (
+          {faltaResponsavel && !faltaQuemImprime && (
             <Aviso tom="atencao">Escolha quem assina antes de imprimir.</Aviso>
           )}
 
