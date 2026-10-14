@@ -258,7 +258,7 @@ export default function Etiquetas() {
   };
 
   return (
-    <Layout title={soEtiq ? "Imprimir etiqueta" : "Etiquetas"}>
+    <Layout title="Imprimir etiqueta">
       {/* ⚠️ "Do estoque" mentiria no plano Aurum Etiquetas: lá não existe
           estoque nenhum, e o rótulo mandaria a pessoa procurar uma tela que
           a conta dela não tem. É a mesma aba, com o nome certo em cada

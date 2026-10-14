@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import Abas from '../components/ui/Abas';
+import Vazio from '../components/ui/Vazio';
 import Layout from '../components/Layout';
 import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
@@ -414,7 +415,7 @@ export default function AparasPerdas() {
             placeholder="Buscar por item ou responsável..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {historico.length === 0 && (
-            <div className="text-center text-gray-500 py-12">Nenhum registro ainda.</div>
+            <Vazio texto="Nenhum registro ainda." />
           )}
           {historico.map(r => {
             const ehApara = r._tipo === 'apara';

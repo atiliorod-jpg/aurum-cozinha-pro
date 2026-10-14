@@ -9,6 +9,11 @@ import { plural } from '../utils/formatters';
 
 const NAV = [
   { to: '/',              icon: 'inicio',    label: 'Início' },
+  // ⚠️ IMPRIMIR NA BARRA (Lote 3 da auditoria, decisão do dono, 14/10/2026):
+  // é o gesto mais repetido do dia e ficava dentro de Registrar. No plano
+  // Etiquetas ele já era a primeira aba — o Pro é o Etiquetas com estoque, e
+  // passa a ter o mesmo atalho. No Seco imprime a etiqueta de abertura.
+  { to: '/etiquetas',     icon: 'etiqueta',  label: 'Imprimir', recurso: 'etiquetas' },
   { to: '/registrar',     icon: 'registrar', label: 'Registrar' },
   // Fechar Turno é a AÇÃO CENTRAL da Finalização e estava enterrada na última
   // seção do hub Registrar, enquanto a barra mostrava Relatório — que lá é

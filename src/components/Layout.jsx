@@ -71,16 +71,32 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
       ? (variasUnidades ? { icone: 'estabelecimento', label: nomeUnidade } : { icone: 'etiqueta', label: 'Aurum Etiquetas' })
       : { icone: estoqueAtual?.icone || 'caixa', label: estoqueAtual?.nome || 'Estoque' };
   const [trocandoModulo, setTrocandoModulo] = useState(false);
+  const [vendoConta, setVendoConta] = useState(false);
   const { confirm } = useUI();
+  // ⚠️ ONDE ESTOU, ESCRITO (Lote 3 da auditoria, 14/10/2026). A troca de área
+  // era só um ícone (faca, frigideira) e o nome da cozinha ficava escondido no
+  // celular — o título dizia "Entradas", mas não de qual cozinha. Agora a linha
+  // de baixo do título diz onde a pessoa está; com várias unidades, a unidade
+  // vem primeiro (é ela que decide o CNPJ impresso).
+  const onde = dentroDaAdmin || (emAdmin && !semCozinhas) ? 'Administração'
+    : semCozinhas ? 'Painel Aurum'
+    : soEtiq ? (variasUnidades ? `Unidade: ${nomeUnidade}` : (sessao?.restauranteNome || ''))
+    : [variasUnidades ? nomeUnidade : '', mod.label].filter(Boolean).join(' · ');
+  const cargoLegivel = sessao?.cargoRotulo || ({ diretoria: 'Diretoria', gerencia: 'Gerência', cozinha: 'Cozinha' }[sessao?.cargo]) || '';
 
   // Nome de exibição: o super-admin não tem perfil (nome null) → "Administrador".
   const nomeExibicao = sessao?.nome || (sessao?.eSuperAdmin ? 'Administrador' : 'sua conta');
 
   const sair = async () => {
+    setVendoConta(false);
     // O logout agora LIMPA o cache local do aparelho (era vazamento em tablet
     // compartilhado). A fila pendente é preservada, mas quem sai precisa saber
     // que tem lançamento sem subir — neste app a tela mostra sucesso mesmo
     // quando o servidor recusou, então a pessoa não tem outro jeito de saber.
+    // ⚠️ Sem nada pendente, o toque em "Sair da conta" dentro do menu já é a
+    // confirmação: antes o próprio nome no cabeçalho saía, e a pergunta era o
+    // que segurava o toque acidental.
+    if (pendencias === 0) { logout(); return; }
     const mensagem = pendencias > 0
       ? `Encerrar a sessão de ${nomeExibicao}?
 
@@ -120,12 +136,8 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           )}
           <div className="min-w-0 leading-tight">
             <h1 className="text-base font-bold text-polo-gold tracking-wide truncate">{title}</h1>
-            {dentroDaAdmin ? (
-              <p className="text-xs text-white/80 truncate">Administração</p>
-            ) : variasUnidades ? (
-              <p className="text-xs text-polo-gold/90 font-semibold truncate">Unidade: {nomeUnidade}</p>
-            ) : sessao?.restauranteNome && (
-              <p className="text-xs text-white/80 truncate">{sessao.restauranteNome}</p>
+            {onde && (
+              <p className={`text-xs truncate ${variasUnidades ? 'text-polo-gold/90 font-semibold' : 'text-white/80'}`}>{onde}</p>
             )}
           </div>
         </div>
@@ -146,7 +158,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
                        min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
             <Icon name={mod.icone} size={18} />
             <span className="text-xs font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
-            <span className="text-white/50 text-xs" aria-hidden="true">▾</span>
+            <span className="text-white/80 text-xs" aria-hidden="true">▾</span>
           </button>
         )}
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -169,16 +181,15 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
                   No cabeçalho ela competia por espaço com o seletor de estoque e
                   o status de sincronização num tablet, e ninguém consulta trilha
                   de auditoria no meio do serviço — é gesto de gestão. */}
-              <button onClick={sair} aria-label={`${nomeExibicao} — sair`} title={`${nomeExibicao} — sair`}
-                className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform
-                           focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
-                <span className="flex items-center gap-1.5 bg-white/10 rounded-full pl-2.5 pr-3 py-1.5">
-                  <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-xs font-bold flex items-center justify-center">
-                    {nomeExibicao.slice(0, 1).toUpperCase()}
-                  </span>
-                  <span className="text-xs font-semibold text-white/90 max-w-16 truncate">{nomeExibicao.split(' ')[0]}</span>
+              {/* ⚠️ O NOME ABRE A CONTA, NÃO SAI MAIS DELA (Lote 3, 14/10/2026):
+                  tocar no próprio nome encerrava a sessão — o gesto que a
+                  pessoa faz para ver "quem está logado" era o de sair. */}
+              <button onClick={() => setVendoConta(true)} aria-label={`Conta de ${nomeExibicao}`}
+                className="w-11 h-11 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform
+                           focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
+                <span aria-hidden="true" className="w-7 h-7 rounded-full bg-polo-gold text-polo-navy text-sm font-bold flex items-center justify-center">
+                  {nomeExibicao.slice(0, 1).toUpperCase()}
                 </span>
-                <span className="text-xs leading-none font-semibold text-white/80">Sair</span>
               </button>
             </div>
           )}
@@ -188,6 +199,27 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
       <div aria-hidden="true" className="fixed inset-0 pointer-events-none flex items-center justify-center print:hidden">
         <img src={LOGO} alt="" className="w-72 h-72 opacity-[0.05] rounded-full" />
       </div>
+      {vendoConta && (
+        <Dialogo aoFechar={() => setVendoConta(false)} titulo="Sua conta"
+          forma="caixa" largura="sm" camada={130} respiro="p5" classeCaixa="space-y-4">
+          <>
+            <div className="text-sm text-gray-700 space-y-0.5">
+              <p className="font-bold text-polo-navy">{nomeExibicao}</p>
+              {cargoLegivel && <p>{cargoLegivel}</p>}
+              {nomeConta && <p className="text-gray-600">{nomeConta}</p>}
+            </div>
+            {pendencias > 0 && (
+              <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                {plural(pendencias, 'lançamento ainda não subiu', 'lançamentos ainda não subiram')} para a nuvem.
+              </p>
+            )}
+            <button type="button" onClick={sair}
+              className="w-full min-h-11 rounded-xl border-2 border-red-700 text-red-700 font-bold text-sm">
+              Sair da conta
+            </button>
+          </>
+        </Dialogo>
+      )}
       {trocandoModulo && (
         // "Trocar de estoque" era o nome errado: a lista tem as cozinhas E a
         // Administração, que não é estoque.

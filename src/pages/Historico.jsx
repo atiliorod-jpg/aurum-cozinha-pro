@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Filtros from '../components/ui/Filtros';
+import Vazio from '../components/ui/Vazio';
 import Layout from '../components/Layout';
 import Icon from '../components/Icons';
 import { useApp } from '../store/AppContext';
@@ -150,7 +151,7 @@ export default function Historico() {
 
       <Filtros rotulo="Tipo de lançamento" todos={null} opcoes={CHIPS} valor={filtroAtivo} aoTrocar={setFiltro} className="mb-3" />
 
-      {filtrados.length === 0 && <div className="text-center text-gray-500 py-12">Nenhum lançamento por aqui ainda.</div>}
+      {filtrados.length === 0 && <Vazio texto="Nenhum lançamento por aqui ainda." />}
 
       <div className="space-y-2">
         {filtrados.map(ev => (

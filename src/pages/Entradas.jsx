@@ -3,6 +3,7 @@ import { useRascunho } from '../lib/useRascunho';
 import SemItens from '../components/SemItens';
 import Abas from '../components/ui/Abas';
 import Filtros from '../components/ui/Filtros';
+import Vazio from '../components/ui/Vazio';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -262,7 +263,7 @@ export default function Entradas() {
             placeholder="Buscar por produto ou responsável..."
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           {entradasOrdenadas.length === 0 && (
-            <div className="text-center text-gray-500 py-12">Nenhuma entrada registrada ainda.</div>
+            <Vazio texto="Nenhuma entrada registrada ainda." />
           )}
           {entradasOrdenadas.map(e => (
             <div key={e.id} className="bg-white rounded-xl p-4">

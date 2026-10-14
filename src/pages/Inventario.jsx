@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import Abas from '../components/ui/Abas';
 import Filtros from '../components/ui/Filtros';
+import Vazio from '../components/ui/Vazio';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -239,7 +240,7 @@ export default function Inventario() {
       ) : (
         <div className="space-y-3">
           {sessoesInventario.length === 0 && (
-            <div className="text-center text-gray-500 py-12">Nenhuma contagem registrada ainda.</div>
+            <Vazio texto="Nenhuma contagem registrada ainda." />
           )}
           {sessoesInventario.map(sessao => (
             <div key={sessao.inventarioId} className="bg-white rounded-xl p-4">

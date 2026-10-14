@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import Filtros from '../components/ui/Filtros';
+import Vazio from '../components/ui/Vazio';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { casaBusca } from '../utils/busca';
@@ -51,7 +52,7 @@ export default function Auditoria() {
 
       <div className="space-y-2">
         {registros.length === 0 && (
-          <div className="text-center text-gray-600 py-12 text-sm">Nenhuma mudança registrada ainda.</div>
+          <Vazio texto="Nenhuma mudança registrada ainda." />
         )}
         {registros.map(a => (
           <div key={a.id} className="bg-white rounded-xl px-4 py-3 shadow-sm">

@@ -7,7 +7,8 @@ const DIA = new Date('2026-10-14T10:00:00');
 
 async function fotografar(page, nome, opcoes = {}) {
   await page.waitForTimeout(300);
-  await expect(page).toHaveScreenshot(`${nome}.png`, { fullPage: true, ...opcoes });
+  // soft: compara TODAS as telas, em vez de parar na primeira diferente
+  await expect.soft(page).toHaveScreenshot(`${nome}.png`, { fullPage: true, ...opcoes });
 }
 
 async function percorrer(page, prefixo, rotas) {
