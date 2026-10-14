@@ -15,7 +15,7 @@ export default function Novidades() {
             <ul className="space-y-1.5">
               {rel.itens.map((it, i) => (
                 <li key={i} className="text-sm text-gray-700 flex gap-2">
-                  <span className="text-polo-gold flex-shrink-0">•</span>
+                  <span aria-hidden="true" className="text-polo-gold flex-shrink-0">•</span>
                   <span>{it}</span>
                 </li>
               ))}

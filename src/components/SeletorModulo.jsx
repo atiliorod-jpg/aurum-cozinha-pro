@@ -85,7 +85,7 @@ export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades
                   {u.nome}
                   {ativa && <span className="ml-2 text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">aberta</span>}
                 </span>
-                <span className="block text-xs text-gray-500 mt-0.5">
+                <span className="block text-xs text-gray-600 mt-0.5">
                   {u.principal ? 'Unidade principal' : u.cnpj ? `CNPJ ${formatarCNPJ(u.cnpj)}` : 'Unidade'}
                 </span>
               </span>
@@ -128,7 +128,7 @@ export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades
                 {e.nome}
                 {ativo && <span className="ml-2 text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">aberto</span>}
               </span>
-              <span className="block text-xs text-gray-500 mt-0.5">
+              <span className="block text-xs text-gray-600 mt-0.5">
                 {/* O estabelecimento manda quando existe: com dois restaurantes
                     na conta, "Estoque Seco" sozinho não diz de qual casa é. */}
                 {e.estabelecimento || e.descricao}
@@ -150,7 +150,7 @@ export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades
           </span>
           <span className="min-w-0">
             <span className="block font-bold text-polo-navy">Administração</span>
-            <span className="block text-xs text-gray-500 mt-0.5">
+            <span className="block text-xs text-gray-600 mt-0.5">
               Relatórios, equipe, cadastros e assinatura.
             </span>
           </span>

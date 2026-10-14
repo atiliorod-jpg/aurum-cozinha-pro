@@ -181,6 +181,44 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (14/10/2026, depois) — LOTE 0 DA AUDITORIA (rede de segurança)
+
+O que entrou:
+- **`e2e/apoio.js`** — use nos cenários novos: `entrarNaDemo`, `abrir`,
+  `entrarComo`, `fecharJanelaDeImprimir` (pelo Esc), `saldoDe` (lê "Em
+  estoque:" em Saídas) e `medirAcessibilidade`.
+- **`e2e/fluxos.pw.js`** — 10 lançamentos.
+- **`e2e/acessibilidade.pw.js`** — reprova toque < 44 px, contraste abaixo da
+  WCAG e letra < 12 px, em todas as telas e nas janelas principais. Ignora
+  `.etiqueta-label` (o papel) e `aria-hidden`, e desliga as animações antes
+  de medir.
+- **Testes de componente** em `src/components/__tests__/*.test.jsx`, com
+  `// @vitest-environment jsdom` no topo. Os contextos são trocados por
+  `vi.mock` + `vi.hoisted`.
+  - ⚠️ No jsdom, `offsetParent` é sempre null: o `focaveis()` do Dialogo não
+    acha botões, e o foco vai para o painel. Teste "o foco entra na janela",
+    não "o primeiro botão".
+- **Fotos de comparação** — `npm run fotos:base` antes de um lote visual,
+  `npm run fotos` depois.
+  - Configuração em `playwright.fotos.config.js`, testes em `e2e-fotos/`.
+  - Fotos-base em `e2e-fotos/__fotos__` (gitignore). Relógio parado em
+    14/10/2026 10:00.
+
+O robô tem **34 cenários** e os testes são **881**.
+
+⚠️ **Armadilha que aconteceu:** depois de `git switch` entre ramos, rode
+`npm run build` antes do robô. Ele testa o `dist/`, e eu medi o build do ramo
+da M61 achando que era o `main`.
+
+**Lote B:** recebeu o merge do `main` (Lote 1), está testado e no GitHub. O
+token continua inválido. Quando voltar:
+1. `git merge etapa2-lote-b` no `main`.
+2. `node scripts/conferir-m61.mjs`.
+3. `rodar-migracao 61`.
+4. Publicar.
+
+---
+
 ## Onde paramos (14/10/2026) — AUDITORIA GERAL + LOTE 1 (correções rápidas)
 
 **Auditoria geral** em `AUDITORIA_GERAL_2026-10-14.md` (no repo). Inclui:

@@ -419,3 +419,55 @@ Tamanhos: P = pequeno, M = médio, G = grande.
 cenários; um novo confere a vírgula e os nomes no Relatório.
 
 **Ficaram para os próximos lotes:** D5 (Lote 6), D6 (Lote 4) e D9 (Lote 9).
+
+### Lote 0 — rede de segurança, aplicado em 14/10/2026 (nada muda na tela)
+
+O robô passou de **21 para 34 cenários**, e o deploy para se algum falhar.
+
+**`e2e/fluxos.pw.js`** — cada lançamento do dia, conferido pelo saldo e pelo
+Histórico:
+- entrada avulsa, saída para outra unidade e perda do estoque (com o motivo
+  por extenso);
+- apara (não mexe no saldo), produção, compra e contagem física;
+- fechar o turno na Finalização;
+- item da biblioteca e item do zero no plano Etiquetas, que já podem ser
+  impressos;
+- cópia de segurança.
+
+**`e2e/acessibilidade.pw.js`** — a medição da auditoria virou permanente:
+- percorre todas as telas dos dois planos e das três cozinhas, no tamanho de
+  celular;
+- inclui as janelas mais usadas: imprimir, imprimir pedindo o nome, teclado
+  da senha, trocar de área e ajuda;
+- **reprova** se aparecer toque menor que 44 px, texto sem contraste ou letra
+  menor que 12 px;
+- ficam de fora a prévia da etiqueta, que reproduz o papel, e os enfeites
+  marcados `aria-hidden`.
+
+Ao estender a medição às telas e janelas que faltavam, ela achou e corrigiu:
+- o número vermelho da barra de baixo (contraste 3,8);
+- textos claros em Planos e pagamento, na troca de área, na Ajuda e nos
+  recebidos do Histórico;
+- os botões da janela de Ajuda (36–40 px);
+- o "×" do primeiro uso;
+- a caixa "Dar entrada no estoque" (20 → 24 px).
+
+**`e2e/apoio.js`** — o apoio comum dos cenários: entrar na demo, navegar,
+"Quem vai imprimir?", ler o saldo e medir a acessibilidade.
+
+**Simulador de tela nos testes** (jsdom + Testing Library, dependências só de
+desenvolvimento):
+- primeiros testes de componente pelo que a pessoa vê e toca: `Dialogo` (foco,
+  Esc, ×), `QuemImprime` (nomes, toque, teclado, trava, dica só na demo) e
+  `SemItens`;
+- é a base dos testes das telas novas dos próximos lotes.
+
+**Fotos de comparação** (`npm run fotos:base` antes, `npm run fotos` depois):
+- 31 telas fotografadas com o relógio parado;
+- a diferença fica em `test-results`;
+- ficam só neste computador e **fora do deploy**, porque a fonte do Windows e
+  a do Linux desenham diferente.
+
+**O lote B (M61)** recebeu o Lote 1 (merge no ramo `etapa2-lote-b`, testado:
+890 testes e 23 cenários). Continua esperando o token do Supabase, ainda
+inválido em 14/10.

@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "robo": "playwright test"
+    "robo": "playwright test",
+    "fotos": "playwright test -c playwright.fotos.config.js",
+    "fotos:base": "playwright test -c playwright.fotos.config.js --update-snapshots"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
@@ -23,6 +25,9 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -31,6 +36,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "jsdom": "^26.1.0",
     "postcss": "^8.5.15",
     "stripe": "^22.2.1",
     "tailwindcss": "^3.4.19",

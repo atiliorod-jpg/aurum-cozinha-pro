@@ -28,3 +28,5 @@ dev-dist
 # Robô (Playwright): resultados de cada execução
 test-results
 playwright-report
+# Fotos de comparação: só deste computador (ver playwright.fotos.config.js)
+e2e-fotos/__fotos__

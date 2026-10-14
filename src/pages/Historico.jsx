@@ -75,7 +75,7 @@ export default function Historico() {
     // quase vazio, justamente onde receber é quase tudo o que acontece.
     // NÃO tem `remover`: a linha pertence à saída da Produção — apagar aqui
     // apagaria o lançamento do outro estoque pelas costas de quem o fez.
-    ...recebimentos.map(r => ({ id: r.id, grupo: 'recebimentos', icon: 'caixa', cor: 'text-emerald-600', r,
+    ...recebimentos.map(r => ({ id: r.id, grupo: 'recebimentos', icon: 'caixa', cor: 'text-emerald-700', r,
       resumo: `recebido da produção: ${itensTxt(r)}` })),
   ];
 

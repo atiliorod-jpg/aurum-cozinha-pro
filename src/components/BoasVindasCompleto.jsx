@@ -33,7 +33,7 @@ export default function BoasVindasCompleto() {
           Seus {n} {n === 1 ? 'item já está' : 'itens já estão'} aqui.
         </p>
         <button onClick={() => setPref('upgradeEm', null)} aria-label="Fechar aviso"
-          className="text-gray-500 text-lg font-bold leading-none min-w-11 min-h-11 flex items-center justify-center -mr-2 -mt-2">×</button>
+          className="text-gray-600 text-lg font-bold leading-none min-w-11 min-h-11 flex items-center justify-center -mr-2 -mt-2">×</button>
       </div>
 
       <p className="text-xs text-gray-700 mt-0.5">

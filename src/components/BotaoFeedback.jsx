@@ -215,8 +215,8 @@ export default function BotaoFeedback() {
             <div className="flex gap-2 mb-3 border-b border-gray-100 pb-3">
               {[['novo', 'Escrever'], ['conversa', `Conversa${conversa.length ? ` (${conversa.length})` : ''}`]].map(([v, l]) => (
                 <button key={v} onClick={() => setAba(v)} aria-pressed={aba === v}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold
-                    ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
+                  className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-semibold
+                    ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-600'}`}>
                   {l}
                   {v === 'conversa' && naoLidas > 0 && (
                     <span className="ml-1.5 text-xs font-bold text-white bg-red-700 rounded-full px-1.5 py-0.5">
@@ -325,8 +325,8 @@ export default function BotaoFeedback() {
             <div className="flex gap-2 mb-3">
               {[['bug', 'Problema'], ['sugestao', 'Sugestão'], ['pedido', 'Pedido']].map(([v, l]) => (
                 <button key={v} onClick={() => abrirAjuda(v)}
-                  className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2
-                    ${tipo === v ? 'border-polo-gold bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-500'}`}>
+                  className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-semibold border-2
+                    ${tipo === v ? 'border-polo-gold bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-600'}`}>
                   {l}
                 </button>
               ))}

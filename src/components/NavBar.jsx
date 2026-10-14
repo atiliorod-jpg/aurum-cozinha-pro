@@ -113,7 +113,7 @@ export default function NavBar({ soEtiquetas = false }) {
   return (
     <BarraNav itens={itens} badges={{
       '/': [
-        alertas > 0 && { lado: 'direita', texto: alertas > 9 ? '9+' : String(alertas), cor: 'bg-red-500',
+        alertas > 0 && { lado: 'direita', texto: alertas > 9 ? '9+' : String(alertas), cor: 'bg-red-700',
           rotulo: `${alertas} produtos abaixo do mínimo` },
         precisaProduzir > 0 && { lado: 'esquerda', icone: 'producao', cor: 'bg-amber-700',
           rotulo: `${plural(precisaProduzir, 'receita precisa', 'receitas precisam')} ser produzida${precisaProduzir === 1 ? '' : 's'}` },
@@ -155,7 +155,7 @@ function BarraNav({ itens, badges = {} }) {
                 <span className="leading-none tracking-wide">{label}</span>
                 {listaDe(to).map((b, i) => (
                   <span key={i} aria-label={b.rotulo}
-                    className={`absolute top-0.5 ${b.lado === 'esquerda' ? 'left-1/4' : 'right-1/4'} ${b.cor || 'bg-red-500'}
+                    className={`absolute top-0.5 ${b.lado === 'esquerda' ? 'left-1/4' : 'right-1/4'} ${b.cor || 'bg-red-700'}
                       text-white text-xs rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold ring-2 ring-polo-navy`}>
                     {b.icone ? <Icon name={b.icone} size={11} strokeWidth={2.5} /> : b.texto}
                   </span>

@@ -1317,7 +1317,7 @@ export default function EtiquetaPrint() {
                     return (
                       <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
                         <label className="flex items-start gap-2.5 min-h-11 py-1 cursor-pointer">
-                          <input type="checkbox" checked={marcado} className="mt-0.5 w-5 h-5 flex-shrink-0 accent-polo-navy"
+                          <input type="checkbox" checked={marcado} className="mt-0.5 w-6 h-6 flex-shrink-0 accent-polo-navy"
                             onChange={ev => setItem(idx, { _darEntrada: ev.target.checked })} />
                           <span className="text-sm text-gray-800">
                             Dar entrada no estoque{e.total > 0 && <>: <strong className="text-polo-navy">{fmtNum(e.total)} {e.unidade}</strong></>}

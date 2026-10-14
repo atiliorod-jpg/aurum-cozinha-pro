@@ -63,7 +63,7 @@ export default function PrimeiroUso() {
         </h2>
         <button type="button" onClick={() => setPref('primeiroUsoAdiado', true)}
           aria-label="Deixar para depois"
-          className="text-gray-500 text-lg font-bold leading-none min-w-11 min-h-11 flex items-center justify-center -mr-2 -mt-2">
+          className="text-gray-600 text-lg font-bold leading-none min-w-11 min-h-11 flex items-center justify-center -mr-2 -mt-2">
           ×
         </button>
       </div>

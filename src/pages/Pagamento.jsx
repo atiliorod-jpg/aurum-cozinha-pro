@@ -282,7 +282,7 @@ export default function Pagamento() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-600 mt-0.5">
                     {p.meses === 1 ? 'Cobrado todo mês'
                       : `${brl(precoMensalEquivalente(p, prod.id, extras, desconto))}/mês · economize ${brl(economiaPlano(p, prod.id, extras, desconto))}`}
                   </p>
@@ -293,7 +293,7 @@ export default function Pagamento() {
                       <span className="block text-xs text-gray-500 line-through">{brl(cheio)}</span>
                     )}
                     <span className="text-lg font-bold text-polo-navy">{brl(total)}</span>
-                    <span className="block text-xs text-gray-500">
+                    <span className="block text-xs text-gray-600">
                       {p.meses === 1 ? 'por mês' : `a cada ${p.meses} meses`}
                     </span>
                   </div>
