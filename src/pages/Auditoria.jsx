@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import Filtros from '../components/ui/Filtros';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { casaBusca } from '../utils/busca';
@@ -42,24 +43,10 @@ export default function Auditoria() {
         <input aria-label="Buscar ação ou item" type="text" value={busca} onChange={e => setBusca(e.target.value)}
           placeholder="Buscar ação ou item..."
           className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {[['7', 'Últimos 7d'], ['30', 'Últimos 30d'], ['90', 'Últimos 90d'], ['todos', 'Tudo']].map(([v, l]) => (
-            <button key={v} onClick={() => setPeriodo(v)}
-              className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                ${periodo === v ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-          {['TODOS', ...usuarios].map(u => (
-            <button key={u} onClick={() => setFiltroUsuario(u)}
-              className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                ${filtroUsuario === u ? 'bg-polo-gold text-polo-navy' : 'bg-white text-gray-600 border border-gray-200'}`}>
-              {u === 'TODOS' ? 'Todos usuários' : u}
-            </button>
-          ))}
-        </div>
+        <Filtros rotulo="Período" todos={null} valor={periodo} aoTrocar={setPeriodo}
+          opcoes={[['7', 'Últimos 7d'], ['30', 'Últimos 30d'], ['90', 'Últimos 90d'], ['todos', 'Tudo']]} />
+        <Filtros rotulo="Quem mexeu" todos={null} ativo="dourado" valor={filtroUsuario} aoTrocar={setFiltroUsuario}
+          opcoes={['TODOS', ...usuarios].map(u => [u, u === 'TODOS' ? 'Todos usuários' : u])} />
       </div>
 
       <div className="space-y-2">

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import Abas from '../components/ui/Abas';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -156,15 +157,7 @@ export default function Validades() {
             plano Etiquetas não existe lote (não há entrada nem saída), então
             sobra só a aba de etiquetas e a barra some. */}
         {abas.length > 1 && (
-        <div className="flex bg-white rounded-xl p-1 gap-1">
-          {abas.map(([v, l]) => (
-            <button key={v} onClick={() => setAba(v)} aria-pressed={abaAtual === v}
-              className={`flex-1 min-h-11 py-2.5 rounded-lg text-sm font-semibold transition-colors
-                ${abaAtual === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-700'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
+        <Abas opcoes={abas} valor={abaAtual} aoTrocar={setAba} />
         )}
 
         {abaAtual === 'lotes' ? (<>

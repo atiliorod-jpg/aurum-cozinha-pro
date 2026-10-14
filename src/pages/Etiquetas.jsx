@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import Abas from '../components/ui/Abas';
+import Filtros from '../components/ui/Filtros';
 import Layout from '../components/Layout';
 import PrimeiroUso from '../components/PrimeiroUso';
 import { FaixaImpressora, CartaoImpressora } from '../components/Impressora';
@@ -257,29 +259,21 @@ export default function Etiquetas() {
 
   return (
     <Layout title={soEtiq ? "Imprimir etiqueta" : "Etiquetas"}>
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1 print:hidden">
-        {/* ⚠️ "Do estoque" mentiria no plano Aurum Etiquetas: lá não existe
-            estoque nenhum, e o rótulo mandaria a pessoa procurar uma tela que
-            a conta dela não tem. É a mesma aba, com o nome certo em cada
-            produto. */}
-        {/* ⚠️ AS MESMAS DUAS ABAS NOS DOIS PRODUTOS. O completo tinha uma
-            terceira, "Avulsas": uma lista paralela para leite aberto, molho do
-            dia. Eram duas listas para a mesma pergunta — "o que eu etiqueto?"
-            — e a pessoa tinha que adivinhar em qual procurar. O que diferencia
-            um item avulso é a DATA SER DE ABERTURA, e isso virou um campo do
-            próprio item (ver etiquetas/Itens). A migração dos avulsos que já
-            existem roda sozinha, uma vez (migrarAvulsas).
-            ⚠️ NÃO chamar a primeira de "Meus itens": esse é o nome de OUTRA
-            tela, onde se cadastra. Duas coisas com o mesmo nome na mesma tela é
-            onde a pessoa se perde. */}
-        {[['catalogo', 'Etiquetar'], ['impressora', 'Impressora']].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)} aria-pressed={tab === v}
-            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
-              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      {/* ⚠️ "Do estoque" mentiria no plano Aurum Etiquetas: lá não existe
+          estoque nenhum, e o rótulo mandaria a pessoa procurar uma tela que
+          a conta dela não tem. É a mesma aba, com o nome certo em cada
+          produto. */}
+      {/* ⚠️ AS MESMAS DUAS ABAS NOS DOIS PRODUTOS. O completo tinha uma
+          terceira, "Avulsas": uma lista paralela para leite aberto, molho do
+          dia. Eram duas listas para a mesma pergunta — "o que eu etiqueto?"
+          — e a pessoa tinha que adivinhar em qual procurar. O que diferencia
+          um item avulso é a DATA SER DE ABERTURA, e isso virou um campo do
+          próprio item (ver etiquetas/Itens). A migração dos avulsos que já
+          existem roda sozinha, uma vez (migrarAvulsas).
+          ⚠️ NÃO chamar a primeira de "Meus itens": esse é o nome de OUTRA
+          tela, onde se cadastra. Duas coisas com o mesmo nome na mesma tela é
+          onde a pessoa se perde. */}
+      <Abas opcoes={[['catalogo', 'Etiquetar'], ['impressora', 'Impressora']]} valor={tab} aoTrocar={setTab} className="mb-4 print:hidden" />
 
       {tab === 'impressora' ? (
         <GuiaImpressora />
@@ -348,26 +342,14 @@ export default function Etiquetas() {
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto..." aria-label="Buscar produto"
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+          {/* ⚠️ SÓ AS CATEGORIAS QUE TÊM ITEM. A lista vinha inteira da
+              biblioteca: numa conta nova a tela mostrava "você ainda não tem
+              itens" e, logo acima, treze filtros que não levavam a lugar
+              nenhum. Desde o Lote 7 (14/10/2026) Entradas e Saídas seguem a
+              mesma regra. */}
           {!buscando && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <button onClick={() => setCatAtiva('')} aria-pressed={catAtiva === ''}
-                className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                  ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-700 border border-gray-200'}`}>
-                Todos
-              </button>
-              {/* ⚠️ SÓ AS QUE TÊM ITEM. A lista vinha inteira da biblioteca:
-                  numa conta nova a tela mostrava "você ainda não tem itens" e,
-                  logo acima, treze filtros que não levavam a lugar nenhum. A
-                  tela de Meus itens já fazia certo — o app se comportava de
-                  dois jeitos com o mesmo dado. */}
-              {categorias.filter(c => produtosAtivos.some(p => p.categoria === c)).map(c => (
-                <button key={c} onClick={() => setCatAtiva(c)} aria-pressed={catAtiva === c}
-                  className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                    ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                  {c}
-                </button>
-              ))}
-            </div>
+            <Filtros rotulo="Categoria" valor={catAtiva} aoTrocar={setCatAtiva}
+              opcoes={categorias.filter(c => produtosAtivos.some(p => p.categoria === c))} />
           )}
           <div className="bg-white rounded-xl overflow-hidden">
             {produtosVisiveis.length === 0 && !buscando && !nuvemCarregada && <Esqueleto rotulo="Carregando os itens" />}

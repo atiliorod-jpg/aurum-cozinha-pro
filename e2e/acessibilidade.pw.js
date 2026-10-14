@@ -56,6 +56,10 @@ test('plano Pro, Produção: telas e janelas', async ({ page }) => {
     '/configuracoes?secao=receitas', '/configuracoes?secao=acessos', '/configuracoes?secao=sistema',
     '/ler', '/pagamento',
   ], r, 'pro');
+  // a matriz de acessos de um cargo (fica fechada até tocar em "acessos")
+  await abrir(page, '/configuracoes?secao=acessos');
+  await page.getByRole('button', { name: 'acessos', exact: true }).first().click();
+  r['matriz de acessos aberta'] = await medirAcessibilidade(page);
   // a janela de imprimir do Pro pedindo o nome (aberta pela Entrada)
   await abrir(page, '/entradas');
   await page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' }).fill('1');

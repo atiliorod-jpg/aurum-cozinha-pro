@@ -73,8 +73,13 @@ describe('toques e contraste nos pontos que importam', () => {
   });
 
   it('filtros e categorias com 44 px e aria-pressed', () => {
-    const e = ler('../../pages/Etiquetas.jsx');
-    expect((e.match(/aria-pressed=\{catAtiva === /g) || []).length).toBe(2);
+    // ⚠️ Desde o Lote 7 (14/10/2026) os filtros são UMA peça (ui/Filtros),
+    // testada pelo toque em components/__tests__/pecasPadrao.test.jsx; o
+    // tamanho e o contraste são medidos pelo robô em todas as telas.
+    const f = ler('../../components/ui/Filtros.jsx');
+    expect(f).toMatch(/aria-pressed=\{valor === v\}/);
+    expect(f).toMatch(/min-h-11 px-4 rounded-full/);
+    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/<Filtros rotulo="Categoria" valor=\{catAtiva\} aoTrocar=\{setCatAtiva\}/);
     expect(ler('../../pages/Validades.jsx')).toMatch(/aria-pressed=\{filtro === v\}/);
     expect(ler('../../pages/Pagamento.jsx')).toMatch(/role="radiogroup" aria-label="Duração do plano"/);
   });

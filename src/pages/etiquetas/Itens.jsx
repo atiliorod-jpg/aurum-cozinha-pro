@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import Abas from '../../components/ui/Abas';
 import Layout from '../../components/Layout';
 import Botao from '../../components/Botao';
 import Dialogo from '../../components/Dialogo';
@@ -183,15 +184,7 @@ export default function Itens() {
           setas). Aqui elas são poucas e ficam todas no caminho do Tab, que num
           tablet com teclado é melhor — trocar o modelo de teclado por causa de
           um anúncio seria arriscar o que já funciona. */}
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['meus', `Meus itens (${meus.length})`], ['biblioteca', 'Adicionar prontos']].map(([v, l]) => (
-          <button key={v} onClick={() => setAba(v)} aria-pressed={aba === v}
-            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
-              ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={[['meus', `Meus itens (${meus.length})`], ['biblioteca', 'Adicionar prontos']]} valor={aba} aoTrocar={setAba} className="mb-4" />
 
       <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
         placeholder={aba === 'meus' ? 'Buscar nos meus itens…' : 'Buscar item pronto (ex.: picanha, sal, alface)…'}

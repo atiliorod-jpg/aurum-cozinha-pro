@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useRascunho } from '../lib/useRascunho';
 import SemItens from '../components/SemItens';
+import Abas from '../components/ui/Abas';
+import Filtros from '../components/ui/Filtros';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -129,15 +131,7 @@ export default function Entradas() {
 
   return (
     <Layout title="Entrada avulsa">
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['novo', '+ Nova entrada'], ['historico', 'Histórico']].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)}
-            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
-              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={[['novo', '+ Nova entrada'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
           <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando}
@@ -192,20 +186,8 @@ export default function Entradas() {
 
           {/* Categorias */}
           {!buscando && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <button onClick={() => setCatAtiva('')}
-                className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                  ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                Todos
-              </button>
-              {categorias.map(c => (
-                <button key={c} onClick={() => setCatAtiva(c)}
-                  className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                    ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                  {c}
-                </button>
-              ))}
-            </div>
+            <Filtros rotulo="Categoria" valor={catAtiva} aoTrocar={setCatAtiva}
+              opcoes={categorias.filter(c => produtosAtivos.some(p => p.categoria === c))} />
           )}
 
           {/* Produtos */}

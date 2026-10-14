@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import Abas from '../components/ui/Abas';
 import Layout from '../components/Layout';
 import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
@@ -198,15 +199,7 @@ export default function AparasPerdas() {
 
   return (
     <Layout title="Aparas & Perdas">
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['novo', '+ Novo registro'], ['historico', 'Histórico']].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)}
-            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
-              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={[['novo', '+ Novo registro'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
           {/* Tipo: Apara ou Perda — módulo sem apara já abre em Perda */}

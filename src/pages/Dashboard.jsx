@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import Filtros from '../components/ui/Filtros';
+import Selo from '../components/ui/Selo';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
@@ -353,34 +355,15 @@ export default function Dashboard() {
       )}
 
       {/* Filtro por categoria */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-3">
-        {cats.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setCatAtiva(cat)}
-            className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold transition-colors flex-shrink-0
-              ${catAtiva === cat
-                ? 'bg-polo-navy text-polo-gold'
-                : 'bg-white text-gray-600 border border-gray-200'}`}
-          >
-            {cat === 'TODOS' ? 'Todos' : cat}
-          </button>
-        ))}
-      </div>
+      <Filtros rotulo="Categoria" todos={null} valor={catAtiva} aoTrocar={setCatAtiva} className="mb-3"
+        opcoes={cats.map(cat => [cat, cat === 'TODOS' ? 'Todos' : cat])} />
 
       {/* Subgrupos: só aparecem quando a categoria escolhida tem mais de um.
           Categoria grande (PROTEÍNAS com 30 itens) fica navegável sem virar
           uma lista infinita; quem não usa subgrupo não vê nada mudar. */}
       {subgruposDaCategoria.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 mb-3 scrollbar-hide">
-          {subgruposDaCategoria.map(sg => (
-            <button key={sg} onClick={() => setSubAtivo(sg)}
-              className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold transition-colors flex-shrink-0
-                ${subAtivo === sg ? 'bg-polo-gold text-polo-navy' : 'bg-white text-gray-600 border border-gray-200'}`}>
-              {sg === 'TODOS' ? 'Todos os subgrupos' : sg}
-            </button>
-          ))}
-        </div>
+        <Filtros rotulo="Subgrupo" todos={null} ativo="dourado" valor={subAtivo} aoTrocar={setSubAtivo} className="mb-3"
+          opcoes={subgruposDaCategoria.map(sg => [sg, sg === 'TODOS' ? 'Todos os subgrupos' : sg])} />
       )}
 
       {/* Cards de produtos */}
@@ -421,9 +404,7 @@ export default function Dashboard() {
                           </span>
                         )}
                       </span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cor.badge}`}>
-                        {cor.label}
-                      </span>
+                      <Selo status={status} />
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 bg-white/60 rounded-full h-2 overflow-hidden">

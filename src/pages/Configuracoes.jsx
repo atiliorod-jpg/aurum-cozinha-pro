@@ -1,5 +1,8 @@
+import Chave from '../components/ui/Chave';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import Abas from '../components/ui/Abas';
+import Filtros from '../components/ui/Filtros';
 import Layout from '../components/Layout';
 import Dialogo from '../components/Dialogo';
 import Botao from '../components/Botao';
@@ -577,13 +580,8 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
               <p className="text-xs font-semibold text-gray-700">Entra no estoque já cozido?</p>
               <p className="text-xs text-gray-500 mt-0.5">Ex: cupim cozido, carne de sol desfiada — já entram prontos. Filé de frango entra cru (deixe desligado).</p>
             </div>
-            <button type="button" onClick={() => set('entradaCozida', !form.entradaCozida)}
-              role="switch" aria-checked={!!form.entradaCozida} aria-label="Entra no estoque já cozido"
-              className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
-              <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${form.entradaCozida ? 'bg-orange-600' : 'bg-gray-300'}`}>
-                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.entradaCozida ? 'left-6' : 'left-0.5'}`} />
-              </span>
-            </button>
+            <Chave rotulo="Entra no estoque já cozido" ligada={!!form.entradaCozida} cor="laranja"
+              aoTrocar={() => set('entradaCozida', !form.entradaCozida)} />
           </div>
           {form.entradaCozida && (
             <div>
@@ -622,12 +620,8 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
 
         <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
           <span className="text-sm text-gray-700 flex-1">Produto ativo</span>
-          <button onClick={() => set('ativo', !form.ativo)} role="switch" aria-checked={!!form.ativo} aria-label="Produto ativo"
-            className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
-            <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${form.ativo ? 'bg-green-600' : 'bg-gray-300'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.ativo ? 'left-6' : 'left-0.5'}`} />
-            </span>
-          </button>
+          <Chave rotulo="Produto ativo" ligada={!!form.ativo}
+            aoTrocar={() => set('ativo', !form.ativo)} />
         </div>
 
         <div className="flex gap-3 pt-2">
@@ -1178,15 +1172,7 @@ export default function Configuracoes() {
       // CTA agora vive no corpo da aba, ao lado da busca e no estado vazio.
     >
       {/* Seções — abas conforme as permissões da função */}
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {abasVisiveis.map(([v, l]) => (
-          <button key={v} onClick={() => setSecao(v)} aria-pressed={secaoAtiva === v}
-            className={`flex-1 min-h-11 py-2 rounded-lg text-xs font-semibold transition-colors
-              ${secaoAtiva === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={abasVisiveis} valor={secaoAtiva} aoTrocar={setSecao} className="mb-4" />
 
       {secaoAtiva === 'produtos' && <>
       {/* Busca + o CTA de cadastrar, lado a lado. É aqui que a pessoa está
@@ -1202,15 +1188,8 @@ export default function Configuracoes() {
       </div>
 
       {/* Categorias */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-3">
-        {['TODOS', ...categorias].map(c => (
-          <button key={c} onClick={() => setCatAtiva(c)}
-            className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-              ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-            {c === 'TODOS' ? 'Todos' : c}
-          </button>
-        ))}
-      </div>
+      <Filtros rotulo="Categoria" todos={null} valor={catAtiva} aoTrocar={setCatAtiva} className="mb-3"
+        opcoes={['TODOS', ...categorias].map(c => [c, c === 'TODOS' ? 'Todos' : c])} />
 
       {/* Lista de produtos */}
       <div className="bg-white rounded-xl overflow-hidden mb-4">
@@ -1450,18 +1429,12 @@ export default function Configuracoes() {
               </div>
             </details>
           </div>
-          <button
-            role="switch" aria-checked={!!prefs.autoMinMax}
-            onClick={() => {
-              const novo = !prefs.autoMinMax;
-              setPref('autoMinMax', novo);
-              toast(novo ? 'Ajuste automático LIGADO — mín/máx acompanham o consumo.' : 'Ajuste automático desligado — voltam as sugestões manuais.', 'sucesso');
-            }}
-            className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
-            <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${prefs.autoMinMax ? 'bg-green-600' : 'bg-gray-300'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.autoMinMax ? 'left-6' : 'left-0.5'}`} />
-            </span>
-          </button>
+          <Chave rotulo="Ajuste automático de mínimo e máximo" ligada={!!prefs.autoMinMax}
+            aoTrocar={() => {
+                        const novo = !prefs.autoMinMax;
+                        setPref('autoMinMax', novo);
+                        toast(novo ? 'Ajuste automático LIGADO — mín/máx acompanham o consumo.' : 'Ajuste automático desligado — voltam as sugestões manuais.', 'sucesso');
+                      }} />
         </div>
         <div className="border-t border-gray-100 pt-3">
           <p className="text-xs font-semibold text-gray-600 mb-2">Dias de cobertura do estoque</p>
@@ -1518,18 +1491,12 @@ export default function Configuracoes() {
                   </div>
                 </details>
               </div>
-              <button
-                role="switch" aria-checked={!!prefs.minMaxPorDiaSemana}
-                onClick={() => {
-                  const novo = !prefs.minMaxPorDiaSemana;
-                  setPref('minMaxPorDiaSemana', novo);
-                  toast(novo ? 'Mín/máx agora consideram o dia da semana.' : 'Mín/máx voltaram à média simples.', 'sucesso');
-                }}
-                className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
-                <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${prefs.minMaxPorDiaSemana ? 'bg-green-600' : 'bg-gray-300'}`}>
-                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.minMaxPorDiaSemana ? 'left-6' : 'left-0.5'}`} />
-                </span>
-              </button>
+              <Chave rotulo="Considerar o dia da semana" ligada={!!prefs.minMaxPorDiaSemana}
+                aoTrocar={() => {
+                                const novo = !prefs.minMaxPorDiaSemana;
+                                setPref('minMaxPorDiaSemana', novo);
+                                toast(novo ? 'Mín/máx agora consideram o dia da semana.' : 'Mín/máx voltaram à média simples.', 'sucesso');
+                              }} />
             </div>
           </div>
         )}
@@ -1545,14 +1512,8 @@ export default function Configuracoes() {
               e lembretes opcionais de etiquetas e aparas — aparas só contam se houver.
             </p>
           </div>
-          <button
-            role="switch" aria-checked={!!prefs.guia}
-            onClick={() => setPref('guia', !prefs.guia)}
-            className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
-            <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${prefs.guia ? 'bg-green-600' : 'bg-gray-300'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.guia ? 'left-6' : 'left-0.5'}`} />
-            </span>
-          </button>
+          <Chave rotulo="Guia de fluxo do turno" ligada={!!prefs.guia}
+            aoTrocar={() => setPref('guia', !prefs.guia)} />
         </div>
       </div>
 

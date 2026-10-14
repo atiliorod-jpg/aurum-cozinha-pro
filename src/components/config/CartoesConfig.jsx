@@ -5,6 +5,7 @@
 // cartoes; copiar ~250 linhas faria as duas versoes divergirem, que e o
 // defeito ja registrado nas abas daquele arquivo (a lista de botoes era
 // escrita de novo la embaixo, e as duas divergiram).
+import Chave from '../ui/Chave';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Botao from '../Botao';
@@ -240,13 +241,8 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
           <p className="text-xs font-semibold text-gray-600">QR code na etiqueta</p>
           <p className="text-xs text-gray-600">Para dar baixa lendo a etiqueta (saída, perda, usado) e contar no Inventário.</p>
         </div>
-        <button role="switch" aria-checked={!!cfg.incluirQR}
-          onClick={() => { salvar({ incluirQR: !cfg.incluirQR }); toast(!cfg.incluirQR ? 'QR code LIGADO nas etiquetas.' : 'QR code desligado.', 'sucesso'); }}
-          className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
-          <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${cfg.incluirQR ? 'bg-green-600' : 'bg-gray-300'}`}>
-            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.incluirQR ? 'left-6' : 'left-0.5'}`} />
-          </span>
-        </button>
+        <Chave rotulo="QR code na etiqueta" ligada={!!cfg.incluirQR}
+          aoTrocar={() => { salvar({ incluirQR: !cfg.incluirQR }); toast(!cfg.incluirQR ? 'QR code LIGADO nas etiquetas.' : 'QR code desligado.', 'sucesso'); }} />
       </div>
       </>}
       <div className="border-t border-gray-100 pt-3">
@@ -828,12 +824,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
     salvar({ cargos: (m.cargos || []).filter(c => c.id !== cargo.id) });
   };
 
-  const Chave = ({ ligado, onClick, id }) => (
-    <button role="switch" aria-checked={ligado} aria-labelledby={id} onClick={onClick}
-      className={`w-10 h-5 rounded-full relative flex-shrink-0 transition-colors ${ligado ? 'bg-green-500' : 'bg-gray-300'}`}>
-      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${ligado ? 'left-5' : 'left-0.5'}`} />
-    </button>
-  );
+  // (a chave da matriz era uma cópia local de 40×20 px; agora é a peça padrão)
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
@@ -873,8 +864,8 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
                       <span className="block text-xs text-gray-800">{cap.label}</span>
                       <span className="block text-xs text-gray-500 leading-tight">{cap.desc}</span>
                     </span>
-                    <Chave id={`${cargo.id}-${cap.id}`} ligado={valorDoCargo(cargo, cap.id)}
-                      onClick={() => mudarCargo(cargo, cap.id, !valorDoCargo(cargo, cap.id))} />
+                    <Chave rotuladoPor={`${cargo.id}-${cap.id}`} ligada={valorDoCargo(cargo, cap.id)}
+                      aoTrocar={() => mudarCargo(cargo, cap.id, !valorDoCargo(cargo, cap.id))} />
                   </div>
                 ))}
               </div>
@@ -922,7 +913,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
             const excecoes = Object.keys((m.porConta || {})[u.id] || {}).length;
             return (
               <details key={u.id} className="border border-gray-200 rounded-lg">
-                <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-gray-800">
+                <summary className="cursor-pointer px-3 min-h-11 flex items-center text-xs font-semibold text-gray-800">
                   {quem}
                   {excecoes > 0 && <span className="ml-1 font-normal text-gray-500">· com exceções</span>}
                 </summary>
@@ -930,12 +921,12 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
                   {caps.map(cap => (
                     <div key={cap.id} className="flex items-center justify-between gap-3">
                       <span id={`${u.id}-${cap.id}`} className="text-xs text-gray-800 min-w-0">{cap.label}</span>
-                      <Chave id={`${u.id}-${cap.id}`} ligado={valorDaConta(u, cap.id)}
-                        onClick={() => mudarConta(u, cap.id, !valorDaConta(u, cap.id))} />
+                      <Chave rotuladoPor={`${u.id}-${cap.id}`} ligada={valorDaConta(u, cap.id)}
+                        aoTrocar={() => mudarConta(u, cap.id, !valorDaConta(u, cap.id))} />
                     </div>
                   ))}
                   <button onClick={() => limparConta(u)}
-                    className="text-xs font-semibold text-gray-600 border border-gray-200 rounded px-2 py-1 mt-1">
+                    className="text-xs font-semibold text-gray-700 border border-gray-200 rounded-lg px-3 min-h-11 mt-1">
                     Voltar a seguir o cargo
                   </button>
                 </div>

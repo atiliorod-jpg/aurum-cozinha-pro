@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import SemItens from '../components/SemItens';
+import Abas from '../components/ui/Abas';
+import Filtros from '../components/ui/Filtros';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -139,15 +141,7 @@ export default function Saidas() {
 
   return (
     <Layout title="Saídas">
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['novo', '+ Nova saída'], ['historico', 'Histórico']].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)}
-            className={`flex-1 py-3 rounded-lg text-sm font-semibold transition-colors
-              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={[['novo', '+ Nova saída'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
           <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando}
@@ -192,23 +186,12 @@ export default function Saidas() {
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
 
           {!buscando && (
-            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              <button onClick={() => setCatAtiva('')}
-                className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                  ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                Todos{itensPreenchidos.length > 0 && ` (${itensPreenchidos.length})`}
-              </button>
-              {categorias.map(c => {
+            <Filtros rotulo="Categoria" valor={catAtiva} aoTrocar={setCatAtiva}
+              todos={`Todos${itensPreenchidos.length > 0 ? ` (${itensPreenchidos.length})` : ''}`}
+              opcoes={categorias.filter(c => produtosAtivos.some(p => p.categoria === c)).map(c => {
                 const nCat = itensPreenchidos.filter(([id]) => produtos.find(p => p.id === id)?.categoria === c).length;
-                return (
-                  <button key={c} onClick={() => setCatAtiva(c)}
-                    className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                      ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                    {c}{nCat > 0 && <span className="ml-1 bg-polo-gold text-polo-navy rounded-full px-1.5 text-xs font-bold">{nCat}</span>}
-                  </button>
-                );
-              })}
-            </div>
+                return [c, <>{c}{nCat > 0 && <span className="ml-1 bg-polo-gold text-polo-navy rounded-full px-1.5 text-xs font-bold">{nCat}</span>}</>];
+              })} />
           )}
 
           <div className="bg-white rounded-xl overflow-hidden">

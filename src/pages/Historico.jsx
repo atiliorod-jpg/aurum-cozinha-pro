@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Filtros from '../components/ui/Filtros';
 import Layout from '../components/Layout';
 import Icon from '../components/Icons';
 import { useApp } from '../store/AppContext';
@@ -147,15 +148,7 @@ export default function Historico() {
         placeholder="Buscar por item ou responsável..."
         className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3" />
 
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide mb-3">
-        {CHIPS.map(([v, l]) => (
-          <button key={v} onClick={() => setFiltro(v)}
-            className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-              ${filtroAtivo === v ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Filtros rotulo="Tipo de lançamento" todos={null} opcoes={CHIPS} valor={filtroAtivo} aoTrocar={setFiltro} className="mb-3" />
 
       {filtrados.length === 0 && <div className="text-center text-gray-500 py-12">Nenhum lançamento por aqui ainda.</div>}
 

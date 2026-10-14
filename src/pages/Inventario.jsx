@@ -1,4 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import Abas from '../components/ui/Abas';
+import Filtros from '../components/ui/Filtros';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -142,15 +144,7 @@ export default function Inventario() {
 
   return (
     <Layout title="Inventário / Contagem">
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[['novo', 'Contar'], ['historico', 'Histórico']].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)}
-            className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-semibold transition-colors
-              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={[['novo', 'Contar'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
 
       {tab === 'novo' ? (
         <div className="space-y-4">
@@ -203,15 +197,8 @@ export default function Inventario() {
           <input type="search" value={buscaCont} onChange={e => setBuscaCont(e.target.value)}
             placeholder="Buscar item" aria-label="Buscar item para contar"
             className="w-full min-h-11 bg-white border border-gray-200 rounded-xl px-4 text-base" />
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {['', ...categorias.filter(c => produtosAtivos.some(p => p.categoria === c))].map(c => (
-              <button key={c || 'todos'} onClick={() => setCatAtiva(c)} aria-pressed={catAtiva === c}
-                className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
-                  ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-700 border border-gray-200'}`}>
-                {c || 'Todos'}
-              </button>
-            ))}
-          </div>
+          <Filtros rotulo="Categoria" valor={catAtiva} aoTrocar={setCatAtiva}
+            opcoes={categorias.filter(c => produtosAtivos.some(p => p.categoria === c))} />
 
           <div className="bg-white rounded-xl overflow-hidden">
             {produtosAtivos.filter(p => (!catAtiva || p.categoria === catAtiva) && casaBusca(buscaCont, p.nome)).map((p, i, arr) => {

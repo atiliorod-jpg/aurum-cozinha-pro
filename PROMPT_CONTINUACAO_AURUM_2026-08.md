@@ -181,6 +181,30 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (14/10/2026, fim) — LOTE 7 EM ANDAMENTO (peças padrão de tela)
+
+**Peças criadas em `src/components/ui/`:** `Abas`, `Filtros`, `Chave`,
+`Selo`, `Cartao` e `Vazio`. Cada uma tem teste pelo toque em
+`components/__tests__/pecasPadrao.test.jsx`.
+
+**Já aplicadas:**
+- abas nas 9 telas;
+- filtros nas 8 telas — Entradas e Saídas agora mostram só as categorias que
+  têm item, como Etiquetas;
+- as 6 chaves e a matriz de acessos dos cargos, que era uma chave local de
+  40×20 px;
+- `Selo` no Início.
+
+O teste de acessibilidade agora abre a matriz de acessos de um cargo.
+
+**Falta neste lote:** usar `Cartao` e `Vazio` nas telas. O plano era fazer
+isso junto com o Lote 4 (reorganizar a Administração).
+
+**Depois, pela ordem:** Lote 3 (Imprimir na barra do Pro + cabeçalho) →
+Lote 2 → Lotes 4, 5 e 6.
+
+---
+
 ## Onde paramos (14/10/2026, depois) — LOTE 0 DA AUDITORIA (rede de segurança)
 
 O que entrou:

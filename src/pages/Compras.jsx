@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import Abas from '../components/ui/Abas';
 import Layout from '../components/Layout';
 import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
@@ -239,18 +240,7 @@ export default function Compras() {
 
   return (
     <Layout title="Compras">
-      <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
-        {[
-          ['novo', '+ Nova compra'],
-          ['lista', `Lista de compras${listaCompleta.length + listaManual.length ? ` (${listaCompleta.length + listaManual.length})` : ''}`],
-        ].map(([v, l]) => (
-          <button key={v} onClick={() => setTab(v)}
-            className={`flex-1 min-h-11 py-2 rounded-lg text-xs font-semibold transition-colors
-              ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
-            {l}
-          </button>
-        ))}
-      </div>
+      <Abas opcoes={[ ['novo', '+ Nova compra'], ['lista', `Lista de compras${listaCompleta.length + listaManual.length ? ` (${listaCompleta.length + listaManual.length})` : ''}`], ]} valor={tab} aoTrocar={setTab} className="mb-4" />
 
       {tab === 'lista' && (
         <div className="space-y-3">
