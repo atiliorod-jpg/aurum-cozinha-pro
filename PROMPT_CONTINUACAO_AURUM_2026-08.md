@@ -210,6 +210,14 @@ O robô tem **34 cenários** e os testes são **881**.
 `npm run build` antes do robô. Ele testa o `dist/`, e eu medi o build do ramo
 da M61 achando que era o `main`.
 
+⚠️ **O bloco do Pix só aparece no app publicado:** a chave Pix vem dos
+segredos do GitHub. O robô local não via, e o deploy reprovou o botão
+"copiar" (16 px). Para o robô local ver o mesmo que o deploy, monte assim:
+
+```bash
+VITE_PIX_CHAVE=robo@teste.invalid VITE_PIX_NOME="Robo Teste" VITE_PIX_CIDADE=Recife npm run build
+```
+
 **Lote B:** recebeu o merge do `main` (Lote 1), está testado e no GitHub. O
 token continua inválido. Quando voltar:
 1. `git merge etapa2-lote-b` no `main`.

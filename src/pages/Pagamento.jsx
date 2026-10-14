@@ -367,7 +367,7 @@ export default function Pagamento() {
               <strong>Chave:</strong>
               <span className="font-mono break-all">{PIX_CHAVE}</span>
               <button onClick={() => copiar(PIX_CHAVE, 'Chave Pix copiada!')}
-                className="text-polo-navy font-semibold underline underline-offset-2 flex-shrink-0">copiar</button>
+                className="text-polo-navy font-semibold underline underline-offset-2 flex-shrink-0 min-h-11 px-2 -my-3">copiar</button>
             </p>
             <p><strong>Valor:</strong> {brl(valor)}</p>
           </div>
