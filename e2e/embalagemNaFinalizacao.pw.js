@@ -44,6 +44,10 @@ async function irPara(page, cozinha) {
 // imprime N etiquetas (uma linha, um código) e devolve o código impresso
 async function imprimirFrango(page, copias = 1) {
   await abrir(page, '/etiquetas');
+  // "Quem vai imprimir?" (13/10/2026): Maria entra sem senha na demo; da
+  // segunda vez no mesmo teste ela já está escolhida (vale por 5 minutos)
+  const maria = page.getByRole('button', { name: 'Maria', exact: true });
+  if (await maria.isVisible({ timeout: 2_000 }).catch(() => false)) await maria.click();
   await page.getByRole('button', { name: `Imprimir etiqueta de ${FRANGO}` }).click();
   const janela = page.getByRole('dialog');
   await janela.getByLabel(/Medida/).first().fill('1 un');
@@ -90,7 +94,7 @@ test('Cozinha Pro: a embalagem mandada pelo QR é da Finalização; perda lá de
   await folha.getByRole('button', { name: /^Registrar perda/ }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await abrir(page, '/historico');
-  await expect(page.locator('main')).toContainText(/Filé de Frango.*baixa/);
+  await expect(page.locator('main')).toContainText(/Filé de Frango.*Baixa pela etiqueta · saiu do estoque/);
 
   expect(erros, erros.join('\n')).toEqual([]);
 });

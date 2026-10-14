@@ -214,15 +214,15 @@ export default function AparasPerdas() {
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => setTipo('apara')}
               className={`py-3 px-3 rounded-xl text-sm font-bold border-2 transition-colors
-                ${tipo === 'apara' ? 'border-amber-400 bg-amber-500 text-white' : 'border-gray-200 bg-white text-gray-500'}`}>
+                ${tipo === 'apara' ? 'border-amber-700 bg-amber-700 text-white' : 'border-gray-200 bg-white text-gray-600'}`}>
               Apara
-              <span className="block text-[11px] font-normal opacity-90">reaproveita no freezer</span>
+              <span className="block text-xs font-normal opacity-90">reaproveita no freezer</span>
             </button>
             <button onClick={() => setTipo('perda')}
               className={`py-3 px-3 rounded-xl text-sm font-bold border-2 transition-colors
                 ${tipo === 'perda' ? 'border-red-400 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-500'}`}>
               Perda
-              <span className="block text-[11px] font-normal opacity-90">vai para o lixo</span>
+              <span className="block text-xs font-normal opacity-90">vai para o lixo</span>
             </button>
           </div>
           )}
@@ -309,7 +309,7 @@ export default function AparasPerdas() {
                   <div className="grid grid-cols-2 gap-2">
                     {destinos.map(d => (
                       <button key={d.cod} onClick={() => setA('destino', d.cod)}
-                        className={`py-2 px-3 rounded-lg text-xs font-semibold text-left border-2 transition-colors
+                        className={`min-h-11 py-2 px-3 rounded-lg text-xs font-semibold text-left border-2 transition-colors
                           ${formApara.destino === d.cod
                             ? 'border-polo-gold bg-polo-navy text-polo-gold'
                             : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
@@ -395,7 +395,7 @@ export default function AparasPerdas() {
                   <div className="grid grid-cols-2 gap-2">
                     {MOTIVOS_DESPERDICIO.map(m => (
                       <button key={m.cod} onClick={() => setP('motivo', m.cod)}
-                        className={`py-2 px-3 rounded-lg text-xs font-semibold text-left border-2 transition-colors
+                        className={`min-h-11 py-2 px-3 rounded-lg text-xs font-semibold text-left border-2 transition-colors
                           ${formPerda.motivo === m.cod
                             ? 'border-polo-gold bg-polo-navy text-polo-gold'
                             : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
@@ -441,7 +441,7 @@ export default function AparasPerdas() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded
                         ${ehApara ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
                         {ehApara ? 'APARA' : 'PERDA'}
                       </span>
@@ -460,13 +460,13 @@ export default function AparasPerdas() {
                       {!ehApara && (
                         <>
                           <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${corMotivo}`}>
-                            {r.motivo} — {motivo?.label}
+                            {motivo?.label || r.motivo}
                           </span>
                           {/* "Recebimento" não descrevia o que o registro é —
                               descrevia de onde alguém achou que ele vinha. O
                               que importa para quem lê o histórico é se o saldo
                               mexeu. */}
-                          <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded
                             ${r.origem === 'estoque' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
                             {r.origem === 'estoque' ? 'Abateu estoque' : 'Só registro'}
                           </span>

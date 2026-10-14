@@ -48,6 +48,14 @@ async function entrarNaDemo(page, plano) {
   return erros;
 }
 
+// ⚠️ "QUEM VAI IMPRIMIR?" (13/10/2026): com a equipe cadastrada, a tela de
+// Etiquetas começa pelos nomes. Na demonstração, Maria entra sem senha.
+async function entrarComo(page, nome = 'Maria') {
+  await expect(page.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible();
+  await page.getByRole('button', { name: nome, exact: true }).click();
+  await expect(page.getByText(`Imprimindo como ${nome}`)).toBeVisible();
+}
+
 async function abrirTela(page, rota) {
   await page.evaluate((r) => {
     window.history.pushState({}, '', r);
@@ -69,8 +77,16 @@ test('plano Etiquetas: todas as telas abrem sem travar', async ({ page }) => {
 
 test('plano Etiquetas: imprimir pelo computador e ver na aba Impressas', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page);
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   const janela = page.getByRole('dialog');
+  // a etiqueta sai assinada por quem entrou pelo nome
+  await expect(janela.getByText('Assina: Maria')).toBeVisible();
+  // ⚠️ o plano Etiquetas não tem estoque nem leitor de QR (achado do dono,
+  // 14/10/2026): nem "Dar entrada no estoque", nem o código embaixo do QR
+  await expect(janela.locator('.etiqueta-label').first()).toContainText('Frango desfiado');
+  await expect(janela.getByText('Dar entrada no estoque')).toHaveCount(0);
+  await expect(janela.locator('.etiqueta-label').first()).not.toContainText(/[A-Z0-9]{4}-[A-Z0-9]{4}/);
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   // o computador pergunta se saiu no papel; "Sim" conta e fecha
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
@@ -82,6 +98,7 @@ test('plano Etiquetas: imprimir pelo computador e ver na aba Impressas', async (
 
 test('plano Etiquetas: a busca acha sem acento', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page);
   await page.getByLabel('Buscar produto').fill('porcao');
   await expect(page.getByText('Picanha (porção)')).toBeVisible();
   await expect(page.getByText('Frango desfiado')).toHaveCount(0);
@@ -102,6 +119,7 @@ test('plano Pro: todas as telas abrem sem travar', async ({ page }) => {
 test('plano Pro: imprimir, buscar sem acento e ver na aba Impressas, como no Etiquetas', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrirTela(page, '/etiquetas');
+  await entrarComo(page);
   await page.getByLabel('Buscar produto').fill('porcao');
   await expect(page.getByText('Picanha (porção)').first()).toBeVisible();
   await page.getByLabel('Buscar produto').fill('');
@@ -130,6 +148,7 @@ test('plano Pro, Estoque Seco: etiqueta de abertura, ambiente como padrão, e va
   await page.getByRole('button', { name: /Aurum Cozinha Pro/ }).click();
   await page.getByRole('button', { name: /^Estoque Seco/ }).click();
   await abrirTela(page, '/etiquetas');
+  await entrarComo(page);
   await page.getByRole('button', { name: 'Imprimir etiqueta de Extrato de tomate (340g)' }).click();
   const janela = page.getByRole('dialog');
   await expect(janela.getByText('Data de abertura').first()).toBeVisible();
@@ -139,5 +158,20 @@ test('plano Pro, Estoque Seco: etiqueta de abertura, ambiente como padrão, e va
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await abrirTela(page, '/impressas');
   await expect(page.getByText('Extrato de tomate (340g)').first()).toBeVisible();
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+// ⚠️ AUDITORIA DE 14/10/2026 (lote 1): números com vírgula e nomes no lugar
+// dos códigos internos. O Relatório da demonstração mostrava "empanado" e
+// "unidade_centro", e o Início, "7.50 kg".
+test('plano Pro: números com vírgula e relatório com nomes, não códigos', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
+  await expect(page.locator('main')).toContainText('7,5 kg');
+  await expect(page.locator('main')).not.toContainText('7.50 kg');
+  await abrirTela(page, '/relatorio');
+  await expect(page.locator('main')).toContainText('Empanado de Filé (porção)');
+  await expect(page.locator('main')).toContainText('Unidade Centro');
+  await expect(page.locator('main')).not.toContainText('unidade_centro');
+  await expect(page.locator('main')).not.toContainText(/V — Vencimento/);
   expect(erros, erros.join('\n')).toEqual([]);
 });

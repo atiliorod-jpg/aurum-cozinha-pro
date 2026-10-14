@@ -1,6 +1,8 @@
 // Gráficos leves em SVG/CSS puro — sem bibliotecas, rápidos no tablet.
+import { fmtNum } from '../utils/formatters';
 
-const fmt = (v) => (v == null ? '—' : Number.isInteger(v) ? v : Number(v).toFixed(1));
+// vírgula decimal, como no resto do app (fmtNum)
+const fmt = (v) => (v == null ? '—' : fmtNum(v, 1));
 
 const CORES_BARRAS = ['#1B2A41', '#C9A24B', '#B0413E', '#3E7C59', '#6B5B95', '#D97742'];
 
@@ -105,7 +107,7 @@ export function LinhaDias({ dados }) {
           <circle key={d.data} cx={x(i)} cy={y(d.total)} r="2.6" fill="#C9A24B" stroke="#1B2A41" strokeWidth="1" />
         ))}
       </svg>
-      <div className="flex justify-between text-[11px] text-gray-500 px-1">
+      <div className="flex justify-between text-xs text-gray-500 px-1">
         <span>{dados[0]?.data?.slice(5).split('-').reverse().join('/') || '—'}</span>
         <span>pico: {fmt(max)}</span>
         <span>{dados[dados.length - 1]?.data?.slice(5).split('-').reverse().join('/') || '—'}</span>
@@ -123,7 +125,7 @@ export function BarraRendimento({ pct }) {
       <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
         <div className={`h-full rounded-full ${cor}`} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
       </div>
-      <span className="text-xs font-bold text-gray-700 w-12 text-right">{pct.toFixed(1)}%</span>
+      <span className="text-xs font-bold text-gray-700 w-12 text-right">{fmtNum(pct, 1)}%</span>
     </div>
   );
 }

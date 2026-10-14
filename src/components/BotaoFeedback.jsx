@@ -181,18 +181,18 @@ export default function BotaoFeedback() {
       <button onClick={abrir}
         aria-label={naoLidas > 0 ? `Ajuda: ${plural(naoLidas, 'resposta nova', 'respostas novas')}` : 'Enviar problema ou sugestão'}
         title="Relatar problema ou sugerir melhoria"
-        className="flex flex-col items-center gap-0.5 text-polo-gold active:scale-90 transition-transform
+        className="flex flex-col items-center gap-0.5 min-w-11 text-polo-gold active:scale-90 transition-transform
                    focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
         <span className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center relative">
           <Icon name="suporte" size={18} />
           {naoLidas > 0 && (
             <span aria-hidden="true"
-              className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+              className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-700 text-white text-xs font-bold flex items-center justify-center">
               {naoLidas}
             </span>
           )}
         </span>
-        <span className="text-[8px] leading-none font-semibold text-white/70">Ajuda</span>
+        <span className="text-xs leading-none font-semibold text-white/80">Ajuda</span>
       </button>
 
       {aberto && (
@@ -202,7 +202,7 @@ export default function BotaoFeedback() {
             {sessao?.demo && (
               <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 <p className="text-xs font-bold text-amber-800">Você está na demonstração</p>
-                <p className="text-[11px] text-amber-700 mt-0.5">
+                <p className="text-xs text-amber-700 mt-0.5">
                   Aqui o envio é só de exemplo — nada chega à equipe. Para falar com a gente de
                   verdade, entre na sua conta e use este mesmo botão.
                 </p>
@@ -219,7 +219,7 @@ export default function BotaoFeedback() {
                     ${aba === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
                   {l}
                   {v === 'conversa' && naoLidas > 0 && (
-                    <span className="ml-1.5 text-[10px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5">
+                    <span className="ml-1.5 text-xs font-bold text-white bg-red-700 rounded-full px-1.5 py-0.5">
                       {naoLidas}
                     </span>
                   )}
@@ -254,23 +254,23 @@ export default function BotaoFeedback() {
                     return (
                       <div key={f.id} className={`border rounded-lg p-3 ${encerrado ? 'border-gray-200 bg-gray-50' : 'border-gray-200'}`}>
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[11px] font-bold text-polo-navy">
+                          <span className="text-xs font-bold text-polo-navy">
                             {f.tipo === 'bug' ? 'Problema' : f.tipo === 'pedido' ? 'Pedido' : 'Sugestão'}
                           </span>
-                          <span className="text-[11px] text-gray-500">
+                          <span className="text-xs text-gray-500">
                             {new Date(f.created_at).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
                         <p className="text-xs text-gray-700 mt-1">{abertura || '—'}</p>
 
                         {falas.length === 0 && !encerrado && (
-                          <p className="text-[11px] text-gray-500 mt-1.5">Ainda sem resposta.</p>
+                          <p className="text-xs text-gray-500 mt-1.5">Ainda sem resposta.</p>
                         )}
                         {falas.map((m, i) => (
                           <div key={i}
                             ref={el => { if (el && m.de === 'aurum' && i === falas.length - 1) marcarLida(f); }}
                             className={`mt-2 rounded-lg px-2.5 py-2 ${m.de === 'aurum' ? 'bg-polo-beige' : 'bg-gray-100'}`}>
-                            <p className="text-[11px] font-bold text-polo-navy">
+                            <p className="text-xs font-bold text-polo-navy">
                               {m.de === 'aurum' ? 'Aurum' : 'Você'}
                             </p>
                             <p className="text-xs text-gray-700 whitespace-pre-wrap mt-0.5">{m.texto}</p>
@@ -278,7 +278,7 @@ export default function BotaoFeedback() {
                         ))}
 
                         {encerrado ? (
-                          <p className="text-[11px] text-gray-500 mt-2">Encerrado por você.</p>
+                          <p className="text-xs text-gray-500 mt-2">Encerrado por você.</p>
                         ) : (
                           <div className="mt-2 space-y-2">
                             {/* ⚠️ UM CAMPO SÓ, sem as três perguntas do
@@ -292,11 +292,11 @@ export default function BotaoFeedback() {
                               className={campo} />
                             <div className="flex flex-wrap gap-2">
                               <button onClick={() => continuar(f)} disabled={enviandoResp === f.id}
-                                className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-3 py-1.5 disabled:opacity-60">
+                                className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-3 py-1.5 disabled:opacity-60">
                                 {enviandoResp === f.id ? 'Enviando…' : 'Enviar'}
                               </button>
                               <button onClick={() => concluir(f)}
-                                className="text-[11px] font-semibold text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5">
+                                className="text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg px-2.5 py-1.5">
                                 Encerrar assunto
                               </button>
                             </div>
@@ -308,14 +308,14 @@ export default function BotaoFeedback() {
                   if (grupo === 'abertos') return <div key={grupo} className="space-y-3">{corpo}</div>;
                   return (
                     <details key={grupo} className="pt-1">
-                      <summary className="cursor-pointer text-[11px] font-semibold text-gray-600">
+                      <summary className="cursor-pointer text-xs font-semibold text-gray-600">
                         Encerrados ({lista.length})
                       </summary>
                       <div className="space-y-3 pt-2">{corpo}</div>
                     </details>
                   );
                 })}
-                <p className="text-[11px] text-gray-600 text-center">
+                <p className="text-xs text-gray-600 text-center">
                   Assunto novo é na aba <strong>Escrever</strong>.
                 </p>
               </div>
@@ -372,7 +372,7 @@ export default function BotaoFeedback() {
                     onChange={e => setPedidoMotivo(e.target.value)}
                     placeholder="Descreva o pedido. Se for troca de nome, escreva exatamente como deve sair na etiqueta." />
                 </label>
-                <p className="text-[11px] text-gray-600">
+                <p className="text-xs text-gray-600">
                   Seguem junto o nome atual do estabelecimento e os dados da conta — você não
                   precisa repetir nada disso.
                 </p>
@@ -394,7 +394,7 @@ export default function BotaoFeedback() {
               className="w-full mt-4 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl text-sm disabled:opacity-60">
               {enviando ? 'Enviando…' : 'Enviar para a equipe Aurum'}
             </button>
-            <p className="text-[11px] text-gray-600 text-center mt-1.5">
+            <p className="text-xs text-gray-600 text-center mt-1.5">
               A resposta chega aqui mesmo, na aba <strong>Conversa</strong>.
             </p>
             </>

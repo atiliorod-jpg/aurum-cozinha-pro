@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { PRODUTOS_BASE, PESSOAS_BASE, DESTINOS_APARA, CATEGORIAS_BASE } from '../data/produtos';
+import { PESSOAS_BASE, DESTINOS_APARA, rotuloMotivo } from '../data/produtos';
 import { FICHAS_BASE } from '../data/fichas';
 import { iniciarPresenca } from '../lib/presenca';
-import { gerarDemoSeed, PRODUTOS_DEMO_ETIQUETAS, PREFS_DEMO_ETIQUETAS } from '../data/demo';
+import { gerarDemoSeed, PRODUTOS_DEMO_ETIQUETAS, PREFS_DEMO_ETIQUETAS, SENHAS_EQUIPE_DEMO } from '../data/demo';
+import { comSenha, semOrfas, temSenha } from '../utils/senhaEquipe';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { consumoComoSaidas } from '../utils/turno';
 import { conciliarAuditoria } from '../utils/auditoria';
@@ -39,8 +40,13 @@ import { pode } from '../utils/permissoes';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
 const CAT = {
-  produtos:   PRODUTOS_BASE,
-  categorias: CATEGORIAS_BASE,
+  // ⚠️ CONTA NOVA COMEÇA VAZIA, nos dois planos (decisão do dono, 14/10/2026).
+  // O Pro nascia com dois itens de exemplo ("Filé (exemplo — edite ou
+  // apague)"), que a pessoa tinha de apagar antes de cadastrar o que usa. Quem
+  // preenche é a biblioteca de itens prontos (Meus itens → Adicionar prontos),
+  // e as categorias são as dela, como no Etiquetas.
+  produtos:   [],
+  categorias: [...CATEGORIAS_BIBLIOTECA],
   pessoas:    PESSOAS_BASE,
   destinos:   DESTINOS_APARA,
   fichas:     FICHAS_BASE,
@@ -76,6 +82,11 @@ const CAT = {
   // são sintetizadas na leitura, então conta que nunca criou instância não tem
   // documento nenhum e não há o que migrar. Só a diretoria grava (migração 22).
   estoques: {},
+  // Senha de 4 números de cada nome da equipe, para imprimir no nome dela
+  // (13/10/2026): { [nome]: { s: sal, h: hash, i: voltas } }. Chave PRÓPRIA
+  // e da conta. NÃO é semeada: documento ausente = ninguém tem senha. Ver o
+  // limite honesto em utils/senhaEquipe.js.
+  senhasEquipe: {},
   prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
 
@@ -185,6 +196,7 @@ export function AppProvider({ children }) {
   podeCatalogoRef.current = !soLeitura && !!sessao && pode(sessao, permissoes, 'gerenciarProdutos'); // eslint-disable-line react-hooks/refs
   const [precos,      setPrecosRaw]      = useState(CAT.precos);
   const [estoquesDoc, setEstoquesDocRaw] = useState(CAT.estoques);
+  const [senhasEquipe, setSenhasEquipeRaw] = useState(CAT.senhasEquipe);
   // Unidades EXTRAS da conta (M46) — a principal é a própria conta e não entra
   // aqui. Vêm da tabela `unidades` (só a Aurum escreve), com cache para a
   // etiqueta sair certa também sem internet.
@@ -344,7 +356,7 @@ export function AppProvider({ children }) {
   // devolvia sempre { catalogo: <lista com mín/máx dentro>, metas: null }, e o
   // documento `metas` nunca era gravado — o mín/máx de um restaurante ia para a
   // chave compartilhada por tipo e sobrescrevia o do outro, em silêncio.
-  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria, unidades, recebimentos, estoquesDoc };
+  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, senhasEquipe, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria, unidades, recebimentos, estoquesDoc };
   /* eslint-enable react-hooks/refs */
 
   // Só lê refs (estáveis) — identidade fixa para entrar nos deps dos callbacks.
@@ -357,7 +369,7 @@ export function AppProvider({ children }) {
     entrada: (r) => resumoItens(r),
     'saída': (r) => `${resumoItens(r)} → ${r.destino === 'producao' ? 'Produção' : (dadosRef.current.locais.find(l => l.id === r.destino)?.nome || r.destino)}`,
     apara: (r) => `${r.quantidade} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,
-    perda: (r) => `${r.quantidade} ${r.unidade} de ${r.item} (motivo ${r.motivoOutro || r.motivo}${r.origem === 'estoque' ? ', abateu estoque' : ''})`,
+    perda: (r) => `${r.quantidade} ${r.unidade} de ${r.item} (motivo ${rotuloMotivo(r.motivo, r.motivoOutro)}${r.origem === 'estoque' ? ', abateu estoque' : ''})`,
     'contagem física': (r) => `${nomeProduto(r.produtoId)} → ${r.quantidade}`,
   }), [resumoItens, nomeProduto]);
 
@@ -514,7 +526,8 @@ export function AppProvider({ children }) {
     //    conseguia reescrever a matriz por ali.
     //  • COMPARTILHADOS → chave do módulo de CATÁLOGO (finalização lê o da produção)
     //  • resto → chave do próprio módulo
-    const GLOBAIS = ['pessoas', 'permissoes', 'precos', 'estoques'];
+    // `senhasEquipe` é da conta: o nome vale em todas as cozinhas.
+    const GLOBAIS = ['pessoas', 'permissoes', 'precos', 'estoques', 'senhasEquipe'];
     const COMPARTILHADOS = ['produtos', 'categorias', 'fichas'];
     const chaveDe = () => (GLOBAIS.includes(chaveBase) ? chaveBase
       : COMPARTILHADOS.includes(chaveBase) ? kc(chaveBase)
@@ -700,10 +713,28 @@ export function AppProvider({ children }) {
     if (!n) return;
     if (dadosRef.current.pessoas.some(p => p.toLowerCase() === n.toLowerCase())) return;
     persistCatalogo('pessoas', setPessoasRaw, [...dadosRef.current.pessoas, n]);
+    // ⚠️ NOME QUE VOLTA NÃO HERDA SENHA ANTIGA: se sobrou uma senha com este
+    // nome (removido em outro aparelho sem internet, cópia importada), a
+    // pessoa nova com o mesmo nome não pode cair na senha de quem saiu.
+    if (temSenha(dadosRef.current.senhasEquipe, n)) {
+      persistCatalogo('senhasEquipe', setSenhasEquipeRaw, comSenha(dadosRef.current.senhasEquipe, n, null));
+    }
   }, [persistCatalogo]);
 
   const removePessoa = useCallback((nome) => {
     persistCatalogo('pessoas', setPessoasRaw, dadosRef.current.pessoas.filter(p => p !== nome));
+    // a senha sai junto com o nome
+    if (temSenha(dadosRef.current.senhasEquipe, nome)) {
+      persistCatalogo('senhasEquipe', setSenhasEquipeRaw, comSenha(dadosRef.current.senhasEquipe, nome, null));
+    }
+  }, [persistCatalogo]);
+
+  // Cria, troca (registro) ou tira (null) a senha de um nome da equipe. O
+  // registro já chega codificado (gerarRegistroDeSenha): a senha em si nunca
+  // passa por aqui nem vai para a nuvem.
+  const definirSenhaDaPessoa = useCallback((nome, registro) => {
+    if (!dadosRef.current.pessoas.includes(nome)) return;
+    persistCatalogo('senhasEquipe', setSenhasEquipeRaw, comSenha(dadosRef.current.senhasEquipe, nome, registro || null));
   }, [persistCatalogo]);
 
   // ── Registros operacionais (tabela 'registros') ────────────
@@ -1541,6 +1572,7 @@ export function AppProvider({ children }) {
       setProdutosRaw(CAT.produtos); setCategoriasRaw(CAT.categorias);
       setPessoasRaw(CAT.pessoas); setDestinosRaw(CAT.destinos);
       setFichasRaw(CAT.fichas); setProducoesRaw(CAT.producoes); setLocaisRaw(CAT.locais); setListaManualRaw(CAT.listaManual); setEtiquetasAvulsasRaw(CAT.etiquetasAvulsas); setEtiquetasImpressasRaw(CAT.etiquetasImpressas); setPrefsRaw(CAT.prefs);
+      setSenhasEquipeRaw(CAT.senhasEquipe);
       setComprasRaw([]); setEntradasRaw([]); setSaidasRaw([]);
       setAparasRaw([]); setDesperdicioRaw([]); setAjustesRaw([]); setAuditoriaRaw([]); setRecebimentosRaw([]);
       return;
@@ -1581,6 +1613,8 @@ export function AppProvider({ children }) {
       setMetasRaw(cacheGet(rid, k('metas'), {}));   // mín/máx desta instância
       setCategoriasRaw(cacheGet(rid, kc('categorias'), c.categorias));
       setPessoasRaw(cacheGet(rid, 'pessoas', c.pessoas)); // equipe é da conta
+      // Maria sem senha, João com 1234 (ver SENHAS_EQUIPE_DEMO)
+      setSenhasEquipeRaw(cacheGet(rid, 'senhasEquipe', SENHAS_EQUIPE_DEMO));
       setDestinosRaw(cacheGet(rid, k('destinos'), c.destinos));
       setFichasRaw(cacheGet(rid, kc('fichas'), c.fichas));
       setProducoesRaw(cacheGet(rid, k('producoes'), c.producoes));
@@ -1645,8 +1679,21 @@ export function AppProvider({ children }) {
           });
         });
         // catálogo e metas, nas mesmas chaves que visaoDoEstoque procura
+        // ⚠️ A QUEDA É O CATÁLOGO DA DEMO, não o padrão do produto (auditoria
+        // de 14/10/2026). Com o padrão, o Relatório da demonstração procurava
+        // "empanado" e "picanha" num catálogo que não os tem e mostrava os
+        // códigos no lugar dos nomes — na tela de venda. Os destinos (locais
+        // e destinos de apara) vêm do mesmo seed, pelo mesmo motivo.
+        const seedCat = gerarDemoSeed(tipoBase(catalogoDe(e.id))).catalogos;
+        const prodDemo = soEtiqRef.current ? PRODUTOS_DEMO_ETIQUETAS : seedCat.produtos;
         const cCat = chaveModulo(catalogoDe(e.id), 'produtos');
-        if (!docsDemo[cCat]) docsDemo[cCat] = cacheGet(rid, cCat, catalogosPadrao(tipoBase(e.id), soEtiqRef.current).produtos);
+        if (!docsDemo[cCat]) docsDemo[cCat] = cacheGet(rid, cCat, prodDemo);
+        const cCatg = chaveModulo(catalogoDe(e.id), 'categorias');
+        if (!docsDemo[cCatg]) docsDemo[cCatg] = cacheGet(rid, cCatg, soEtiqRef.current ? [...CATEGORIAS_BIBLIOTECA] : seedCat.categorias);
+        const catE = gerarDemoSeed(tipoBase(e.id)).catalogos;
+        const LOCE = locaisPadrao(catE.locais, estoquesRef.current, e.id, []);
+        docsDemo[chaveModulo(e.id, 'locais')] = mesclarFixos(cacheGet(rid, chaveModulo(e.id, 'locais'), LOCE), LOCE);
+        docsDemo[chaveModulo(e.id, 'destinos')] = cacheGet(rid, chaveModulo(e.id, 'destinos'), catE.destinos);
         const cMetas = chaveModulo(e.id, 'metas');
         docsDemo[cMetas] = cacheGet(rid, cMetas, {});
       });
@@ -1680,6 +1727,9 @@ export function AppProvider({ children }) {
     setPermissoesRaw(cacheGet(rid, 'permissoes', {}));
     setPrecosRaw(cacheGet(rid, 'precos', {}));
     setEstoquesDocRaw(cacheGet(rid, 'estoques', {}));
+    // ⚠️ DO CACHE TAMBÉM SEM INTERNET: é o que deixa a senha conferir com o
+    // Wi-Fi fora. Sem cache, ninguém tem senha até a nuvem responder.
+    setSenhasEquipeRaw(cacheGet(rid, 'senhasEquipe', {}));
     // prefs = restaurante (nuvem) + aparelho (local), mescladas. NÃO é por
     // módulo: etiqueta, estabelecimento e responsável valem para a conta toda.
     setPrefsRaw({ ...cacheGet(rid, 'prefs', P.prefs), ...cacheGet(rid, '_prefs_device', {}) });
@@ -1921,6 +1971,12 @@ export function AppProvider({ children }) {
         }
         if (mapa['estoques'] !== undefined) {
           setEstoquesDocRaw(mapa['estoques']); cacheSet(rid, 'estoques', mapa['estoques']);
+        }
+        // Senhas da equipe: NÃO semeia (ausente = ninguém tem senha). Com uma
+        // mudança deste aparelho ainda na fila, o cache local vale mais.
+        if (!docsPendentes.has('senhasEquipe')) {
+          const vindas = mapa['senhasEquipe'] && typeof mapa['senhasEquipe'] === 'object' ? mapa['senhasEquipe'] : {};
+          setSenhasEquipeRaw(vindas); cacheSet(rid, 'senhasEquipe', vindas);
         }
         if (mapa['permissoes'] !== undefined) {
           setPermissoesRaw(mapa['permissoes']); cacheSet(rid, 'permissoes', mapa['permissoes']);
@@ -2181,6 +2237,7 @@ export function AppProvider({ children }) {
       permissoes: setPermissoesRaw, // matriz da equipe: do restaurante, sem namespace
       precos: setPrecosRaw,          // tabela de custos: idem, e só chega a quem pode
       estoques: setEstoquesDocRaw,   // registro dos estoques da conta
+      senhasEquipe: setSenhasEquipeRaw, // senha de cada nome: o dono trocou em outro aparelho
     };
     const reparoDoc = { [k('locais')]: (d) => mesclarFixos(d, LOC) };
     // ⚠️ ETIQUETAS EM LINHAS (M49): chega SÓ a linha nova ou alterada — antes
@@ -2305,15 +2362,9 @@ export function AppProvider({ children }) {
     logAudit('apagou todos os registros', 'compras, entradas, saídas, aparas, perdas e contagens');
   }, [logAudit]);
 
-  // "Restaurar produtos ao padrão" precisa devolver o padrão DO MÓDULO ABERTO.
-  // Antes mandava PRODUTOS_BASE sempre: no Estoque Seco, restaurar substituía
-  // grãos e descartáveis por filé e molho da produção — e, como a chave de
-  // catálogo do seco é outra, o estrago era gravado direto por cima do
-  // catálogo do seco. catalogoDe() mantém a finalização lendo o da produção,
-  // que é o comportamento correto (ela não tem catálogo próprio).
-  // Restaura o CATÁLOGO. Não mexe nas metas: elas são de cada estoque, e
-  // apagá-las junto faria "restaurar produtos" zerar o mín/máx de todas as
-  // unidades de uma vez.
+  // ⚠️ "Restaurar produtos padrão" SAIU (auditoria de 14/10/2026): trocava o
+  // catálogo inteiro do cliente pelos exemplos de fábrica, com um toque na
+  // Zona de perigo. Não existe situação em que isso ajude quem já cadastrou.
   /**
    * Visão de QUALQUER estoque, sem mexer no que está aberto.
    *
@@ -2343,11 +2394,6 @@ export function AppProvider({ children }) {
     // render, e ler ref durante o render devolveria valor defasado.
   }, [estoques, brutos, soEtiq, unidades]);
 
-  const resetarProdutos = useCallback(
-    () => persistCatalogo('produtos', setProdutosRaw, catalogosPadrao(catalogoDe(moduloRef.current), soEtiqRef.current).produtos),
-    [persistCatalogo],
-  );
-
   const exportarBackup = useCallback(() => {
     const d = dadosRef.current;
     const dados = {
@@ -2359,6 +2405,10 @@ export function AppProvider({ children }) {
       // Termos prometem a íntegra dos dados, mas a importação NÃO as recria —
       // unidade e CNPJ passam pela Aurum.
       unidades: d.unidades,
+      // ⚠️ AS SENHAS DA EQUIPE NÃO ENTRAM. A cópia sai do aparelho num arquivo
+      // que circula (WhatsApp, e-mail); mesmo codificadas, 4 números se
+      // descobrem fora do app. Importar a cópia não as traz de volta: o dono
+      // cria de novo em Administração.
     };
     const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -2395,6 +2445,11 @@ export function AppProvider({ children }) {
     cat('produtos', setProdutosRaw, dados.produtos);
     cat('categorias', setCategoriasRaw, dados.categorias);
     cat('pessoas', setPessoasRaw, dados.pessoas);
+    // quem saiu da equipe com a cópia importada perde a senha junto
+    if (dados.pessoas) {
+      const podadas = semOrfas(dadosRef.current.senhasEquipe, dados.pessoas);
+      if (podadas !== dadosRef.current.senhasEquipe) persistCatalogo('senhasEquipe', setSenhasEquipeRaw, podadas);
+    }
     cat('destinos', setDestinosRaw, dados.destinos);
     cat('fichas', setFichasRaw, dados.fichas);
     cat('producoes', setProducoesRaw, dados.producoes);
@@ -2471,6 +2526,7 @@ export function AppProvider({ children }) {
       desperdicio, addDesperdicio, removeDesperdicio,
       ajustes, addAjuste, removeAjuste,
       pessoas, addPessoa, removePessoa,
+      senhasEquipe, definirSenhaDaPessoa,
       fichas, setFichas,
       producoes, setProducoes,
       locais, setLocais, destinosDeSaida,
@@ -2492,7 +2548,7 @@ export function AppProvider({ children }) {
       prefs, setPref, setPrefs,
       modulo: moduloEfetivo, setModulo, recebimentos,
       estoque, lotes,
-      limparTudo, resetarProdutos,
+      limparTudo,
       exportarBackup, importarBackup,
       soLeitura,
       // id do restaurante — as telas precisam dele para gravar rascunho local
@@ -2509,7 +2565,7 @@ export function AppProvider({ children }) {
     produtos, setProdutos, compras, addCompra, removeCompra, entradas,
     addEntrada, removeEntrada, saidas, addSaida, removeSaida, aparas,
     addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, ajustes,
-    addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, fichas,
+    addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, senhasEquipe, definirSenhaDaPessoa, fichas,
     setFichas, producoes, setProducoes, locais, setLocais, destinosDeSaida, listaManual,
     setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada, permissoes,
     baixarEtiqueta, desfazerBaixa, buscarEtiqueta,
@@ -2519,7 +2575,7 @@ export function AppProvider({ children }) {
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,
     prefs, setPref, setPrefs, moduloEfetivo, setModulo, recebimentos,
-    estoque, lotes, limparTudo, resetarProdutos, exportarBackup, importarBackup, soLeitura,
+    estoque, lotes, limparTudo, exportarBackup, importarBackup, soLeitura,
     rid, pendencias, online, mortos, retentarMortos, descartarMortos,
     registrarImpressoes,
     unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,

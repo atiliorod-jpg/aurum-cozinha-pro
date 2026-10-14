@@ -244,7 +244,7 @@ export default function Pagamento() {
         <div className="rounded-2xl p-4 border-2 border-polo-gold bg-polo-beige mb-5 flex items-center justify-between gap-3">
           <div>
             <p className="font-bold text-polo-navy">Parcela do contrato</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">Valor fixo durante os 12 meses do contrato</p>
+            <p className="text-xs text-gray-500 mt-0.5">Valor fixo durante os 12 meses do contrato</p>
           </div>
           <span className="text-lg font-bold text-polo-navy flex-shrink-0">{brl(parcela)}</span>
         </div>
@@ -277,12 +277,12 @@ export default function Pagamento() {
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-polo-navy">{p.label}</span>
                     {p.desconto > 0 && (
-                      <span className="text-[11px] font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">
+                      <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">
                         −{Math.round(p.desconto * 100)}%
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-xs text-gray-500 mt-0.5">
                     {p.meses === 1 ? 'Cobrado todo mês'
                       : `${brl(precoMensalEquivalente(p, prod.id, extras, desconto))}/mês · economize ${brl(economiaPlano(p, prod.id, extras, desconto))}`}
                   </p>
@@ -290,10 +290,10 @@ export default function Pagamento() {
                 <div className="text-right flex items-center gap-2">
                   <div>
                     {cheio > total && (
-                      <span className="block text-[11px] text-gray-500 line-through">{brl(cheio)}</span>
+                      <span className="block text-xs text-gray-500 line-through">{brl(cheio)}</span>
                     )}
                     <span className="text-lg font-bold text-polo-navy">{brl(total)}</span>
-                    <span className="block text-[11px] text-gray-500">
+                    <span className="block text-xs text-gray-500">
                       {p.meses === 1 ? 'por mês' : `a cada ${p.meses} meses`}
                     </span>
                   </div>
@@ -308,7 +308,7 @@ export default function Pagamento() {
         })}
       </div>
       {extras > 0 && (
-        <p className="text-[11px] text-gray-600 -mt-3 mb-5 px-1">
+        <p className="text-xs text-gray-600 -mt-3 mb-5 px-1">
           Inclui {extras} unidade(s) adicional(is) nesta conta: {brl(adicionalUnidade(prod.id))} por unidade, por mês.
         </p>
       )}
@@ -399,7 +399,7 @@ export default function Pagamento() {
               </button>
             </div>
           )}
-          <p className="text-[11px] text-gray-600 text-center mt-1.5">
+          <p className="text-xs text-gray-600 text-center mt-1.5">
             Ao confirmar, a equipe Aurum é avisada (com o nome e o horário) e o WhatsApp abre para você
             anexar o comprovante. A ativação sai em até 24h úteis.
           </p>
@@ -477,7 +477,7 @@ export default function Pagamento() {
             className="block w-full bg-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm text-center min-h-11">
             Indicar pelo WhatsApp
           </a>
-          <p className="text-[11px] text-white/70">
+          <p className="text-xs text-white/70">
             A mensagem já leva o nome do seu restaurante, para sabermos que a indicação foi sua.
             Regras na cláusula 2 dos Termos de uso.
           </p>

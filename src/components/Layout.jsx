@@ -121,11 +121,11 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           <div className="min-w-0 leading-tight">
             <h1 className="text-base font-bold text-polo-gold tracking-wide truncate">{title}</h1>
             {dentroDaAdmin ? (
-              <p className="text-[11px] text-white/80 truncate">Administração</p>
+              <p className="text-xs text-white/80 truncate">Administração</p>
             ) : variasUnidades ? (
-              <p className="text-[11px] text-polo-gold/90 font-semibold truncate">Unidade: {nomeUnidade}</p>
+              <p className="text-xs text-polo-gold/90 font-semibold truncate">Unidade: {nomeUnidade}</p>
             ) : sessao?.restauranteNome && (
-              <p className="text-[11px] text-white/80 truncate">{sessao.restauranteNome}</p>
+              <p className="text-xs text-white/80 truncate">{sessao.restauranteNome}</p>
             )}
           </div>
         </div>
@@ -137,7 +137,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
         {(soEtiq && (!variasUnidades || unidadeFixa)) || semCozinhas ? (
           <span className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1 min-h-11">
             <Icon name={mod.icone} size={18} />
-            <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
+            <span className="text-xs font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
           </span>
         ) : (
           <button onClick={() => setTrocandoModulo(true)}
@@ -145,8 +145,8 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
             className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1
                        min-h-11 focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold">
             <Icon name={mod.icone} size={18} />
-            <span className="text-[11px] font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
-            <span className="text-white/50 text-[11px]" aria-hidden="true">▾</span>
+            <span className="text-xs font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
+            <span className="text-white/50 text-xs" aria-hidden="true">▾</span>
           </button>
         )}
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -156,7 +156,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
               role="status"
               aria-label={!online ? `Sem internet, ${plural(pendencias, 'alteração pendente', 'alterações pendentes')}` : `${plural(pendencias, 'alteração aguardando', 'alterações aguardando')} envio`}
               title={!online ? 'Sem internet — as alterações sobem quando reconectar' : 'Alterações aguardando sincronização'}
-              className="flex items-center gap-1 bg-amber-400/90 text-polo-navy text-[11px] font-bold rounded-full px-2 py-1">
+              className="flex items-center gap-1 bg-amber-400/90 text-polo-navy text-xs font-bold rounded-full px-2 py-1">
               {!online ? <><Icon name="semInternet" size={12} /> Sem internet</> : <Icon name="relogio" size={12} />}{pendencias > 0 && ` ${pendencias}`}
             </span>
           )}
@@ -173,12 +173,12 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
                 className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform
                            focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg">
                 <span className="flex items-center gap-1.5 bg-white/10 rounded-full pl-2.5 pr-3 py-1.5">
-                  <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-[11px] font-bold flex items-center justify-center">
+                  <span className="w-5 h-5 rounded-full bg-polo-gold text-polo-navy text-xs font-bold flex items-center justify-center">
                     {nomeExibicao.slice(0, 1).toUpperCase()}
                   </span>
-                  <span className="text-[11px] font-semibold text-white/90 max-w-16 truncate">{nomeExibicao.split(' ')[0]}</span>
+                  <span className="text-xs font-semibold text-white/90 max-w-16 truncate">{nomeExibicao.split(' ')[0]}</span>
                 </span>
-                <span className="text-[11px] leading-none font-semibold text-white/80">Sair</span>
+                <span className="text-xs leading-none font-semibold text-white/80">Sair</span>
               </button>
             </div>
           )}
@@ -201,7 +201,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
               // mesma tela de gestão, achando que o toque não funcionou.
               if (emAdmin && id !== 'administracao') navigate('/');
             }} />
-            <p className="text-[11px] text-gray-600">A escolha fica guardada neste aparelho.</p>
+            <p className="text-xs text-gray-600">A escolha fica guardada neste aparelho.</p>
           </>
         </Dialogo>
       )}

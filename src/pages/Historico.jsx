@@ -7,6 +7,7 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { fmtData, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
+import { rotuloMotivo } from '../data/produtos';
 import { pode } from '../utils/permissoes';
 import { casaBusca } from '../utils/busca';
 import { avisoAoApagarRemessa } from '../utils/posse';
@@ -37,28 +38,28 @@ export default function Historico() {
 
   // Monta a lista unificada
   const eventos = [
-    ...compras.map(r => ({ id: r.id, grupo: 'compras', icon: 'compras', cor: 'text-blue-600', r,
+    ...compras.map(r => ({ id: r.id, grupo: 'compras', icon: 'compras', cor: 'text-blue-700', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item}${r.fornecedor ? ` · ${r.fornecedor}` : ''}`,
       remover: () => { removeCompra(r.id); return { tipo: 'compra', reg: r }; } })),
-    ...entradas.filter(e => !e.producaoId).map(r => ({ id: r.id, grupo: 'entradas', icon: 'entradas', cor: 'text-green-600', r,
+    ...entradas.filter(e => !e.producaoId).map(r => ({ id: r.id, grupo: 'entradas', icon: 'entradas', cor: 'text-green-700', r,
       resumo: itensTxt(r), remover: () => { removeEntrada(r.id); return { tipo: 'entrada', reg: r }; } })),
-    ...entradas.filter(e => e.producaoId).map(r => ({ id: r.id, grupo: 'producao', icon: 'producao', cor: 'text-amber-600', r,
+    ...entradas.filter(e => e.producaoId).map(r => ({ id: r.id, grupo: 'producao', icon: 'producao', cor: 'text-amber-700', r,
       resumo: itensTxt(r) + ((r.monitorados || []).length ? ` · monitorado: ${r.monitorados.map(m => `${fmtNum(m.quantidade)} ${m.nome}`).join(', ')}` : ''),
       remover: () => removerProducao(r) })),
-    ...saidas.filter(s => s.destino !== 'producao').map(r => ({ id: r.id, grupo: 'saidas', icon: 'saidas', cor: 'text-red-600', r,
+    ...saidas.filter(s => s.destino !== 'producao').map(r => ({ id: r.id, grupo: 'saidas', icon: 'saidas', cor: 'text-red-700', r,
       resumo: `${itensTxt(r)} → ${destNome(r.destino)}`, remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
     // Saída interna ÓRFÃ (produção incompleta): a entrada do produto final não
     // existe — precisa aparecer aqui para o operador remover/desfazer o consumo
     ...saidas.filter(s => s.destino === 'producao' && s.producaoId &&
         !entradas.some(e => e.producaoId === s.producaoId))
-      .map(r => ({ id: r.id, grupo: 'producao', icon: 'alerta', cor: 'text-red-600', r,
+      .map(r => ({ id: r.id, grupo: 'producao', icon: 'alerta', cor: 'text-red-700', r,
         resumo: `Produção incompleta — o item produzido não entrou. Remova e registre de novo: ${itensTxt(r)}`,
         remover: () => { removeSaida(r.id); return { tipo: 'saida', reg: r }; } })),
-    ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'faca', cor: 'text-teal-600', r,
+    ...aparas.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'faca', cor: 'text-teal-700', r,
       resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,
       remover: () => { removeApara(r.id); return { tipo: 'apara', reg: r }; } })),
-    ...desperdicio.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'perda', cor: 'text-gray-600', r,
-      resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} (${r.motivoOutro || r.motivo}${r.origem === 'estoque' ? ' · baixa' : ''})`,
+    ...desperdicio.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'perda', cor: 'text-gray-700', r,
+      resumo: `${fmtNum(r.quantidade)} ${r.unidade} de ${r.item} (${rotuloMotivo(r.motivo, r.motivoOutro)}${r.origem === 'estoque' ? ' · saiu do estoque' : ''})`,
       remover: () => { removeDesperdicio(r.id); return { tipo: 'perda', reg: r }; } })),
     // Contagem física faltava aqui — e é o lançamento que MAIS muda o saldo
     // (sobrepõe o calculado). Quem procurava "por que o estoque mudou" não
@@ -66,7 +67,7 @@ export default function Historico() {
     // ⚠️ Na Finalização a contagem é o FECHAMENTO DE TURNO: um lançamento com
     // vários itens[] (a sobra de cada um). Lido como contagem de um item só,
     // aparecia "contagem física: undefined → undefined".
-    ...ajustes.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'contagem', cor: 'text-indigo-600', r,
+    ...ajustes.map(r => ({ id: r.id, grupo: 'correcoes', icon: 'contagem', cor: 'text-indigo-700', r,
       resumo: Array.isArray(r.itens) && r.itens.length
         ? `fechamento de turno${r.turno ? ` (${r.turno})` : ''} · sobra: ${r.itens.map(i => `${fmtNum(i.quantidade)} ${nome(i.produtoId)}`).join(', ')}`
         : `contagem física: ${nome(r.produtoId)} → ${fmtNum(r.quantidade)}`,
@@ -114,6 +115,10 @@ export default function Historico() {
         // a data veio do estoque: a janela avisa se a etiqueta sair diferente
         origemRegistro: true,
         responsavel: r.responsavel || '',
+        // ⚠️ assina quem lançou o registro original, sem pedir senha. NÃO é
+        // `reimpressao`: essa marca separa a etiqueta no relatório do dono,
+        // e aqui o papel pode ser o primeiro daquele lote.
+        assinaturaOriginal: true,
         quantidade: 1,
       };
     }));
@@ -149,7 +154,7 @@ ${aviso}` : ''}`, perigo: true, confirmar: 'Remover' });
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide mb-3">
         {CHIPS.map(([v, l]) => (
           <button key={v} onClick={() => setFiltro(v)}
-            className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+            className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
               ${filtroAtivo === v ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
             {l}
           </button>
@@ -164,10 +169,10 @@ ${aviso}` : ''}`, perigo: true, confirmar: 'Remover' });
             <span className="flex-shrink-0 mt-0.5" aria-hidden="true"><Icon name={ev.icon} size={20} /></span>
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-medium ${ev.cor} break-words`}>{ev.resumo}</div>
-              <div className="text-[11px] text-gray-600">
+              <div className="text-xs text-gray-600">
                 {fmtData(ev.r.data)}{ev.r.hora ? ` • ${ev.r.hora}` : ''}{ev.r.responsavel ? ` • ${ev.r.responsavel}` : ''}
               </div>
-              {ev.r.obs && <div className="text-[11px] text-gray-600 italic mt-0.5">{ev.r.obs}</div>}
+              {ev.r.obs && <div className="text-xs text-gray-600 italic mt-0.5">{ev.r.obs}</div>}
             </div>
             {/* ⚠️ Alvos de 44 px e separados. Eram dois botões de ~24 px colados:
                 errar aqui remove um lançamento no lugar de reimprimir a etiqueta

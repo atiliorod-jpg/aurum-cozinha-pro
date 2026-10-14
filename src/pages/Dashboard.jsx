@@ -142,7 +142,7 @@ export default function Dashboard() {
       <GuideTour />
       {/* Resumo do dia */}
       <div className="mb-4">
-        <p className="text-xs text-gray-500 mb-2">Atualizado em: {fmtData(dataHoje)}</p>
+        <p className="text-xs text-gray-600 mb-2">Atualizado em: {fmtData(dataHoje)}</p>
         {descarteHoje.houve && (
           <button onClick={() => navigate('/aparas')}
             className="w-full text-left mb-2 min-h-11 px-3 py-2 rounded-xl bg-white border border-gray-200
@@ -161,15 +161,15 @@ export default function Dashboard() {
           </button>
         )}
         <div className="grid grid-cols-3 gap-2 mb-2">
-          <div className="bg-green-600 text-white rounded-xl p-3 text-center">
+          <div className="bg-green-700 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.ok}</div>
             <div className="text-xs">Normal</div>
           </div>
-          <div className="bg-orange-500 text-white rounded-xl p-3 text-center">
+          <div className="bg-orange-700 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.critico}</div>
             <div className="text-xs">Abaixo do mínimo</div>
           </div>
-          <div className="bg-blue-500 text-white rounded-xl p-3 text-center">
+          <div className="bg-blue-700 text-white rounded-xl p-3 text-center">
             <div className="text-2xl font-bold">{totais.excesso}</div>
             <div className="text-xs">Acima do máximo</div>
           </div>
@@ -190,7 +190,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-red-600 mt-2">Confira se faltou registrar uma entrada/produção, ou ajuste pela contagem física (Inventário).</p>
+          <p className="text-xs text-red-600 mt-2">Confira se faltou registrar uma entrada/produção, ou ajuste pela contagem física (Inventário).</p>
         </div>
       )}
 
@@ -225,8 +225,8 @@ export default function Dashboard() {
                 className="w-full bg-white rounded-xl p-3 flex items-center justify-between border border-polo-gold/40 active:scale-[0.99] transition-transform text-left">
                 <div className="min-w-0">
                   <div className="font-semibold text-sm text-polo-navy truncate">{produto?.nome || receita.nome}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    Estoque: <span className={`font-semibold ${atual <= 0 ? 'text-red-600' : 'text-orange-600'}`}>{fmtNum(atual)} {produto?.unidade}</span>
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    Estoque: <span className={`font-semibold ${atual <= 0 ? 'text-red-700' : 'text-orange-700'}`}>{fmtNum(atual)} {produto?.unidade}</span>
                     {produto?.min > 0 && <> · mín {produto.min} {produto?.unidade}</>}
                   </div>
                 </div>
@@ -253,8 +253,8 @@ export default function Dashboard() {
           <div className="space-y-1">
             {emRisco.map(({ p, dias }) => (
               <div key={p.id} className="flex justify-between items-center text-xs">
-                <span className="font-medium text-gray-700">{p.nome} <span className="text-gray-500">({fmtNum(estoque[p.id] ?? 0)} {p.unidade})</span></span>
-                <span className="font-bold text-red-600">
+                <span className="font-medium text-gray-700">{p.nome} <span className="text-gray-600">({fmtNum(estoque[p.id] ?? 0)} {p.unidade})</span></span>
+                <span className="font-bold text-red-700">
                   {dias < 1 ? 'acaba HOJE' : `acaba em ~${Math.ceil(dias)} dia${Math.ceil(dias) > 1 ? 's' : ''}`}
                 </span>
               </div>
@@ -274,7 +274,7 @@ export default function Dashboard() {
             {' '}Remova no Histórico e registre de novo.
           </p>
           <button onClick={() => navigate('/historico')}
-            className="text-[11px] font-bold text-red-50 bg-red-600 rounded-lg px-2.5 py-1.5">
+            className="text-xs font-bold text-red-50 bg-red-600 rounded-lg px-2.5 py-1.5">
             Abrir Histórico →
           </button>
         </div>
@@ -290,13 +290,13 @@ export default function Dashboard() {
                     ">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-bold text-orange-700">Usar primeiro: lotes vencendo</p>
-            <span className="text-[11px] font-bold text-orange-700">ver todas →</span>
+            <span className="text-xs font-bold text-orange-700">ver todas →</span>
           </div>
           <div className="space-y-1">
             {vencendo.map(({ p, lote, dias }, i) => (
               <div key={`${p.id}-${i}`} className="flex justify-between items-center text-xs">
-                <span className="font-medium text-gray-700">{p.nome} <span className="text-gray-500">({fmtNum(lote.restante)} {p.unidade})</span></span>
-                <span className={`font-bold ${dias < 0 ? 'text-red-600' : dias <= 2 ? 'text-orange-600' : 'text-amber-600'}`}>
+                <span className="font-medium text-gray-700">{p.nome} <span className="text-gray-600">({fmtNum(lote.restante)} {p.unidade})</span></span>
+                <span className={`font-bold ${dias < 0 ? 'text-red-600' : dias <= 2 ? 'text-orange-700' : 'text-amber-800'}`}>
                   {dias < 0 ? `VENCIDO (${fmtData(lote.validade)})` : dias === 0 ? 'vence HOJE' : `vence em ${dias}d (${fmtData(lote.validade)})`}
                 </span>
               </div>
@@ -329,7 +329,7 @@ export default function Dashboard() {
                   <div key={p.id} className="flex items-center justify-between bg-white/70 rounded-lg px-3 py-2">
                     <div className="text-xs">
                       <span className="font-semibold text-gray-800">{p.nome}</span>
-                      <span className="text-gray-500 block">
+                      <span className="text-gray-600 block">
                         Mín {p.min} → <strong>{s.min}</strong> • Máx {p.max} → <strong>{s.max}</strong> {p.unidade}
                       </span>
                     </div>
@@ -347,7 +347,7 @@ export default function Dashboard() {
 
       {/* Conta nova: explica por que ainda não há sugestões de mín/máx (gate de ~15 dias) */}
       {!prefs.autoMinMax && divergentes.length === 0 && Object.keys(sugestoes).length === 0 && produtosAtivos.length > 0 && (
-        <p className="text-[11px] text-gray-600 px-1 mb-4">
+        <p className="text-xs text-gray-600 px-1 mb-4">
           Sugestões automáticas de mín/máx aparecem após ~15 dias de saídas registradas.
         </p>
       )}
@@ -358,7 +358,7 @@ export default function Dashboard() {
           <button
             key={cat}
             onClick={() => setCatAtiva(cat)}
-            className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors flex-shrink-0
+            className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold transition-colors flex-shrink-0
               ${catAtiva === cat
                 ? 'bg-polo-navy text-polo-gold'
                 : 'bg-white text-gray-600 border border-gray-200'}`}
@@ -375,8 +375,8 @@ export default function Dashboard() {
         <div className="flex gap-2 overflow-x-auto pb-1 mb-3 scrollbar-hide">
           {subgruposDaCategoria.map(sg => (
             <button key={sg} onClick={() => setSubAtivo(sg)}
-              className={`whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors flex-shrink-0
-                ${subAtivo === sg ? 'bg-polo-gold text-polo-navy' : 'bg-white text-gray-500 border border-gray-200'}`}>
+              className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold transition-colors flex-shrink-0
+                ${subAtivo === sg ? 'bg-polo-gold text-polo-navy' : 'bg-white text-gray-600 border border-gray-200'}`}>
               {sg === 'TODOS' ? 'Todos os subgrupos' : sg}
             </button>
           ))}
@@ -411,12 +411,12 @@ export default function Dashboard() {
                       <span className="font-semibold text-sm text-gray-800 flex items-center gap-1 flex-wrap">
                         {p.nome}
                         {produtoFinalIds.has(p.id) && (
-                          <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
                             produzido
                           </span>
                         )}
                         {lotesProduto.length > 0 && (
-                          <span className="text-[11px] font-bold text-polo-navy bg-white/70 px-1.5 py-0.5 rounded-full">
+                          <span className="text-xs font-bold text-polo-navy bg-white/70 px-1.5 py-0.5 rounded-full">
                             {lotesProduto.length} lote{lotesProduto.length > 1 ? 's' : ''} {aberto ? '▾' : '▸'}
                           </span>
                         )}
@@ -442,9 +442,9 @@ export default function Dashboard() {
                       </span>
                     </div>
                     {(p.min > 0 || p.max > 0) && (
-                      <div className="flex justify-between text-xs text-gray-500 mt-0.5">
-                        <span>Mín: {p.min} {p.unidade}</span>
-                        <span>Máx: {p.max} {p.unidade}</span>
+                      <div className="flex justify-between text-xs text-gray-600 mt-0.5">
+                        <span>Mín: {fmtNum(p.min)} {p.unidade}</span>
+                        <span>Máx: {fmtNum(p.max)} {p.unidade}</span>
                       </div>
                     )}
                     {/* Consumo médio por dia — a pergunta que a cozinha faz antes
@@ -453,7 +453,7 @@ export default function Dashboard() {
                         DAQUELE item, para não arriscar uma média com dois
                         lançamentos e sugerir compra errada. */}
                     {medias[p.id] > 0 && (
-                      <div className="flex justify-between text-[11px] text-gray-600 mt-0.5">
+                      <div className="flex justify-between text-xs text-gray-600 mt-0.5">
                         <span>Consumo: {fmtNum(Math.round(medias[p.id] * 10) / 10)} {p.unidade}/dia</span>
                         {medias[p.id] > 0 && atual > 0 && (
                           <span>dura ~{plural(Math.floor(atual / medias[p.id]), 'dia', 'dias')}</span>
@@ -471,9 +471,9 @@ export default function Dashboard() {
                                     par de emojis fixo — com "ambiente" na lista,
                                     o floco de neve mentiria */}
                                 {acharArmazenamento(prefs, l.armazenamento)?.nome || '—'} · {fmtNum(l.restante)} {p.unidade}
-                                <span className="text-gray-500"> • entrou {fmtData(l.dataEntrada)}</span>
+                                <span className="text-gray-600"> • entrou {fmtData(l.dataEntrada)}</span>
                               </span>
-                              <span className={`font-bold ${dias < 0 ? 'text-red-600' : dias <= 3 ? 'text-orange-600' : 'text-gray-600'}`}>
+                              <span className={`font-bold ${dias < 0 ? 'text-red-700' : dias <= 3 ? 'text-orange-700' : 'text-gray-600'}`}>
                                 {dias < 0 ? 'VENCIDO ' : 'vence '}{fmtData(l.validade)}
                               </span>
                             </div>
@@ -490,7 +490,7 @@ export default function Dashboard() {
       </div>
 
       {produtosFiltrados.length === 0 && (
-        <div className="text-center text-gray-500 py-12 space-y-3">
+        <div className="text-center text-gray-600 py-12 space-y-3">
           {/* Estoque ZERADO de cadastro era um beco: a tela dizia "nenhum
               produto" e não oferecia caminho nenhum para criar o primeiro —
               quem abria um Estoque Seco novo ficava parado aqui. */}

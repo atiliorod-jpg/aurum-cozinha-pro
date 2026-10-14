@@ -33,7 +33,7 @@ function Secao({ titulo, children }) {
 
 function Barra({ rotulo, valor, maximo }) {
   return (
-    <li className="flex items-center gap-2 text-[11px]">
+    <li className="flex items-center gap-2 text-xs">
       <span className="w-20 flex-shrink-0 text-gray-600 truncate">{rotulo}</span>
       <span className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden" aria-hidden="true">
         <span className="block h-full bg-polo-navy rounded-full"
@@ -176,12 +176,12 @@ export default function RelatorioEtiquetas() {
 
         {tipo === 'datas' && (
           <div className="grid grid-cols-2 gap-2 print:hidden">
-            <label className="text-[11px] font-semibold text-gray-600">
+            <label className="text-xs font-semibold text-gray-600">
               De
               <input type="date" value={de} max={hj} onChange={e => setDe(e.target.value)}
                 className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800" />
             </label>
-            <label className="text-[11px] font-semibold text-gray-600">
+            <label className="text-xs font-semibold text-gray-600">
               Até
               <input type="date" value={ate} max={hj} onChange={e => setAte(e.target.value)}
                 className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-800" />
@@ -189,7 +189,7 @@ export default function RelatorioEtiquetas() {
           </div>
         )}
 
-        <p className="text-[11px] text-gray-600 print:hidden">
+        <p className="text-xs text-gray-600 print:hidden">
           {fmtData(periodo.de)} a {fmtData(periodo.ate)} · comparado com {fmtData(anterior.de)} a {fmtData(anterior.ate)}
         </p>
 
@@ -231,8 +231,8 @@ export default function RelatorioEtiquetas() {
               {cartoes.map(c => (
                 <div key={c.rotulo} className="bg-white border border-gray-200 rounded-xl p-3">
                   <p className="text-2xl font-bold text-polo-navy leading-none">{c.valor}</p>
-                  <p className="text-[11px] font-semibold text-gray-700 mt-1">{c.rotulo}</p>
-                  <p className="text-[11px] text-gray-600 mt-0.5">{c.extra}</p>
+                  <p className="text-xs font-semibold text-gray-700 mt-1">{c.rotulo}</p>
+                  <p className="text-xs text-gray-600 mt-0.5">{c.extra}</p>
                 </div>
               ))}
             </div>
@@ -285,7 +285,7 @@ export default function RelatorioEtiquetas() {
                     ))}
                   </ul>
                   {resumo.porItem.length > TOP_ITENS && (
-                    <p className="text-[11px] text-gray-600">
+                    <p className="text-xs text-gray-600">
                       E mais {resumo.porItem.length - TOP_ITENS} itens — a lista inteira está na planilha.
                     </p>
                   )}
@@ -310,7 +310,7 @@ export default function RelatorioEtiquetas() {
                 app não guardava a data de cada impressão no servidor; o que
                 ainda estava na lista de Impressas entrou, o resto não existe
                 mais. Um "mês de julho: 0" sem esta frase pareceria defeito. */}
-            <p className="text-[11px] text-gray-600">
+            <p className="text-xs text-gray-600">
               Conta etiquetas de papel, com as cópias e as reimpressões. O relatório começou em
               setembro de 2026; o que foi impresso antes disso só aparece se ainda estava na aba Impressas.
             </p>
@@ -319,7 +319,7 @@ export default function RelatorioEtiquetas() {
                 diz onde ele fica, em vez de ele concluir que não existe. */}
             {/* A aba Impressas existe nos dois planos desde 15/09. */}
             {sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && (
-              <p className="text-[11px] text-gray-600 print:hidden">
+              <p className="text-xs text-gray-600 print:hidden">
                 Contou uma etiqueta que não saiu no papel? Apague na aba Impressas: ela sai daqui junto.
               </p>
             )}

@@ -66,7 +66,7 @@ export default function AConferir({ titulo = 'A conferir', explicacao = null }) 
   return (
     <section aria-label={titulo} className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2">
       <p className="text-xs font-bold text-amber-900 uppercase tracking-wide">{titulo} ({pendentesConferir.length})</p>
-      {explicacao && <p className="text-[11px] text-amber-900">{explicacao}</p>}
+      {explicacao && <p className="text-xs text-amber-900">{explicacao}</p>}
       <ul className="bg-white rounded-lg divide-y divide-gray-100">
         {pendentesConferir.map(l => {
           const p = produtoDe(l.produtoId);
@@ -76,7 +76,7 @@ export default function AConferir({ titulo = 'A conferir', explicacao = null }) 
                 <strong className="text-polo-navy">{p?.nome || l.produtoId}</strong>
                 <span className="text-gray-600"> · {fmtNum(l.quantidade)} {p?.unidade || ''}{l.potes > 1 ? ` (${l.potes} embalagens)` : ''}</span>
               </p>
-              <p className="text-[11px] text-gray-600">
+              <p className="text-xs text-gray-600">
                 mandado {l.data ? fmtData(l.data) : ''}{l.hora ? ` às ${l.hora}` : ''}{l.responsavel ? ` por ${l.responsavel}` : ''}
                 {l.etiquetaIds?.length ? ` · código ${l.etiquetaIds.map(codigoLegivel).join(', ')}` : ' · lançado à mão'}
                 {l.antiga && ' · turno já fechado'}

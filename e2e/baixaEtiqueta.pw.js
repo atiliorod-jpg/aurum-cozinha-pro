@@ -57,6 +57,8 @@ test('Cozinha Pro: etiqueta com QR, saída pelo código, desfazer e sem baixa du
 
   // 1) imprime 2 etiquetas do mesmo item, com medida (a saída sabe quanto sai)
   await abrir(page, '/etiquetas');
+  // a tela começa por "Quem vai imprimir?" (Maria entra sem senha na demo)
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
   await page.getByRole('button', { name: 'Imprimir etiqueta de Filé de Frango (porção)' }).click();
   const janela = page.getByRole('dialog');
   await janela.getByLabel(/Medida/).first().fill('1 kg');

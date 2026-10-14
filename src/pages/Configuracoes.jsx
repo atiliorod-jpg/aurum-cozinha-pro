@@ -6,7 +6,6 @@ import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useAuth, CARGOS, nivelDoCargo } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import NovaSenha from './NovaSenha';
 import { calcSugestoesMinMax } from '../utils/sugestoes';
 import { fmtNum, fmtData } from '../utils/formatters';
 import { POLO_PRESET } from '../data/presetPolo';
@@ -15,6 +14,7 @@ import { pode } from '../utils/permissoes';
 import { usePwaInstall } from '../lib/pwaInstall';
 import { CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas, CartaoContas, CartaoCargos } from '../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
+import CartaoEquipe from '../components/config/CartaoEquipe';
 import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../utils/armazenamento';
 import { casaBusca } from '../utils/busca';
@@ -104,9 +104,9 @@ function CartaoCatalogoChips({ titulo, descricao, placeholder, valor, onValor, o
             className="inline-flex items-center gap-1.5 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-sm font-medium text-polo-navy">
             {item.rotulo}
             {item.fixo
-              ? <span className="text-gray-500 text-[11px]">(fixo)</span>
+              ? <span className="text-gray-600 text-xs">(fixo)</span>
               : <button onClick={() => remover(item)} aria-label={`Remover ${item.nomeParaConfirmar}`}
-                  className="text-red-700 font-bold text-base leading-none">×</button>}
+                  className="text-red-700 font-bold text-base leading-none min-w-11 min-h-11 -my-2.5 -mr-2 flex items-center justify-center">×</button>}
           </span>
         ))}
       </div>
@@ -278,14 +278,14 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                       <p className="font-semibold text-sm text-polo-navy">{produto.nome}</p>
                       <button
                         onClick={() => { setFcEdit(null); setNomeEdit({ id: produto.id, nome: produto.nome }); }}
-                        className="text-[11px] text-gray-600 hover:text-polo-navy transition-colors flex-shrink-0"
+                        className="text-xs text-gray-600 hover:text-polo-navy transition-colors flex-shrink-0"
                         aria-label={`Renomear ${produto.nome}`}
                         title="Renomear ingrediente"
                       ><Icon name="editar" size={16} /></button>
                     </div>
                   )}
                   {nomeEdit?.id !== produto.id && (
-                    <p className="text-[11px]">
+                    <p className="text-xs">
                       {produto.fcManual ? (
                         <span className="text-polo-navy">FC manual: <strong>{Math.round((produto.fcMedio || 0) * 100)}%</strong></span>
                       ) : fcAuto != null ? (
@@ -298,13 +298,13 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                 </div>
                 {!editando && nomeEdit?.id !== produto.id && (
                   <button onClick={() => { setNomeEdit(null); setFcEdit({ id: produto.id, pct: produto.fcManual ? String(Math.round((produto.fcMedio || 0) * 100)) : '' }); }}
-                    className="text-[11px] font-semibold text-polo-navy bg-gray-100 px-2 py-1 rounded flex-shrink-0">FC</button>
+                    className="text-xs font-semibold text-polo-navy bg-gray-100 px-2 py-1 rounded flex-shrink-0">FC</button>
                 )}
               </div>
 
               {editando && (
                 <div className="mt-2 bg-polo-beige/60 rounded-lg p-2.5 space-y-2">
-                  <label className="block text-[11px] font-semibold text-gray-600">Apara/perda na limpeza (%) — valor fixo</label>
+                  <label className="block text-xs font-semibold text-gray-600">Apara/perda na limpeza (%) — valor fixo</label>
                   <div className="flex items-center gap-2">
                     <input aria-label="Apara/perda na limpeza (%) — valor fixo" type="number" inputMode="numeric" min="0" max="90" step="1" value={fcEdit.pct} autoFocus
                       onChange={e => setFcEdit({ id: produto.id, pct: e.target.value })}
@@ -324,7 +324,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
               {/* Matéria-prima de compra — unifica produtos na lista de compras */}
               {nomeEdit?.id !== produto.id && (
                 <div className="mt-2 bg-polo-beige/40 rounded-lg px-2.5 py-2">
-                  <label className="block text-[11px] font-semibold text-gray-500 mb-1">
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">
                     Comprado como
                   </label>
                   <input aria-label="Comprado como"
@@ -347,7 +347,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                     <span className="text-xs text-gray-700 min-w-0 truncate">{f.preparacao}</span>
                     <select value={produto.id} onChange={e => moverFicha(f, e.target.value)}
                       aria-label={`Mover preparação ${f.preparacao} para outro ingrediente`}
-                      className="text-[11px] border border-gray-200 rounded px-1.5 py-1 bg-white max-w-[45%]">
+                      className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white max-w-[45%]">
                       {opcoesProduto.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                     </select>
                   </div>
@@ -366,7 +366,7 @@ function TabelaRendimento({ produtos, fichas, setFichas, setProdutos, compras, a
                   <span className="text-xs text-gray-700 min-w-0 truncate">{f.preparacao} <span className="text-gray-600">({f.materiaPrima})</span></span>
                   <select value="" onChange={e => moverFicha(f, e.target.value)}
                     aria-label={`Vincular preparação ${f.preparacao} a um ingrediente`}
-                    className="text-[11px] border border-gray-200 rounded px-1.5 py-1 bg-white max-w-[45%]">
+                    className="text-xs border border-gray-200 rounded px-1.5 py-1 bg-white max-w-[45%]">
                     <option value="">— escolher —</option>
                     {opcoesProduto.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                   </select>
@@ -437,7 +437,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
           <div className="flex gap-2">
             {['kg', 'unid', 'g', 'L'].map(u => (
               <button key={u} onClick={() => set('unidade', u)}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold border-2 transition-colors
+                className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-semibold border-2 transition-colors
                   ${form.unidade === u ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 text-gray-600'}`}>
                 {u}
               </button>
@@ -575,11 +575,14 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
           <div className="flex items-center gap-3 bg-orange-50 rounded-lg p-2.5">
             <div className="flex-1">
               <p className="text-xs font-semibold text-gray-700">Entra no estoque já cozido?</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">Ex: cupim cozido, carne de sol desfiada — já entram prontos. Filé de frango entra cru (deixe desligado).</p>
+              <p className="text-xs text-gray-500 mt-0.5">Ex: cupim cozido, carne de sol desfiada — já entram prontos. Filé de frango entra cru (deixe desligado).</p>
             </div>
             <button type="button" onClick={() => set('entradaCozida', !form.entradaCozida)}
-              className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${form.entradaCozida ? 'bg-orange-500' : 'bg-gray-300'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.entradaCozida ? 'left-6' : 'left-0.5'}`} />
+              role="switch" aria-checked={!!form.entradaCozida} aria-label="Entra no estoque já cozido"
+              className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
+              <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${form.entradaCozida ? 'bg-orange-600' : 'bg-gray-300'}`}>
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.entradaCozida ? 'left-6' : 'left-0.5'}`} />
+              </span>
             </button>
           </div>
           {form.entradaCozida && (
@@ -589,7 +592,7 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
                 placeholder="Ex: 30"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               {form.coccao && (
-                <p className="text-[11px] text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5 mt-1">
+                <p className="text-xs text-orange-700 bg-orange-50 rounded-lg px-2 py-1.5 mt-1">
                   Na lista de compras você compra mais cru ({form.coccao}% a mais) para chegar ao kg cozido necessário.
                 </p>
               )}
@@ -608,20 +611,22 @@ function ModalProduto({ produto, sugestao, categorias, onSalvar, onFechar, comAr
           <datalist id="lista-subgrupos">
             {subgruposExistentes.map(sg => <option key={sg} value={sg} />)}
           </datalist>
-          <p className="text-[11px] text-gray-600 mt-1">
+          <p className="text-xs text-gray-600 mt-1">
             Divide uma categoria grande em partes (PROTEÍNAS → Bovinos, Aves, Peixes). Deixe vazio se não precisar.
           </p>
         </div>
 
-        <p className="text-[11px] text-gray-600 -mt-1">
+        <p className="text-xs text-gray-600 -mt-1">
           O fator de correção (rendimento) deste item é configurado em <strong>Sistema → Rendimento por ingrediente</strong>.
         </p>
 
         <div className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
           <span className="text-sm text-gray-700 flex-1">Produto ativo</span>
-          <button onClick={() => set('ativo', !form.ativo)}
-            className={`w-12 h-6 rounded-full transition-colors relative ${form.ativo ? 'bg-green-500' : 'bg-gray-300'}`}>
-            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.ativo ? 'left-6' : 'left-0.5'}`} />
+          <button onClick={() => set('ativo', !form.ativo)} role="switch" aria-checked={!!form.ativo} aria-label="Produto ativo"
+            className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
+            <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${form.ativo ? 'bg-green-600' : 'bg-gray-300'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.ativo ? 'left-6' : 'left-0.5'}`} />
+            </span>
           </button>
         </div>
 
@@ -721,7 +726,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
             <label className="text-xs font-semibold text-gray-600">Ingredientes (para o rendimento acima)</label>
             <button onClick={addIng} className="text-xs font-bold text-polo-navy bg-gray-100 px-2 py-1 rounded">+ Ingrediente</button>
           </div>
-          <p className="text-[11px] text-gray-500 mb-2">
+          <p className="text-xs text-gray-500 mb-2">
             Por padrão, ingredientes são <strong>monitorados</strong> (só registra uso, sem baixa no estoque). Marque se o item é controlado no estoque.
           </p>
           <div className="space-y-2">
@@ -760,7 +765,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                     </select>
                   )}
                   <button onClick={() => removeIng(i)} aria-label="Remover ingrediente"
-                    className="text-red-700 font-bold text-lg w-6 flex-shrink-0 flex items-center justify-center">×</button>
+                    className="text-red-700 font-bold text-lg min-w-11 min-h-11 flex-shrink-0 flex items-center justify-center">×</button>
                 </div>
                 <div className="flex items-center gap-2">
                   <input type="checkbox" id={`abate-${i}`} checked={ing.abate || false} onChange={e => setIng(i, 'abate', e.target.checked)}
@@ -784,8 +789,8 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
 }
 
 export default function Configuracoes() {
-  const { produtos, setProdutos, saidasParaConsumo, limparTudo, resetarProdutos, exportarBackup, importarBackup,
-          pessoas, addPessoa, removePessoa, destinos, setDestinos, categorias, setCategorias,
+  const { produtos, setProdutos, saidasParaConsumo, limparTudo, exportarBackup, importarBackup,
+          destinos, setDestinos, categorias, setCategorias,
           fichas, setFichas, producoes, setProducoes, locais, setLocais, logAudit, prefs, setPref, setPrefs,
           compras, aparas, desperdicio, mortos, retentarMortos, descartarMortos, modulo, permissoes, setPermissoes } = useApp();
   const { usuarios, sessao, alterarCargo,
@@ -903,7 +908,6 @@ export default function Configuracoes() {
   const [editando, setEditando] = useState(null);
   const [criando, setCriando] = useState(false);
   const [busca, setBusca] = useState('');
-  const [novaPessoa, setNovaPessoa] = useState('');
   // A aba pode vir por query (?secao=acessos): é assim que a Administração manda
   // direto para o assunto em vez de largar a pessoa em "Produtos" para procurar.
   //
@@ -936,21 +940,8 @@ export default function Configuracoes() {
   const abasVisiveis = ABAS.filter(([, , ok]) => ok);
   const abasDisponiveis = abasVisiveis.map(([v]) => v);
   const secaoAtiva = abasDisponiveis.includes(secao) ? secao : (abasDisponiveis[0] || 'produtos');
-  const [trocandoSenha, setTrocandoSenha] = useState(false);
   const fileRef = useRef(null);
   const planilhaRef = useRef(null);
-
-  const handleAddPessoa = () => {
-    const n = novaPessoa.trim();
-    if (!n) return;
-    if (pessoas.some(p => p.toLowerCase() === n.toLowerCase())) {
-      toast('Essa pessoa já está cadastrada.', 'aviso');
-      return;
-    }
-    addPessoa(n);
-    setNovaPessoa('');
-    toast('Pessoa cadastrada.', 'sucesso');
-  };
 
   const handleImportar = (e) => {
     const file = e.target.files?.[0];
@@ -1190,7 +1181,7 @@ export default function Configuracoes() {
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {abasVisiveis.map(([v, l]) => (
           <button key={v} onClick={() => setSecao(v)} aria-pressed={secaoAtiva === v}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors
+            className={`flex-1 min-h-11 py-2 rounded-lg text-xs font-semibold transition-colors
               ${secaoAtiva === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
             {l}
           </button>
@@ -1214,7 +1205,7 @@ export default function Configuracoes() {
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-3">
         {['TODOS', ...categorias].map(c => (
           <button key={c} onClick={() => setCatAtiva(c)}
-            className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+            className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
               ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
             {c === 'TODOS' ? 'Todos' : c}
           </button>
@@ -1226,20 +1217,21 @@ export default function Configuracoes() {
         {produtosFiltrados.map((p, i, arr) => (
           <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''} ${!p.ativo ? 'opacity-50' : ''}`}>
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
-              <div className="text-xs text-gray-500">
+              {/* o nome quebra em duas linhas em vez de cortar: é o que se procura */}
+              <div className="font-medium text-sm text-gray-800 line-clamp-2 break-words">{p.nome}</div>
+              <div className="text-xs text-gray-600">
                 {p.categoria} • {p.unidade}
-                {(p.estoqueInicial > 0) && ` • Inicial ${p.estoqueInicial}`}
-                {(p.min > 0 || p.max > 0) && ` • Mín ${p.min} / Máx ${p.max}`}
+                {(p.estoqueInicial > 0) && ` • Inicial ${fmtNum(p.estoqueInicial)}`}
+                {(p.min > 0 || p.max > 0) && ` • Mín ${fmtNum(p.min)} / Máx ${fmtNum(p.max)}`}
               </div>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 {p.gramatura > 0 && (
-                  <span className="text-[11px] font-semibold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
+                  <span className="text-xs font-semibold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
                     {p.gramatura}g/porção{p.coccao > 0 ? ` · cocção −${p.coccao}%` : ''}{p.entradaCozida ? ' · cozido' : ''}
                   </span>
                 )}
                 {pendenciasDoProduto(p).length > 0 && (
-                  <span className="text-[11px] font-semibold text-amber-600">
+                  <span className="text-xs font-semibold text-amber-800">
                     falta: {pendenciasDoProduto(p).join(', ')}
                   </span>
                 )}
@@ -1247,15 +1239,15 @@ export default function Configuracoes() {
             </div>
             <div className="flex items-center gap-1">
               <button onClick={() => setEditando(p)}
-                className="text-xs text-polo-navy font-semibold px-2 py-1.5 rounded-lg bg-gray-100">
+                className="text-xs text-polo-navy font-semibold px-3 min-h-11 rounded-lg bg-gray-100">
                 Editar
               </button>
               <button onClick={() => toggleAtivo(p.id)}
-                className={`text-xs font-semibold px-2 py-1.5 rounded-lg ${p.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                className={`text-xs font-semibold px-3 min-h-11 rounded-lg ${p.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
                 {p.ativo ? 'Ativo' : 'Inativo'}
               </button>
               <button onClick={() => excluir(p.id)} aria-label={`Desativar produto ${p.nome}`}
-                className="text-base text-red-500 font-semibold min-w-11 min-h-11 flex items-center justify-center rounded-lg bg-red-50">
+                className="text-base text-red-700 font-semibold min-w-11 min-h-11 flex items-center justify-center rounded-lg bg-red-50">
                 ×
               </button>
             </div>
@@ -1295,9 +1287,9 @@ export default function Configuracoes() {
             const n = produtos.filter(p => p.categoria === c).length;
             return (
               <span key={c} className="inline-flex items-center gap-1.5 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-xs font-medium text-polo-navy">
-                {c} <span className="text-gray-500">({n})</span>
+                {c} <span className="text-gray-600">({n})</span>
                 <button onClick={() => handleRemoveCategoria(c)} aria-label={`Remover categoria ${c}`}
-                  className="text-red-700 font-bold text-sm leading-none">×</button>
+                  className="text-red-700 font-bold text-sm leading-none min-w-11 min-h-11 -my-2.5 -mr-2 flex items-center justify-center">×</button>
               </span>
             );
           })}
@@ -1338,12 +1330,12 @@ export default function Configuracoes() {
                   </div>
                   <div className="flex gap-1.5 flex-shrink-0">
                     <button onClick={() => setEditandoProducao(r)} aria-label={`Editar receita ${r.nome}`}
-                      className="text-xs text-polo-navy font-semibold px-2 py-1 rounded bg-gray-100">Editar</button>
+                      className="text-xs text-polo-navy font-semibold px-3 min-h-11 rounded-lg bg-gray-100">Editar</button>
                     <button onClick={async () => {
                         const ok = await confirm({ titulo: 'Excluir receita', mensagem: `Excluir "${r.nome}"?`, perigo: true, confirmar: 'Excluir' });
                         if (ok) { setProducoes(producoes.filter(x => x.id !== r.id)); logAudit('excluiu receita de produção', r.nome); toast('Receita excluída.', 'sucesso'); }
                       }} aria-label={`Excluir receita ${r.nome}`}
-                      className="text-xs text-red-700 font-semibold px-2 py-1 rounded bg-red-50">×</button>
+                      className="text-sm text-red-700 font-semibold min-w-11 min-h-11 flex items-center justify-center rounded-lg bg-red-50">×</button>
                   </div>
                 </div>
               </div>
@@ -1361,7 +1353,7 @@ export default function Configuracoes() {
             Estes itens falharam várias vezes ao subir para a nuvem e pararam de tentar sozinhos.
             Toque em <strong>Tentar de novo</strong>; se persistir, o último erro foi:
           </p>
-          <ul className="text-[11px] text-red-600/80 mt-1.5 space-y-0.5 max-h-24 overflow-y-auto">
+          <ul className="text-xs text-red-600/80 mt-1.5 space-y-0.5 max-h-24 overflow-y-auto">
             {mortos.slice(0, 6).map((m, i) => (
               <li key={m.id || i}>• {ROTULO_FILA[m.kind] || 'Lançamento'}{m.dados?.data ? ` de ${fmtData(m.dados.data)}` : ''}</li>
             ))}
@@ -1384,7 +1376,7 @@ export default function Configuracoes() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-polo-gold">Painel super-admin</p>
-              <p className="text-[11px] text-white/80 mt-0.5">Ver restaurantes, usuários e suporte ativo.</p>
+              <p className="text-xs text-white/80 mt-0.5">Ver restaurantes, usuários e suporte ativo.</p>
             </div>
             <span className="text-polo-gold text-lg">→</span>
           </div>
@@ -1429,17 +1421,11 @@ export default function Configuracoes() {
       <TabelaRendimento produtos={produtos} fichas={fichas} setFichas={setFichas} setProdutos={setProdutos}
         compras={compras} aparas={aparas} desperdicio={desperdicio} toast={toast} />
 
-      {/* Minha conta */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <p className="text-sm font-bold text-polo-navy">Minha senha</p>
-            <p className="text-xs text-gray-500 mt-0.5">Troque a senha de acesso da sua conta.</p>
-          </div>
-          <button onClick={() => setTrocandoSenha(true)}
-            className="bg-polo-navy text-polo-gold font-bold px-4 py-2 rounded-lg text-sm whitespace-nowrap">Trocar senha</button>
-        </div>
-      </div>
+      {/* ⚠️ O SEGUNDO "MINHA SENHA" SAIU (auditoria de 14/10/2026). Este
+          cartão escrito à mão repetia o CartaoMinhaSenha para a conta dona e
+          aparecia também para a equipe e no MODO SUPORTE — onde a sessão é a
+          do super-admin, e trocar "minha senha" trocaria a da Aurum. A senha
+          da equipe é o dono quem troca, em Contas da equipe. */}
 
       {/* Ajuste automático de mín/máx */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
@@ -1451,8 +1437,8 @@ export default function Configuracoes() {
               Desligado, apenas sugere e você aprova.
             </p>
             <details className="mt-1.5">
-              <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">Como funciona</summary>
-              <div className="text-[11px] text-gray-600 mt-1.5 space-y-1 leading-snug">
+              <summary className="text-xs font-semibold text-polo-navy cursor-pointer select-none">Como funciona</summary>
+              <div className="text-xs text-gray-600 mt-1.5 space-y-1 leading-snug">
                 <p>• Olha as <strong>saídas dos últimos ~15 dias</strong> — tanto o envio para a cozinha e outras unidades
                 quanto o uso interno em produção (ingrediente consumido por ficha conta).</p>
                 <p>• Com isso calcula quanto a casa gasta por dia e define: mínimo = cobertura de
@@ -1471,8 +1457,10 @@ export default function Configuracoes() {
               setPref('autoMinMax', novo);
               toast(novo ? 'Ajuste automático LIGADO — mín/máx acompanham o consumo.' : 'Ajuste automático desligado — voltam as sugestões manuais.', 'sucesso');
             }}
-            className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${prefs.autoMinMax ? 'bg-green-500' : 'bg-gray-300'}`}>
-            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.autoMinMax ? 'left-6' : 'left-0.5'}`} />
+            className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
+            <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${prefs.autoMinMax ? 'bg-green-600' : 'bg-gray-300'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.autoMinMax ? 'left-6' : 'left-0.5'}`} />
+            </span>
           </button>
         </div>
         <div className="border-t border-gray-100 pt-3">
@@ -1509,7 +1497,7 @@ export default function Configuracoes() {
               </div>
             </div>
           </div>
-          <p className="text-[11px] text-gray-600 mt-2">
+          <p className="text-xs text-gray-600 mt-2">
             Ex: mín 3 dias → alerta quando o estoque não cobre ~3 dias de saída no ritmo atual.
             Máx 6 dias → repor/produzir até cobrir ~6 dias de operação.
           </p>
@@ -1524,8 +1512,8 @@ export default function Configuracoes() {
                   sobe na véspera do fim de semana e cai no início da semana.
                 </p>
                 <details className="mt-1.5">
-                  <summary className="text-[11px] font-semibold text-polo-navy cursor-pointer select-none">Quando ligar</summary>
-                  <div className="text-[11px] text-gray-600 mt-1.5 leading-snug">
+                  <summary className="text-xs font-semibold text-polo-navy cursor-pointer select-none">Quando ligar</summary>
+                  <div className="text-xs text-gray-600 mt-1.5 leading-snug">
                     <p>Ligue se sexta a domingo vendem bem mais que o resto da semana.</p>
                   </div>
                 </details>
@@ -1537,8 +1525,10 @@ export default function Configuracoes() {
                   setPref('minMaxPorDiaSemana', novo);
                   toast(novo ? 'Mín/máx agora consideram o dia da semana.' : 'Mín/máx voltaram à média simples.', 'sucesso');
                 }}
-                className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${prefs.minMaxPorDiaSemana ? 'bg-green-500' : 'bg-gray-300'}`}>
-                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.minMaxPorDiaSemana ? 'left-6' : 'left-0.5'}`} />
+                className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
+                <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${prefs.minMaxPorDiaSemana ? 'bg-green-600' : 'bg-gray-300'}`}>
+                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.minMaxPorDiaSemana ? 'left-6' : 'left-0.5'}`} />
+                </span>
               </button>
             </div>
           </div>
@@ -1558,8 +1548,10 @@ export default function Configuracoes() {
           <button
             role="switch" aria-checked={!!prefs.guia}
             onClick={() => setPref('guia', !prefs.guia)}
-            className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${prefs.guia ? 'bg-green-500' : 'bg-gray-300'}`}>
-            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.guia ? 'left-6' : 'left-0.5'}`} />
+            className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
+            <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${prefs.guia ? 'bg-green-600' : 'bg-gray-300'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${prefs.guia ? 'left-6' : 'left-0.5'}`} />
+            </span>
           </button>
         </div>
       </div>
@@ -1573,34 +1565,10 @@ export default function Configuracoes() {
       </>}
 
       {secaoAtiva === 'acessos' && <>
-      {/* Equipe */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
-        <div>
-          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">Equipe / Responsáveis</h2>
-          <p className="text-xs text-gray-500 mt-1">Quem aparece para selecionar ao registrar entradas, saídas, aparas e perdas.</p>
-        </div>
-        <div className="flex gap-2">
-          <input aria-label="Nome da pessoa" type="text" value={novaPessoa} onChange={e => setNovaPessoa(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleAddPessoa(); }}
-            placeholder="Nome da pessoa"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-          <button onClick={handleAddPessoa}
-            className="bg-polo-navy text-polo-gold font-bold px-4 rounded-lg text-sm">+ Add</button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {pessoas.length === 0 && <span className="text-xs text-gray-500">Nenhuma pessoa cadastrada ainda.</span>}
-          {pessoas.map(p => (
-            <span key={p} className="inline-flex items-center gap-2 bg-polo-beige rounded-full pl-3 pr-2 py-1 text-sm font-medium text-polo-navy">
-              {p}
-              <button onClick={async () => {
-                  const ok = await confirm({ titulo: 'Remover pessoa', mensagem: `Remover ${p} da equipe? Registros antigos não mudam.`, perigo: true, confirmar: 'Remover' });
-                  if (ok) { removePessoa(p); toast('Pessoa removida.', 'sucesso'); }
-                }}
-                className="text-red-700 font-bold text-base leading-none">×</button>
-            </span>
-          ))}
-        </div>
-      </div>
+      {/* Equipe — os nomes de quem registra e imprime, com a senha de cada um
+          (ver CartaoEquipe). Não são as contas: essas vêm logo abaixo. */}
+      <CartaoEquipe titulo="Equipe / Responsáveis" estiloSecao
+        descricao="Quem aparece para escolher ao registrar entradas, saídas, aparas e perdas, e em “Quem vai imprimir?” nas etiquetas." />
 
       {/* Usuários e acessos */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 mb-4">
@@ -1634,11 +1602,11 @@ export default function Configuracoes() {
               <div key={u.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2">
                 <div className="min-w-0">
                   <span className="text-sm font-semibold text-gray-800">{u.nome}</span>
-                  {euMesmo && <span className="text-[11px] text-green-600 font-semibold ml-1.5">• você</span>}
+                  {euMesmo && <span className="text-xs text-green-700 font-semibold ml-1.5">• você</span>}
                 </div>
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {euMesmo ? (
-                    <span className="text-[11px] font-bold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
+                    <span className="text-xs font-bold text-polo-navy bg-polo-beige px-1.5 py-0.5 rounded">
                       {CARGOS.find(c => c.id === u.cargo)?.label}
                     </span>
                   ) : (
@@ -1683,7 +1651,7 @@ export default function Configuracoes() {
                 <div key={u.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 gap-2 opacity-70">
                   <div className="min-w-0">
                     <span className="text-sm font-semibold text-gray-700">{u.nome}</span>
-                    <span className="text-[11px] text-gray-600 ml-1.5">{CARGOS.find(c => c.id === u.cargo)?.label} · inativo</span>
+                    <span className="text-xs text-gray-600 ml-1.5">{CARGOS.find(c => c.id === u.cargo)?.label} · inativo</span>
                   </div>
                   <button onClick={async () => {
                       const erro = await reativarUsuario(u.id);
@@ -1766,11 +1734,11 @@ export default function Configuracoes() {
         </div>
         <div className="flex gap-3">
           <button onClick={baixarPlanilhaModelo}
-            className="flex-1 border border-polo-navy text-polo-navy font-semibold py-2.5 rounded-xl text-sm">
+            className="flex-1 min-h-11 border border-polo-navy text-polo-navy font-semibold py-2.5 rounded-xl text-sm">
             ↓ Baixar planilha modelo
           </button>
           <button onClick={() => planilhaRef.current?.click()}
-            className="flex-1 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm">
+            className="flex-1 min-h-11 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm">
             ↑ Importar planilha
           </button>
         </div>
@@ -1787,11 +1755,11 @@ export default function Configuracoes() {
         </div>
         <div className="flex gap-3">
           <button onClick={() => { exportarBackup(); toast('Cópia de segurança baixada.', 'sucesso'); }}
-            className="flex-1 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm">
+            className="flex-1 min-h-11 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm">
             ↓ Exportar cópia
           </button>
           <button onClick={() => fileRef.current?.click()}
-            className="flex-1 border border-polo-navy text-polo-navy font-semibold py-2.5 rounded-xl text-sm">
+            className="flex-1 min-h-11 border border-polo-navy text-polo-navy font-semibold py-2.5 rounded-xl text-sm">
             ↑ Restaurar cópia
           </button>
         </div>
@@ -1802,17 +1770,10 @@ export default function Configuracoes() {
       <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
         <p className="text-xs font-bold text-red-700 uppercase tracking-wide">Zona de Perigo</p>
         <button onClick={async () => {
-          const ok = await confirm({ titulo: 'Restaurar produtos padrão', mensagem: 'Restaurar a lista de produtos padrão? Os valores de mín/máx personalizados serão redefinidos.', perigo: true, confirmar: 'Restaurar' });
-          if (ok) { resetarProdutos(); toast('Produtos restaurados ao padrão.', 'sucesso'); }
-        }}
-          className="w-full border border-red-300 text-red-600 font-semibold py-2.5 rounded-xl text-sm">
-          Restaurar produtos padrão
-        </button>
-        <button onClick={async () => {
           const ok = await confirm({ titulo: 'Apagar todos os registros', mensagem: 'ATENÇÃO: isso apaga entradas, saídas, aparas, desperdício e contagens. Esta ação não pode ser desfeita.\n\nDica: exporte um backup antes.', perigo: true, confirmar: 'Apagar tudo' });
           if (ok) { limparTudo(); toast('Todos os registros foram apagados.', 'sucesso'); }
         }}
-          className="w-full bg-red-600 text-white font-bold py-2.5 rounded-xl text-sm">
+          className="w-full min-h-11 bg-red-700 text-white font-bold py-2.5 rounded-xl text-sm">
           Apagar todos os registros
         </button>
       </div>
@@ -1854,11 +1815,6 @@ export default function Configuracoes() {
         />
       )}
 
-      {trocandoSenha && (
-        <div className="fixed inset-0 z-[70]">
-          <NovaSenha titulo="Trocar minha senha" aoConcluir={() => setTrocandoSenha(false)} />
-        </div>
-      )}
     </Layout>
   );
 }

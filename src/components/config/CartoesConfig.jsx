@@ -68,11 +68,11 @@ export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button onClick={() => autorizar('ver')}
-              className="bg-polo-navy text-polo-gold font-bold px-3 py-2.5 rounded-lg text-xs">
+              className="bg-polo-navy text-polo-gold font-bold px-3 min-h-11 rounded-lg text-xs">
               Só visualizar (24h)
             </button>
             <button onClick={() => autorizar('mexer')}
-              className="border-2 border-polo-navy text-polo-navy font-bold px-3 py-2.5 rounded-lg text-xs">
+              className="border-2 border-polo-navy text-polo-navy font-bold px-3 min-h-11 rounded-lg text-xs">
               Ver e editar (24h)
             </button>
           </div>
@@ -145,10 +145,10 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
               {a.fixo ? (
                 // congelado e resfriado não podem ser removidos: os ids deles
                 // estão gravados no histórico de toda conta que já usou o app
-                <span className="text-[11px] text-gray-500 bg-gray-100 rounded-full px-2 py-1 flex-shrink-0">fixo</span>
+                <span className="text-xs text-gray-700 bg-gray-100 rounded-full px-2 py-1 flex-shrink-0">fixo</span>
               ) : (
                 <button onClick={() => remover(a)} aria-label={`Remover ${a.nome}`}
-                  className="text-red-700 text-xs font-bold px-2 py-1.5 flex-shrink-0">Remover</button>
+                  className="text-red-700 text-xs font-bold px-3 min-h-11 flex-shrink-0">Remover</button>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -163,7 +163,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
       </div>
 
       {/* O limite existe por causa do papel, não por capricho — ver MAX_FAIXA */}
-      <p className="text-[11px] text-gray-500">
+      <p className="text-xs text-gray-500">
         A temperatura cabe em {MAX_FAIXA} caracteres: acima disso ela empurraria o rodapé da
         etiqueta (nome e endereço) para fora do papel.
       </p>
@@ -212,7 +212,7 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
 
   // Dados do estabelecimento (rodapé da etiqueta): os da UNIDADE deste
   // aparelho — ver DadosDoEstabelecimento, logo abaixo.
-  const { unidadeAtual } = useApp();
+  const { unidadeAtual, pessoas } = useApp();
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
@@ -225,9 +225,9 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
       <div className="flex items-center justify-between bg-polo-beige rounded-lg px-3 py-2">
         <div>
           <p className="text-xs font-semibold text-polo-navy">Rolo 60 × 50 mm</p>
-          <p className="text-[11px] text-gray-600">Tamanho único do sistema.</p>
+          <p className="text-xs text-gray-600">Tamanho único do sistema.</p>
         </div>
-        <span className="text-[11px] text-gray-600">Tomate MDK-022</span>
+        <span className="text-xs text-gray-600">Tomate MDK-022</span>
       </div>
       {/* ⚠️ QR só no plano COMPLETO. No plano Etiquetas ele não tem consumidor:
           quem lê o código é a contagem por câmera do Inventário, tela que só
@@ -238,12 +238,14 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
       <div className="flex items-center justify-between border-t border-gray-100 pt-3">
         <div>
           <p className="text-xs font-semibold text-gray-600">QR code na etiqueta</p>
-          <p className="text-[11px] text-gray-600">Para dar baixa lendo a etiqueta (saída, perda, usado) e contar no Inventário.</p>
+          <p className="text-xs text-gray-600">Para dar baixa lendo a etiqueta (saída, perda, usado) e contar no Inventário.</p>
         </div>
         <button role="switch" aria-checked={!!cfg.incluirQR}
           onClick={() => { salvar({ incluirQR: !cfg.incluirQR }); toast(!cfg.incluirQR ? 'QR code LIGADO nas etiquetas.' : 'QR code desligado.', 'sucesso'); }}
-          className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${cfg.incluirQR ? 'bg-green-500' : 'bg-gray-300'}`}>
-          <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.incluirQR ? 'left-6' : 'left-0.5'}`} />
+          className="relative w-14 h-11 flex items-center justify-center flex-shrink-0">
+          <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${cfg.incluirQR ? 'bg-green-600' : 'bg-gray-300'}`}>
+            <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${cfg.incluirQR ? 'left-6' : 'left-0.5'}`} />
+          </span>
         </button>
       </div>
       </>}
@@ -263,24 +265,35 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
             </label>
           ))}
         </div>
-        <p className="text-[11px] text-gray-600 mt-2">O nome do produto sempre aparece.</p>
+        <p className="text-xs text-gray-600 mt-2">O nome do produto sempre aparece.</p>
 
         {/* ⚠️ NÃO É UM CAMPO, É UMA REGRA — por isso fica fora da grade acima.
             Veio de um lote impresso com o RESP. em branco, percebido tarde
             demais: rolo gasto e trabalho refeito. Onde a etiqueta é documento
             sanitário isso não é opcional; onde é só identificação, exigir
             atrapalha. Quem decide é a casa. */}
+        {/* ⚠️ COM A EQUIPE CADASTRADA, A REGRA JÁ VALE SEMPRE (14/10/2026):
+            "Quem vai imprimir?" exige o nome antes de liberar o botão. A caixa
+            só faz sentido com a lista vazia, quando o RESP. é digitado na hora;
+            com equipe, ela confundia — parecia dar para desligar. */}
+        {(pessoas || []).length > 0 ? (
+          <p className="text-xs text-gray-700 mt-3 pt-3 border-t border-gray-100">
+            <span className="font-semibold">Toda etiqueta sai assinada.</span>{' '}
+            Antes de imprimir, a pessoa toca no próprio nome em “Quem vai imprimir?”.
+          </p>
+        ) : (
         <label className="flex items-start gap-2 text-xs text-gray-700 mt-3 pt-3 border-t border-gray-100">
           <input type="checkbox" checked={cfg.exigirResponsavel === true}
             onChange={() => setPref('etiquetaConfig', { ...cfg, exigirResponsavel: cfg.exigirResponsavel !== true })}
             className="w-6 h-6 accent-[#1B2A41] mt-0.5 flex-shrink-0" />
           <span>
             <span className="font-semibold">Exigir o responsável para imprimir</span>
-            <span className="block text-[11px] text-gray-600">
+            <span className="block text-xs text-gray-600">
               Sem alguém escolhido no campo RESP., o botão de imprimir não libera.
             </span>
           </span>
         </label>
+        )}
       </div>
       <DadosDoEstabelecimento key={unidadeAtual?.id || 'principal'} prefs={prefs} setPref={setPref}
         toast={toast} nomeRestaurante={nomeRestaurante} cnpjDaConta={cnpjDaConta} />
@@ -336,7 +349,7 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
     <div className="border-t border-gray-100 pt-3 space-y-2">
       <p className="text-xs font-semibold text-gray-600">Dados do estabelecimento (rodapé da etiqueta)</p>
       {variasUnidades && (
-        <p className="text-[11px] text-polo-navy bg-polo-beige rounded-lg px-2.5 py-1.5">
+        <p className="text-xs text-polo-navy bg-polo-beige rounded-lg px-2.5 py-1.5">
           São os dados da unidade <strong>{nome || '—'}</strong>, a deste aparelho. Para ver outra
           unidade, troque de unidade no topo da tela.
         </p>
@@ -347,9 +360,9 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
           pela Aurum, e o caminho está escrito em vez de a pessoa concluir
           que o campo "faltou". */}
       <div className="bg-gray-50 rounded-lg px-3 py-2">
-        <p className="text-[11px] text-gray-600">Nome do estabelecimento</p>
+        <p className="text-xs text-gray-600">Nome do estabelecimento</p>
         <p className="text-sm font-semibold text-polo-navy">{nome || '—'}</p>
-        <p className="text-[11px] text-gray-600 mt-1">
+        <p className="text-xs text-gray-600 mt-1">
           Sai impresso na etiqueta. Para trocar, use <strong>Ajuda → Pedido</strong> no topo da
           tela — a equipe Aurum confere e muda.
         </p>
@@ -362,23 +375,23 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
             circulava colado no pote, e ninguém tinha como saber que estava
             errado. Mudar passa pela Aurum, como o nome do estabelecimento. */}
         <div>
-          <p className="text-[11px] text-gray-500 mb-0.5">CNPJ</p>
+          <p className="text-xs text-gray-500 mb-0.5">CNPJ</p>
           <p className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-700">
             {cnpj ? formatarCNPJ(cnpj) : '—'}
           </p>
         </div>
         <div>
-          <label htmlFor="est-cep" className="block text-[11px] text-gray-500 mb-0.5">CEP</label>
+          <label htmlFor="est-cep" className="block text-xs text-gray-500 mb-0.5">CEP</label>
           <input id="est-cep" type="text" value={local.cep || ''} placeholder="00000-000" disabled={!podeEditar}
             onChange={e => setLocal(p => ({ ...p, cep: e.target.value }))} className={campo} />
         </div>
       </div>
-      <p className="text-[11px] text-gray-600">
+      <p className="text-xs text-gray-600">
         O CNPJ vem do cadastro e não muda por aqui — ele identifica quem manipulou o alimento.
         Para corrigir, use <strong>Ajuda → Pedido</strong>.
       </p>
       <div>
-        <label htmlFor="est-end" className="block text-[11px] text-gray-500 mb-0.5">Endereço</label>
+        <label htmlFor="est-end" className="block text-xs text-gray-500 mb-0.5">Endereço</label>
         <input id="est-end" type="text" value={local.endereco || ''} placeholder="Rua, número" disabled={!podeEditar}
           onChange={e => setLocal(p => ({ ...p, endereco: e.target.value }))} className={campo} />
       </div>
@@ -386,30 +399,30 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
         // Na unidade extra cidade e UF são campos do banco, separados
         <div className="grid grid-cols-[1fr_4.5rem] gap-2">
           <div>
-            <label htmlFor="est-cid" className="block text-[11px] text-gray-500 mb-0.5">Cidade</label>
+            <label htmlFor="est-cid" className="block text-xs text-gray-500 mb-0.5">Cidade</label>
             <input id="est-cid" type="text" value={local.cidade || ''} placeholder="Recife" disabled={!podeEditar}
               onChange={e => setLocal(p => ({ ...p, cidade: e.target.value }))} className={campo} />
           </div>
           <div>
-            <label htmlFor="est-uf" className="block text-[11px] text-gray-500 mb-0.5">UF</label>
+            <label htmlFor="est-uf" className="block text-xs text-gray-500 mb-0.5">UF</label>
             <input id="est-uf" type="text" value={local.uf || ''} placeholder="PE" maxLength={2} disabled={!podeEditar}
               onChange={e => setLocal(p => ({ ...p, uf: e.target.value.toUpperCase() }))} className={campo} />
           </div>
         </div>
       ) : (
         <div>
-          <label htmlFor="est-cid" className="block text-[11px] text-gray-500 mb-0.5">Cidade - UF</label>
+          <label htmlFor="est-cid" className="block text-xs text-gray-500 mb-0.5">Cidade - UF</label>
           <input id="est-cid" type="text" value={local.cidade || ''} placeholder="Recife - PE"
             onChange={e => setLocal(p => ({ ...p, cidade: e.target.value }))} className={campo} />
         </div>
       )}
       {podeEditar ? (
         <button onClick={salvar} disabled={salvando}
-          className="w-full bg-polo-navy text-polo-gold font-bold py-2.5 rounded-lg text-xs disabled:opacity-60">
+          className="w-full min-h-11 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-lg text-xs disabled:opacity-60">
           {salvando ? 'Salvando…' : 'Salvar dados do estabelecimento'}
         </button>
       ) : (
-        <p className="text-[11px] text-gray-600">Só a conta dona altera o endereço de uma unidade.</p>
+        <p className="text-xs text-gray-600">Só a conta dona altera o endereço de uma unidade.</p>
       )}
     </div>
   );
@@ -447,13 +460,13 @@ export function CartaoUnidades() {
           <li key={u.id || 'principal'} className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-polo-navy truncate">{u.nome}</span>
-              <span className="block text-[11px] text-gray-600">
+              <span className="block text-xs text-gray-600">
                 {u.principal ? 'Unidade principal' : 'Unidade'}
                 {(u.principal ? sessao?.cnpj : u.cnpj) ? ` · CNPJ ${formatarCNPJ(u.principal ? sessao.cnpj : u.cnpj)}` : ''}
               </span>
             </span>
             {u.id === atual && (
-              <span className="text-[11px] font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5 flex-shrink-0">este aparelho</span>
+              <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5 flex-shrink-0">este aparelho</span>
             )}
           </li>
         ))}
@@ -595,7 +608,7 @@ export function CartaoContas({
       </div>
 
       {casa && (
-        <p className="text-[11px] text-gray-600">
+        <p className="text-xs text-gray-600">
           Os logins desta casa terminam em <strong className="text-polo-navy">.{casa}</strong>
           {semEquipe ? '' : ' — não muda mais, para não derrubar quem já entra.'}
         </p>
@@ -611,9 +624,9 @@ export function CartaoContas({
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">
-                    {quem}{u.ativo === false && <span className="text-[11px] font-normal text-gray-500"> · bloqueado</span>}
+                    {quem}{u.ativo === false && <span className="text-xs font-normal text-gray-500"> · bloqueado</span>}
                   </p>
-                  <p className="text-[11px] text-gray-600">
+                  <p className="text-xs text-gray-600">
                     {u.cargo_rotulo || cargos.find(c => c.id === u.cargo)?.nome || u.cargo}
                     {u.usuario && casa ? ` · entra como ${u.usuario}.${casa}` : ''}
                   </p>
@@ -623,13 +636,13 @@ export function CartaoContas({
                 {!dono && !ehEu && (
                   <div className="flex gap-1.5 flex-shrink-0">
                     <button onClick={() => setNovaSenha({ id: u.id, valor: '' })}
-                      className="text-[11px] font-semibold text-polo-navy border border-gray-300 rounded px-2 py-1">senha</button>
+                      className="text-xs font-semibold text-polo-navy border border-gray-300 rounded px-2 py-1">senha</button>
                     <button onClick={() => alternarBloqueio(u)}
-                      className="text-[11px] font-semibold text-gray-600 border border-gray-300 rounded px-2 py-1">
+                      className="text-xs font-semibold text-gray-600 border border-gray-300 rounded px-2 py-1">
                       {u.ativo === false ? 'liberar' : 'bloquear'}
                     </button>
                     <button onClick={() => remover(u)}
-                      className="text-[11px] font-semibold text-red-700 border border-red-200 rounded px-2 py-1">apagar</button>
+                      className="text-xs font-semibold text-red-700 border border-red-200 rounded px-2 py-1">apagar</button>
                   </div>
                 )}
               </div>
@@ -640,7 +653,7 @@ export function CartaoContas({
                     placeholder="Nova senha (mín. 6)" aria-label={`Nova senha de ${quem}`}
                     className={`${inputCls} flex-1 min-w-0`} />
                   <Botao onClick={() => trocar(u)} tamanho="sm" largura="auto" disabled={ocupado}>Trocar</Botao>
-                  <button onClick={() => setNovaSenha(null)} className="text-[11px] text-gray-600 px-1">cancelar</button>
+                  <button onClick={() => setNovaSenha(null)} className="text-xs text-gray-600 px-1">cancelar</button>
                 </div>
               )}
             </div>
@@ -665,7 +678,7 @@ export function CartaoContas({
               <input value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))}
                 placeholder="Usuário" aria-label="Usuário" className={inputCls} autoFocus />
               {form.usuario && (
-                <p className="text-[11px] text-gray-600 mt-1">
+                <p className="text-xs text-gray-600 mt-1">
                   Entra como <strong className="text-polo-navy">{limpar(form.usuario)}.{casa}</strong>
                 </p>
               )}
@@ -681,7 +694,7 @@ export function CartaoContas({
             {/* ⚠️ A senha aparece em texto: quem digita é o DONO, para outra
                 pessoa, e ele precisa anotar. Esconder aqui só faria ele errar
                 e não saber o que entregar. */}
-            <p className="text-[11px] text-gray-600">
+            <p className="text-xs text-gray-600">
               Anote a senha antes de salvar — você entrega ela a quem vai usar, e depois só dá para trocar por outra.
             </p>
             <div className="flex gap-2">
@@ -839,17 +852,17 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
                 aria-label={`Nome do cargo ${cargo.nome}`}
                 className="flex-1 min-w-0 text-sm font-semibold text-polo-navy bg-transparent border-b border-transparent focus:border-gray-300 outline-none" />
               {!cargo.fixo && (
-                <span className="text-[11px] text-gray-500 flex-shrink-0">
+                <span className="text-xs text-gray-500 flex-shrink-0">
                   nível {cargo.base === 'gerencia' ? 'Gerência' : 'Cozinha'}
                 </span>
               )}
               <button onClick={() => setAbrindo(abrindo === cargo.id ? '' : cargo.id)}
-                className="text-[11px] font-bold text-polo-navy border border-gray-300 rounded px-2 py-1 flex-shrink-0">
+                className="text-xs font-bold text-polo-navy border border-gray-300 rounded-lg px-3 min-h-11 flex-shrink-0">
                 {abrindo === cargo.id ? 'fechar' : 'acessos'}
               </button>
               {!cargo.fixo && (
                 <button onClick={() => apagar(cargo)}
-                  className="text-[11px] font-semibold text-red-700 px-1 flex-shrink-0">apagar</button>
+                  className="text-xs font-semibold text-red-700 px-1 flex-shrink-0">apagar</button>
               )}
             </div>
             {abrindo === cargo.id && (
@@ -858,7 +871,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
                   <div key={cap.id} className="flex items-start justify-between gap-3">
                     <span id={`${cargo.id}-${cap.id}`} className="min-w-0">
                       <span className="block text-xs text-gray-800">{cap.label}</span>
-                      <span className="block text-[11px] text-gray-500 leading-tight">{cap.desc}</span>
+                      <span className="block text-xs text-gray-500 leading-tight">{cap.desc}</span>
                     </span>
                     <Chave id={`${cargo.id}-${cap.id}`} ligado={valorDoCargo(cargo, cap.id)}
                       onClick={() => mudarCargo(cargo, cap.id, !valorDoCargo(cargo, cap.id))} />
@@ -875,7 +888,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
           <input value={novoNome} onChange={e => setNovoNome(e.target.value)} autoFocus
             placeholder="Nome do cargo" aria-label="Nome do novo cargo" className={inputCls} />
           <div>
-            <label htmlFor="cargo-base" className="block text-[11px] text-gray-600 mb-1">Nível de segurança</label>
+            <label htmlFor="cargo-base" className="block text-xs text-gray-600 mb-1">Nível de segurança</label>
             <select id="cargo-base" value={novaBase} onChange={e => setNovaBase(e.target.value)}
               className={`${inputCls} bg-white`}>
               <option value="cozinha">Cozinha — operação do dia a dia</option>
@@ -884,7 +897,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
             {/* ⚠️ Escrito ANTES de criar, não como erro depois: o nível é o
                 teto do que aquele cargo vai poder alcançar, e trocá-lo depois
                 obrigaria a recriar as contas que já usam o cargo. */}
-            <p className="text-[11px] text-gray-600 mt-1">
+            <p className="text-xs text-gray-600 mt-1">
               O nível é o teto: um cargo em Cozinha não alcança o que só Gerência alcança, mesmo
               com a chave ligada.
             </p>
@@ -901,7 +914,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
       {equipe.length > 0 && (
         <div className="border-t border-gray-100 pt-3 space-y-2">
           <p className="text-xs font-semibold text-gray-600">Exceções por conta</p>
-          <p className="text-[11px] text-gray-600">
+          <p className="text-xs text-gray-600">
             Abre ou fecha algo só para uma conta, sem mexer no cargo dela.
           </p>
           {equipe.map(u => {
@@ -922,7 +935,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
                     </div>
                   ))}
                   <button onClick={() => limparConta(u)}
-                    className="text-[11px] font-semibold text-gray-600 border border-gray-200 rounded px-2 py-1 mt-1">
+                    className="text-xs font-semibold text-gray-600 border border-gray-200 rounded px-2 py-1 mt-1">
                     Voltar a seguir o cargo
                   </button>
                 </div>
@@ -997,7 +1010,7 @@ export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm
         </span>
       </label>
 
-      <p className="text-[11px] text-gray-600">
+      <p className="text-xs text-gray-600">
         Vale guardar uma cópia depois de cadastrar seus itens. Se trocar de aparelho ou
         precisar voltar atrás, é por aqui que tudo volta.
       </p>
@@ -1060,7 +1073,7 @@ export function CartaoEquipeDasUnidades() {
               <label className="flex items-center justify-between gap-2">
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-polo-navy truncate">{u.nome || u.usuario}</span>
-                  {u.usuario && <span className="block text-[11px] text-gray-600 truncate">{u.usuario}</span>}
+                  {u.usuario && <span className="block text-xs text-gray-600 truncate">{u.usuario}</span>}
                 </span>
                 <select value={valorDe(u)} disabled={!podeMudar || salvando === u.id}
                   onChange={e => mudar(u, e.target.value)}
@@ -1078,7 +1091,7 @@ export function CartaoEquipeDasUnidades() {
                 </select>
               </label>
               {arquivadaDe(u) && (
-                <p className="text-[11px] text-amber-900">
+                <p className="text-xs text-amber-900">
                   A unidade desta conta foi arquivada: ela não imprime até você escolher outra.
                 </p>
               )}
@@ -1086,7 +1099,7 @@ export function CartaoEquipeDasUnidades() {
           ))}
         </ul>
       )}
-      {!podeMudar && <p className="text-[11px] text-gray-600">Só a conta dona muda a unidade da equipe.</p>}
+      {!podeMudar && <p className="text-xs text-gray-600">Só a conta dona muda a unidade da equipe.</p>}
     </div>
   );
 }

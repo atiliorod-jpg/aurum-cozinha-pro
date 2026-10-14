@@ -82,7 +82,7 @@ export default function GuideTour() {
       <div className="flex items-center justify-between mb-1.5">
         <p className="text-xs font-bold text-polo-navy">Fluxo do turno — produção da casa · {nFeitos}/{ESSENCIAIS.length}</p>
         <button onClick={dispensar} aria-label="Dispensar guia por hoje"
-          className="text-gray-500 text-lg font-bold leading-none min-w-11 min-h-11 flex items-center justify-center -mr-2">×</button>
+          className="text-gray-600 text-lg font-bold leading-none min-w-11 min-h-11 flex items-center justify-center -mr-2">×</button>
       </div>
 
       {/* Barra de progresso (só os essenciais contam) */}
@@ -99,7 +99,7 @@ export default function GuideTour() {
           return (
             <Link key={p.key} to={p.rota}
               aria-current={isProximo ? 'step' : undefined}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors
+              className={`flex-shrink-0 flex items-center gap-1.5 min-h-11 px-3 rounded-lg text-xs font-semibold border transition-colors
                 ${feito
                   ? 'bg-green-50 text-green-700 border-green-200'
                   : isProximo
@@ -115,7 +115,7 @@ export default function GuideTour() {
           const naoSeAplica = p.key === 'apara' && !feito;
           return (
             <Link key={p.key} to={p.rota} title={p.hint}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] border border-dashed transition-colors
+              className={`flex-shrink-0 flex items-center gap-1.5 min-h-11 px-3 rounded-lg text-xs border border-dashed transition-colors
                 ${feito ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white/60 text-gray-600 border-gray-300'}`}>
               <span className="flex-shrink-0">{feito ? <Icon name="registrar" size={16} /> : <Icon name={p.icon} size={16} />}</span>
               <span>{p.label}{naoSeAplica ? ' (se houver)' : ''}</span>
@@ -125,16 +125,16 @@ export default function GuideTour() {
       </div>
 
       {completos ? (
-        <p className="text-[11px] text-green-700 font-semibold mt-2 leading-tight">
+        <p className="text-xs text-green-700 font-semibold mt-2 leading-tight">
           Turno em dia.
         </p>
       ) : (
         <div className="flex items-center justify-between gap-2 mt-2">
-          <p className="text-[11px] text-polo-navy leading-tight flex-1">
+          <p className="text-xs text-polo-navy leading-tight flex-1">
             → <strong>{proximoPasso.label}:</strong> {proximoPasso.hint}
           </p>
           <Link to={proximoPasso.rota}
-            className="flex-shrink-0 text-[11px] font-bold text-polo-gold bg-polo-navy rounded-lg px-2.5 py-1.5">
+            className="flex-shrink-0 flex items-center min-h-11 text-xs font-bold text-polo-gold bg-polo-navy rounded-lg px-3">
             Ir agora →
           </Link>
         </div>

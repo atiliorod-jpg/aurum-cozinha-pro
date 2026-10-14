@@ -172,7 +172,7 @@ export function SecaoImpressora({ impressoras }) {
               </select>
             </label>
           )}
-          <p className="text-[11px] text-gray-600">O plano passa a ser pago no {planoPorId(formaDoPedido).label.toLowerCase()} enquanto a impressora estiver sendo paga.</p>
+          <p className="text-xs text-gray-600">O plano passa a ser pago no {planoPorId(formaDoPedido).label.toLowerCase()} enquanto a impressora estiver sendo paga.</p>
           <div className="flex gap-2">
             <Botao tamanho="sm" variante="secundario" onClick={() => setPedindo(false)} disabled={enviando}>Cancelar</Botao>
             <Botao tamanho="sm" onClick={pedir} disabled={enviando}>{enviando ? 'Enviando…' : 'Enviar pedido'}</Botao>
@@ -362,7 +362,7 @@ export function SecaoCozinhaPro() {
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-bold text-polo-gold">O Aurum Cozinha Pro</p>
         {PRODUTOS.completo.emBreve
-          ? <span className="text-[10px] font-bold text-polo-navy bg-polo-gold rounded-full px-2 py-0.5 flex-shrink-0">em breve</span>
+          ? <span className="text-xs font-bold text-polo-navy bg-polo-gold rounded-full px-2 py-0.5 flex-shrink-0">em breve</span>
           : <span className="text-xs text-white/80 flex-shrink-0">{brl(PRODUTOS.completo.precoMes)}/mês</span>}
       </div>
       <ul className="text-xs text-white/90 space-y-1">
@@ -370,7 +370,7 @@ export function SecaoCozinhaPro() {
         <li>Compras, produção por ficha e receitas</li>
         <li>Relatórios de consumo, perdas e custo</li>
       </ul>
-      <p className="text-[11px] text-white/70">Seus itens e etiquetas continuam onde estão.</p>
+      <p className="text-xs text-white/70">Seus itens e etiquetas continuam onde estão.</p>
       {PRODUTOS.completo.emBreve ? (
         <Botao variante="sobreNavy" tamanho="sm" onClick={() => abrirAjuda('pedido')}>Quero saber quando abrir</Botao>
       ) : (

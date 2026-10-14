@@ -45,7 +45,7 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
         className="w-full flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 text-left">
         <span className="text-polo-navy flex-shrink-0"><Icon name={atual.icone} size={20} /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Mostrando</span>
+          <span className="block text-xs font-semibold text-gray-600 uppercase tracking-wide">Mostrando</span>
           <span className="block text-sm font-bold text-polo-navy truncate">
             {atual.nome}{subtitulo(atual) ? ` · ${subtitulo(atual)}` : ''}
           </span>
@@ -66,7 +66,7 @@ export default function SeletorVisao({ valor, aoTrocar, comTodos = false }) {
                 <span className="text-polo-navy flex-shrink-0"><Icon name={e.icone} size={20} /></span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold text-polo-navy truncate">{e.nome}</span>
-                  {subtitulo(e) && <span className="block text-[11px] text-gray-600 truncate">{subtitulo(e)}</span>}
+                  {subtitulo(e) && <span className="block text-xs text-gray-600 truncate">{subtitulo(e)}</span>}
                 </span>
               </button>
             ))}

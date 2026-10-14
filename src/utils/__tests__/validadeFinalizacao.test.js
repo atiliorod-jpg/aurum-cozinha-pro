@@ -182,7 +182,7 @@ describe('imprimir pode dar entrada (decisão do dono)', () => {
   const tela = ler('../../components/EtiquetaPrint.jsx');
 
   it('só no Pro, na cozinha que tem Entradas, e nunca na reimpressão, no teste ou vindo de uma entrada', () => {
-    expect(tela).toMatch(/const podeDarEntrada = guardaHistorico && temRecurso\(modulo, 'entradas'\);/);
+    expect(tela).toMatch(/const podeDarEntrada = temEstoque && guardaHistorico && temRecurso\(modulo, 'entradas'\);/);
     expect(tela).toMatch(/!item\.origemRegistro\s+&& !item\.codigo && !item\.reimpressao && !item\.teste/);
   });
 

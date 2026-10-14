@@ -219,7 +219,7 @@ function FolhaDeBaixa({ etq, onFeito, acaoInicial = null, soPerdaNaDona = false 
           <input type="text" inputMode="decimal" value={qtdDigitada} onChange={e => setQtdDigitada(e.target.value)}
             aria-label={`Quantidade${unidade ? ` em ${unidade}` : ''}`} placeholder="Ex.: 1,5"
             className="w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-base" />
-          <span className="block text-[11px] text-gray-500 mt-1">
+          <span className="block text-xs text-gray-500 mt-1">
             A etiqueta não diz a medida. Dica: preencha a “Medida padrão” do item para não precisar digitar.
           </span>
         </label>
@@ -327,7 +327,7 @@ function AindaNaProducao({ etq, onFeito }) {
       <Botao onClick={receber}>
         {palpite.caso === 'conferida' ? 'Confirmar que chegou' : `Receber aqui${potes > 1 ? ` ${potes} embalagens` : ''}`}
       </Botao>
-      <p className="text-[11px] text-gray-500">Dá para desfazer em até 24 horas.</p>
+      <p className="text-xs text-gray-500">Dá para desfazer em até 24 horas.</p>
     </div>
   );
 }
@@ -341,7 +341,7 @@ function Resumo({ etq, val, prox }) {
   return (
     <div className="bg-polo-beige rounded-xl p-3">
       <p className="font-bold text-polo-navy text-lg leading-tight">{etq.nome}</p>
-      <p className="text-[11px] text-gray-600 mt-0.5">
+      <p className="text-xs text-gray-600 mt-0.5">
         código <span className="font-mono font-semibold">{codigoLegivel(etq.id)}</span>
         {etq.naFinalizacao
           ? ` · veio da Produção · ${prox.de} ${prox.de === 1 ? 'embalagem aqui' : 'embalagens aqui'}`
@@ -352,7 +352,7 @@ function Resumo({ etq, val, prox }) {
         {etq.validade ? <>Validade {fmtData(etq.validade)} · {val.texto}</> : 'Sem validade'}
       </p>
       {(etq.fabricacao || etq.responsavel) && (
-        <p className="text-[11px] text-gray-600">
+        <p className="text-xs text-gray-600">
           {etq.fabricacao && `${etq.tipoData === 'abertura' ? 'Aberta' : 'Manipulada'} em ${fmtData(etq.fabricacao)}`}
           {etq.responsavel && ` · por ${etq.responsavel}`}
         </p>

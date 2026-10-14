@@ -64,7 +64,7 @@ export default function Balanco() {
             O balanço soma estoques do mesmo tipo — por exemplo, dois Estoques Secos de
             unidades diferentes. Com um de cada, ele repetiria a tela de cada um.
           </p>
-          <Link to="/estoques" className="inline-block mt-3 text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5">
+          <Link to="/estoques" className="inline-flex items-center min-h-11 mt-3 text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3">
             Criar outro estoque
           </Link>
         </div>
@@ -86,7 +86,7 @@ export default function Balanco() {
               <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">
                 {moduloPorId(f.tipo).icone} {moduloPorId(f.tipo).label}
               </p>
-              <p className="text-[11px] text-gray-600">
+              <p className="text-xs text-gray-600">
                 {f.estoques.map(e => (variasUnidades ? `${e.nome} (${rotulo(e)})` : e.nome)).join(' · ')}
               </p>
             </div>
@@ -109,9 +109,9 @@ export default function Balanco() {
                               em cima, a unidade embaixo. */}
                           {variasUnidades ? (<>
                             {e.nome}
-                            <span className="block text-[11px] font-normal text-gray-600">{rotulo(e)}</span>
+                            <span className="block text-xs font-normal text-gray-600">{rotulo(e)}</span>
                           </>) : rotulo(e)}
-                          {e.arquivado &&<span className="block text-[11px] font-normal text-gray-600">arquivado</span>}
+                          {e.arquivado &&<span className="block text-xs font-normal text-gray-600">arquivado</span>}
                         </th>
                       ))}
                       <th className="text-right font-bold text-polo-navy px-3 py-2">Total</th>

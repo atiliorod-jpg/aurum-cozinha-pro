@@ -34,7 +34,7 @@ export default function Aviso({ tom = 'atencao', className = '', children }) {
     <p
       role={assertivo ? 'alert' : 'status'}
       aria-live={assertivo ? 'assertive' : 'polite'}
-      className={`text-[11px] font-semibold border rounded-lg px-2.5 py-2 ${TOM[tom] || TOM.atencao} ${className}`}>
+      className={`text-xs font-semibold border rounded-lg px-2.5 py-2 ${TOM[tom] || TOM.atencao} ${className}`}>
       {children}
     </p>
   );

@@ -119,6 +119,7 @@ export function UIProvider({ children }) {
       destinos: 'os destinos', fichas: 'as fichas', producoes: 'as receitas',
       locais: 'os destinos de saída', listaManual: 'a lista de compras',
       etiquetasAvulsas: 'as etiquetas avulsas', prefs: 'as configurações',
+      senhasEquipe: 'as senhas da equipe',
     };
     const handler = (e) => {
       const rotulo = ROTULOS[e.detail?.chave] || 'este catálogo';

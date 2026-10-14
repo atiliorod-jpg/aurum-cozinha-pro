@@ -15,6 +15,16 @@ const IGNORAR_GHSA = new Set([
   // 7.x". O backport saiu — estamos em react-router 7.18.2 e o advisory não é
   // mais reportado. Mesma regra de sempre: exceção que não protege mais nada
   // sai, senão volta a aceitar o aviso em silêncio se ele reaparecer.
+  //
+  // (13/10/2026) GHSA-vfj7-8cjw-p6xm, braces "stack exhaustion com padrão
+  // muito aninhado" (<= 3.0.3 — ou seja, TODAS as versões publicadas; não há
+  // correção). Chega por tailwindcss 3 → chokidar/micromatch/fast-glob, e só
+  // roda NA COMPILAÇÃO, expandindo os padrões de arquivo que NÓS escrevemos
+  // em tailwind.config.js (`content`). Nenhum dado de usuário passa por ele,
+  // e nada dele vai para o app publicado. A única saída que o npm oferece é
+  // o Tailwind 4 (mudança grande de versão). Revisitar quando o braces
+  // publicar a correção ou quando o app migrar para o Tailwind 4.
+  'GHSA-vfj7-8cjw-p6xm',
 ]);
 
 let saida;
@@ -42,13 +52,20 @@ for (const [nome, v] of graves) {
 // todos esses pacotes-causa já foram marcados ignoráveis. Loop de ponto
 // fixo (não um número fixo de passadas) porque cadeias reais chegam a
 // 8+ níveis (ex.: vite-plugin-pwa → workbox-build → … → brace-expansion).
+// ⚠️ Causa de nível MÉDIO (ou baixo) não segura a cadeia: a regra deste
+// script só barra high/critical, e um pacote só é "high" por causa de outro
+// high. Sem isto, o tailwindcss seguia barrado (13/10/2026) só porque também
+// puxa o postcss-nested, que é médio — depois de o braces ser documentado.
+const nomesGraves = new Set(graves.map(([nome]) => nome));
 let mudou = true;
 while (mudou) {
   mudou = false;
   for (const [nome, v] of graves) {
     if (ignoravel.has(nome)) continue;
     const refs = (v.via || []).filter(x => typeof x === 'string');
-    if (refs.length === (v.via || []).length && refs.length && refs.every(r => ignoravel.has(r))) {
+    if (refs.length === (v.via || []).length && refs.length
+        && refs.some(r => nomesGraves.has(r))
+        && refs.every(r => ignoravel.has(r) || !nomesGraves.has(r))) {
       ignoravel.add(nome);
       mudou = true;
     }

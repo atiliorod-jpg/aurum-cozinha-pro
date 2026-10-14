@@ -111,7 +111,7 @@ export default function FecharTurno() {
               <div className="grid grid-cols-2 gap-1.5">
                 {TURNOS.map(t => (
                   <button key={t} type="button" onClick={() => setTurno(t)}
-                    className={`py-2 rounded-lg text-xs font-semibold border-2 transition-colors
+                    className={`min-h-11 py-2 rounded-lg text-xs font-semibold border-2 transition-colors
                       ${turno === t ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
                     {t}
                   </button>
@@ -121,7 +121,7 @@ export default function FecharTurno() {
           </div>
           <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
           {aberto.aberturaEm && (
-            <p className="text-[11px] text-gray-600">
+            <p className="text-xs text-gray-600">
               Turno aberto desde o último fechamento ({fmtData(aberto.aberturaEm)}).
             </p>
           )}
@@ -138,14 +138,14 @@ export default function FecharTurno() {
         ) : (
           <div className="bg-white rounded-xl p-4">
             <p className="text-sm font-bold text-polo-navy mb-1">Contagem da bancada</p>
-            <p className="text-[11px] text-gray-500 mb-3">Deixe em branco o que zerou — em branco vale como sobra 0.</p>
+            <p className="text-xs text-gray-500 mb-3">Deixe em branco o que zerou — em branco vale como sobra 0.</p>
             <div className="space-y-2">
               {linhas.map(l => (
                 <div key={l.produtoId} className={`border rounded-xl p-3 ${l.inconsistente ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm text-gray-800 truncate">{l.nome}</p>
-                      <p className="text-[11px] text-gray-500">
+                      <p className="text-xs text-gray-500">
                         {l.abertura > 0 && <>abriu {fmtNum(l.abertura)} · </>}
                         recebeu {fmtNum(l.recebido)}
                         {l.perdido > 0 && <> · perdeu {fmtNum(l.perdido)}</>}
@@ -157,10 +157,10 @@ export default function FecharTurno() {
                         value={sobras[l.produtoId] ?? ''} onChange={e => setSobra(l.produtoId, e.target.value)}
                         aria-label={`Sobra de ${l.nome}`} placeholder="0"
                         className="w-20 text-center border border-gray-200 rounded-lg py-2 text-sm font-semibold" />
-                      <span className="text-[11px] text-gray-600 w-8">{l.unidade}</span>
+                      <span className="text-xs text-gray-600 w-8">{l.unidade}</span>
                     </div>
                   </div>
-                  <p className={`text-[11px] mt-1.5 font-semibold ${l.inconsistente ? 'text-orange-700' : 'text-polo-navy'}`}>
+                  <p className={`text-xs mt-1.5 font-semibold ${l.inconsistente ? 'text-orange-700' : 'text-polo-navy'}`}>
                     {l.inconsistente
                       ? `Sobra acima do disponível (${fmtNum(l.sobra)} > ${fmtNum(l.disponivel)})`
                       : `Consumo do turno: ${fmtNum(l.consumo)} ${l.unidade}`}

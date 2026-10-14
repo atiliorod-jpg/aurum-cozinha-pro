@@ -83,7 +83,7 @@ export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades
               <span className="min-w-0">
                 <span className="block font-bold text-polo-navy">
                   {u.nome}
-                  {ativa && <span className="ml-2 text-[11px] font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">aberta</span>}
+                  {ativa && <span className="ml-2 text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">aberta</span>}
                 </span>
                 <span className="block text-xs text-gray-500 mt-0.5">
                   {u.principal ? 'Unidade principal' : u.cnpj ? `CNPJ ${formatarCNPJ(u.cnpj)}` : 'Unidade'}
@@ -109,7 +109,7 @@ export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades
       {grupos.map(g => (
       <div key={g.id || 'principal'} className="space-y-3">
       {agrupar && (
-        <p className="text-[11px] font-bold text-gray-600 uppercase tracking-wide px-1 pt-1">
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide px-1 pt-1">
           {g.nome}{g.principal ? ' · principal' : ''}
         </p>
       )}
@@ -126,7 +126,7 @@ export default function SeletorModulo({ comoTela = false, aoEscolher, soUnidades
             <span className="min-w-0">
               <span className="block font-bold text-polo-navy">
                 {e.nome}
-                {ativo && <span className="ml-2 text-[11px] font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">aberto</span>}
+                {ativo && <span className="ml-2 text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5">aberto</span>}
               </span>
               <span className="block text-xs text-gray-500 mt-0.5">
                 {/* O estabelecimento manda quando existe: com dois restaurantes

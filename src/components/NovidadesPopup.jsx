@@ -44,7 +44,7 @@ export default function NovidadesPopup() {
     <Dialogo aoFechar={fechar} titulo="O que há de novo"
       forma="folha" largura="md" camada={60} respiro="p5">
       <>
-        <p className="text-[11px] text-gray-600 mb-3">{ultimoRelease.titulo} · {ultimoRelease.data}</p>
+        <p className="text-xs text-gray-600 mb-3">{ultimoRelease.titulo} · {ultimoRelease.data}</p>
         <ul className="space-y-2">
           {ultimoRelease.itens.map((it, i) => (
             <li key={i} className="text-sm text-gray-700 flex gap-2">

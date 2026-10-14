@@ -18,6 +18,9 @@ import { pode } from '../utils/permissoes';
 import Esqueleto from '../components/Esqueleto';
 import { linkSuporte } from '../utils/suporte';
 import Icon from '../components/Icons';
+import QuemImprime, { FaixaOperador } from '../components/QuemImprime';
+import { useOperador } from '../store/OperadorContext';
+import { faltasDoPrimeiroUso } from '../utils/primeiroUso';
 
 // Guia da impressora — duas situações, passo a passo curto. Imprimível.
 //
@@ -103,13 +106,13 @@ function GuiaImpressora() {
           <div className={`px-4 pb-4 ${aberto === t.id ? '' : 'hidden'} print:block`}>
             <p className="hidden print:block font-bold text-sm text-polo-navy mb-1">{t.titulo}</p>
             <div className="bg-polo-beige rounded-lg p-3 mb-3">
-              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide mb-0.5">Como fica a impressão</p>
+              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-0.5">Como fica a impressão</p>
               <p className="text-xs text-gray-700">{t.comoFica}</p>
             </div>
             <ol className="space-y-2">
               {t.passos.map((p, i) => (
                 <li key={i} className="flex gap-2 text-xs text-gray-700">
-                  <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-[11px]">{i + 1}</span>
+                  <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-xs">{i + 1}</span>
                   <span className="pt-0.5">{p}</span>
                 </li>
               ))}
@@ -142,10 +145,18 @@ function GuiaImpressora() {
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
 export default function Etiquetas() {
-  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes, nuvemCarregada } = useApp();
+  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes, nuvemCarregada, pessoas } = useApp();
   const { abrirEtiquetas } = useUI();
+  // ⚠️ "QUEM VAI IMPRIMIR?" ANTES DE TUDO (13/10/2026, pedido do dono, como
+  // na Suflex): com a equipe cadastrada, a busca só aparece depois que a
+  // pessoa toca no nome (e digita a senha, se tiver). A etiqueta sai com o
+  // nome dela. Equipe vazia: tudo como era antes.
+  const { operador, comEquipe } = useOperador();
+  const precisaEscolher = comEquipe && !operador;
 
-  const { sessao, impersonando } = useAuth();
+  const { sessao, impersonando, temPermissao } = useAuth();
+  // o aviso de equipe vazia não repete o PrimeiroUso, que já pede os nomes
+  const primeiroUsoNaTela = faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria: temPermissao('diretoria') }).mostrar;
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   const armazenamentos = armazenamentosAtivos(prefs);
   // Prazos que o item tem, por estado, na ordem configurada. Só os preenchidos:
@@ -238,7 +249,8 @@ export default function Etiquetas() {
     prazos: prazosDoProduto(p),
     // sugestão de porcionamento: evita digitar a gramatura a cada impressão
     medida: medidaDoProduto(p),
-    responsavel: prefs.responsavel || '',
+    // com equipe, quem entrou pelo nome; sem equipe, o último lembrado
+    responsavel: (comEquipe ? operador : prefs.responsavel) || '',
     quantidade: 1,
   }]);
   };
@@ -279,6 +291,21 @@ export default function Etiquetas() {
               conta nova imprimia um rolo inteiro com o RESP. em branco e nada
               avisava. Some sozinho quando as duas coisas estão preenchidas. */}
           <PrimeiroUso />
+          {precisaEscolher ? (<>
+            <QuemImprime />
+            {/* ler a etiqueta não assina nada: não precisa do nome */}
+            {!soEtiq && (
+              <Link to="/ler"
+                className="min-h-11 rounded-xl border border-polo-navy/30 bg-white text-polo-navy font-bold text-sm flex items-center justify-center gap-2">
+                <Icon name="camera" size={18} />Ler etiqueta (dar baixa)
+              </Link>
+            )}
+          </>) : (<>
+          {comEquipe ? <FaixaOperador /> : !primeiroUsoNaTela && (
+            <p className="text-xs text-gray-600 px-1">
+              Cadastre a equipe em Administração para cada pessoa imprimir no próprio nome.
+            </p>
+          )}
           {/* ⚠️ gray-600, NÃO gray-500. Esta frase fica direto no fundo bege da
               página (#F3EFE6), e ali o gray-500 dá 4,21 de contraste — abaixo
               do mínimo de 4,5 para texto normal. Dentro dos cartões brancos o
@@ -302,7 +329,7 @@ export default function Etiquetas() {
               busca ou filtra — aí ela já sabe o que procura. */}
           {!buscando && catAtiva === '' && atalhos.length > 0 && (
             <section aria-label="Mais usados">
-              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide px-1 mb-1.5">
+              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide px-1 mb-1.5">
                 Mais usados <span className="font-normal normal-case text-gray-600">· últimos 14 dias</span>
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -312,7 +339,7 @@ export default function Etiquetas() {
                     className="min-h-14 text-left bg-white border-2 border-polo-navy/15 rounded-xl px-3 py-2
                                active:scale-95 transition-transform flex flex-col justify-center">
                     <span className="text-sm font-bold text-polo-navy leading-tight line-clamp-2">{p.nome}</span>
-                    <span className="text-[11px] text-gray-600 truncate">{resumoDePrazos(p)}</span>
+                    <span className="text-xs text-gray-600 truncate">{resumoDePrazos(p)}</span>
                   </button>
                 ))}
               </div>
@@ -368,7 +395,7 @@ export default function Etiquetas() {
                     tela e a pessoa perde de vista em que ala está. Ele fica
                     colado no topo da lista enquanto aquele grupo passa. */}
                 <h2 className="sticky top-0 z-10 bg-polo-beige/95 backdrop-blur px-4 py-1.5
-                               text-[11px] font-bold text-polo-navy uppercase tracking-wide
+                               text-xs font-bold text-polo-navy uppercase tracking-wide
                                border-b border-gray-200">
                   {categoria}
                 </h2>
@@ -394,7 +421,7 @@ export default function Etiquetas() {
                   </div>
                 </div>
                 <button onClick={() => imprimirProduto(p)} aria-label={`Imprimir etiqueta de ${p.nome}`}
-                  className="bg-polo-navy text-polo-gold font-bold text-xs px-3.5 py-2.5 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
+                  className="bg-polo-navy text-polo-gold font-bold text-sm px-4 min-h-11 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
                   Imprimir
                 </button>
               </div>
@@ -402,6 +429,7 @@ export default function Etiquetas() {
               </div>
             ))}
           </div>
+          </>)}
         </div>
       )}
     </Layout>

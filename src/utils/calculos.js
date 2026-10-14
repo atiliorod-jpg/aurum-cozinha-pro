@@ -18,8 +18,8 @@ export const corStatus = (status) => ({
   'critico':  { bg: 'bg-orange-100', text: 'text-orange-800', badge: 'bg-orange-700 text-white', label: 'Abaixo do mínimo' },
   'ok':       { bg: 'bg-green-50',   text: 'text-green-800',  badge: 'bg-green-700 text-white',  label: 'Normal' },
   'excesso':  { bg: 'bg-blue-50',    text: 'text-blue-800',   badge: 'bg-blue-700 text-white',   label: 'Acima do máximo' },
-  'sem-meta': { bg: 'bg-gray-50',    text: 'text-gray-600',   badge: 'bg-gray-400 text-white',   label: '—' },
-})[status] || { bg: 'bg-gray-50', text: 'text-gray-600', badge: 'bg-gray-400 text-white', label: '—' };
+  'sem-meta': { bg: 'bg-gray-50',    text: 'text-gray-600',   badge: 'bg-gray-500 text-white',   label: '—' },
+})[status] || { bg: 'bg-gray-50', text: 'text-gray-600', badge: 'bg-gray-500 text-white', label: '—' };
 
 export const pctBarra = (atual, max) => {
   if (!max) return 0;
@@ -40,4 +40,13 @@ export const totalPorProduto = (registros) => {
 };
 
 // Nome legível de um produto a partir do id (compartilhado pelas telas)
-export const nomeProduto = (produtos, id) => produtos.find(p => p.id === id)?.nome || id;
+// ⚠️ ITEM QUE SAIU DO CATÁLOGO APARECE COMO "Item apagado", nunca pelo código
+// interno (auditoria de 14/10/2026): o Relatório mostrava "empanado",
+// "bib_frango_desfiado" — palavras que ninguém da cozinha escreveu.
+export const ITEM_APAGADO = 'Item apagado';
+export const DESTINO_REMOVIDO = 'Destino removido';
+export const nomeProduto = (produtos, id) =>
+  (produtos || []).find(p => p.id === id)?.nome || (id ? ITEM_APAGADO : '');
+// o destino 'producao' é o consumo interno da produção, não um local cadastrado
+export const nomeDestino = (locais, id) =>
+  (id === 'producao' ? 'Produção' : (locais || []).find(l => l.id === id)?.nome) || (id ? DESTINO_REMOVIDO : '');

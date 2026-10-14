@@ -215,7 +215,9 @@ describe('as travas no código', () => {
 
   it('o QR só no Pro, e a reimpressão mantém o código', () => {
     const ep = ler('../../components/EtiquetaPrint.jsx');
-    expect(ep).toMatch(/const qrLigado = guardaHistorico && configEtiqueta\(prefs\)\.incluirQR !== false;/);
+    expect(ep).toMatch(/const qrLigado = temEstoque && guardaHistorico && configEtiqueta\(prefs\)\.incluirQR !== false;/);
+    // "só no Pro" = o produto com estoque (o histórico vale nos dois planos)
+    expect(ep).toMatch(/const temEstoque = produtoTem\(produto, 'estoque'\);/);
     expect(ep).toMatch(/_lotes: Array\.from\(\{ length: n \}, \(\) => i\.codigo \|\| gerarLoteId\(\)\)/);
     expect(ep).toMatch(/if \(item\.codigo\) return;/);
     expect(ler('../../pages/etiquetas/Impressas.jsx')).toMatch(/codigo: e\.id,/);

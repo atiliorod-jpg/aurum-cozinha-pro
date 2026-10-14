@@ -245,7 +245,7 @@ export default function Compras() {
           ['lista', `Lista de compras${listaCompleta.length + listaManual.length ? ` (${listaCompleta.length + listaManual.length})` : ''}`],
         ].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-colors
+            className={`flex-1 min-h-11 py-2 rounded-lg text-xs font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
             {l}
           </button>
@@ -303,10 +303,10 @@ export default function Compras() {
                       return (
                         <div key={`g-${entrada.materiaPrima}`} className="bg-white rounded-xl overflow-hidden border border-polo-gold/50">
                           <div className="px-4 py-2 bg-polo-beige border-b border-polo-gold/30 flex items-center justify-between">
-                            <span className="text-[11px] font-bold text-polo-navy bg-polo-gold px-1.5 py-0.5 rounded uppercase">
+                            <span className="text-xs font-bold text-polo-navy bg-polo-gold px-1.5 py-0.5 rounded uppercase">
                               Matéria-prima
                             </span>
-                            <span className="text-[11px] text-polo-navy/60">{entrada.itens.length} produtos</span>
+                            <span className="text-xs text-polo-navy/60">{entrada.itens.length} produtos</span>
                           </div>
                           <div className="px-4 py-3 space-y-2">
                             <div className="font-semibold text-sm text-gray-900">{entrada.materiaPrima}</div>
@@ -319,7 +319,7 @@ export default function Compras() {
                                   <div className="text-base font-bold text-polo-gold">{fmtNum(entrada.sugerido)}</div>
                                 )}
                                 {entrada.liquidoKg != null && (
-                                  <div className="text-[11px] text-white/75">líquido {fmtNum(entrada.liquidoKg)} kg somado</div>
+                                  <div className="text-xs text-white/75">líquido {fmtNum(entrada.liquidoKg)} kg somado</div>
                                 )}
                               </div>
                             </div>
@@ -334,7 +334,7 @@ export default function Compras() {
                                   <div key={it.p.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
                                     <div className="min-w-0">
                                       <div className="font-medium text-gray-800 truncate">{it.p.nome}</div>
-                                      <div className="text-[11px] text-gray-500">
+                                      <div className="text-xs text-gray-500">
                                         tem {fmtNum(it.atual)} {it.p.unidade} • mín {fmtNum(it.p.min)}
                                         {it.fc != null && it.fc > 0 && ` • FC ${Math.round(it.fc * 100)}%`}
                                       </div>
@@ -369,15 +369,15 @@ export default function Compras() {
                             : urgencia === 'critico' ? 'bg-orange-50 border-b border-orange-100'
                             : 'bg-yellow-50 border-b border-yellow-100'}`}>
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0
+                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0
                               ${urgencia === 'zerado' ? 'bg-red-600 text-white'
                                 : urgencia === 'critico' ? 'bg-orange-500 text-white'
                                 : 'bg-yellow-400 text-yellow-950'}`}>
                               {urgencia === 'zerado' ? 'Zerado' : 'Abaixo do mínimo'}
                             </span>
-                            <span className="text-[11px] text-gray-500 flex-shrink-0">{p.categoria}</span>
+                            <span className="text-xs text-gray-500 flex-shrink-0">{p.categoria}</span>
                           </div>
-                          <span className={`text-[11px] font-semibold flex-shrink-0
+                          <span className={`text-xs font-semibold flex-shrink-0
                             ${urgencia === 'zerado' ? 'text-red-600' : urgencia === 'critico' ? 'text-orange-600' : 'text-yellow-700'}`}>
                             {pctMin}% do mínimo
                           </span>
@@ -403,12 +403,12 @@ export default function Compras() {
                                 <>
                                   <div className="text-base font-bold text-polo-gold">{fmtNum(brutoKg)} kg</div>
                                   {fc != null && (
-                                    <div className="text-[11px] text-white/75">
+                                    <div className="text-xs text-white/75">
                                       líquido {fmtNum(liquidoKg)} kg • FC {Math.round(fc * 100)}% histórico
                                     </div>
                                   )}
                                   {fc == null && liquidoKg && (
-                                    <div className="text-[11px] text-white/75">sem FC histórico ainda</div>
+                                    <div className="text-xs text-white/75">sem FC histórico ainda</div>
                                   )}
                                 </>
                               ) : liquidoKg ? (
@@ -419,7 +419,7 @@ export default function Compras() {
                                     {fmtNum(Math.max((p.max || p.min) - atual, 0))} {p.unidade}
                                   </div>
                                   {p.unidade === 'unid' && !p.pesoUnidade && (
-                                    <div className="text-[11px] text-amber-400">cadastre peso/unid para ver em kg</div>
+                                    <div className="text-xs text-amber-400">cadastre peso/unid para ver em kg</div>
                                   )}
                                 </>
                               )}
@@ -449,7 +449,7 @@ export default function Compras() {
                     <div key={m.id} className={`flex items-center justify-between px-4 py-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                       <div className="min-w-0">
                         <div className="font-medium text-sm text-gray-800 truncate">{m.nome}</div>
-                        {m.origem && <div className="text-[11px] text-amber-700">{m.origem}</div>}
+                        {m.origem && <div className="text-xs text-amber-700">{m.origem}</div>}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                         <span className="font-bold text-polo-navy text-sm bg-polo-beige px-3 py-1.5 rounded-lg">
@@ -468,9 +468,9 @@ export default function Compras() {
                   <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
                     <div>
                       <p className="text-xs font-bold text-polo-navy">Ingredientes de receita (referência)</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">Não controlados em estoque — lembrete para o comprador.</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Não controlados em estoque — lembrete para o comprador.</p>
                     </div>
-                    <span className="text-[11px] font-bold text-gray-500 bg-white border border-gray-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                    <span className="text-xs font-bold text-gray-500 bg-white border border-gray-200 rounded-full px-2 py-0.5 flex-shrink-0">
                       {ingredientesReceita.length} {ingredientesReceita.length === 1 ? 'item' : 'itens'}
                     </span>
                   </div>
@@ -478,11 +478,11 @@ export default function Compras() {
                     <div key={item.nome} className={`px-4 py-3 ${i < arr.length - 1 ? 'border-b border-gray-50' : ''}`}>
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="font-semibold text-sm text-gray-800">{item.nome}</span>
-                        <span className="text-[11px] text-gray-600">· {item.usos.length} {item.usos.length === 1 ? 'receita' : 'receitas'}</span>
+                        <span className="text-xs text-gray-600">· {item.usos.length} {item.usos.length === 1 ? 'receita' : 'receitas'}</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {item.usos.map((u, j) => (
-                          <span key={j} className="text-[11px] bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5 text-gray-600">
+                          <span key={j} className="text-xs bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5 text-gray-600">
                             {u.receita} <span className="font-bold text-gray-800">{u.quantidade}{u.unidade}</span>
                           </span>
                         ))}
@@ -531,7 +531,7 @@ export default function Compras() {
                 <label className="block text-xs font-semibold text-gray-600 mb-1">
                   Fornecedor (opcional)
                   {fornecedorAuto && form.fornecedor && (
-                    <span className="ml-1 text-[11px] font-bold text-polo-gold bg-polo-navy px-1.5 py-0.5 rounded">auto</span>
+                    <span className="ml-1 text-xs font-bold text-polo-gold bg-polo-navy px-1.5 py-0.5 rounded">auto</span>
                   )}
                 </label>
                 <AutocompleteInput
@@ -587,12 +587,12 @@ export default function Compras() {
                   )}
                   {itemInfo.preparacoes.length > 0 && (
                     <div>
-                      <p className="text-[11px] font-semibold text-polo-navy/70 mb-1">
+                      <p className="text-xs font-semibold text-polo-navy/70 mb-1">
                         Esse FC vale para as {itemInfo.preparacoes.length} preparações que usam este ingrediente:
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {itemInfo.preparacoes.map((pr, i) => (
-                          <span key={i} className="text-[11px] bg-white text-polo-navy border border-polo-gold/40 rounded-full px-2 py-0.5">
+                          <span key={i} className="text-xs bg-white text-polo-navy border border-polo-gold/40 rounded-full px-2 py-0.5">
                             {pr.preparacao}
                           </span>
                         ))}
@@ -621,7 +621,7 @@ export default function Compras() {
                 placeholder="Ex.: -18 congelado, 4 resfriado"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               {form.temperatura !== '' && !isNaN(parseFloat(form.temperatura)) && (
-                <p className={`text-[11px] mt-1 ${avisoTemp(form.temperatura) ? 'text-orange-700 bg-orange-50 rounded-lg px-2 py-1' : 'text-green-700'}`}>
+                <p className={`text-xs mt-1 ${avisoTemp(form.temperatura) ? 'text-orange-700 bg-orange-50 rounded-lg px-2 py-1' : 'text-green-700'}`}>
                   {avisoTemp(form.temperatura) || 'Dentro da faixa esperada.'}
                 </p>
               )}
@@ -665,7 +665,7 @@ export default function Compras() {
                 <input id="cmp-val" type="date" value={form.validade}
                   onChange={e => set('validade', e.target.value)}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                   Vale para tudo o que veio nesta entrega. Sem ela o item entra no estoque
                   normalmente, só não aparece nos alertas de vencimento.
                 </p>
@@ -684,7 +684,7 @@ export default function Compras() {
                     placeholder="total da nota deste item"
                     className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
                 </div>
-                <p className="text-[11px] text-gray-600 mt-1 leading-relaxed">
+                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                   {custoPrevisto != null
                     ? `Fica ${custoPrevisto.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} por ${form.unidade}. Atualiza o custo do item.`
                     : 'Vira o custo do item, usado no Financeiro. Não aparece para quem não tem acesso a custos.'}

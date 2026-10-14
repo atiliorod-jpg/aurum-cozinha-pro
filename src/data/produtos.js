@@ -23,6 +23,10 @@ export const MOTIVOS_DESPERDICIO = [
   { cod: 'D', label: 'Devolução' },
   { cod: 'O', label: 'Outro' },
 ];
+// ⚠️ O MOTIVO POR EXTENSO (auditoria de 14/10/2026). A letra é só o código
+// guardado no lançamento; a tela mostrava "V · baixa" e "V — Vencimento".
+export const rotuloMotivo = (cod, outro = '') =>
+  (cod === 'O' && outro) ? outro : (MOTIVOS_DESPERDICIO.find(m => m.cod === cod)?.label || outro || cod || '');
 
 export const PRODUTOS_INICIAIS = [
   // BOVINOS
@@ -75,13 +79,8 @@ export const PRODUTOS_INICIAIS = [
 ];
 
 // ── Base "de fábrica" (o que um restaurante NOVO recebe ao se cadastrar) ──
-// Enxuta e genérica, com poucos exemplos para o cliente entender o padrão e
-// editar. A montagem completa do Polo fica em data/presetPolo.js (importável).
-export const CATEGORIAS_BASE = ['PROTEÍNAS', 'PRODUZIDOS', 'DIVERSOS'];
-
+// ⚠️ DESDE 14/10/2026 O CATÁLOGO NASCE VAZIO nos dois planos (ver CAT no
+// AppContext): quem preenche é a biblioteca de itens prontos. Os dois itens de
+// exemplo que moravam aqui saíram. A montagem completa do Polo continua em
+// data/presetPolo.js (importável).
 export const PESSOAS_BASE = [];
-
-export const PRODUTOS_BASE = [
-  { id: 'ex_proteina', nome: 'Filé (exemplo — edite ou apague)', categoria: 'PROTEÍNAS', unidade: 'kg', min: 0, max: 0, ativo: true },
-  { id: 'ex_produzido', nome: 'Molho da casa (exemplo — produzido)', categoria: 'PRODUZIDOS', unidade: 'L', min: 0, max: 0, ativo: true },
-];

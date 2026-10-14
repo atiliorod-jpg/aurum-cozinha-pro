@@ -6,9 +6,11 @@
 // Saídas agrupadas por DESTINO e, dentro de cada destino, por DIA.
 // Ignora as saídas internas de produção (destino 'producao'), que não são
 // transferência para uma unidade. Não mistura destinos: cada um é um bloco.
+import { nomeProduto, nomeDestino } from './calculos';
+
 export function saidasPorDestinoDia(saidas, produtos, locais) {
-  const nomeProd = (id) => (produtos.find(p => p.id === id)?.nome) || id;
-  const nomeDest = (id) => (locais.find(l => l.id === id)?.nome) || id;
+  const nomeProd = (id) => nomeProduto(produtos, id);
+  const nomeDest = (id) => nomeDestino(locais, id);
   const porDestino = new Map();
 
   for (const s of saidas) {
@@ -136,7 +138,7 @@ export function rendimentoPorItem(compras, aparas, desperdicio) {
 // Produção POR ITEM no período: soma o que foi produzido de cada produto final
 // (entradas geradas por uma produção). Base do "quanto produzi de cada item".
 export function producaoPorItem(entradas, produtos) {
-  const nomeProd = (id) => (produtos.find(p => p.id === id)?.nome) || id;
+  const nomeProd = (id) => nomeProduto(produtos, id);
   const unProd = (id) => (produtos.find(p => p.id === id)?.unidade) || '';
   const m = {};
   (entradas || []).filter(e => e.producaoId).forEach(e => {

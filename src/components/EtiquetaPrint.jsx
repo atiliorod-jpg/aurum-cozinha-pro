@@ -8,6 +8,9 @@ import { dadosDaEtiqueta, temUnidadesExtras, bloqueioDaFixa } from '../utils/uni
 import { formatarCNPJ } from '../utils/documentos';
 import { erroEmPortugues } from '../utils/erros';
 import ResponsavelSelect from './ResponsavelSelect';
+import QuemImprime from './QuemImprime';
+import { useOperador } from '../store/OperadorContext';
+import { assinaturaDaJanela } from '../utils/senhaEquipe';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
 import Aviso from './Aviso';
@@ -73,11 +76,11 @@ function Dica({ texto }) {
     <>
       <button type="button" onClick={() => setAberta(v => !v)}
         aria-label={aberta ? 'Fechar explicação' : 'O que é isto?'} aria-expanded={aberta}
-        className="ml-1 w-4 h-4 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold leading-none align-middle">
-        !
+        className="inline-flex items-center justify-center w-11 h-11 -my-3 align-middle">
+        <span aria-hidden="true" className="w-5 h-5 rounded-full bg-gray-200 text-gray-700 text-xs font-bold leading-none flex items-center justify-center">!</span>
       </button>
       {aberta && (
-        <span className="block font-normal normal-case text-[11px] text-gray-600 mt-1">{texto}</span>
+        <span className="block font-normal normal-case text-xs text-gray-600 mt-1">{texto}</span>
       )}
     </>
   );
@@ -307,8 +310,15 @@ export default function EtiquetaPrint() {
   // ligado por padrão (Configurações → Etiquetas desliga).
   // ⚠️ `guardaHistorico` mora AQUI porque o QR depende dele — ver o porquê
   // do nome em `registrarImpressao`, mais abaixo.
-  const guardaHistorico = produtoTem(produtoAtivo(sessao, impersonando), 'historicoEtiquetas');
-  const qrLigado = guardaHistorico && configEtiqueta(prefs).incluirQR !== false;
+  // ⚠️ "SÓ NO PRO" É `estoque`, NÃO `historicoEtiquetas` (achado do dono,
+  // 14/10/2026). O histórico vale nos DOIS planos desde 09/09 (a aba
+  // Impressas do Etiquetas lê dele), então o QR e o "Dar entrada no estoque"
+  // apareciam no plano Etiquetas — que não tem estoque, nem tela que leia o
+  // código, nem a chave para desligar o QR (Ajustes esconde a opção).
+  const produto = produtoAtivo(sessao, impersonando);
+  const guardaHistorico = produtoTem(produto, 'historicoEtiquetas');
+  const temEstoque = produtoTem(produto, 'estoque');
+  const qrLigado = temEstoque && guardaHistorico && configEtiqueta(prefs).incluirQR !== false;
   const config = useMemo(() => ({ ...configEtiqueta(prefs), incluirQR: qrLigado }), [prefs, qrLigado]);
   // Estados de armazenamento configuráveis (Configurações → Sistema).
   const armazenamentos = armazenamentosAtivos(prefs);
@@ -318,7 +328,7 @@ export default function EtiquetaPrint() {
   // na cozinha que tem Entradas, a janela traz marcado "Dar entrada no
   // estoque". Não aparece quando a impressão já vem de uma entrada/produção
   // (`origemRegistro`), na reimpressão (mesmo código) nem na de teste.
-  const podeDarEntrada = guardaHistorico && temRecurso(modulo, 'entradas');
+  const podeDarEntrada = temEstoque && guardaHistorico && temRecurso(modulo, 'entradas');
   const elegivelEntrada = (item) => podeDarEntrada && !!item?.produtoId && !item.origemRegistro
     && !item.codigo && !item.reimpressao && !item.teste;
 
@@ -330,9 +340,12 @@ export default function EtiquetaPrint() {
   // no lugar (texto novo + QR velho) até o laço assíncrono terminar.
   const [qrs, setQrs] = useState({}); // payload -> dataURL
   const [horaImpressao, setHoraImpressao] = useState('');
-  // Responsável ÚNICO da impressão (sai no RESP. de todas as etiquetas) —
-  // escolhido entre as pessoas da equipe, como nas telas de registro
-  const [responsavel, setResponsavel] = useState('');
+  // Responsável ÚNICO da impressão (sai no RESP. de todas as etiquetas).
+  // ⚠️ SÓ É ESCOLHIDO NA MÃO COM A EQUIPE VAZIA (13/10/2026). Com a equipe
+  // cadastrada, quem assina é quem entrou pelo nome e a senha ("Quem vai
+  // imprimir?") — a lista livre deixava qualquer um imprimir no nome de
+  // qualquer outro. A regra mora em `assinaturaDaJanela`, logo abaixo.
+  const [respManual, setRespManual] = useState('');
   // Impressão direta (BLE + TSPL) — caminho a mais, nunca substituto
   const [enviando, setEnviando] = useState(false);
   // ⚠️ Guarda TOM junto do texto. "Nenhuma impressora escolhida" não é erro
@@ -349,6 +362,28 @@ export default function EtiquetaPrint() {
   // render: a conexão vive num módulo, fora do React, e mudá-la não repinta
   // nada. O rótulo do botão dependia dessa leitura e só acertava por acaso.
   const [conectada, setConectada] = useState(false);
+
+  // Pergunta "saiu no papel?" do caminho do computador — ver `responderPapel`.
+  // Guarda o PEDIDO de etiquetas que a gerou, não um sim/não: fechou e abriu
+  // outro, a pergunta some sozinha.
+  // (mora aqui em cima porque o nome de quem assina depende dela, logo abaixo)
+  const [perguntaPara, setPerguntaPara] = useState(null);
+  // respondeu "Não": a janela mostra o que conferir (preso ao mesmo pedido)
+  const [naoSaiuPara, setNaoSaiuPara] = useState(null);
+
+  // ── Quem assina (ver utils/senhaEquipe.js) ─────────────────────────
+  const { operador, comEquipe, trocar: trocarOperador } = useOperador();
+  const assinatura = assinaturaDaJanela({ itens, comEquipe, operador, manual: respManual });
+  // ⚠️ O NOME FICA CONGELADO enquanto a etiqueta está saindo: na pergunta
+  // "Saiu no papel?" e no envio pelo Bluetooth. A janela de impressão do
+  // computador pode ficar aberta mais de 5 minutos — o nome de quem entrou
+  // expiraria no meio, e o "Sim" contaria a etiqueta sem assinatura.
+  const [congelado, setCongelado] = useState(null); // { pedido, nome }
+  const congelaAgora = !!congelado && congelado.pedido === etiquetaState
+    && (perguntaPara === etiquetaState || enviando);
+  const responsavel = congelaAgora ? congelado.nome : assinatura.nome;
+  // com a equipe cadastrada e ninguém escolhido, os botões não imprimem
+  const faltaQuemImprime = !congelaAgora && assinatura.falta;
 
   // A regra de qual caminho aparece vive em impressoraBLE, com teste.
   const { direto: mostrarDireto, dialogo: mostrarDialogo, semBluetooth } = caminhosDeImpressao();
@@ -420,7 +455,7 @@ export default function EtiquetaPrint() {
         };
       }));
       setHoraImpressao(fmtHora());
-      setResponsavel(etiquetaState[0]?.responsavel || prefs.responsavel || '');
+      setRespManual(etiquetaState[0]?.responsavel || prefs.responsavel || '');
     } else {
       setItens([]); setQrs({});
     }
@@ -644,13 +679,6 @@ export default function EtiquetaPrint() {
     return () => { ativo = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens/responsavel (já na lista); qrs é lido só como cache
   }, [itens, config.incluirQR, responsavel]);
-
-  // Pergunta "saiu no papel?" do caminho do computador — ver `responderPapel`.
-  // Guarda o PEDIDO de etiquetas que a gerou, não um sim/não: fechou e abriu
-  // outro, a pergunta some sozinha.
-  const [perguntaPara, setPerguntaPara] = useState(null);
-  // respondeu "Não": a janela mostra o que conferir (preso ao mesmo pedido)
-  const [naoSaiuPara, setNaoSaiuPara] = useState(null);
 
   if (!etiquetaState) return null;
 
@@ -899,7 +927,8 @@ export default function EtiquetaPrint() {
   // a etiqueta de teste da aba Impressora: não exige quem assina, não pergunta
   // se saiu no papel e não registra nada (ver aoImprimir)
   const soTeste = itens.length > 0 && itens.every(i => i.teste);
-  const faltaResponsavel = !soTeste && config.exigirResponsavel === true && !responsavel.trim();
+  const faltaResponsavel = !soTeste && config.exigirResponsavel === true && !responsavel.trim()
+    || faltaQuemImprime;
 
   // ⚠️ O RESUMO COLADO NO BOTÃO (pedido do dono, 23/09/2026). O botão de
   // imprimir ficou fixo no rodapé da janela — antes ele morava no FIM, e a
@@ -957,7 +986,8 @@ export default function EtiquetaPrint() {
   };
 
   const imprimir = () => {
-    if (bloqueioUnidade) return;
+    if (bloqueioUnidade || faltaQuemImprime) return;
+    setCongelado({ pedido: etiquetaState, nome: responsavel });
     window.print();
     // No Chrome do computador `print()` só volta quando a janela fecha, então
     // a pergunta aparece DEPOIS de a pessoa imprimir ou cancelar.
@@ -970,7 +1000,8 @@ export default function EtiquetaPrint() {
   // todos os problemas de impressão. O que o app manda é o que sai no papel.
   // Só no Chrome do Android/desktop: o Safari não implementa Web Bluetooth.
   const imprimirDireto = async () => {
-    if (bloqueioUnidade) return;
+    if (bloqueioUnidade || faltaQuemImprime) return;
+    setCongelado({ pedido: etiquetaState, nome: responsavel });
     avisarBLE(null); setEnviando(true);
     // ⚠️ UM ITEM POR ENVIO, e não o lote inteiro numa tacada. Antes tudo ia
     // numa chamada só: se a impressora desligasse ou saísse de alcance no meio,
@@ -1068,16 +1099,37 @@ export default function EtiquetaPrint() {
           )}
           {variasUnidades && (
             <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
-              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide">Imprimindo pela unidade</p>
+              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Imprimindo pela unidade</p>
               <p className="text-sm font-bold text-polo-navy">{nomeImpresso || '—'}</p>
               {estabelecimento.cnpj && (
-                <p className="text-[11px] text-gray-700">CNPJ {formatarCNPJ(estabelecimento.cnpj)}</p>
+                <p className="text-xs text-gray-700">CNPJ {formatarCNPJ(estabelecimento.cnpj)}</p>
               )}
             </div>
           )}
-          <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+          {/* equipe vazia: o seletor de sempre */}
+          {assinatura.regra === 'manual' && <ResponsavelSelect value={respManual} onChange={setRespManual} />}
+          {/* reimpressão: o papel novo sai igual ao que estragou, sem senha */}
+          {assinatura.regra === 'original' && (
+            <p className="text-xs text-gray-700 bg-polo-beige rounded-lg px-3 py-2">
+              Assinatura da etiqueta original: <strong className="text-polo-navy">{responsavel || '—'}</strong>
+            </p>
+          )}
+          {/* ⚠️ SEM NINGUÉM ESCOLHIDO, A JANELA PERGUNTA. Ela também abre por
+              Entradas, Produção e "Mais usados" — sem isto, esses caminhos
+              seriam o atalho para imprimir sem passar pelos nomes. */}
+          {assinatura.regra === 'operador' && (faltaQuemImprime ? <QuemImprime dentroDaJanela /> : (
+            <div className="flex items-center justify-between gap-2 bg-polo-beige rounded-lg pl-3 pr-1 py-1">
+              <p className="text-xs text-gray-700 min-w-0 truncate">Assina: <strong className="text-polo-navy">{responsavel}</strong></p>
+              {!congelaAgora && (
+                <button type="button" onClick={trocarOperador}
+                  className="min-h-11 px-3 rounded-lg text-xs font-bold text-polo-navy flex-shrink-0">
+                  Trocar
+                </button>
+              )}
+            </div>
+          ))}
           {bloqueioUnidade && <Aviso tom="atencao">{bloqueioUnidade}</Aviso>}
-          {faltaResponsavel && (
+          {faltaResponsavel && !faltaQuemImprime && (
             <Aviso tom="atencao">Escolha quem assina antes de imprimir.</Aviso>
           )}
 
@@ -1115,7 +1167,7 @@ export default function EtiquetaPrint() {
                   {comArmazenamento && item.armazenamento !== null && (
                     <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
                       <label htmlFor={`ep-armaz-${idx}`}
-                        className="block text-[11px] font-bold text-polo-navy uppercase tracking-wide mb-1">
+                        className="block text-xs font-bold text-polo-navy uppercase tracking-wide mb-1">
                         Armazenamento — sai impresso na etiqueta
                       </label>
                       {/* ⚠️ Trocar o estado RESEMEIA os dias com o prazo
@@ -1147,14 +1199,14 @@ export default function EtiquetaPrint() {
                   )}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label htmlFor={`ep-data-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">
+                      <label htmlFor={`ep-data-${idx}`} className="block text-xs font-semibold text-gray-500 mb-0.5">
                         {item.tipoData === 'abertura' ? 'Data de abertura' : 'Data de manipulação'}
                       </label>
                       <input id={`ep-data-${idx}`} type="date" value={item.dataFabricacao} max={hoje()}
                         onChange={e => setItem(idx, { dataFabricacao: e.target.value })} className={inputCls} />
                     </div>
                     <div>
-                      <label htmlFor={`ep-medida-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
+                      <label htmlFor={`ep-medida-${idx}`} className="block text-xs font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
                       <input id={`ep-medida-${idx}`} type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
                         onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
                     </div>
@@ -1166,7 +1218,7 @@ export default function EtiquetaPrint() {
                           jogava o foco no campo — atrapalhando justo quem
                           navega por teclado ou leitor de tela. */}
                       <div className="mb-0.5">
-                        <label htmlFor={`ep-dias-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                        <label htmlFor={`ep-dias-${idx}`} className="text-xs font-semibold text-gray-500">
                           Validade (dias)
                         </label>
                         <Dica texto="Vem do cadastro do item. Mude se a embalagem deste lote disser outro prazo." />
@@ -1186,7 +1238,7 @@ export default function EtiquetaPrint() {
                   {/* Prazo que destoa do cadastrado — aviso, nunca bloqueio:
                       lote com prazo diferente do padrão é caso real. */}
                   {avisoDePrazo(item.diasOverride, diasDoCadastro(item)) && (
-                    <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                    <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
                       {avisoDePrazo(item.diasOverride, diasDoCadastro(item))}
                     </p>
                   )}
@@ -1194,7 +1246,7 @@ export default function EtiquetaPrint() {
                       pessoa achar que o prazo veio do cadastro dela. Aqui ela
                       lê de onde veio e que o rótulo do fabricante manda mais. */}
                   {usandoSugestaoDeAbertura(item, item.diasOverride) && (
-                    <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
+                    <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
                       Sem prazo cadastrado. Sugerimos <strong>3 dias</strong>, o limite usual
                       para produto aberto sob refrigeração — se a embalagem disser outro prazo
                       depois de aberto, é o dela que vale.
@@ -1203,7 +1255,7 @@ export default function EtiquetaPrint() {
                   <div className="grid grid-cols-2 gap-2">
                     {config.campos.valOriginal !== false && <div>
                       <div className="mb-0.5">
-                        <label htmlFor={`ep-valorig-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                        <label htmlFor={`ep-valorig-${idx}`} className="text-xs font-semibold text-gray-500">
                           Val. original
                         </label>
                         <Dica texto="A data impressa na embalagem do fabricante. Não muda o vencimento — serve para avisar se o prazo da casa passar dela." />
@@ -1219,7 +1271,7 @@ export default function EtiquetaPrint() {
                         peça já virou dez porções. */}
                     {config.campos.lote !== false && <div>
                       <div className="mb-0.5">
-                        <label htmlFor={`ep-lote-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                        <label htmlFor={`ep-lote-${idx}`} className="text-xs font-semibold text-gray-500">
                           Lote do fabricante
                         </label>
                         <Dica texto="O número do lote impresso na caixa ou no rótulo do fornecedor. Só isso liga este pote ao recall do frigorífico depois de porcionar." />
@@ -1270,14 +1322,14 @@ export default function EtiquetaPrint() {
                           <span className="text-sm text-gray-800">
                             Dar entrada no estoque{e.total > 0 && <>: <strong className="text-polo-navy">{fmtNum(e.total)} {e.unidade}</strong></>}
                             {campos.validade && <span className="text-gray-600"> · vence {fmtData(campos.validade)}</span>}
-                            <span className="block text-[11px] text-gray-600">
+                            <span className="block text-xs text-gray-600">
                               Desmarque se este item já entrou no estoque (lançado em Entradas ou Produção).
                             </span>
                           </span>
                         </label>
                         {marcado && !e.porEmbalagem && (
                           <label className="block pb-1.5">
-                            <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">
+                            <span className="block text-xs font-semibold text-gray-600 mb-0.5">
                               Quanto entra no estoque{e.unidade ? ` (em ${e.unidade})` : ''}? A medida não diz.
                             </span>
                             <input type="text" inputMode="decimal" value={item._qtdEntrada ?? ''} placeholder="Ex.: 2,5"
@@ -1351,7 +1403,7 @@ export default function EtiquetaPrint() {
                 </div>
               </div>
               {itens.length > 1 && (
-                <p className="text-[11px] text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
+                <p className="text-xs text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
               )}
             </div>
           )}
@@ -1366,7 +1418,7 @@ export default function EtiquetaPrint() {
               app aberto dentro do WhatsApp). Aí o diálogo volta, porque é a
               única saída que resta — mas com uma linha dizendo por quê. */}
           {mostrarDireto && (
-            <p className="text-[11px] text-gray-600 text-center">
+            <p className="text-xs text-gray-600 text-center">
               Sai direto, no tamanho exato. Sem janela de impressão.
             </p>
           )}
@@ -1377,7 +1429,7 @@ export default function EtiquetaPrint() {
               não fala Bluetooth também. A pessoa baixava o Chrome, dava no
               mesmo, e ia procurar defeito no aparelho. */}
           {semBluetooth && (
-            <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
+            <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
               {ehIOS()
                 ? <>No iPhone e no iPad nenhum navegador conecta na impressora — é limitação
                     do sistema da Apple, e trocar de navegador não resolve. Use esta janela de

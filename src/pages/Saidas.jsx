@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import SemItens from '../components/SemItens';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -200,7 +201,7 @@ export default function Saidas() {
           {!buscando && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               <button onClick={() => setCatAtiva('')}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
                   ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
                 Todos{itensPreenchidos.length > 0 && ` (${itensPreenchidos.length})`}
               </button>
@@ -208,9 +209,9 @@ export default function Saidas() {
                 const nCat = itensPreenchidos.filter(([id]) => produtos.find(p => p.id === id)?.categoria === c).length;
                 return (
                   <button key={c} onClick={() => setCatAtiva(c)}
-                    className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                    className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
                       ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
-                    {c}{nCat > 0 && <span className="ml-1 bg-polo-gold text-polo-navy rounded-full px-1.5 text-[11px] font-bold">{nCat}</span>}
+                    {c}{nCat > 0 && <span className="ml-1 bg-polo-gold text-polo-navy rounded-full px-1.5 text-xs font-bold">{nCat}</span>}
                   </button>
                 );
               })}
@@ -218,15 +219,15 @@ export default function Saidas() {
           )}
 
           <div className="bg-white rounded-xl overflow-hidden">
-            {produtosVisiveis.length === 0 && (
-              <div className="text-center text-gray-500 py-6 text-sm">Nenhum produto encontrado.</div>
+            {produtosAtivos.length === 0 && !buscando ? <SemItens /> : produtosVisiveis.length === 0 && (
+              <div className="text-center text-gray-600 py-6 text-sm">Nenhum produto encontrado.</div>
             )}
             {produtosVisiveis.map((p, i, arr) => (
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
                   <div className="text-xs text-gray-500">
-                    Em estoque: <span className={`font-semibold ${(estoque[p.id] ?? 0) <= 0 ? 'text-red-500' : 'text-gray-600'}`}>{fmtNum(estoque[p.id] ?? 0)} {p.unidade}</span>
+                    Em estoque: <span className={`font-semibold ${(estoque[p.id] ?? 0) <= 0 ? 'text-red-700' : 'text-gray-600'}`}>{fmtNum(estoque[p.id] ?? 0)} {p.unidade}</span>
                   </div>
                   {(lotes[p.id] || []).length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -236,7 +237,7 @@ export default function Saidas() {
                           : dias <= 3 ? 'bg-orange-100 text-orange-700 border-orange-300'
                           : 'bg-gray-50 text-gray-500 border-gray-200';
                         return (
-                          <span key={`${l.validade}_${l.dataEntrada || ''}_${i}`} className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border ${cor}`}>
+                          <span key={`${l.validade}_${l.dataEntrada || ''}_${i}`} className={`text-xs font-semibold px-1.5 py-0.5 rounded border ${cor}`}>
                             {fmtNum(l.restante)} {p.unidade} • {dias < 0 ? 'VENCIDO ' : dias === 0 ? 'vence HOJE ' : 'vence '}{fmtData(l.validade)}
                             {i === 0 && lotes[p.id].length > 1 && ' ← pegar deste'}
                           </span>
@@ -287,12 +288,12 @@ export default function Saidas() {
                       <span className="font-bold text-red-700">−{qtd} {p?.unidade}</span>
                     </div>
                     {partes.length > 0 && (
-                      <p className="text-[11px] text-gray-600">
+                      <p className="text-xs text-gray-600">
                         {partes.map(x => `${fmtNum(x.quantidade)} vence ${fmtData(x.validade)}`).join(' + ')}
                       </p>
                     )}
                     {jaRecebidoHoje(id) > 0 && (
-                      <p className="text-[11px] font-semibold text-amber-800">
+                      <p className="text-xs font-semibold text-amber-800">
                         A Finalização já deu entrada pelo QR de {fmtNum(jaRecebidoHoje(id))} {p?.unidade} hoje. Não lance de novo o que ela já recebeu.
                       </p>
                     )}
@@ -341,11 +342,11 @@ ${aviso}` : ''}`, perigo: true, confirmar: 'Remover' });
                   return (
                     <div key={`${item.produtoId}_${i}`} className="text-sm border-t border-gray-50 pt-1 mt-1">
                       <div className="flex justify-between">
-                        <span className="text-gray-700">{p?.nome || item.produtoId}</span>
+                        <span className="text-gray-700">{p?.nome || nomeProduto(produtos, item.produtoId)}</span>
                         <span className="font-semibold text-red-600">−{item.quantidade} {p?.unidade}</span>
                       </div>
                       {(item.porValidade?.length > 0 || item.validade) && (
-                        <p className="text-[11px] text-gray-600">
+                        <p className="text-xs text-gray-600">
                           {item.porValidade?.length
                             ? item.porValidade.map(x => `${fmtNum(x.quantidade)} vence ${fmtData(x.validade)}`).join(' + ')
                             : `vence ${fmtData(item.validade)}`}

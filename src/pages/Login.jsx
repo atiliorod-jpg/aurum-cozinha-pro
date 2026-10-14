@@ -222,7 +222,7 @@ export default function Login() {
                 recusa de propósito. Abrir essa porta por um lead criaria vetor
                 de spam e enfraqueceria uma trava que custou duas migrações. */}
             <div className="border-t border-gray-100 pt-3 space-y-2">
-              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide text-center">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide text-center">
                 Conhecer o sistema
               </p>
 
@@ -233,7 +233,7 @@ export default function Login() {
                 </button>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-[11px] text-gray-600">
+                  <p className="text-xs text-gray-600">
                     Só para sabermos com quem falamos — a demonstração abre em seguida.
                   </p>
                   <input type="text" aria-label="Seu nome" value={demoNome}
@@ -256,7 +256,7 @@ export default function Login() {
                             : <>R$ {fmtPreco(p.precoMes)}<span className="font-normal text-gray-500">/mês</span></>}
                         </span>
                       </span>
-                      <span className="block text-[11px] text-gray-600 mt-0.5">{p.resumo}</span>
+                      <span className="block text-xs text-gray-600 mt-0.5">{p.resumo}</span>
                     </button>
                   ))}
                   <Msg erro={erro} info={info} />
@@ -264,7 +264,7 @@ export default function Login() {
                     className="w-full text-xs text-gray-500">Cancelar</button>
                 </div>
               )}
-              <p className="text-[11px] text-gray-600 text-center">
+              <p className="text-xs text-gray-600 text-center">
                 Restaurante de exemplo. Nada é salvo: os dados voltam ao início quando você sair.
               </p>
             </div>
@@ -307,7 +307,7 @@ export default function Login() {
               Mandamos um link para <strong className="text-polo-navy">{aguardandoEmail}</strong>.
               Toque nele para ativar a conta e entrar.
             </p>
-            <p className="text-[11px] text-gray-600">
+            <p className="text-xs text-gray-600">
               Não chegou em alguns minutos? Confira o <strong>spam</strong> ou a aba de promoções.
             </p>
             <Msg erro={erro} info={info} />
@@ -348,11 +348,11 @@ export default function Login() {
                       className="w-full text-left rounded-xl p-3 border-2 border-gray-200 bg-gray-50 opacity-70">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold text-sm text-gray-600">{p.label}</span>
-                        <span className="text-[11px] font-bold text-gray-600 bg-gray-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                        <span className="text-xs font-bold text-gray-600 bg-gray-200 rounded-full px-2 py-0.5 flex-shrink-0">
                           em breve
                         </span>
                       </div>
-                      <p className="text-[11px] text-gray-600 mt-0.5">{p.resumo}</p>
+                      <p className="text-xs text-gray-600 mt-0.5">{p.resumo}</p>
                     </div>
                   );
                 }
@@ -363,9 +363,9 @@ export default function Login() {
                       ${sel ? 'border-polo-gold bg-polo-beige' : 'border-gray-200 bg-white'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-sm text-polo-navy">{p.label}</span>
-                      <span className="text-sm font-bold text-polo-navy flex-shrink-0">R$ {fmtPreco(p.precoMes)}<span className="text-[11px] font-normal text-gray-500">/mês</span></span>
+                      <span className="text-sm font-bold text-polo-navy flex-shrink-0">R$ {fmtPreco(p.precoMes)}<span className="text-xs font-normal text-gray-500">/mês</span></span>
                     </div>
-                    <p className="text-[11px] text-gray-600 mt-0.5">{p.resumo}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">{p.resumo}</p>
                   </button>
                 );
               })}
@@ -379,7 +379,7 @@ export default function Login() {
             <p className="text-xs font-semibold text-green-700">
               R$ {PRODUTOS[produto].precoMes.toFixed(2).replace('.', ',')}/mês · fale com a Aurum para liberar seu acesso.
             </p>
-            <p className="text-[11px] text-gray-600 -mt-1">
+            <p className="text-xs text-gray-600 -mt-1">
               Dá para trocar de plano depois — é só falar com a equipe. Nada do que você cadastrar se perde.
             </p>
             {/* Onde estou nos dois passos */}
@@ -388,7 +388,7 @@ export default function Login() {
                 <div key={n} className={`h-1.5 flex-1 rounded-full transition-colors
                   ${passo >= n ? 'bg-polo-gold' : 'bg-gray-200'}`} />
               ))}
-              <span className="text-[11px] text-gray-500 flex-shrink-0">{passo} de 2</span>
+              <span className="text-xs text-gray-500 flex-shrink-0">{passo} de 2</span>
             </div>
 
             {passo === 1 ? <>
@@ -407,7 +407,7 @@ export default function Login() {
               <input type="tel" inputMode="numeric" aria-label="WhatsApp" value={whatsapp}
                 onChange={e => setWhatsapp(formatarTelefone(e.target.value))}
                 placeholder="WhatsApp com DDD" className={campo} />
-              <p className="text-[11px] text-gray-600 -mt-1">
+              <p className="text-xs text-gray-600 -mt-1">
                 É por aqui que a equipe confirma o pagamento e ativa a assinatura.
               </p>
 
@@ -428,7 +428,7 @@ export default function Login() {
                   {UFS.map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
               </div>
-              <p className="text-[11px] text-gray-600 -mt-1">
+              <p className="text-xs text-gray-600 -mt-1">
                 A norma sanitária muda de estado para estado — é o que nos deixa orientar você
                 com a regra que vale aí.
               </p>
@@ -437,7 +437,7 @@ export default function Login() {
               <button onClick={avancarPasso} className={botao}>Continuar</button>
             </> : <>
               <p className="text-xs font-semibold text-polo-navy">Seu acesso</p>
-              <p className="text-[11px] text-gray-600 -mt-1">
+              <p className="text-xs text-gray-600 -mt-1">
                 Você será o administrador (Diretoria — acesso total).
               </p>
               <input type="text" aria-label="Seu nome" value={nome}
@@ -446,7 +446,7 @@ export default function Login() {
                 onChange={e => setEmail(e.target.value)} placeholder="Seu e-mail" className={campo} />
               <CampoSenha valor={senha} onChange={setSenha} aria="Senha (mínimo 8 caracteres)"
                 autoComplete="new-password" placeholder="Crie uma senha (mín. 8)" />
-              <p className="text-[11px] text-gray-600 -mt-1">
+              <p className="text-xs text-gray-600 -mt-1">
                 Use um e-mail que só você controla — quem tiver acesso a ele pode recuperar a senha.
               </p>
               <label className="flex items-start gap-2 text-xs text-gray-600">
@@ -484,7 +484,7 @@ export default function Login() {
 
         <div className="flex items-center justify-center gap-4 mt-4">
           {/* Um link só: a privacidade virou a Parte II do mesmo documento. */}
-          <Link to="/termos" className="text-[11px] text-white/70 underline underline-offset-2">
+          <Link to="/termos" className="text-xs text-white/70 underline underline-offset-2">
             Termos de uso e privacidade
           </Link>
         </div>

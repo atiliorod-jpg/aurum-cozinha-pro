@@ -145,7 +145,7 @@ export default function Inventario() {
       <div className="flex bg-white rounded-xl mb-4 p-1 gap-1">
         {[['novo', 'Contar'], ['historico', 'Histórico']].map(([v, l]) => (
           <button key={v} onClick={() => setTab(v)}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors
+            className={`flex-1 min-h-11 py-2 rounded-lg text-sm font-semibold transition-colors
               ${tab === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-500'}`}>
             {l}
           </button>
@@ -172,12 +172,12 @@ export default function Inventario() {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-bold text-polo-navy">Contar escaneando</p>
-                <p className="text-[11px] text-gray-500">
+                <p className="text-xs text-gray-500">
                   Passe a câmera no QR de cada pote. Produto por unidade soma 1; por peso/volume soma a medida da etiqueta. Dá para misturar com a digitação.
                 </p>
               </div>
               <button onClick={() => setLendo(v => !v)}
-                className={`text-xs font-bold px-3 py-2 rounded-lg flex-shrink-0 ${lendo ? 'bg-gray-100 text-gray-600' : 'bg-polo-navy text-polo-gold'}`}>
+                className={`text-xs font-bold px-3 min-h-11 rounded-lg flex-shrink-0 ${lendo ? 'bg-gray-100 text-gray-600' : 'bg-polo-navy text-polo-gold'}`}>
                 {lendo ? 'Parar' : 'Escanear'}
               </button>
             </div>
@@ -189,7 +189,7 @@ export default function Inventario() {
             {lidos.length > 0 && (
               <ul className="mt-3 space-y-1">
                 {lidos.slice(0, 8).map((l) => (
-                  <li key={l.loteId} className="text-[11px] text-gray-600 flex justify-between gap-2">
+                  <li key={l.loteId} className="text-xs text-gray-600 flex justify-between gap-2">
                     <span className="truncate">{l.nome}</span>
                     <span className="text-gray-600 flex-shrink-0">
                       {l.validade ? `val. ${fmtData(l.validade)}` : 'sem validade'} · {l.loteId}

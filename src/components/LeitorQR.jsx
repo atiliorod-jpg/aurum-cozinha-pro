@@ -106,7 +106,7 @@ export default function LeitorQR({ onLer, onFechar }) {
         <div className="w-32 h-32 border-2 border-polo-gold rounded-xl opacity-80" />
       </div>
       <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-3 py-2 flex items-center justify-between">
-        <p className="text-[11px] text-white/90">
+        <p className="text-xs text-white/90">
           {erro ? erro : ativo ? 'Aponte para o QR da etiqueta' : 'Abrindo a câmera…'}
         </p>
         <button onClick={onFechar} className="text-xs font-bold text-polo-gold px-2 py-1 min-h-11">Fechar</button>

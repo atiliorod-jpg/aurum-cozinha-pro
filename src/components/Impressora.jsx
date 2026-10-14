@@ -101,7 +101,7 @@ export function FaixaImpressora() {
           </button>
         )}
       </div>
-      {erro && <p className="text-[11px] text-amber-900 px-1">{erro}</p>}
+      {erro && <p className="text-xs text-amber-900 px-1">{erro}</p>}
     </div>
   );
 }
@@ -202,13 +202,13 @@ export function CartaoImpressora() {
           {trocando ? 'Abrindo a lista…' : conectada ? 'Trocar impressora' : 'Conectar impressora'}
         </button>
       )}
-      {erro && <p className="text-[11px] text-amber-900">{erro}</p>}
+      {erro && <p className="text-xs text-amber-900">{erro}</p>}
 
       <div>
         <button onClick={testar} className={`${botao} border-2 border-polo-navy text-polo-navy`}>
           Imprimir etiqueta de teste
         </button>
-        <p className="text-[11px] text-gray-600 mt-1 px-1">
+        <p className="text-xs text-gray-600 mt-1 px-1">
           Para conferir o rolo e o alinhamento. Não entra no relatório nem na lista de impressas.
         </p>
       </div>
@@ -217,7 +217,7 @@ export function CartaoImpressora() {
         <button onClick={copiarDiagnostico} className={`${botao} bg-gray-100 text-gray-700`}>
           Copiar diagnóstico para o suporte
         </button>
-        <p className="text-[11px] text-gray-600 mt-1 px-1">
+        <p className="text-xs text-gray-600 mt-1 px-1">
           Junta o que o suporte precisa saber (aparelho, versão do app, Bluetooth) e abre o WhatsApp do suporte: é só colar.
         </p>
         {diagnostico && (
@@ -232,7 +232,7 @@ ${diagnostico}`)} target="_blank" rel="noopener noreferrer"
       {diagnostico && (
         <textarea readOnly value={diagnostico} rows={8} aria-label="Diagnóstico para o suporte"
           onFocus={e => e.target.select()}
-          className="w-full text-[11px] font-mono bg-gray-50 border border-gray-200 rounded-lg p-2" />
+          className="w-full text-xs font-mono bg-gray-50 border border-gray-200 rounded-lg p-2" />
       )}
     </div>
   );
