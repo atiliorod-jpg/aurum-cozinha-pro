@@ -9,7 +9,8 @@ import { pode } from '../utils/permissoes';
 import { precoDaCompra } from '../utils/financeiro';
 import { temRecurso } from '../utils/modulos';
 import { useUI } from '../store/UIContext';
-import ResponsavelSelect from '../components/ResponsavelSelect';
+import QuemRegistra from '../components/QuemRegistra';
+import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
 import AutocompleteInput from '../components/AutocompleteInput';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
@@ -191,8 +192,12 @@ export default function Compras() {
   })();
 
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
+  // quem assina: com equipe, quem entrou pelo nome (Lote 2); sem, o seletor
+  const quem = useQuemRegistra(form.responsavel);
+
   const handleSalvar = async () => {
     if (salvando) return; // toque repetido — já registrando
+    if (quem.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!form.item.trim() || !form.quantidade) {
       toast('Preencha o item e a quantidade.', 'aviso');
       return;
@@ -218,7 +223,7 @@ export default function Compras() {
     // da migração 20. O valor vai só para o documento `precos`, que o servidor
     // não entrega a quem não tem `verFinanceiro`.
     const { valorTotal, ...compraSemValor } = form;
-    const compra = { ...compraSemValor, ...(prodExato ? { produtoId: prodExato.id } : {}), hora: fmtHora(), quantidade: parseFloat(form.quantidade) };
+    const compra = { ...compraSemValor, responsavel: quem.nome, ...(prodExato ? { produtoId: prodExato.id } : {}), hora: fmtHora(), quantidade: parseFloat(form.quantidade) };
     addCompra(compra);
 
     // Custo unitário = valor pago ÷ quantidade, na unidade em que foi comprado.
@@ -233,7 +238,7 @@ export default function Compras() {
       }
     }
 
-    if (form.responsavel) setPref('responsavel', form.responsavel);
+    if (quem.nome) setPref('responsavel', quem.nome);
     setForm(prev => ({ ...prev, item: '', quantidade: '', fornecedor: '', valorTotal: '' })); // validade fica: a entrega costuma ter o mesmo lote
     if (!(podeCusto && String(form.valorTotal || '').trim() && !prodExato)) toast('Compra registrada!', 'sucesso');
   };
@@ -682,10 +687,11 @@ export default function Compras() {
               </div>
             )}
 
-            <ResponsavelSelect value={form.responsavel} onChange={v => set('responsavel', v)} />
+            <QuemRegistra manual={form.responsavel} aoManual={v => set('responsavel', v)} />
           </div>
 
-          <Botao onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade || salvando}>
+          {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
+          <Botao onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade || salvando || quem.falta}>
             Registrar Compra
           </Botao>
         </div>

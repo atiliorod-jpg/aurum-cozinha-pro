@@ -9,7 +9,8 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { temRecurso } from '../utils/modulos';
 import { pode } from '../utils/permissoes';
-import ResponsavelSelect from '../components/ResponsavelSelect';
+import QuemRegistra from '../components/QuemRegistra';
+import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
 import OrigemCorrecao from '../components/OrigemCorrecao';
 import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
@@ -60,8 +61,13 @@ export default function AparasPerdas() {
   const comprasRecentes = [...compras].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 30);
 
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque (apara e perda)
+  // quem assina: com equipe, quem entrou pelo nome (Lote 2); sem, o seletor
+  const quemApara = useQuemRegistra(formApara.responsavel);
+  const quemPerda = useQuemRegistra(formPerda.responsavel);
+
   const salvarApara = async () => {
     if (salvando) return;
+    if (quemApara.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!formApara.item.trim() || !formApara.quantidade) {
       toast('Preencha a descrição e a quantidade.', 'aviso');
       return;
@@ -90,9 +96,9 @@ export default function AparasPerdas() {
     // O fator de correção é calculado ao vivo (aparas + perdas ligadas ao produto/compra),
     // não precisa recalcular/gravar nada aqui — basta vincular a apara ao produto.
     setTimeout(() => setSalvando(false), 800);
-    addApara({ ...formApara, origem: 'recebimento', hora: fmtHora(), quantidade: qtdApara, unidade: unidApara });
+    addApara({ ...formApara, responsavel: quemApara.nome, origem: 'recebimento', hora: fmtHora(), quantidade: qtdApara, unidade: unidApara });
 
-    if (formApara.responsavel) setPref('responsavel', formApara.responsavel);
+    if (quemApara.nome) setPref('responsavel', quemApara.nome);
     setPref('turno', formApara.turno);
     setFormApara(prev => ({ ...prev, compraId: '', produtoId: '', item: '', quantidade: '', destinoOutro: '' }));
     toast('Apara registrada.', 'sucesso');
@@ -100,6 +106,7 @@ export default function AparasPerdas() {
 
   const salvarPerda = async () => {
     if (salvando) return;
+    if (quemPerda.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!formPerda.item.trim() || !formPerda.quantidade) {
       toast('Preencha a descrição e a quantidade.', 'aviso');
       return;
@@ -151,8 +158,8 @@ export default function AparasPerdas() {
       }
     }
     setTimeout(() => setSalvando(false), 800);
-    addDesperdicio({ ...formPerda, hora: fmtHora(), quantidade: qtdPerda, unidade: unidPerda });
-    if (formPerda.responsavel) setPref('responsavel', formPerda.responsavel);
+    addDesperdicio({ ...formPerda, responsavel: quemPerda.nome, hora: fmtHora(), quantidade: qtdPerda, unidade: unidPerda });
+    if (quemPerda.nome) setPref('responsavel', quemPerda.nome);
     setPref('turno', formPerda.turno);
     setFormPerda(prev => ({ ...prev, produtoId: '', compraId: '', item: '', quantidade: '', motivoOutro: '' }));
     toast('Perda registrada.', 'sucesso');
@@ -183,10 +190,12 @@ export default function AparasPerdas() {
   };
 
   // ⚠️ O BOTÃO APAGADO DIZ O QUE FALTA (28/09/2026, achado da análise)
-  const faltaApara = !formApara.item.trim() ? 'Para registrar, escolha ou escreva o item.'
+  const faltaApara = quemApara.falta ? AVISO_FALTA_QUEM
+    : !formApara.item.trim() ? 'Para registrar, escolha ou escreva o item.'
     : !formApara.quantidade ? 'Para registrar, digite a quantidade.'
     : (formApara.destino === 'OUT' && !formApara.destinoOutro.trim()) ? 'Para registrar, escreva o destino.' : '';
-  const faltaPerda = (formPerda.origem === 'estoque' && !formPerda.produtoId) ? 'Para registrar, escolha o item do estoque.'
+  const faltaPerda = quemPerda.falta ? AVISO_FALTA_QUEM
+    : (formPerda.origem === 'estoque' && !formPerda.produtoId) ? 'Para registrar, escolha o item do estoque.'
     : !formPerda.item.trim() ? 'Para registrar, escreva o que foi perdido.'
     : !formPerda.quantidade ? 'Para registrar, digite a quantidade.'
     : (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim()) ? 'Para registrar, escreva o motivo.' : '';
@@ -224,7 +233,7 @@ export default function AparasPerdas() {
           {tipo === 'apara' ? (
             <>
               <Botao onClick={salvarApara}
-                disabled={salvando || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}>
+                disabled={salvando || quemApara.falta || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}>
                 Registrar Apara
               </Botao>
               {!salvando && faltaApara && <p className="text-xs text-gray-600 -mt-2" role="status">{faltaApara}</p>}
@@ -318,13 +327,13 @@ export default function AparasPerdas() {
                   )}
                 </div>
 
-                <ResponsavelSelect value={formApara.responsavel} onChange={v => setA('responsavel', v)} />
+                <QuemRegistra manual={formApara.responsavel} aoManual={v => setA('responsavel', v)} />
               </div>
             </>
           ) : (
             <>
               <Botao onClick={salvarPerda}
-                disabled={salvando || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}>
+                disabled={salvando || quemPerda.falta || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}>
                 Registrar Perda
               </Botao>
               {!salvando && faltaPerda && <p className="text-xs text-gray-600 -mt-2" role="status">{faltaPerda}</p>}
@@ -404,7 +413,7 @@ export default function AparasPerdas() {
                   )}
                 </div>
 
-                <ResponsavelSelect value={formPerda.responsavel} onChange={v => setP('responsavel', v)} />
+                <QuemRegistra manual={formPerda.responsavel} aoManual={v => setP('responsavel', v)} />
               </div>
             </>
           )}

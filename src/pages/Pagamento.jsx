@@ -309,7 +309,7 @@ export default function Pagamento() {
       </div>
       {extras > 0 && (
         <p className="text-xs text-gray-600 -mt-3 mb-5 px-1">
-          Inclui {extras} unidade(s) adicional(is) nesta conta: {brl(adicionalUnidade(prod.id))} por unidade, por mês.
+          Inclui {plural(extras, 'unidade adicional', 'unidades adicionais')} nesta conta: {brl(adicionalUnidade(prod.id))} por unidade, por mês.
         </p>
       )}
       </>)}

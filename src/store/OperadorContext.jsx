@@ -131,3 +131,14 @@ export function OperadorProvider({ children }) {
 }
 
 export const useOperador = () => useContext(OperadorContext);
+
+// ── Lote 2 da auditoria (14/10/2026): a MESMA pessoa assina os lançamentos ──
+// O nome que vai no lançamento e se ainda falta escolher. `manual` é o valor
+// do seletor antigo (ResponsavelSelect) — só vale com a equipe vazia.
+export function useQuemRegistra(manual) {
+  const { operador, comEquipe } = useOperador();
+  if (comEquipe) return { nome: operador || '', falta: !operador, comEquipe };
+  return { nome: String(manual || '').trim(), falta: false, comEquipe };
+}
+
+export const AVISO_FALTA_QUEM = 'Para registrar, toque no seu nome em “Quem está registrando?”.';

@@ -9,7 +9,8 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { pode } from '../utils/permissoes';
-import ResponsavelSelect from '../components/ResponsavelSelect';
+import QuemRegistra from '../components/QuemRegistra';
+import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
 import { hoje, fmtData, fmtHora } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, addDias } from '../utils/datas';
@@ -27,6 +28,8 @@ export default function Entradas() {
   const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
+  // quem assina: com equipe, quem entrou pelo nome (Lote 2); sem, o seletor
+  const quem = useQuemRegistra(responsavel);
   const [obs, setObs] = useState('');
   // Abre no PRIMEIRO estado configurado, não num 'congelado' cravado: o
   // restaurante pode ter desligado o congelado ou renomeado a lista.
@@ -60,6 +63,7 @@ export default function Entradas() {
 
   const handleSalvar = async () => {
     if (salvando) return; // toque repetido — já registrando
+    if (quem.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!itensPreenchidos.length) {
       toast('Adicione pelo menos um produto com quantidade.', 'aviso');
       return;
@@ -85,7 +89,7 @@ export default function Entradas() {
     addEntrada({
       data,
       hora: fmtHora(),
-      responsavel,
+      responsavel: quem.nome,
       obs,
       armazenamento: armazenamentoReal,
       itens: itensPreenchidos.map(([produtoId, quantidade]) => {
@@ -99,7 +103,7 @@ export default function Entradas() {
         };
       }),
     });
-    if (responsavel) setPref('responsavel', responsavel);
+    if (quem.nome) setPref('responsavel', quem.nome);
     limparRascunho({});   // só depois de gravar
     setObs('');
     toast(`Entrada de ${plural(itensPreenchidos.length, 'item', 'itens')} registrada.`, 'sucesso');
@@ -117,7 +121,7 @@ export default function Entradas() {
         validade: dias > 0 ? addDias(data, dias) : null,
         // a data veio do estoque: a janela avisa se a etiqueta sair diferente
         origemRegistro: true,
-        responsavel,
+        responsavel: quem.nome,
         quantidade: 1,
       };
     }));
@@ -135,14 +139,16 @@ export default function Entradas() {
       <Abas opcoes={[['novo', '+ Nova entrada'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
-          <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando}
+          <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando || quem.falta}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
             {salvando ? 'Registrando…' : 'Registrar Entrada'}
           </button>
           {/* o botão apagado diz o que falta (28/09/2026) */}
-          {!itensPreenchidos.length && !salvando && (
-            <p className="text-xs text-gray-600 -mt-2" role="status">Para registrar, digite a quantidade de pelo menos um item abaixo.</p>
+          {!salvando && (quem.falta || !itensPreenchidos.length) && (
+            <p className="text-xs text-gray-600 -mt-2" role="status">
+              {quem.falta ? AVISO_FALTA_QUEM : 'Para registrar, digite a quantidade de pelo menos um item abaixo.'}
+            </p>
           )}
 
           {/* Cabeçalho */}
@@ -152,7 +158,7 @@ export default function Entradas() {
               <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
-            <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+            <QuemRegistra manual={responsavel} aoManual={setResponsavel} />
             {/* Câmara fria só existe onde há congelado/resfriado. Na despensa
                 (estoque seco) o item é de prateleira e tem um prazo só. */}
             {temArmazenamento ? (

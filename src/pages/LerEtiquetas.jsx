@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import QuemRegistra from '../components/QuemRegistra';
+import { useQuemRegistra } from '../store/OperadorContext';
 import Layout from '../components/Layout';
 import LeitorQR from '../components/LeitorQR';
 import BaixaEtiqueta from '../components/BaixaEtiqueta';
@@ -40,6 +42,8 @@ export default function LerEtiquetas() {
   const [digitado, setDigitado] = useState('');
   const [aberta, setAberta] = useState(null);       // etiqueta na folha "Dar baixa"
   const [modo, setModo] = useState('perguntar');
+  // quem dá a baixa no modo rápido: com equipe, quem entrou pelo nome (Lote 2)
+  const quem = useQuemRegistra(prefs.responsavel);
   const [destinoRapido, setDestinoRapido] = useState(prefs.destino && locais.some(l => l.id === prefs.destino) ? prefs.destino : (locais[0]?.id || ''));
   const [feitas, setFeitas] = useState([]);         // baixas desta visita, com Desfazer
   const [procurando, setProcurando] = useState(false);
@@ -79,6 +83,12 @@ export default function LerEtiquetas() {
       return;
     }
     if (modo === 'perguntar') { setAberta(etq); return; }
+    // modo rápido sem ninguém escolhido: abre a folha, que pergunta o nome
+    if (quem.falta) {
+      toast('Antes de lançar direto, toque no seu nome.', 'aviso', { duracao: 3000 });
+      setAberta(etq);
+      return;
+    }
     const produto = etq.produtoId ? produtos.find(p => p.id === etq.produtoId) : null;
     const motivo = motivoParaPerguntar(etq, modo, { modulo, produto, hojeISO: hoje() });
     if (motivo) {
@@ -89,12 +99,12 @@ export default function LerEtiquetas() {
     if (modo === 'saida') setPref('destino', destinoRapido);
     const b = baixarEtiqueta({
       etq, acao: modo, potes: 1, destino: destinoRapido, produto,
-      responsavel: prefs.responsavel || '', turno: prefs.turno || '',
+      responsavel: quem.nome, turno: prefs.turno || '',
     });
     if (!b) return;
     anotar(b, etq);
     toast(`${etq.nome}: ${ROTULO_ACAO[modo].toLowerCase()}`, 'sucesso', { duracao: 1500 });
-  }, [aberta, procurando, achar, modo, produtos, modulo, destinoRapido, setPref, baixarEtiqueta, prefs.responsavel, prefs.turno, anotar, toast, online]);
+  }, [aberta, procurando, achar, modo, produtos, modulo, destinoRapido, setPref, baixarEtiqueta, quem.falta, quem.nome, prefs.turno, anotar, toast, online]);
 
   // a câmera chama sempre a versão mais nova, sem reabrir a cada render
   const processarRef = useRef(processar);
@@ -148,6 +158,10 @@ export default function LerEtiquetas() {
             </button>
           ))}
         </div>
+      )}
+      {/* no modo rápido, quem está lançando fica à vista (ou é perguntado) */}
+      {modo !== 'perguntar' && quem.comEquipe && (
+        <div className="mb-2"><QuemRegistra /></div>
       )}
       {modo !== 'perguntar' && (
         <p className="text-xs text-gray-600 mb-3">

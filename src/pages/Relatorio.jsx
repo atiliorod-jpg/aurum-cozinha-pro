@@ -7,7 +7,7 @@ import { DESTINOS_APARA, rotuloMotivo } from '../data/produtos';
 import { filtrarPorPeriodo, totalPorProduto, nomeProduto } from '../utils/calculos';
 import { saidasPorDia, topProdutosSaida, somaPorCampo, unidadesPresentes, rendimentoPorFornecedor } from '../utils/analise';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../utils/relatorios';
-import { fmtData, fmtNum, hoje } from '../utils/formatters';
+import { fmtData, fmtNum, hoje, plural } from '../utils/formatters';
 import { addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
 import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../components/Charts';
@@ -508,7 +508,7 @@ export default function Relatorio() {
               <details key={d.destinoId} className="border border-gray-100 rounded-lg">
                 <summary className="cursor-pointer px-3 py-2 font-semibold text-sm text-polo-navy flex justify-between">
                   <span>{d.destinoNome}</span>
-                  <span className="text-xs text-gray-600 font-normal">{d.dias.length} dia(s)</span>
+                  <span className="text-xs text-gray-600 font-normal">{plural(d.dias.length, 'dia', 'dias')}</span>
                 </summary>
                 <div className="px-3 pb-3 space-y-2">
                   {d.dias.map(dia => (

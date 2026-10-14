@@ -6,8 +6,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import ResponsavelSelect from '../components/ResponsavelSelect';
-import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
+import QuemRegistra from '../components/QuemRegistra';
+import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
+import { hoje, fmtData, fmtHora, fmtNum, plural } from '../utils/formatters';
 import { validarDataRegistro, addDias } from '../utils/datas';
 import { planejarProducao } from '../utils/producao';
 import { pode } from '../utils/permissoes';
@@ -25,6 +26,8 @@ export default function Producao() {
 
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
+  // quem assina: com equipe, quem entrou pelo nome (Lote 2); sem, o seletor
+  const quem = useQuemRegistra(responsavel);
   const [produtoId, setProdutoId] = useState(() => {
     if (rParam) {
       const receitaAlvo = producoes.find(r => r.id === rParam);
@@ -81,15 +84,15 @@ export default function Producao() {
       .map(i => ({ nome: i.nome, unidade: i.unidade || '', quantidade: i.quantidade }));
     // 1) saída interna de produção SÓ dos itens controlados
     if (abateItens.length) {
-      addSaida({ data, hora: fmtHora(), responsavel, destino: 'producao', producaoId: pid, obs: obsTxt, itens: abateItens });
+      addSaida({ data, hora: fmtHora(), responsavel: quem.nome, destino: 'producao', producaoId: pid, obs: obsTxt, itens: abateItens });
     }
     // 2) dá entrada no produto final produzido (guarda os monitorados junto)
     addEntrada({
-      data, hora: fmtHora(), responsavel, armazenamento, producaoId: pid, obs: obsTxt,
+      data, hora: fmtHora(), responsavel: quem.nome, armazenamento, producaoId: pid, obs: obsTxt,
       monitorados,
       itens: [{ produtoId, quantidade: qtdFinal, ...(validade ? { validade } : {}) }],
     });
-    if (responsavel) setPref('responsavel', responsavel);
+    if (quem.nome) setPref('responsavel', quem.nome);
     limparRascunho({});   // só depois de gravar
     toast(`Produção registrada: ${fmtNum(qtdFinal)} ${prodUnid(produtoId)} de ${prodNome(produtoId)}!`, 'sucesso');
     // Oferece imprimir as etiquetas dos potes/embalagens desta produção
@@ -104,13 +107,14 @@ export default function Producao() {
       validade: validade || null,
       // a data veio do estoque: a janela avisa se a etiqueta sair diferente
       origemRegistro: true,
-      responsavel,
+      responsavel: quem.nome,
       quantidade: 1,
     }]);
   };
 
   const handleProduzir = async () => {
     if (salvando) return; // já registrando — ignora toques repetidos
+    if (quem.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!produtoId) { toast('Escolha o produto produzido.', 'aviso'); return; }
     // quantidade EXPLÍCITA obrigatória: sem fallback silencioso pro rendimento
     // da ficha (gravava lote que o usuário não digitou — auditoria 11/07)
@@ -202,7 +206,7 @@ export default function Producao() {
                   ))}
                 </div>
               </div>
-              <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+              <QuemRegistra manual={responsavel} aoManual={setResponsavel} />
             </div>
 
             {/* Estoque atual + resultado da produção */}
@@ -247,7 +251,7 @@ export default function Producao() {
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                     Ingredientes {mostraIngredientes ? '▼' : '▶'}
                   </p>
-                  <span className="text-xs text-gray-600">{plano.itens.length} item(ns)</span>
+                  <span className="text-xs text-gray-600">{plural(plano.itens.length, 'item', 'itens')}</span>
                 </button>
                 {mostraIngredientes && (
                   <div className="border-t border-gray-100 divide-y divide-gray-100">
@@ -313,13 +317,14 @@ export default function Producao() {
                   toast('Ingredientes desta receita já estão na lista de compras.', 'aviso'); return;
                 }
                 setListaManual([...listaManual, ...novos]);
-                toast(`${novos.length} ingrediente(s) adicionado(s) à lista de compras.`, 'sucesso');
+                toast(`${plural(novos.length, 'ingrediente adicionado', 'ingredientes adicionados')} à lista de compras.`, 'sucesso');
               }}
                 className="w-full border-2 border-polo-gold text-polo-navy font-bold py-3 rounded-xl text-sm active:scale-95 transition-transform">
                 Adicionar ingredientes à lista de compras
               </button>
             )}
-            <Botao onClick={handleProduzir} disabled={salvando}>
+            {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
+            <Botao onClick={handleProduzir} disabled={salvando || quem.falta}>
               {salvando ? 'Registrando…' : 'Registrar Produção'}
             </Botao>
             {/* O rodapé saiu: explicava o que o sistema faz por dentro, e a

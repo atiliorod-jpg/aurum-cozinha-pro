@@ -96,18 +96,53 @@ test('Etiquetas: 5 senhas erradas fazem o aparelho esperar 1 minuto', async ({ p
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
-test('Cozinha Pro: a impressão aberta pela Entrada pergunta quem vai imprimir', async ({ page }) => {
+// ⚠️ LOTE 2 DA AUDITORIA (14/10/2026): a MESMA pessoa assina o lançamento e a
+// etiqueta. O formulário pergunta o nome antes de registrar; a janela de
+// imprimir que abre em seguida já vem assinada.
+test('Cozinha Pro: o lançamento pergunta quem está registrando, e a etiqueta sai no mesmo nome', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrir(page, '/entradas');
   await page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' }).fill('2');
+  // ninguém escolhido: o formulário pergunta, e o botão espera
+  await expect(page.getByRole('heading', { name: 'Quem está registrando?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Registrar Entrada' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await expect(page.getByText('Registrando como Maria')).toBeVisible();
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
   const janela = page.getByRole('dialog');
-  // ninguém escolhido: a janela pergunta, e os botões de imprimir não saem
-  await expect(janela.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible();
-  await expect(janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ })).toBeDisabled();
-  await janela.getByRole('button', { name: 'Maria', exact: true }).click();
   await expect(janela.getByText('Assina: Maria')).toBeVisible();
   await expect(janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ })).toBeEnabled();
+  await page.keyboard.press('Escape');
+  // o Histórico guarda quem registrou
+  await abrir(page, '/historico');
+  await expect(page.locator('main div').filter({ hasText: /^2 Filé de Frango \(porção\)/ }).first()).toContainText('Maria');
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('Cozinha Pro: quem tem senha digita no próprio formulário', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
+  await abrir(page, '/aparas');
+  await page.getByRole('button', { name: /^João/ }).click();
+  for (const d of '1234') await page.getByRole('button', { name: d, exact: true }).click();
+  await expect(page.getByText('Registrando como João')).toBeVisible();
+  // e vale nas outras telas enquanto ele usa o aparelho
+  await abrir(page, '/saidas');
+  await expect(page.getByText('Registrando como João')).toBeVisible();
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('Cozinha Pro: se o nome expira com a janela de imprimir aberta, ela pergunta de novo', async ({ page }) => {
+  await page.clock.install();
+  const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
+  await abrir(page, '/entradas');
+  await page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' }).fill('1');
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await page.getByRole('button', { name: 'Registrar Entrada' }).click();
+  const janela = page.getByRole('dialog');
+  await expect(janela.getByText('Assina: Maria')).toBeVisible();
+  await page.clock.fastForward('05:30');
+  await expect(janela.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible();
+  await expect(janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ })).toBeDisabled();
   expect(erros, erros.join('\n')).toEqual([]);
 });
 

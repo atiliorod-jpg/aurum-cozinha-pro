@@ -8,8 +8,9 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { pode } from '../utils/permissoes';
-import ResponsavelSelect from '../components/ResponsavelSelect';
-import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
+import QuemRegistra from '../components/QuemRegistra';
+import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
+import { plural, hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { nomeProduto } from '../utils/calculos';
 import { validarDataRegistro, diasAte } from '../utils/datas';
 import { partirPorValidade } from '../utils/lotes';
@@ -28,6 +29,8 @@ export default function Saidas() {
   const rotuloDestino = (v) => v === 'producao' ? 'Uso Interno' : (locais.find(l => l.id === v)?.nome || v);
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
+  // quem assina: com equipe, quem entrou pelo nome (Lote 2); sem, o seletor
+  const quem = useQuemRegistra(responsavel);
   const [destino, setDestino] = useState(destinosDeSaida.some(l => l.id === prefs.destino) ? prefs.destino : (destinosDeSaida[0]?.id || ''));
   const [obs, setObs] = useState('');
   const [qtds, setQtds] = useState({});
@@ -64,7 +67,7 @@ export default function Saidas() {
     addSaida({
       data,
       hora: fmtHora(),
-      responsavel,
+      responsavel: quem.nome,
       destino,
       obs,
       itens: itensPreenchidos.map(([produtoId, quantidade]) => {
@@ -73,15 +76,16 @@ export default function Saidas() {
         return porValidade.length ? { produtoId, quantidade: q, porValidade } : { produtoId, quantidade: q };
       }),
     });
-    if (responsavel) setPref('responsavel', responsavel);
+    if (quem.nome) setPref('responsavel', quem.nome);
     setPref('destino', destino);
     setQtds({});
     setObs('');
-    toast(`Saída de ${itensPreenchidos.length} item(ns) registrada!`, 'sucesso');
+    toast(`Saída de ${plural(itensPreenchidos.length, 'item', 'itens')} registrada.`, 'sucesso');
   };
 
   const handleSalvar = async () => {
     if (salvando) return; // toque repetido — já registrando
+    if (quem.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!itensPreenchidos.length) {
       toast('Adicione pelo menos um produto com quantidade.', 'aviso');
       return;
@@ -107,7 +111,7 @@ export default function Saidas() {
       });
       if (!okData) { setSalvando(false); return; }
     }
-    if (!responsavel) {
+    if (!quem.nome) {
       const okResp = await confirm({
         titulo: 'Sem responsável',
         mensagem: 'Nenhum responsável foi selecionado. Sem isso a saída fica sem rastreio de quem registrou. Deseja continuar mesmo assim?',
@@ -145,14 +149,16 @@ export default function Saidas() {
       <Abas opcoes={[['novo', '+ Nova saída'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
-          <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando}
+          <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando || quem.falta}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
             Registrar Saída
           </button>
           {/* o botão apagado diz o que falta (28/09/2026) */}
-          {!itensPreenchidos.length && !salvando && (
-            <p className="text-xs text-gray-600 -mt-2" role="status">Para registrar, digite a quantidade de pelo menos um item abaixo.</p>
+          {!salvando && (quem.falta || !itensPreenchidos.length) && (
+            <p className="text-xs text-gray-600 -mt-2" role="status">
+              {quem.falta ? AVISO_FALTA_QUEM : 'Para registrar, digite a quantidade de pelo menos um item abaixo.'}
+            </p>
           )}
 
           <div className="bg-white rounded-xl p-4 space-y-3">
@@ -179,7 +185,7 @@ export default function Saidas() {
                 </div>
               )}
             </div>
-            <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+            <QuemRegistra manual={responsavel} aoManual={setResponsavel} />
           </div>
 
           <input aria-label="Buscar produto" type="text" value={busca} onChange={e => setBusca(e.target.value)}

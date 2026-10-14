@@ -7,8 +7,9 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { pode } from '../utils/permissoes';
-import ResponsavelSelect from '../components/ResponsavelSelect';
-import { fmtNum, fmtData, hoje, fmtHora } from '../utils/formatters';
+import QuemRegistra from '../components/QuemRegistra';
+import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
+import { fmtNum, fmtData, hoje, fmtHora, plural } from '../utils/formatters';
 import LeitorQR from '../components/LeitorQR';
 import { lerLoteIdDoQR, quantoSomaNaContagem } from '../utils/etiquetas';
 import { embalagensRestantes } from '../utils/baixaEtiqueta';
@@ -24,6 +25,8 @@ export default function Inventario() {
   const podeRemover = pode(sessao, permissoes, 'removerRegistros');
   const [data, setData] = useState(hoje());
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
+  // quem assina: com equipe, quem entrou pelo nome (Lote 2); sem, o seletor
+  const quem = useQuemRegistra(responsavel);
 
   // ⚠️ RASCUNHO da contagem. Antes `contagem` vivia só na memória do
   // componente: qualquer toque na barra, o Voltar do tablet, um refresh do
@@ -101,6 +104,7 @@ export default function Inventario() {
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
   const handleSalvar = async () => {
     if (salvando) return; // toque repetido — já registrando
+    if (quem.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!itensContados.length) {
       toast('Conte ao menos um produto.', 'aviso');
       return;
@@ -114,15 +118,15 @@ export default function Inventario() {
     setSalvando(true);
     const ok = await confirm({
       titulo: 'Confirmar contagem física',
-      mensagem: `Você está ajustando o estoque de ${itensContados.length} produto(s) para o valor contado fisicamente. Isso passa a ser a nova base de cálculo.`,
+      mensagem: `Você está ajustando o estoque de ${plural(itensContados.length, 'produto', 'produtos')} para o valor contado fisicamente. Isso passa a ser a nova base de cálculo.`,
       confirmar: 'Salvar contagem',
     });
     if (!ok) { setSalvando(false); return; }
     setTimeout(() => setSalvando(false), 800);
-    if (responsavel) setPref('responsavel', responsavel);
+    if (quem.nome) setPref('responsavel', quem.nome);
     const inventarioId = `inv_${Date.now().toString(36)}`;
     itensContados.forEach(([produtoId, quantidade]) => {
-      addAjuste({ data, hora: fmtHora(), responsavel, produtoId, quantidade: parseFloat(quantidade), inventarioId });
+      addAjuste({ data, hora: fmtHora(), responsavel: quem.nome, produtoId, quantidade: parseFloat(quantidade), inventarioId });
     });
     salvouRef.current = true;
     setContagem({});
@@ -159,7 +163,7 @@ export default function Inventario() {
               <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
-            <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+            <QuemRegistra manual={responsavel} aoManual={setResponsavel} />
           </div>
 
           {/* Contagem por câmera: cada etiqueta lida soma 1 ao produto dela */}
@@ -231,7 +235,8 @@ export default function Inventario() {
             })}
           </div>
 
-          <button onClick={handleSalvar} disabled={!itensContados.length || salvando}
+          {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
+          <button onClick={handleSalvar} disabled={!itensContados.length || salvando || quem.falta}
             className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
                        disabled:opacity-40 active:scale-95 transition-transform">
             Salvar Contagem ({itensContados.length})

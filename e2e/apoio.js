@@ -50,11 +50,15 @@ export async function abrir(page, rota) {
   await expect(page.getByText('Esta tela travou')).toHaveCount(0);
 }
 
-// "Quem vai imprimir?" — toca no nome se a tela pedir (da segunda vez no mesmo
-// teste a pessoa já está escolhida: vale por 5 minutos)
+// "Quem vai imprimir?" / "Quem está registrando?" — toca no nome se a tela
+// pedir (da segunda vez no mesmo teste a pessoa já está escolhida: vale por 5
+// minutos). Espera a tela mostrar UM dos dois — a grade ou o nome já escolhido —
+// antes de decidir, para não passar direto por uma tela que ainda está abrindo.
 export async function entrarComo(page, nome = 'Maria') {
   const botao = page.getByRole('button', { name: nome, exact: true });
-  if (await botao.isVisible({ timeout: 2_000 }).catch(() => false)) await botao.click();
+  const jaEscolhido = page.getByText(new RegExp(`(Registrando|Imprimindo) como ${nome}|Assina: ${nome}`));
+  await expect(botao.or(jaEscolhido).first()).toBeVisible({ timeout: 10_000 });
+  if (await botao.isVisible()) await botao.click();
 }
 
 // fecha a janela de imprimir que algumas telas abrem depois de registrar

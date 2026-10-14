@@ -8,7 +8,8 @@ import {
   validadeDaEmbalagem, deOutraCozinha, codigoLegivel,
 } from '../utils/baixaEtiqueta';
 import { MOTIVOS_DESPERDICIO } from '../data/produtos';
-import ResponsavelSelect from './ResponsavelSelect';
+import QuemRegistra from './QuemRegistra';
+import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
 import Botao from './Botao';
 import Aviso from './Aviso';
 
@@ -42,6 +43,8 @@ export default function BaixaEtiqueta({ etq, onFeito, acaoInicial = null }) {
   const [potes, setPotes] = useState(1);
   const [qtdDigitada, setQtdDigitada] = useState('');
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
+  // quem dá a baixa: com equipe, quem entrou pelo nome (Lote 2); sem, o seletor
+  const quem = useQuemRegistra(responsavel);
   const [enviando, setEnviando] = useState(false);
 
   const porEmbalagem = quantidadeDaEmbalagem(etq, produto);
@@ -72,6 +75,7 @@ export default function BaixaEtiqueta({ etq, onFeito, acaoInicial = null }) {
 
   const confirmar = async () => {
     if (enviando) return;
+    if (quem.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (acao === 'saida' && !destino) { toast('Escolha para onde vai a saída.', 'aviso'); return; }
     if (acao !== 'usada' && !(quantidade > 0)) { toast(`Digite quanto tem ${potes > 1 ? 'nas embalagens' : 'na embalagem'}${unidade ? ` (em ${unidade})` : ''}.`, 'aviso'); return; }
     setEnviando(true);
@@ -86,9 +90,9 @@ export default function BaixaEtiqueta({ etq, onFeito, acaoInicial = null }) {
       if (!ok) { setAcao('perda'); setMotivo('V'); setEnviando(false); return; }
     }
     if (acao === 'saida') setPref('destino', destino);
-    if (responsavel.trim()) setPref('responsavel', responsavel.trim());
+    if (quem.nome) setPref('responsavel', quem.nome);
     const b = baixarEtiqueta({
-      etq, acao, potes, quantidade, destino, responsavel: responsavel.trim(),
+      etq, acao, potes, quantidade, destino, responsavel: quem.nome,
       turno: prefs.turno || '', motivo, produto,
     });
     setEnviando(false);
@@ -182,9 +186,10 @@ export default function BaixaEtiqueta({ etq, onFeito, acaoInicial = null }) {
         </label>
       ))}
 
-      <ResponsavelSelect value={responsavel} onChange={setResponsavel} label="Quem está dando baixa" />
+      <QuemRegistra manual={responsavel} aoManual={setResponsavel} rotulo="Quem está dando baixa" />
 
-      <Botao onClick={confirmar} disabled={enviando}>{rotuloBotao}</Botao>
+      {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
+      <Botao onClick={confirmar} disabled={enviando || quem.falta}>{rotuloBotao}</Botao>
     </div>
   );
 }

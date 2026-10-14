@@ -60,11 +60,17 @@ test('plano Pro, Produção: telas e janelas', async ({ page }) => {
   await abrir(page, '/configuracoes?secao=acessos');
   await page.getByRole('button', { name: 'acessos', exact: true }).first().click();
   r['matriz de acessos aberta'] = await medirAcessibilidade(page);
-  // a janela de imprimir do Pro pedindo o nome (aberta pela Entrada)
+  // o formulário pedindo o nome ("Quem está registrando?") e o teclado da
+  // senha dentro dele; depois, a janela de imprimir que abre já assinada
   await abrir(page, '/entradas');
   await page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' }).fill('1');
+  r['formulário pedindo o nome'] = await medirAcessibilidade(page);
+  await page.getByRole('button', { name: /^João/ }).click();
+  r['teclado da senha no formulário'] = await medirAcessibilidade(page);
+  await page.getByRole('button', { name: 'Voltar aos nomes' }).click();
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
-  r['janela de imprimir pedindo o nome'] = await medirAcessibilidade(page, ['[role=dialog]']);
+  r['janela de imprimir depois da entrada'] = await medirAcessibilidade(page, ['[role=dialog]']);
   await page.keyboard.press('Escape');
   // a troca de área e a Ajuda
   await page.getByRole('button', { name: /Tocar para ir a outra área/ }).click();

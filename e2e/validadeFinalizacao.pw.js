@@ -70,7 +70,7 @@ test('Cozinha Pro: imprimir dá entrada e a validade chega à Finalização', as
   await page.getByRole('spinbutton', { name: `Quantidade de ${FRANGO}` }).fill('3');
   await expect(page.locator('main')).toContainText(/3 vence \d{2}\/\d{2}\/\d{4}/);
   await page.getByRole('button', { name: 'Registrar Saída' }).click();
-  await expect(page.getByText(/Saída de 1 item\(ns\) registrada/)).toBeVisible();
+  await expect(page.getByText(/Saída de 1 item registrada/)).toBeVisible();
 
   // 4) na Finalização, a validade chegou: aparece o lote em Validades
   await page.getByRole('button', { name: /Tocar para ir a outra área/ }).click();

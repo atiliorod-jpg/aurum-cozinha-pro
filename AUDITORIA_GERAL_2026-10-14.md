@@ -471,3 +471,40 @@ desenvolvimento):
 **O lote B (M61)** recebeu o Lote 1 (merge no ramo `etapa2-lote-b`, testado:
 890 testes e 23 cenários). Continua esperando o token do Supabase, ainda
 inválido em 14/10.
+
+### Lote 7 (peças padrão), Lote 3 (navegação) e Lote 2 (uma pessoa por vez) — aplicados em 14/10/2026
+
+**Lote 7 — peças padrão em `src/components/ui/`:**
+
+| Peça | Onde entrou |
+|---|---|
+| `Abas` | 9 telas |
+| `Filtros` | 8 telas; Entradas e Saídas só com as categorias que têm item |
+| `Chave` | 6 chaves e a matriz de acessos, que tinha uma chave de 40×20 px |
+| `Selo` | Início |
+| `Vazio` | 6 listas vazias, que tinham cinza sem contraste no bege |
+| `Cartao` | criada; entra com o Lote 4 |
+
+**Lote 3 — navegação:**
+- barra do Pro: Início · **Imprimir** · Registrar · Validades (+ Fechar turno
+  na Finalização, com ícone próprio);
+- o cabeçalho escreve onde a pessoa está ("Cozinha de Produção", com a
+  unidade antes quando há várias);
+- tocar no próprio nome abre "Sua conta" (cargo, casa e Sair da conta) em vez
+  de sair direto;
+- a tela de imprimir tem o mesmo título nos dois planos.
+
+**Lote 2 — "Quem está registrando?":**
+- Entrada, Saída, Apara, Perda, Produção, Compra, Contagem, Fechar turno e a
+  baixa pela etiqueta (inclusive o modo rápido) usam a MESMA pessoa que entrou
+  pelo nome para imprimir.
+- Saiu o seletor livre "Responsável".
+- Se ninguém entrou, o formulário mostra a grade de nomes (com o teclado da
+  senha) e o botão espera.
+- Com a equipe vazia, o seletor de sempre continua.
+- O nome que vai no lançamento sai de `useQuemRegistra` (OperadorContext).
+- Os "(s)"/"(ns)" das telas viraram plurais de verdade.
+
+**Testes:** 890 testes e 38 cenários do robô. Novos: navegação, o lançamento
+perguntando o nome, quem tem senha digitando no formulário e o nome que expira
+com a janela de imprimir aberta.

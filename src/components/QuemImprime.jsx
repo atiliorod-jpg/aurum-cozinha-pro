@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { useOperador } from '../store/OperadorContext';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -121,11 +121,13 @@ export function TecladoSenha({ nome, aoVoltar }) {
 }
 
 // A grade de nomes. `dentroDaJanela` deixa o texto mais curto (a janela de
-// imprimir já tem muita coisa).
-export default function QuemImprime({ dentroDaJanela = false }) {
+// imprimir já tem muita coisa). `titulo` e `texto` trocam a pergunta — os
+// formulários de lançamento perguntam "Quem está registrando?" (Lote 2).
+export default function QuemImprime({ dentroDaJanela = false, titulo = 'Quem vai imprimir?', texto = '' }) {
   const { pessoas } = useApp();
   const { entrar, temSenha } = useOperador();
   const [comSenha, setComSenha] = useState('');
+  const idTitulo = useId();
 
   if (comSenha && pessoas.includes(comSenha)) {
     return (
@@ -141,14 +143,14 @@ export default function QuemImprime({ dentroDaJanela = false }) {
   };
 
   return (
-    <section aria-labelledby="quem-imprime-titulo"
+    <section aria-labelledby={idTitulo}
       className={dentroDaJanela ? 'border-2 border-polo-navy/20 rounded-xl p-3 space-y-2' : 'space-y-3'}>
       <div className={dentroDaJanela ? '' : 'px-1'}>
-        <h2 id="quem-imprime-titulo" className={`${dentroDaJanela ? 'text-sm' : 'text-base'} font-bold text-polo-navy`}>Quem vai imprimir?</h2>
+        <h2 id={idTitulo} className={`${dentroDaJanela ? 'text-sm' : 'text-base'} font-bold text-polo-navy`}>{titulo}</h2>
         <p className="text-xs text-gray-600 mt-0.5">
-          {dentroDaJanela
+          {texto || (dentroDaJanela
             ? 'Toque no seu nome para assinar estas etiquetas.'
-            : 'Toque no seu nome. A etiqueta sai assinada por você.'}
+            : 'Toque no seu nome. A etiqueta sai assinada por você.')}
         </p>
       </div>
       <div className={`grid gap-2 ${dentroDaJanela ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>

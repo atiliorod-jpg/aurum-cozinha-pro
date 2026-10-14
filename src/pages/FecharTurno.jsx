@@ -3,7 +3,8 @@ import Layout from '../components/Layout';
 import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
-import ResponsavelSelect from '../components/ResponsavelSelect';
+import QuemRegistra from '../components/QuemRegistra';
+import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
 import { hoje, fmtHora, fmtNum, fmtData } from '../utils/formatters';
 import { turnoAberto, consumoDoTurno, linhasParaGravar } from '../utils/turno';
 import { plural } from '../utils/formatters';
@@ -24,6 +25,8 @@ export default function FecharTurno() {
   const [data, setData] = useState(hoje());
   const [turno, setTurno] = useState(prefs.turno === 'Noite' ? 'Jantar' : (TURNOS.includes(prefs.turno) ? prefs.turno : 'Almoço'));
   const [responsavel, setResponsavel] = useState(prefs.responsavel || '');
+  // quem assina: com equipe, quem entrou pelo nome (Lote 2); sem, o seletor
+  const quem = useQuemRegistra(responsavel);
   const [sobras, setSobras] = useState({});
   const [salvando, setSalvando] = useState(false);
 
@@ -43,6 +46,7 @@ export default function FecharTurno() {
 
   const fechar = async () => {
     if (salvando) return;
+    if (quem.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!aberto.linhas.length) { toast('Nada recebido neste turno ainda.', 'aviso'); return; }
     setSalvando(true);
     if (temInconsistencia) {
@@ -57,7 +61,7 @@ export default function FecharTurno() {
     setTimeout(() => setSalvando(false), 800);
 
     addAjuste({
-      data, hora: fmtHora(), responsavel, turno,
+      data, hora: fmtHora(), responsavel: quem.nome, turno,
       // guarda a SOBRA (vira abertura do próximo turno) e o consumo calculado
       itens: linhasParaGravar(linhas).map(l => ({
         produtoId: l.produtoId,
@@ -68,7 +72,7 @@ export default function FecharTurno() {
         consumo: l.consumo,
       })),
     });
-    if (responsavel) setPref('responsavel', responsavel);
+    if (quem.nome) setPref('responsavel', quem.nome);
     setPref('turno', turno);
     setSobras({});
     toast(`Turno ${turno} fechado. Consumo calculado para ${plural(linhas.length, 'item', 'itens')}.`, 'sucesso');
@@ -86,7 +90,8 @@ export default function FecharTurno() {
           </p>
         </div>
 
-        <Botao onClick={fechar} disabled={salvando || !aberto.linhas.length}>
+        {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
+        <Botao onClick={fechar} disabled={salvando || !aberto.linhas.length || quem.falta}>
           {salvando ? 'Fechando…' : 'Fechar turno'}
         </Botao>
 
@@ -110,7 +115,7 @@ export default function FecharTurno() {
               </div>
             </div>
           </div>
-          <ResponsavelSelect value={responsavel} onChange={setResponsavel} />
+          <QuemRegistra manual={responsavel} aoManual={setResponsavel} />
           {aberto.aberturaEm && (
             <p className="text-xs text-gray-600">
               Turno aberto desde o último fechamento ({fmtData(aberto.aberturaEm)}).

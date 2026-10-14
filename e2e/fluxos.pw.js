@@ -19,6 +19,7 @@ test('Pro: entrada avulsa soma no saldo e aparece no Histórico', async ({ page 
   const antes = await saldoDe(page, item);
 
   await abrir(page, '/entradas');
+  await entrarComo(page, 'Maria'); // "Quem está registrando?" (Lote 2)
   await page.getByRole('spinbutton', { name: `Quantidade de ${item}` }).fill('3');
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
   // depois de registrar, o app oferece imprimir as etiquetas: "Agora não"
@@ -36,6 +37,7 @@ test('Pro: saída para outra unidade tira do saldo', async ({ page }) => {
   const antes = await saldoDe(page, item);
 
   // saldoDe já deixou a tela de Saídas aberta
+  await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: 'Unidade Centro', exact: true }).click();
   await page.getByRole('spinbutton', { name: `Quantidade de ${item}` }).fill('2');
   await page.getByRole('button', { name: 'Registrar Saída' }).click();
@@ -53,6 +55,7 @@ test('Pro: perda do estoque abate o saldo e mostra o motivo por extenso', async 
 
   await abrir(page, '/aparas');
   await page.getByRole('button', { name: /^Perda/ }).click();
+  await entrarComo(page, 'Maria');
   await page.getByLabel('Produto que perdeu').selectOption('queijo');
   await page.getByLabel('Quantidade').fill('0.5');
   await page.getByRole('button', { name: /Vencimento/ }).click();
@@ -69,6 +72,7 @@ test('Pro: apara registrada não mexe no saldo e vai para o Histórico', async (
   const antes = await saldoDe(page, 'Picanha (porção)');
 
   await abrir(page, '/aparas');
+  await entrarComo(page, 'Maria');
   await page.getByLabel('Descrição da apara').fill('Ponta de picanha');
   await page.getByLabel('Quantidade').fill('0.3');
   await page.getByRole('button', { name: 'Registrar Apara' }).click();
@@ -85,6 +89,7 @@ test('Pro: produção soma o item produzido no saldo', async ({ page }) => {
   const antes = await saldoDe(page, item);
 
   await abrir(page, '/producao');
+  await entrarComo(page, 'Maria');
   await page.getByLabel('O que você produziu?').selectOption('molho');
   await page.getByLabel('Quantidade').fill('5');
   await page.getByRole('button', { name: 'Registrar Produção' }).click();
@@ -97,6 +102,7 @@ test('Pro: produção soma o item produzido no saldo', async ({ page }) => {
 test('Pro: compra registrada aparece no Histórico (e não muda o saldo da porção)', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrir(page, '/compras');
+  await entrarComo(page, 'Maria');
   await page.getByPlaceholder('Ex: Filé Mignon, Frango Filé, Picanha...').fill('Contrafilé do robô');
   await page.getByLabel('Quantidade', { exact: true }).fill('4');
   await page.getByRole('button', { name: 'Registrar Compra' }).click();
@@ -110,6 +116,7 @@ test('Pro: contagem física troca o saldo pelo valor contado', async ({ page }) 
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   const item = 'Picanha (porção)';
   await abrir(page, '/inventario');
+  await entrarComo(page, 'Maria');
   await page.getByLabel(`Quantidade contada de ${item}`).fill('3');
   await page.getByRole('button', { name: /^Salvar Contagem/ }).click();
   // a confirmação explica que o contado vira a nova base
@@ -122,6 +129,7 @@ test('Pro: contagem física troca o saldo pelo valor contado', async ({ page }) 
 test('Finalização: fechar o turno contando a sobra', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro', /^Cozinha de Finalização/);
   await abrir(page, '/fechar-turno');
+  await entrarComo(page, 'Maria');
   await page.getByLabel('Sobra de Empanado de Filé (porção)').fill('2');
   await page.getByRole('button', { name: 'Fechar turno', exact: true }).click();
   await expect(page.getByText(/Turno (Almoço|Jantar) fechado/)).toBeVisible();
