@@ -3,13 +3,17 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { statusAssinatura } from '../utils/assinatura';
 import Icon from './Icons';
+import { hoje } from '../utils/formatters';
 
 // Faixa discreta no canto quando faltam <=3 dias para vencer (teste ou assinatura).
 // Fica no cantinho, tem X para dispensar (por hoje) e não cobre a barra de navegação.
 // Como o "dispensar" é por DIA, o aviso volta no dia seguinte com menos dias — assim
 // vai lembrando conforme o prazo se esgota.
 const CHAVE = 'aurum_aviso_venc';
-const hojeStr = () => new Date().toISOString().slice(0, 10);
+// ⚠️ O DIA DO APARELHO, não o de UTC (auditoria de 14/10/2026): com
+// toISOString, dispensar depois das 21h gravava o dia seguinte e o aviso
+// sumia até as 21h de amanhã.
+const hojeStr = () => hoje();
 
 export default function AvisoVencimento() {
   const { sessao } = useAuth();

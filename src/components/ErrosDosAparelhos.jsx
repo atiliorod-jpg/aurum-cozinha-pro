@@ -49,7 +49,7 @@ export default function ErrosDosAparelhos({ restaurantes }) {
         className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 min-h-11">
         <span>
           <span className="block text-sm font-bold text-polo-navy">Erros dos aparelhos · 7 dias</span>
-          <span className="block text-[11px] text-gray-600">
+          <span className="block text-xs text-gray-600">
             {linhas === null ? 'Carregando…'
               : erro ? `Não carregou: ${erro}`
               : grupos.length === 0 ? 'Nenhum erro nos aparelhos dos clientes.'
@@ -63,7 +63,7 @@ export default function ErrosDosAparelhos({ restaurantes }) {
       {aberto && (
         <div className="border-t border-gray-100 px-4 py-3 space-y-2">
           <div className="flex justify-end">
-            <button onClick={() => setRodada(n => n + 1)} className="text-[11px] font-semibold text-polo-navy underline underline-offset-2 min-h-11 px-2">
+            <button onClick={() => setRodada(n => n + 1)} className="text-xs font-semibold text-polo-navy underline underline-offset-2 min-h-11 px-2">
               Atualizar
             </button>
           </div>
@@ -71,15 +71,15 @@ export default function ErrosDosAparelhos({ restaurantes }) {
             <div key={g.chave} className="bg-gray-50 rounded-lg px-3 py-2">
               <button onClick={() => setExpandido(x => (x === g.chave ? '' : g.chave))}
                 className="w-full text-left" aria-expanded={expandido === g.chave}>
-                <span className="text-[11px] font-bold text-red-700 uppercase tracking-wide">{TIPOS_DE_ERRO[g.tipo] || g.tipo}</span>
+                <span className="text-xs font-bold text-red-700 uppercase tracking-wide">{TIPOS_DE_ERRO[g.tipo] || g.tipo}</span>
                 <span className="block text-xs font-semibold text-polo-navy break-words">{g.mensagem}</span>
-                <span className="block text-[11px] text-gray-600 mt-0.5">
+                <span className="block text-xs text-gray-600 mt-0.5">
                   {g.vezes}× · {g.contas.length} conta(s) · última {dataHora(g.ultimo)}
                   {g.versoes[0] ? ` · versão ${g.versoes[0]}` : ''}
                 </span>
               </button>
               {expandido === g.chave && (
-                <div className="mt-2 space-y-1 text-[11px] text-gray-700">
+                <div className="mt-2 space-y-1 text-xs text-gray-700">
                   {g.contas.length > 0 && <p><strong>Contas:</strong> {g.contas.map(nomeDe).join(', ')}</p>}
                   {g.telas.length > 0 && <p><strong>Telas:</strong> {g.telas.join(', ')}</p>}
                   {g.versoes.length > 1 && <p><strong>Versões:</strong> {g.versoes.join(', ')}</p>}

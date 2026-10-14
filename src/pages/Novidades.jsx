@@ -10,7 +10,7 @@ export default function Novidades() {
           <div key={rel.versao} className="bg-white border border-gray-200 rounded-2xl p-4">
             <div className="flex items-baseline justify-between gap-2 mb-2">
               <p className="font-bold text-polo-navy">{rel.titulo}</p>
-              <span className="text-[11px] text-gray-600 flex-shrink-0">{rel.data}</span>
+              <span className="text-xs text-gray-600 flex-shrink-0">{rel.data}</span>
             </div>
             <ul className="space-y-1.5">
               {rel.itens.map((it, i) => (

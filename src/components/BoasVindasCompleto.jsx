@@ -40,12 +40,12 @@ export default function BoasVindasCompleto() {
         Falta dizer quanto tem de cada um.
         <button type="button" onClick={() => setAberto(v => !v)}
           aria-label={aberto ? 'Fechar explicação' : 'O que é isto?'} aria-expanded={aberto}
-          className="ml-1 w-4 h-4 rounded-full bg-white/80 text-gray-600 text-[10px] font-bold leading-none align-middle">
-          !
+          className="inline-flex items-center justify-center w-11 h-11 -my-3 align-middle">
+          <span aria-hidden="true" className="w-5 h-5 rounded-full bg-white/80 text-gray-700 text-xs font-bold leading-none flex items-center justify-center">!</span>
         </button>
       </p>
       {aberto && (
-        <p className="text-[11px] text-gray-600 mt-1.5">
+        <p className="text-xs text-gray-600 mt-1.5">
           Nada se perdeu: os itens, os prazos e as etiquetas continuam como estavam.
           O que o plano novo acrescenta é a quantidade — e é dela que saem a lista de
           compras, o aviso de que está acabando e os relatórios. A primeira contagem é

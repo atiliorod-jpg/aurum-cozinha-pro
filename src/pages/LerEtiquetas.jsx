@@ -150,7 +150,7 @@ export default function LerEtiquetas() {
         </div>
       )}
       {modo !== 'perguntar' && (
-        <p className="text-[11px] text-gray-600 mb-3">
+        <p className="text-xs text-gray-600 mb-3">
           Modo rápido: cada embalagem lida já é lançada como <strong>{ROTULO_ACAO[modo].toLowerCase()}</strong>.
           Vencida, sem medida ou de outra cozinha abre a tela para você conferir.
         </p>
@@ -185,7 +185,7 @@ export default function LerEtiquetas() {
                 <span className="min-w-0 text-sm text-gray-800">
                   <strong className="text-polo-navy">{f.nome}</strong>
                   {f.embalagem && <span className="text-gray-500"> · embalagem {f.embalagem}</span>}
-                  <span className="block text-[11px] text-gray-600">{f.texto} · {codigoLegivel(f.b.etiquetaId)}</span>
+                  <span className="block text-xs text-gray-600">{f.texto} · {codigoLegivel(f.b.etiquetaId)}</span>
                 </span>
                 {podeDesfazer(f.b.quando) && (
                   <button type="button" onClick={() => desfazer(f)}

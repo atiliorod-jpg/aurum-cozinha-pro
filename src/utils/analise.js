@@ -1,6 +1,7 @@
 import { hoje } from './formatters';
 // relatorios.js não importa daqui — sem ciclo.
 import { rendimentoPorItem, unidadeBase, quantidadeBase } from './relatorios';
+import { ITEM_APAGADO } from './calculos';
 
 const num = (v) => parseFloat(v) || 0;
 const DIA_MS = 86400000;
@@ -334,7 +335,7 @@ export function topProdutosSaida(produtos, saidasFiltradas, limite = 8) {
   return Object.entries(tot)
     .map(([id, v]) => {
       const p = produtos.find(x => x.id === id);
-      return { nome: p?.nome || id, unidade: p?.unidade || '', ...v };
+      return { nome: p?.nome || ITEM_APAGADO, unidade: p?.unidade || '', ...v };
     })
     .sort((a, b) => b.total - a.total)
     .slice(0, limite);

@@ -233,7 +233,7 @@ export default function Itens() {
                         className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50">
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-sm text-gray-900 truncate">{p.nome}</span>
-                          <span className="block text-[11px] text-gray-500">
+                          <span className="block text-xs text-gray-500">
                             {p.unidade}
                             {medidaDoProduto(p) && ` · ${medidaDoProduto(p)}`}
                             {p.tipoData === 'abertura' && ' · data de abertura'}
@@ -241,11 +241,11 @@ export default function Itens() {
                           </span>
                         </span>
                         {!temAlgumPrazo(p) && (
-                          <span className="text-[11px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">
+                          <span className="text-xs font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 flex-shrink-0">
                             sem prazo
                           </span>
                         )}
-                        <span aria-hidden="true" className="text-gray-400 text-lg leading-none flex-shrink-0">›</span>
+                        <span aria-hidden="true" className="text-gray-500 text-lg leading-none flex-shrink-0">›</span>
                       </button>
                     ))}
                   </div>
@@ -275,12 +275,12 @@ export default function Itens() {
                       className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50 disabled:opacity-50">
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-sm text-gray-900 truncate">{item.nome}</span>
-                        <span className="block text-[11px] text-gray-500">
+                        <span className="block text-xs text-gray-500">
                           {item.unidade}
                           {item.tipoData === 'abertura' && ' · data de abertura'}
                         </span>
                       </span>
-                      <span className={`text-[11px] flex-shrink-0 ${tem ? 'text-gray-500' : 'font-bold text-polo-navy'}`}>
+                      <span className={`text-xs flex-shrink-0 ${tem ? 'text-gray-500' : 'font-bold text-polo-navy'}`}>
                         {tem ? 'já tenho' : 'Adicionar ›'}
                       </span>
                     </button>
@@ -347,7 +347,7 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
       titulo={inicial.id ? 'Editar item' : daBiblioteca ? 'Conferir e adicionar' : 'Novo item'}>
       <>
         {daBiblioteca && (
-          <p className="text-[11px] text-gray-600 bg-polo-beige rounded-lg px-2.5 py-2">
+          <p className="text-xs text-gray-600 bg-polo-beige rounded-lg px-2.5 py-2">
             Já preenchemos o que dá. <strong>Confira o prazo de validade</strong> — ele muda
             conforme o processo e a câmara da sua cozinha.
           </p>
@@ -444,11 +444,11 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
                   <span aria-hidden="true" className={form.tipoData === v ? 'opacity-100' : 'opacity-0'}><Icon name="check" size={16} /></span>
                   {l}
                 </span>
-                <span className="block text-[11px] text-gray-600 leading-tight mt-0.5">{d}</span>
+                <span className="block text-xs text-gray-600 leading-tight mt-0.5">{d}</span>
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-gray-600 mt-1.5">
+          <p className="text-xs text-gray-600 mt-1.5">
             A conta é a mesma nos dois: a validade sai a partir de <strong>hoje</strong>.
             Muda só a palavra impressa na etiqueta —{' '}
             <strong>{form.tipoData === 'abertura' ? 'ABERTURA' : 'MANIPULAÇÃO'}</strong>.
@@ -480,7 +480,7 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
               ? 'Depois de ABERTO, dura quantos dias?'
               : 'Depois de MANIPULADO, dura quantos dias?'}
           </p>
-          <p className="text-[11px] text-gray-600 mb-2">
+          <p className="text-xs text-gray-600 mb-2">
             {form.tipoData === 'abertura'
               ? 'Está na embalagem do fabricante — algo como "após aberto, consumir em 3 dias". Preencha na temperatura em que você guarda.'
               : 'É o prazo do processo da sua cozinha, em cada temperatura de guarda.'}
@@ -488,7 +488,7 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
           <div className="grid grid-cols-2 gap-3">
             {armazenamentos.map(a => (
               <div key={a.id}>
-                <label htmlFor={`mi-prazo-${a.id}`} className="block text-[11px] text-gray-600 mb-1">
+                <label htmlFor={`mi-prazo-${a.id}`} className="block text-xs text-gray-600 mb-1">
                   {a.nome}{a.faixa && <span className="text-gray-500"> · {a.faixa}</span>}
                 </label>
                 <input id={`mi-prazo-${a.id}`} type="number" inputMode="numeric" min="0"
@@ -523,13 +523,13 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
               Controle de estoque <span className="font-normal text-gray-500">· opcional</span>
             </summary>
             <div className="px-3 pb-3 space-y-2 border-t border-gray-100 pt-2">
-              <p className="text-[11px] text-gray-600">
+              <p className="text-xs text-gray-600">
                 Deixe em branco o que não usa. Dá para preencher depois, quando o item começar a girar.
               </p>
               <div className="grid grid-cols-3 gap-2">
                 {[['estoqueInicial', 'Tem hoje'], ['min', 'Mínimo'], ['max', 'Máximo']].map(([k, l]) => (
                   <div key={k}>
-                    <label htmlFor={`mi-${k}`} className="block text-[11px] text-gray-600 mb-1">{l}</label>
+                    <label htmlFor={`mi-${k}`} className="block text-xs text-gray-600 mb-1">{l}</label>
                     <input id={`mi-${k}`} type="number" inputMode="decimal" min="0"
                       value={form[k] ?? ''} onChange={e => set(k, e.target.value)}
                       placeholder="0" className={inputCls} />
@@ -537,7 +537,7 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
                 ))}
               </div>
               <div>
-                <label htmlFor="mi-peso" className="block text-[11px] text-gray-600 mb-1">
+                <label htmlFor="mi-peso" className="block text-xs text-gray-600 mb-1">
                   Peso por unidade (g) <span className="text-gray-500">· só para item contado por unidade</span>
                 </label>
                 <input id="mi-peso" type="number" inputMode="decimal" min="0"

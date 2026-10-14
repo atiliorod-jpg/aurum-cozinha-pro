@@ -11,9 +11,18 @@ export const fmtData = (iso) => {
   return `${d}/${m}/${y}`;
 };
 
+// ⚠️ VÍRGULA, NÃO PONTO (auditoria de 14/10/2026). Era `toFixed`, que escreve
+// no padrão americano: o app inteiro mostrava "7.50 kg" e "3.80 unid/dia" —
+// 94 lugares. Agora "7,5 kg", sem zero sobrando.
+// ⚠️ SEM SEPARADOR DE MILHAR de propósito: o app mostrou "1.40 kg" por meses,
+// e "1.500 g" seria lido como um quilo e meio. "1500 g" não deixa dúvida.
+const FORMATOS_NUM = {};
 export const fmtNum = (n, dec = 2) => {
   const num = parseFloat(n) || 0;
-  return num % 1 === 0 ? num.toString() : num.toFixed(dec);
+  if (!FORMATOS_NUM[dec]) {
+    FORMATOS_NUM[dec] = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: dec, useGrouping: false });
+  }
+  return FORMATOS_NUM[dec].format(num);
 };
 
 export const fmtHora = () => {

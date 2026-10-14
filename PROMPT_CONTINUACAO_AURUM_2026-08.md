@@ -181,6 +181,59 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (14/10/2026) — AUDITORIA GERAL + LOTE 1 (correções rápidas)
+
+**Auditoria geral** em `AUDITORIA_GERAL_2026-10-14.md` (no repo). Inclui:
+- 11 defeitos (D1–D11);
+- toque e contraste medidos no app rodando;
+- 12 problemas de uso (U1–U12);
+- a estrutura do código;
+- plano de reestruturação em lotes 0–10, com a ordem sugerida e as decisões
+  do dono.
+
+**Pré-requisito:** publicar o Lote B (M61) antes de mexer no AppContext.
+
+**Decisões do dono (14/10):**
+- O nome é pedido só na hora de registrar ou imprimir (Lote 2).
+- Conta nova do Pro vazia, com a biblioteca.
+- Imprimir na barra do Pro (Lote 3).
+
+**Antes da auditoria, no mesmo dia:**
+- O QR e o "Dar entrada no estoque" apareciam no plano Etiquetas: dependiam
+  de `historicoEtiquetas`, que vale nos dois planos.
+- Agora exigem `produtoTem(produto, 'estoque')`.
+
+**Lote 1 — aplicado e publicado:**
+
+| Item | O que mudou |
+|---|---|
+| Números | `fmtNum` em pt-BR (vírgula, sem separador de milhar). |
+| Nomes | `nomeProduto`/`nomeDestino` devolvem "Item apagado"/"Destino removido". |
+| Demo | Os relatórios leem o catálogo, os locais e os destinos do seed. |
+| Senha | Saiu o segundo "Minha senha" de Configurações. |
+| Catálogo | `CAT.produtos = []` e categorias da biblioteca; `PRODUTOS_BASE`, `CATEGORIAS_BASE` e `resetarProdutos` saíram. |
+| Sem itens | `components/SemItens.jsx` em Entradas e Saídas. |
+| Datas e rótulos | AvisoVencimento com `hoje()`; ícone 'frigideira' no Fechar turno; `rotuloMotivo`. |
+| Exigir responsável | A caixa só aparece com a equipe vazia. |
+| Toque e leitura | Ver abaixo. |
+
+**Toque e leitura:**
+- regra global de 44 px em `index.css` para input/select;
+- `text-[8..11px]` → `text-xs` em todo o `src`;
+- chips, abas e períodos com `min-h-11`;
+- chaves com alvo de 44 px (trilho dentro de um span);
+- cores 700 nos cartões do Início, no Histórico e na Apara;
+- PDF do Relatório fora do cabeçalho.
+
+**Medido:** toques pequenos 243 → 0, contraste 46 → 0, letras < 12 px 170 → 0.
+
+⚠️ **O medidor de toque e contraste foi um script temporário do robô,
+apagado depois.** O código dele está nesta conversa (`e2e/_medir.pw.js`) e
+pode ser recriado. Mede botões menores que 43,5 px, contraste WCAG (fundo
+opaco mais próximo) e letras menores que 12 px.
+
+---
+
 ## Onde paramos (13/10/2026) — "QUEM VAI IMPRIMIR?": NOME + SENHA DA EQUIPE (sem migração)
 
 Pedido do dono, no jeito da Suflex. A tela Imprimir/Etiquetas (os dois planos)

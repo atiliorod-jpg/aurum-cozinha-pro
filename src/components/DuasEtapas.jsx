@@ -87,7 +87,7 @@ export default function DuasEtapas({ aoConcluir, aoSair }) {
           </p>
           {fator?.qr && <img src={fator.qr} alt="QR para o aplicativo autenticador" className="w-48 h-48 mx-auto" />}
           {fator?.secret && (
-            <p className="text-[11px] text-gray-600 break-all">
+            <p className="text-xs text-gray-600 break-all">
               Sem câmera? Digite a chave: <strong className="font-mono">{fator.secret}</strong>
             </p>
           )}

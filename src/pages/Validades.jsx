@@ -146,7 +146,7 @@ export default function Validades() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
             </div>
           )}
-          <p className="text-[11px] text-gray-600 mt-1.5">
+          <p className="text-xs text-gray-600 mt-1.5">
             {soVencidos ? 'Itens que já passaram da validade.' : `De ${fmtData(hj)} até ${fmtData(limite)}.`}
           </p>
         </div>
@@ -159,7 +159,7 @@ export default function Validades() {
         <div className="flex bg-white rounded-xl p-1 gap-1">
           {abas.map(([v, l]) => (
             <button key={v} onClick={() => setAba(v)} aria-pressed={abaAtual === v}
-              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-colors
+              className={`flex-1 min-h-11 py-2.5 rounded-lg text-sm font-semibold transition-colors
                 ${abaAtual === v ? 'bg-polo-navy text-polo-gold' : 'text-gray-700'}`}>
               {l}
             </button>
@@ -178,14 +178,14 @@ export default function Validades() {
                 <div key={`${l.produto.id}_${i}`} className="px-4 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-semibold text-sm text-gray-800 truncate">{l.produto.nome}</p>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-xs text-gray-500">
                       {fmtNum(l.lote.restante)} {l.produto.unidade}
                       {l.lote.dataEntrada && ` · entrou ${fmtData(l.lote.dataEntrada)}`}
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-sm font-bold text-polo-navy">{fmtData(l.lote.validade)}</p>
-                    <p className={`text-[11px] font-semibold ${corDias(l.dias)}`}>{textoDias(l.dias)}</p>
+                    <p className={`text-xs font-semibold ${corDias(l.dias)}`}>{textoDias(l.dias)}</p>
                   </div>
                 </div>
               ))}
@@ -202,7 +202,7 @@ export default function Validades() {
               </button>
               {verSemData && (
                 <>
-                  <p className="text-[11px] text-gray-600 mb-2">
+                  <p className="text-xs text-gray-600 mb-2">
                     Entrou sem data (estoque inicial, lançamento sem validade ou saída antiga). Confira na prateleira.
                   </p>
                   <ul className="divide-y divide-gray-100">
@@ -242,7 +242,7 @@ export default function Validades() {
                             N identidades diferentes criava potes que não existiam.
                             Linha antiga não tem o campo — daí o `> 1` em vez de
                             imprimir "1 etiqueta" em tudo que é histórico velho. */}
-                        <p className="text-[11px] text-gray-500">
+                        <p className="text-xs text-gray-500">
                           código <span className="font-mono">{codigoLegivel(e.id)}</span>
                           {e.copias > 1 && ` · restam ${embalagensRestantes(e)} de ${e.copias} embalagens`}
                           {e.medida && ` · ${e.medida}`}
@@ -251,7 +251,7 @@ export default function Validades() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-bold text-polo-navy">{fmtData(e.validade)}</p>
-                        <p className={`text-[11px] font-semibold ${corDias(d)}`}>{textoDias(d)}</p>
+                        <p className={`text-xs font-semibold ${corDias(d)}`}>{textoDias(d)}</p>
                       </div>
                     </div>
                     {/* ⚠️ Eram dois links de texto puro, ~17 px de altura, a 8 px um
@@ -260,7 +260,7 @@ export default function Validades() {
                         botão inofensivo. Agora são alvos de 44 px, e o de risco fica
                         empurrado para a direita. */}
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      <span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${st.cor}`}>{st.label}</span>
+                      <span className={`text-xs font-bold rounded-full px-2 py-0.5 ${st.cor}`}>{st.label}</span>
                       <button onClick={() => setBaixando({ ...e, cozinha: modulo })}
                         className="min-h-11 px-4 rounded-lg text-sm font-semibold text-polo-navy bg-gray-100 active:bg-gray-200 ml-auto">
                         Dar baixa

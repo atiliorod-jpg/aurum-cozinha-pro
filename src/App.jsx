@@ -155,7 +155,7 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, eraAssinante =
         <p className="text-white/80 text-xs max-w-xs">Só a conta dona do restaurante consegue assinar. Avise a diretoria para liberar o acesso.</p>
       )}
       <div className="flex flex-col items-center gap-2.5 mt-2 pt-4 border-t border-white/15 w-full max-w-xs">
-        <p className="text-white/70 text-[11px]">
+        <p className="text-white/70 text-xs">
           Seus dados continuam seus. Baixe uma cópia quando quiser.
         </p>
         <button onClick={exportarBackup}

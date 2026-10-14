@@ -70,7 +70,7 @@ export default function Termos() {
 
         <div className="bg-white rounded-2xl p-6 print:p-0 print:rounded-none">
           <header className="border-b border-gray-200 pb-4 mb-5">
-            <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide">
+            <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">
               Aurum Serviços Gastronômicos
             </p>
             <h1 className="text-xl font-bold text-polo-navy mt-1">
@@ -424,7 +424,7 @@ export default function Termos() {
             </p>
           </Clausula>
 
-          <footer className="border-t border-gray-200 pt-4 mt-6 text-[11px] text-gray-600">
+          <footer className="border-t border-gray-200 pt-4 mt-6 text-xs text-gray-600">
             <p>Aurum Serviços Gastronômicos · Recife/PE · atendimento por WhatsApp</p>
             <p className="mt-0.5">
               Termos de Uso e Política de Privacidade versão {TERMOS_VERSAO}, em vigor desde {TERMOS_VIGENCIA}.

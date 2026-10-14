@@ -106,13 +106,13 @@ function GuiaImpressora() {
           <div className={`px-4 pb-4 ${aberto === t.id ? '' : 'hidden'} print:block`}>
             <p className="hidden print:block font-bold text-sm text-polo-navy mb-1">{t.titulo}</p>
             <div className="bg-polo-beige rounded-lg p-3 mb-3">
-              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide mb-0.5">Como fica a impressão</p>
+              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-0.5">Como fica a impressão</p>
               <p className="text-xs text-gray-700">{t.comoFica}</p>
             </div>
             <ol className="space-y-2">
               {t.passos.map((p, i) => (
                 <li key={i} className="flex gap-2 text-xs text-gray-700">
-                  <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-[11px]">{i + 1}</span>
+                  <span className="w-5 h-5 rounded-full bg-polo-navy text-polo-gold font-bold flex items-center justify-center flex-shrink-0 text-xs">{i + 1}</span>
                   <span className="pt-0.5">{p}</span>
                 </li>
               ))}
@@ -329,7 +329,7 @@ export default function Etiquetas() {
               busca ou filtra — aí ela já sabe o que procura. */}
           {!buscando && catAtiva === '' && atalhos.length > 0 && (
             <section aria-label="Mais usados">
-              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide px-1 mb-1.5">
+              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide px-1 mb-1.5">
                 Mais usados <span className="font-normal normal-case text-gray-600">· últimos 14 dias</span>
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -339,7 +339,7 @@ export default function Etiquetas() {
                     className="min-h-14 text-left bg-white border-2 border-polo-navy/15 rounded-xl px-3 py-2
                                active:scale-95 transition-transform flex flex-col justify-center">
                     <span className="text-sm font-bold text-polo-navy leading-tight line-clamp-2">{p.nome}</span>
-                    <span className="text-[11px] text-gray-600 truncate">{resumoDePrazos(p)}</span>
+                    <span className="text-xs text-gray-600 truncate">{resumoDePrazos(p)}</span>
                   </button>
                 ))}
               </div>
@@ -395,7 +395,7 @@ export default function Etiquetas() {
                     tela e a pessoa perde de vista em que ala está. Ele fica
                     colado no topo da lista enquanto aquele grupo passa. */}
                 <h2 className="sticky top-0 z-10 bg-polo-beige/95 backdrop-blur px-4 py-1.5
-                               text-[11px] font-bold text-polo-navy uppercase tracking-wide
+                               text-xs font-bold text-polo-navy uppercase tracking-wide
                                border-b border-gray-200">
                   {categoria}
                 </h2>
@@ -421,7 +421,7 @@ export default function Etiquetas() {
                   </div>
                 </div>
                 <button onClick={() => imprimirProduto(p)} aria-label={`Imprimir etiqueta de ${p.nome}`}
-                  className="bg-polo-navy text-polo-gold font-bold text-xs px-3.5 py-2.5 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
+                  className="bg-polo-navy text-polo-gold font-bold text-sm px-4 min-h-11 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
                   Imprimir
                 </button>
               </div>

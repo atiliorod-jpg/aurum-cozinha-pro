@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useRascunho } from '../lib/useRascunho';
+import SemItens from '../components/SemItens';
 import Layout from '../components/Layout';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -169,7 +170,7 @@ export default function Entradas() {
                 <div className="grid grid-cols-2 gap-2">
                   {armazenamentos.map(a => (
                     <button key={a.id} type="button" onClick={() => setArmazenamento(a.id)}
-                      className={`py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors
+                      className={`min-h-11 py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors
                         ${armazenamento === a.id ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
                       {a.nome}
                     </button>
@@ -193,13 +194,13 @@ export default function Entradas() {
           {!buscando && (
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               <button onClick={() => setCatAtiva('')}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
                   ${catAtiva === '' ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
                 Todos
               </button>
               {categorias.map(c => (
                 <button key={c} onClick={() => setCatAtiva(c)}
-                  className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+                  className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
                     ${catAtiva === c ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
                   {c}
                 </button>
@@ -209,8 +210,8 @@ export default function Entradas() {
 
           {/* Produtos */}
           <div className="bg-white rounded-xl overflow-hidden">
-            {produtosVisiveis.length === 0 && (
-              <div className="text-center text-gray-500 py-6 text-sm">Nenhum produto encontrado.</div>
+            {produtosAtivos.length === 0 && !buscando ? <SemItens /> : produtosVisiveis.length === 0 && (
+              <div className="text-center text-gray-600 py-6 text-sm">Nenhum produto encontrado.</div>
             )}
             {produtosVisiveis.map((p, i, arr) => {
               const diasVal = prazoDe(p, armazenamento);
@@ -221,12 +222,12 @@ export default function Entradas() {
                   <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
                   <div className="text-xs text-gray-500">{p.unidade}</div>
                   {temQtd && diasVal > 0 && (
-                    <div className="text-[11px] font-semibold text-polo-navy bg-polo-beige rounded px-1.5 py-0.5 mt-1 inline-block">
+                    <div className="text-xs font-semibold text-polo-navy bg-polo-beige rounded px-1.5 py-0.5 mt-1 inline-block">
                       Etiqueta: fab. {fmtData(data)} • venc. {fmtData(addDias(data, diasVal))}
                     </div>
                   )}
                   {temQtd && diasVal === 0 && (
-                    <div className="text-[11px] text-gray-500 mt-0.5">sem prazo de validade cadastrado (Meus itens)</div>
+                    <div className="text-xs text-gray-500 mt-0.5">sem prazo de validade cadastrado (Meus itens)</div>
                   )}
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -305,7 +306,7 @@ export default function Entradas() {
                 const p = produtos.find(x => x.id === item.produtoId);
                 return (
                   <div key={item.produtoId} className="flex justify-between text-sm border-t border-gray-50 pt-1 mt-1">
-                    <span className="text-gray-700">{p?.nome || item.produtoId}</span>
+                    <span className="text-gray-700">{p?.nome || nomeProduto(produtos, item.produtoId)}</span>
                     <span className="font-semibold text-green-700">+{item.quantidade} {p?.unidade}</span>
                   </div>
                 );

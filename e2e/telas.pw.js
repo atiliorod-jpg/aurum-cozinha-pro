@@ -160,3 +160,18 @@ test('plano Pro, Estoque Seco: etiqueta de abertura, ambiente como padrão, e va
   await expect(page.getByText('Extrato de tomate (340g)').first()).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
+
+// ⚠️ AUDITORIA DE 14/10/2026 (lote 1): números com vírgula e nomes no lugar
+// dos códigos internos. O Relatório da demonstração mostrava "empanado" e
+// "unidade_centro", e o Início, "7.50 kg".
+test('plano Pro: números com vírgula e relatório com nomes, não códigos', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
+  await expect(page.locator('main')).toContainText('7,5 kg');
+  await expect(page.locator('main')).not.toContainText('7.50 kg');
+  await abrirTela(page, '/relatorio');
+  await expect(page.locator('main')).toContainText('Empanado de Filé (porção)');
+  await expect(page.locator('main')).toContainText('Unidade Centro');
+  await expect(page.locator('main')).not.toContainText('unidade_centro');
+  await expect(page.locator('main')).not.toContainText(/V — Vencimento/);
+  expect(erros, erros.join('\n')).toEqual([]);
+});

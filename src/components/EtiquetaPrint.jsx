@@ -76,11 +76,11 @@ function Dica({ texto }) {
     <>
       <button type="button" onClick={() => setAberta(v => !v)}
         aria-label={aberta ? 'Fechar explicação' : 'O que é isto?'} aria-expanded={aberta}
-        className="ml-1 w-4 h-4 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold leading-none align-middle">
-        !
+        className="inline-flex items-center justify-center w-11 h-11 -my-3 align-middle">
+        <span aria-hidden="true" className="w-5 h-5 rounded-full bg-gray-200 text-gray-700 text-xs font-bold leading-none flex items-center justify-center">!</span>
       </button>
       {aberta && (
-        <span className="block font-normal normal-case text-[11px] text-gray-600 mt-1">{texto}</span>
+        <span className="block font-normal normal-case text-xs text-gray-600 mt-1">{texto}</span>
       )}
     </>
   );
@@ -1099,10 +1099,10 @@ export default function EtiquetaPrint() {
           )}
           {variasUnidades && (
             <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
-              <p className="text-[11px] font-bold text-polo-navy uppercase tracking-wide">Imprimindo pela unidade</p>
+              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Imprimindo pela unidade</p>
               <p className="text-sm font-bold text-polo-navy">{nomeImpresso || '—'}</p>
               {estabelecimento.cnpj && (
-                <p className="text-[11px] text-gray-700">CNPJ {formatarCNPJ(estabelecimento.cnpj)}</p>
+                <p className="text-xs text-gray-700">CNPJ {formatarCNPJ(estabelecimento.cnpj)}</p>
               )}
             </div>
           )}
@@ -1167,7 +1167,7 @@ export default function EtiquetaPrint() {
                   {comArmazenamento && item.armazenamento !== null && (
                     <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
                       <label htmlFor={`ep-armaz-${idx}`}
-                        className="block text-[11px] font-bold text-polo-navy uppercase tracking-wide mb-1">
+                        className="block text-xs font-bold text-polo-navy uppercase tracking-wide mb-1">
                         Armazenamento — sai impresso na etiqueta
                       </label>
                       {/* ⚠️ Trocar o estado RESEMEIA os dias com o prazo
@@ -1199,14 +1199,14 @@ export default function EtiquetaPrint() {
                   )}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label htmlFor={`ep-data-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">
+                      <label htmlFor={`ep-data-${idx}`} className="block text-xs font-semibold text-gray-500 mb-0.5">
                         {item.tipoData === 'abertura' ? 'Data de abertura' : 'Data de manipulação'}
                       </label>
                       <input id={`ep-data-${idx}`} type="date" value={item.dataFabricacao} max={hoje()}
                         onChange={e => setItem(idx, { dataFabricacao: e.target.value })} className={inputCls} />
                     </div>
                     <div>
-                      <label htmlFor={`ep-medida-${idx}`} className="block text-[11px] font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
+                      <label htmlFor={`ep-medida-${idx}`} className="block text-xs font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
                       <input id={`ep-medida-${idx}`} type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
                         onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
                     </div>
@@ -1218,7 +1218,7 @@ export default function EtiquetaPrint() {
                           jogava o foco no campo — atrapalhando justo quem
                           navega por teclado ou leitor de tela. */}
                       <div className="mb-0.5">
-                        <label htmlFor={`ep-dias-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                        <label htmlFor={`ep-dias-${idx}`} className="text-xs font-semibold text-gray-500">
                           Validade (dias)
                         </label>
                         <Dica texto="Vem do cadastro do item. Mude se a embalagem deste lote disser outro prazo." />
@@ -1238,7 +1238,7 @@ export default function EtiquetaPrint() {
                   {/* Prazo que destoa do cadastrado — aviso, nunca bloqueio:
                       lote com prazo diferente do padrão é caso real. */}
                   {avisoDePrazo(item.diasOverride, diasDoCadastro(item)) && (
-                    <p className="text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                    <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
                       {avisoDePrazo(item.diasOverride, diasDoCadastro(item))}
                     </p>
                   )}
@@ -1246,7 +1246,7 @@ export default function EtiquetaPrint() {
                       pessoa achar que o prazo veio do cadastro dela. Aqui ela
                       lê de onde veio e que o rótulo do fabricante manda mais. */}
                   {usandoSugestaoDeAbertura(item, item.diasOverride) && (
-                    <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
+                    <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
                       Sem prazo cadastrado. Sugerimos <strong>3 dias</strong>, o limite usual
                       para produto aberto sob refrigeração — se a embalagem disser outro prazo
                       depois de aberto, é o dela que vale.
@@ -1255,7 +1255,7 @@ export default function EtiquetaPrint() {
                   <div className="grid grid-cols-2 gap-2">
                     {config.campos.valOriginal !== false && <div>
                       <div className="mb-0.5">
-                        <label htmlFor={`ep-valorig-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                        <label htmlFor={`ep-valorig-${idx}`} className="text-xs font-semibold text-gray-500">
                           Val. original
                         </label>
                         <Dica texto="A data impressa na embalagem do fabricante. Não muda o vencimento — serve para avisar se o prazo da casa passar dela." />
@@ -1271,7 +1271,7 @@ export default function EtiquetaPrint() {
                         peça já virou dez porções. */}
                     {config.campos.lote !== false && <div>
                       <div className="mb-0.5">
-                        <label htmlFor={`ep-lote-${idx}`} className="text-[11px] font-semibold text-gray-500">
+                        <label htmlFor={`ep-lote-${idx}`} className="text-xs font-semibold text-gray-500">
                           Lote do fabricante
                         </label>
                         <Dica texto="O número do lote impresso na caixa ou no rótulo do fornecedor. Só isso liga este pote ao recall do frigorífico depois de porcionar." />
@@ -1322,14 +1322,14 @@ export default function EtiquetaPrint() {
                           <span className="text-sm text-gray-800">
                             Dar entrada no estoque{e.total > 0 && <>: <strong className="text-polo-navy">{fmtNum(e.total)} {e.unidade}</strong></>}
                             {campos.validade && <span className="text-gray-600"> · vence {fmtData(campos.validade)}</span>}
-                            <span className="block text-[11px] text-gray-600">
+                            <span className="block text-xs text-gray-600">
                               Desmarque se este item já entrou no estoque (lançado em Entradas ou Produção).
                             </span>
                           </span>
                         </label>
                         {marcado && !e.porEmbalagem && (
                           <label className="block pb-1.5">
-                            <span className="block text-[11px] font-semibold text-gray-600 mb-0.5">
+                            <span className="block text-xs font-semibold text-gray-600 mb-0.5">
                               Quanto entra no estoque{e.unidade ? ` (em ${e.unidade})` : ''}? A medida não diz.
                             </span>
                             <input type="text" inputMode="decimal" value={item._qtdEntrada ?? ''} placeholder="Ex.: 2,5"
@@ -1403,7 +1403,7 @@ export default function EtiquetaPrint() {
                 </div>
               </div>
               {itens.length > 1 && (
-                <p className="text-[11px] text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
+                <p className="text-xs text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
               )}
             </div>
           )}
@@ -1418,7 +1418,7 @@ export default function EtiquetaPrint() {
               app aberto dentro do WhatsApp). Aí o diálogo volta, porque é a
               única saída que resta — mas com uma linha dizendo por quê. */}
           {mostrarDireto && (
-            <p className="text-[11px] text-gray-600 text-center">
+            <p className="text-xs text-gray-600 text-center">
               Sai direto, no tamanho exato. Sem janela de impressão.
             </p>
           )}
@@ -1429,7 +1429,7 @@ export default function EtiquetaPrint() {
               não fala Bluetooth também. A pessoa baixava o Chrome, dava no
               mesmo, e ia procurar defeito no aparelho. */}
           {semBluetooth && (
-            <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
+            <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
               {ehIOS()
                 ? <>No iPhone e no iPad nenhum navegador conecta na impressora — é limitação
                     do sistema da Apple, e trocar de navegador não resolve. Use esta janela de

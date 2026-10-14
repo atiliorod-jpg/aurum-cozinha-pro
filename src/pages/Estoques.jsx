@@ -127,7 +127,7 @@ export default function Estoques() {
   return (
     <Layout title="Unidades e cozinhas" area="admin">
       <div className="space-y-5">
-        <p className="text-[11px] text-gray-500 px-1 leading-relaxed">
+        <p className="text-xs text-gray-600 px-1 leading-relaxed">
           Cada <strong>unidade</strong> é um estabelecimento, com o seu CNPJ — é o que sai na etiqueta.
           Dentro de cada uma ficam as <strong>cozinhas</strong>, com saldo e mín/máx próprios. Os itens
           são cadastrados uma vez e aparecem em todas as cozinhas do mesmo tipo — menos na unidade com
@@ -145,10 +145,10 @@ export default function Estoques() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-polo-gold truncate">
                     {g.nome}
-                    {g.principal && <span className="ml-1.5 text-[11px] font-semibold text-white/70">principal</span>}
-                    {g.arquivada && <span className="ml-1.5 text-[11px] font-bold text-white/70">arquivada</span>}
+                    {g.principal && <span className="ml-1.5 text-xs font-semibold text-white/70">principal</span>}
+                    {g.arquivada && <span className="ml-1.5 text-xs font-bold text-white/70">arquivada</span>}
                   </p>
-                  <p className="text-[11px] text-white/80">
+                  <p className="text-xs text-white/80">
                     {g.cnpj ? `CNPJ ${formatarCNPJ(g.cnpj)}` : 'Sem CNPJ cadastrado'}
                     {g.local ? ` · ${g.local}` : ''}
                     {g.listaPropria ? ' · lista de itens própria' : ''}
@@ -167,7 +167,7 @@ export default function Estoques() {
                     {editando === e.id ? (
                       <div className="space-y-2">
                         <label className="block">
-                          <span className="text-[11px] font-semibold text-gray-600">Nome da cozinha</span>
+                          <span className="text-xs font-semibold text-gray-600">Nome da cozinha</span>
                           <input className={campo} value={rascunho} autoFocus
                             placeholder={m.label}
                             onChange={ev => setRascunho(ev.target.value)} />
@@ -188,27 +188,27 @@ export default function Estoques() {
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-bold text-polo-navy truncate">
                               {e.nome}
-                              {e.arquivado && <span className="ml-1.5 text-[11px] font-bold text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">arquivada</span>}
+                              {e.arquivado && <span className="ml-1.5 text-xs font-bold text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">arquivada</span>}
                             </p>
-                            <p className="text-[11px] text-gray-600 truncate">{m.label}</p>
+                            <p className="text-xs text-gray-600 truncate">{m.label}</p>
                           </div>
                           {!g.arquivada && (
                             <button onClick={() => { setEditando(e.id); setRascunho(e.raiz ? '' : e.nome); }}
-                              className="text-[11px] font-semibold text-polo-navy px-2 py-1 rounded hover:bg-polo-beige flex-shrink-0">Renomear</button>
+                              className="text-xs font-semibold text-polo-navy px-3 min-h-11 rounded-lg hover:bg-polo-beige flex-shrink-0">Renomear</button>
                           )}
                           {!fixa && !g.arquivada && (e.arquivado
                             ? <button onClick={() => desarquivar(e)}
-                                className="text-[11px] font-semibold text-green-700 px-2 py-1 rounded hover:bg-green-50 flex-shrink-0">Reativar</button>
+                                className="text-xs font-semibold text-green-700 px-2 py-1 rounded hover:bg-green-50 flex-shrink-0">Reativar</button>
                             : <button onClick={() => arquivar(e)}
-                                className="text-[11px] font-semibold text-gray-500 px-2 py-1 rounded hover:bg-gray-50 flex-shrink-0">Arquivar</button>)}
+                                className="text-xs font-semibold text-gray-500 px-2 py-1 rounded hover:bg-gray-50 flex-shrink-0">Arquivar</button>)}
                         </div>
                         {e.estabelecimento && (
                           <div className="bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 flex items-center justify-between gap-2">
-                            <p className="text-[11px] text-amber-900 min-w-0">
+                            <p className="text-xs text-amber-900 min-w-0">
                               Etiqueta sai como <strong>{e.estabelecimento}</strong> (nome antigo), com o CNPJ da conta.
                             </p>
                             <button onClick={() => pararNomeAntigo(e)}
-                              className="text-[11px] font-semibold text-amber-900 underline underline-offset-2 flex-shrink-0">parar de usar</button>
+                              className="text-xs font-semibold text-amber-900 underline underline-offset-2 flex-shrink-0">parar de usar</button>
                           </div>
                         )}
                       </div>
@@ -224,7 +224,7 @@ export default function Estoques() {
                     {MODULOS.map(m => (
                       <button key={m.id} onClick={() => setCriando(c => ({ ...c, tipo: m.id }))}
                         aria-pressed={criando.tipo === m.id}
-                        className={`flex-1 text-[11px] font-bold py-2 rounded-lg border
+                        className={`flex-1 text-xs font-bold py-2 rounded-lg border
                           ${criando.tipo === m.id ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
                         {m.label}
                       </button>
@@ -243,7 +243,7 @@ export default function Estoques() {
                 </div>
               ) : (
                 <button onClick={() => { setCriando({ unidade: g.id, tipo: MODULOS[0].id }); setNomeNovo(''); }}
-                  className="w-full text-[11px] font-bold text-polo-navy border border-dashed border-polo-navy/30 rounded-xl py-2.5">
+                  className="w-full min-h-11 text-xs font-bold text-polo-navy border border-dashed border-polo-navy/30 rounded-xl py-2.5">
                   + Nova cozinha em {g.nome}
                 </button>
               ))}

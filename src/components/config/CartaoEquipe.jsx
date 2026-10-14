@@ -143,7 +143,7 @@ export default function CartaoEquipe({ titulo = 'Equipe', descricao = '', estilo
               <li key={p} className="py-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-polo-navy min-w-0 break-words flex-1">{p}</span>
-                  <span className={`inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2 py-0.5
+                  <span className={`inline-flex items-center gap-1 text-xs font-semibold rounded-full px-2 py-0.5
                     ${com ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-600'}`}>
                     {com && <Icon name="cadeado" size={12} />}{com ? 'com senha' : 'sem senha'}
                   </span>
@@ -184,7 +184,7 @@ export default function CartaoEquipe({ titulo = 'Equipe', descricao = '', estilo
         <Botao onClick={adicionar} tamanho="sm" largura="auto">Adicionar</Botao>
       </div>
       {!ehDono && pessoas.length > 0 && (
-        <p className="text-[11px] text-gray-500">As senhas são criadas pela conta dona.</p>
+        <p className="text-xs text-gray-500">As senhas são criadas pela conta dona.</p>
       )}
     </div>
   );

@@ -78,7 +78,7 @@ O app funciona e é seguro. O "Frankenstein" aparece em cinco coisas:
 | D1 | Números com ponto e zero sobrando: "7.50 kg", "3.80 unid/dia", "93.0%", "1.40 kg". O certo no Brasil é "7,5 kg". | `fmtNum` em `utils/formatters.js` usa `toFixed`; 94 lugares nas telas | Média (aparece em todo lugar) |
 | D2 | O Relatório mostra o código interno no lugar do nome ("empanado", "molho", "unidade_centro", "cozinha"). Na demonstração acontece sempre, porque o relatório lê o catálogo-padrão e não o da demo. Na conta real, acontece depois de apagar um item ou um destino de saída. | `utils/relatorios.js`, `utils/analise.js` (recaem no id); `visaoDoEstoque` na demo | Média (a demo é a vitrine de venda) |
 | D3 | A conta dona vê **dois** cartões "Minha senha" em Configurações → Sistema (Pro). O segundo aparece para qualquer conta com acesso (a conta da equipe troca a própria senha, que pela regra é o dono quem troca) e **também no modo suporte**, onde trocaria a senha do próprio super-admin achando que é a do cliente. | `pages/Configuracoes.jsx` (cartão escrito à mão perto da linha 1421) | Média |
-| D4 | "Restaurar produtos padrão", na Zona de perigo, troca o catálogo do cliente pelos 43 itens da Polo Beer (charque, cupim…). E toda conta **nova do Pro** nasce com esse catálogo. | `resetarProdutos`, `catalogosPadrao`, `data/produtos.js` | Alta (estraga a conta de um cliente novo) |
+| D4 | "Restaurar produtos padrão", na Zona de perigo, troca o catálogo inteiro do cliente pelos 2 itens de exemplo de fábrica ("Filé (exemplo — edite ou apague)" e "Molho da casa"). E toda conta nova do Pro nasce com esses 2 exemplos, que a pessoa tem de apagar. *(Correção de 14/10: a primeira versão desta auditoria dizia que eram os 43 itens da Polo Beer. Errado: esses ficam em `data/presetPolo.js` e só entram se alguém importar.)* | `resetarProdutos`, `catalogosPadrao`, `PRODUTOS_BASE` | Alta (apaga o catálogo de um cliente com um toque) |
 | D5 | Na Finalização, o Início acusa "abaixo do mínimo" usando o mínimo da Produção (8 alertas na demo), e a bolinha vermelha da barra fica sempre acesa: alarme falso permanente. | Dashboard e NavBar com `min`/`max` do catálogo | Média |
 | D6 | Itens que só servem para etiqueta (leite aberto, molho do dia) entram em Entradas, Saídas, Contagem e Início, com estoque 0 e situação "—". | Não existe "não controla estoque" no item | Média |
 | D7 | "Dispensar por hoje", no aviso de vencimento, grava o dia em UTC. Depois das 21h, o aviso some até as 21h do dia seguinte. | `components/AvisoVencimento.jsx` | Baixa |
@@ -238,7 +238,8 @@ Tamanhos: P = pequeno, M = médio, G = grande.
   existe mais.
 - **D3** um só "Minha senha", só para a conta dona e nunca no modo suporte.
 - **D4** sai o "Restaurar produtos padrão"; o Pro novo nasce vazio, com a
-  biblioteca de itens prontos, como o Etiquetas.
+  biblioteca de itens prontos, como o Etiquetas. Entradas e Saídas sem itens
+  passam a dizer onde cadastrar.
 - **D7**, **D8**, **D10** (motivo por extenso), **D11**.
 - **Toque e contraste** nos pontos medidos:
   - botão Imprimir, filtros, abas e períodos com 44 px;
@@ -376,5 +377,45 @@ Tamanhos: P = pequeno, M = médio, G = grande.
    Validades)?
 3. **Lote 4:** itens com data de abertura nascem como **"Só etiqueta"**?
 4. **Lote 1 / D4:** conta nova do Pro começa **vazia**, com a biblioteca,
-   como o Etiquetas? E o "Restaurar produtos padrão" sai?
+   como o Etiquetas? E o "Restaurar produtos padrão" sai? *(Decidido: sim.)*
 5. **QR no plano Etiquetas:** fica sem (como era o combinado da M59) ou volta?
+
+---
+
+## Andamento
+
+### Respostas do dono (14/10/2026)
+
+| Pergunta | Resposta |
+|---|---|
+| Lote 1 | Aprovado e aplicado. |
+| Quando pedir o nome | Só na hora de registrar ou imprimir (Lote 2). |
+| Conta nova do Pro | Começa vazia, com a biblioteca de itens prontos; o "Restaurar produtos padrão" sai. |
+| Barra de baixo do Pro | Imprimir entra (Lote 3). |
+
+### Lote 1 — aplicado e publicado em 14/10/2026
+
+| Item | O que foi feito |
+|---|---|
+| D1 | `fmtNum` em português ("7,5 kg"); os gráficos também. |
+| D2 | "Item apagado" e "Destino removido" (`nomeProduto` e `nomeDestino`, em `utils/calculos.js`) no lugar dos códigos. A demo lê o próprio catálogo e os próprios destinos nos relatórios. |
+| D3 | Saiu o segundo "Minha senha" de Configurações. |
+| D4 | Conta nova vazia, com as categorias da biblioteca. Saiu o "Restaurar produtos padrão". Entradas e Saídas sem itens mostram "Cadastrar itens". |
+| D7 | O aviso de vencimento usa o dia do aparelho. |
+| D8 | Ícone próprio para Fechar turno na barra. |
+| D10 | O motivo da perda aparece por extenso (`rotuloMotivo`). |
+| D11 | Com equipe cadastrada, a caixa "Exigir o responsável" virou a frase "Toda etiqueta sai assinada". |
+| Toque e leitura | Regra global de 44 px para campos; filtros, abas, períodos, chaves (agora com papel de chave e nome), botões de remover e o Imprimir da lista com 44 px; nenhuma letra abaixo de 12 px; cores com contraste. O PDF do Relatório saiu do cabeçalho; na lista de produtos o nome quebra em duas linhas. |
+
+**Medição antes e depois, nas mesmas 20 telas:**
+
+| O que se mediu | Antes | Depois |
+|---|---|---|
+| Toques menores que 44 px | 243 | 0 |
+| Textos com contraste abaixo do mínimo | 46 | 0 |
+| Letras menores que 12 px | 170 | 0 |
+
+**Testes:** 872 testes (11 novos em `lote1Auditoria.test.js`). O robô tem 21
+cenários; um novo confere a vírgula e os nomes no Relatório.
+
+**Ficaram para os próximos lotes:** D5 (Lote 6), D6 (Lote 4) e D9 (Lote 9).

@@ -194,7 +194,7 @@ export function comMetas(catalogo, metas) {
  */
 export function separarMetas(catalogoAtual, novaLista, metasAtuais) {
   // ⚠️ Trava de chamador, não validação de dado. O catálogo nasce de
-  // PRODUTOS_BASE e nunca é undefined; receber undefined aqui só acontece se
+  // um array (vazio na conta nova) e nunca é undefined; receber undefined aqui só acontece se
   // quem chamou não passou o argumento. Foi exatamente esse o bug: com
   // undefined, `atual` virava [], todo produto caía em "produto novo", e o
   // mín/máx voltava para o catálogo COMPARTILHADO em vez das metas da

@@ -72,7 +72,7 @@ export default class BarreiraDeErro extends Component {
           className="bg-polo-gold text-polo-navy font-bold px-6 py-3 rounded-xl min-h-11">
           Abrir de novo
         </button>
-        <p className="text-white/60 text-[11px] max-w-xs">
+        <p className="text-white/60 text-xs max-w-xs">
           Se travar outra vez, mande um recado pelo botão Ajuda, no rodapé, contando
           o que você estava fazendo — o app guardou o detalhe do erro.
         </p>

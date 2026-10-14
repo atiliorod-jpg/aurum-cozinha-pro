@@ -115,7 +115,7 @@ export function TecladoSenha({ nome, aoVoltar }) {
       {sessao?.demo && nome === DEMO_COM_SENHA.nome && (
         <p className="text-center text-xs text-gray-600">Na demonstração, a senha de {nome} é {DEMO_COM_SENHA.senha}.</p>
       )}
-      <p className="text-center text-[11px] text-gray-600">Esqueceu a senha? Quem administra a conta troca em Administração.</p>
+      <p className="text-center text-xs text-gray-600">Esqueceu a senha? Quem administra a conta troca em Administração.</p>
     </div>
   );
 }

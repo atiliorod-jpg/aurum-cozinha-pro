@@ -14,7 +14,8 @@ const NAV = [
   // seção do hub Registrar, enquanto a barra mostrava Relatório — que lá é
   // quase vazio. Aparece só onde o recurso existe, então Produção e Seco não
   // ganham um botão que não faz nada.
-  { to: '/fechar-turno',  icon: 'registrar', label: 'Fechar turno', recurso: 'fecharTurno' },
+  // ícone próprio (o mesmo do cartão em Registrar): era o '+' de Registrar repetido
+  { to: '/fechar-turno',  icon: 'frigideira', label: 'Fechar turno', recurso: 'fecharTurno' },
   // "O que vence hoje" é a pergunta mais repetida de uma cozinha — merece a
   // barra, não um card dentro de Registrar. O histórico geral saiu daqui: cada
   // tela já tem a aba "Histórico" dela, e ele continua no hub Registrar.
@@ -140,7 +141,7 @@ function BarraNav({ itens, badges = {} }) {
             to={to}
             end={to === '/'}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center pt-1.5 pb-2 gap-1 text-[11px] font-semibold transition-all relative
+              `flex-1 flex flex-col items-center justify-center pt-1.5 pb-2 gap-1 text-xs font-semibold transition-all relative
                focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg
                ${isActive ? 'text-polo-gold' : 'text-white/90 active:text-white'}`
             }
@@ -155,7 +156,7 @@ function BarraNav({ itens, badges = {} }) {
                 {listaDe(to).map((b, i) => (
                   <span key={i} aria-label={b.rotulo}
                     className={`absolute top-0.5 ${b.lado === 'esquerda' ? 'left-1/4' : 'right-1/4'} ${b.cor || 'bg-red-500'}
-                      text-white text-[11px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold ring-2 ring-polo-navy`}>
+                      text-white text-xs rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold ring-2 ring-polo-navy`}>
                     {b.icone ? <Icon name={b.icone} size={11} strokeWidth={2.5} /> : b.texto}
                   </span>
                 ))}

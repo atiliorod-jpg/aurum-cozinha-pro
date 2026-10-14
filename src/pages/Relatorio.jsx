@@ -3,8 +3,8 @@ import Layout from '../components/Layout';
 import SeletorVisao, { TODOS } from '../components/SeletorVisao';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
-import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
-import { filtrarPorPeriodo, totalPorProduto } from '../utils/calculos';
+import { DESTINOS_APARA, rotuloMotivo } from '../data/produtos';
+import { filtrarPorPeriodo, totalPorProduto, nomeProduto } from '../utils/calculos';
 import { saidasPorDia, topProdutosSaida, somaPorCampo, unidadesPresentes, rendimentoPorFornecedor } from '../utils/analise';
 import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem, somaPorUnidade, desperdicioPorDia, desperdicioPorEstoqueDia } from '../utils/relatorios';
 import { fmtData, fmtNum, hoje } from '../utils/formatters';
@@ -12,7 +12,6 @@ import { addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
 import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../components/Charts';
 
-const rotuloMotivo = (cod) => MOTIVOS_DESPERDICIO.find(m => m.cod === cod)?.label || cod;
 
 // Cartão de seção do relatório (escopo de módulo: componente definido dentro
 // do render é recriado a cada render e perde estado — react-hooks/static-components)
@@ -108,7 +107,7 @@ export default function Relatorio() {
   const perdasPorMotivo = useMemo(
     () => unidadesPresentes(perdasF).map(un => ({
       unidade: un,
-      dados: somaPorCampo(perdasF, 'motivo', un).map(x => ({ label: `${x.cod} — ${rotuloMotivo(x.cod)}`, valor: x.valor })),
+      dados: somaPorCampo(perdasF, 'motivo', un).map(x => ({ label: rotuloMotivo(x.cod), valor: x.valor })),
     })),
     [perdasF]);
   const aparasPorDestino = useMemo(
@@ -152,7 +151,7 @@ export default function Relatorio() {
     [aparasF, perdasF, compras, temApara]);
   // Nome do produto para a perda lançada por produtoId (a de estoque).
   const nomeProdutoRel = useCallback(
-    (id) => produtos.find(p => p.id === id)?.nome || (id ? id : 'item não informado'), [produtos]);
+    (id) => (id ? nomeProduto(produtos, id) : 'item não informado'), [produtos]);
 
   // Novas visões "por item": rendimento (chegou → aparas/perdas → %) e produção
   const rendItens = useMemo(() => rendimentoPorItem(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
@@ -165,15 +164,17 @@ export default function Relatorio() {
     <Layout
       title="Relatório"
       area="admin"
-      actions={
-        <button onClick={() => window.print()}
-          className="bg-polo-gold text-polo-navy text-xs font-bold px-3 py-1.5 rounded-lg">
-          PDF
-        </button>
-      }
     >
-      <div className="mb-4 print:hidden">
-        <SeletorVisao valor={vendo} aoTrocar={setVendo} comTodos />
+      {/* ⚠️ O PDF SAIU DO CABEÇALHO (14/10/2026): com o botão no tamanho de
+          dedo, o título encolhia para "R…". Fica ao lado de "Mostrando". */}
+      <div className="mb-4 print:hidden flex gap-2 items-stretch">
+        <div className="flex-1 min-w-0">
+          <SeletorVisao valor={vendo} aoTrocar={setVendo} comTodos />
+        </div>
+        <button onClick={() => window.print()}
+          className="bg-polo-gold text-polo-navy text-xs font-bold px-3 min-h-11 rounded-xl flex-shrink-0">
+          Salvar PDF
+        </button>
       </div>
 
       {/* Cabeçalho que só aparece na impressão/PDF (o header do app some no print) */}
@@ -190,8 +191,8 @@ export default function Relatorio() {
         <div className="flex flex-wrap gap-1.5 mb-1">
           {[['hoje', 'Hoje'], ['7d', '7 dias'], ['quinzena', 'Quinzena'], ['mes', 'Mês'], ['custom', 'Personalizado']].map(([v, l]) => (
             <button key={v} onClick={() => setPeriodo(v)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors
-                ${periodo === v ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-500'}`}>
+              className={`min-h-11 px-3 rounded-lg text-xs font-semibold transition-colors
+                ${periodo === v ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-700'}`}>
               {l}
             </button>
           ))}
@@ -217,7 +218,7 @@ export default function Relatorio() {
             )}
           </div>
         ) : (
-          <p className="text-[11px] text-gray-600 mt-1">{fmtData(rIni)} a {fmtData(rFim)}</p>
+          <p className="text-xs text-gray-600 mt-1">{fmtData(rIni)} a {fmtData(rFim)}</p>
         )}
       </div>
 
@@ -290,7 +291,7 @@ export default function Relatorio() {
         </div>
         <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
           <div className="text-xl font-bold text-green-700">{entradasF.length}</div>
-          <div className="text-xs text-green-600">{temProducao ? 'Entradas na produção' : 'Entradas no estoque'}</div>
+          <div className="text-xs text-green-700">{temProducao ? 'Entradas na produção' : 'Entradas no estoque'}</div>
         </div>
         {temApara && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
@@ -302,7 +303,7 @@ export default function Relatorio() {
           <div className="text-lg font-bold text-red-700 leading-tight">{fmtUn(totalPerdas)}</div>
           {/* "do estoque" = a parte que abateu saldo. O resto são perdas de
               itens não controlados, que entram no relatório mas não no saldo. */}
-          <div className="text-xs text-red-600">Perdas ({fmtUn(perdasEstoque)} abateu saldo)</div>
+          <div className="text-xs text-red-700">Perdas ({fmtUn(perdasEstoque)} abateu saldo)</div>
         </div>
       </div>
 
@@ -310,7 +311,7 @@ export default function Relatorio() {
       {temApara && (
       <div className="bg-white rounded-xl p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Rendimento por item</p>
-        <p className="text-[11px] text-gray-500 mb-3">Quanto de cada matéria-prima chegou e quanto virou apara/perda. Rendimento = o que sobrou aproveitável.</p>
+        <p className="text-xs text-gray-500 mb-3">Quanto de cada matéria-prima chegou e quanto virou apara/perda. Rendimento = o que sobrou aproveitável.</p>
         {rendItens.length === 0 ? (
           <div className="text-center text-gray-600 py-6 text-sm">Nenhuma compra registrada neste período.</div>
         ) : (
@@ -333,7 +334,7 @@ export default function Relatorio() {
                     <td className="py-1.5 text-gray-800">
                       {it.item}
                       {it.avisoUnidade && (
-                        <span className="ml-1 text-[11px] text-amber-700" title={`${fmtNum(it.incompativel)} de apara/perda em unidade diferente de ${it.unidade}`}>
+                        <span className="ml-1 text-xs text-amber-700" title={`${fmtNum(it.incompativel)} de apara/perda em unidade diferente de ${it.unidade}`}>
                           unidade diferente
                         </span>
                       )}
@@ -348,7 +349,7 @@ export default function Relatorio() {
                 ))}
               </tbody>
             </table>
-            <p className="text-[11px] text-gray-600 pt-2">Rendimento = 100% − (aparas + perdas associadas à compra ÷ total que chegou). Verde ≥ 90%, âmbar ≥ 80%, vermelho abaixo.</p>
+            <p className="text-xs text-gray-600 pt-2">Rendimento = 100% − (aparas + perdas associadas à compra ÷ total que chegou). Verde ≥ 90%, âmbar ≥ 80%, vermelho abaixo.</p>
           </div>
         )}
       </div>
@@ -358,7 +359,7 @@ export default function Relatorio() {
       {temProducao && (
       <div className="bg-white rounded-xl p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Produção por item</p>
-        <p className="text-[11px] text-gray-500 mb-3">Quanto de cada item produzido saiu da cozinha no período.</p>
+        <p className="text-xs text-gray-500 mb-3">Quanto de cada item produzido saiu da cozinha no período.</p>
         {prodItens.length === 0 ? (
           <div className="text-center text-gray-600 py-6 text-sm">Nenhuma produção registrada neste período.</div>
         ) : (
@@ -388,7 +389,7 @@ export default function Relatorio() {
           : perdasPorMotivo.map(g => (
             <div key={g.unidade} className="mb-2 last:mb-0">
               {perdasPorMotivo.length > 1 && (
-                <p className="text-[11px] font-semibold text-gray-600 mb-1">Em {g.unidade}</p>
+                <p className="text-xs font-semibold text-gray-600 mb-1">Em {g.unidade}</p>
               )}
               <Donut dados={g.dados} />
             </div>
@@ -402,7 +403,7 @@ export default function Relatorio() {
           : aparasPorDestino.map(g => (
             <div key={g.unidade} className="mb-2 last:mb-0">
               {aparasPorDestino.length > 1 && (
-                <p className="text-[11px] font-semibold text-gray-600 mb-1">Em {g.unidade}</p>
+                <p className="text-xs font-semibold text-gray-600 mb-1">Em {g.unidade}</p>
               )}
               <Donut dados={g.dados} />
             </div>
@@ -429,14 +430,14 @@ export default function Relatorio() {
                     roda só na dominante — dizer isso é melhor que somar cx com
                     kg e imprimir um número que parece nota do fornecedor. */}
                 {f.itensDeFora > 0 && (
-                  <p className="text-[11px] text-gray-600 mt-0.5">
+                  <p className="text-xs text-gray-600 mt-0.5">
                     Calculado sobre {f.itensNaConta} {f.itensNaConta === 1 ? 'item' : 'itens'} em {f.unidade}.
                     {' '}{f.itensDeFora} {f.itensDeFora === 1 ? 'item ficou' : 'itens ficaram'} de fora por estar em outra unidade.
                   </p>
                 )}
               </div>
             ))}
-            <p className="text-[11px] text-gray-600 pt-1">
+            <p className="text-xs text-gray-600 pt-1">
               Rendimento = 100% − (aparas e perdas associadas ÷ total comprado).
             </p>
           </div>
@@ -474,7 +475,7 @@ export default function Relatorio() {
               if (!linhas.length) return null;
               return [
                 <tr key={cat} className="bg-gray-50/60">
-                  <td colSpan={colCount} className="px-4 py-1.5 font-bold text-gray-500 text-[11px] uppercase tracking-wide">{cat}</td>
+                  <td colSpan={colCount} className="px-4 py-1.5 font-bold text-gray-500 text-xs uppercase tracking-wide">{cat}</td>
                 </tr>,
                 ...linhas.map(({ p, e, porLocal }) => (
                   <tr key={p.id} className="border-t border-gray-50">
@@ -498,7 +499,7 @@ export default function Relatorio() {
       {/* Saídas por destino (por dia) — sem misturar destinos */}
       <div className="bg-white rounded-xl p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Saídas por destino (por dia)</p>
-        <p className="text-[11px] text-gray-500 mb-3">O que foi enviado para cada unidade, dia a dia. Cada destino é separado.</p>
+        <p className="text-xs text-gray-500 mb-3">O que foi enviado para cada unidade, dia a dia. Cada destino é separado.</p>
         {porDestinoDia.length === 0 ? (
           <div className="text-center text-gray-600 py-6 text-sm">Nenhuma saída para unidades neste período.</div>
         ) : (
@@ -507,12 +508,12 @@ export default function Relatorio() {
               <details key={d.destinoId} className="border border-gray-100 rounded-lg">
                 <summary className="cursor-pointer px-3 py-2 font-semibold text-sm text-polo-navy flex justify-between">
                   <span>{d.destinoNome}</span>
-                  <span className="text-[11px] text-gray-600 font-normal">{d.dias.length} dia(s)</span>
+                  <span className="text-xs text-gray-600 font-normal">{d.dias.length} dia(s)</span>
                 </summary>
                 <div className="px-3 pb-3 space-y-2">
                   {d.dias.map(dia => (
                     <div key={dia.data} className="border-t border-gray-50 pt-2">
-                      <p className="text-[11px] font-semibold text-gray-500">{fmtData(dia.data)}</p>
+                      <p className="text-xs font-semibold text-gray-500">{fmtData(dia.data)}</p>
                       <ul className="text-xs text-gray-700">
                         {dia.itens.map(it => <li key={it.produtoId}>{fmtNum(it.quantidade)} — {it.nome}</li>)}
                       </ul>
@@ -578,14 +579,14 @@ export default function Relatorio() {
       {/* Chegadas por dia (controle diário do que entrou) */}
       <div className="bg-white rounded-xl p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Chegadas por dia</p>
-        <p className="text-[11px] text-gray-500 mb-3">O que chegou em cada data, com o peso total do dia (itens em kg).</p>
+        <p className="text-xs text-gray-500 mb-3">O que chegou em cada data, com o peso total do dia (itens em kg).</p>
         {chegadas.length === 0 ? (
           <div className="text-center text-gray-600 py-6 text-sm">Nenhuma compra recebida neste período.</div>
         ) : (
           <div className="space-y-2">
             {chegadas.map(c => (
               <div key={c.data} className="border-t border-gray-50 pt-2 first:border-0 first:pt-0">
-                <p className="text-[11px] font-semibold text-gray-500 flex justify-between">
+                <p className="text-xs font-semibold text-gray-500 flex justify-between">
                   <span>{fmtData(c.data)}</span>
                   {c.pesoKg > 0 && <span className="text-polo-navy">{fmtNum(c.pesoKg)} kg no dia</span>}
                 </p>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { PRODUTOS_BASE, PESSOAS_BASE, DESTINOS_APARA, CATEGORIAS_BASE } from '../data/produtos';
+import { PESSOAS_BASE, DESTINOS_APARA, rotuloMotivo } from '../data/produtos';
 import { FICHAS_BASE } from '../data/fichas';
 import { iniciarPresenca } from '../lib/presenca';
 import { gerarDemoSeed, PRODUTOS_DEMO_ETIQUETAS, PREFS_DEMO_ETIQUETAS, SENHAS_EQUIPE_DEMO } from '../data/demo';
@@ -35,8 +35,13 @@ import { pode } from '../utils/permissoes';
 
 // Valores iniciais (usados ao criar um restaurante novo / sem internet no 1º uso)
 const CAT = {
-  produtos:   PRODUTOS_BASE,
-  categorias: CATEGORIAS_BASE,
+  // ⚠️ CONTA NOVA COMEÇA VAZIA, nos dois planos (decisão do dono, 14/10/2026).
+  // O Pro nascia com dois itens de exemplo ("Filé (exemplo — edite ou
+  // apague)"), que a pessoa tinha de apagar antes de cadastrar o que usa. Quem
+  // preenche é a biblioteca de itens prontos (Meus itens → Adicionar prontos),
+  // e as categorias são as dela, como no Etiquetas.
+  produtos:   [],
+  categorias: [...CATEGORIAS_BIBLIOTECA],
   pessoas:    PESSOAS_BASE,
   destinos:   DESTINOS_APARA,
   fichas:     FICHAS_BASE,
@@ -352,7 +357,7 @@ export function AppProvider({ children }) {
     entrada: (r) => resumoItens(r),
     'saída': (r) => `${resumoItens(r)} → ${r.destino === 'producao' ? 'Produção' : (dadosRef.current.locais.find(l => l.id === r.destino)?.nome || r.destino)}`,
     apara: (r) => `${r.quantidade} ${r.unidade} de ${r.item} → ${r.destinoOutro || r.destino}`,
-    perda: (r) => `${r.quantidade} ${r.unidade} de ${r.item} (motivo ${r.motivoOutro || r.motivo}${r.origem === 'estoque' ? ', abateu estoque' : ''})`,
+    perda: (r) => `${r.quantidade} ${r.unidade} de ${r.item} (motivo ${rotuloMotivo(r.motivo, r.motivoOutro)}${r.origem === 'estoque' ? ', abateu estoque' : ''})`,
     'contagem física': (r) => `${nomeProduto(r.produtoId)} → ${r.quantidade}`,
   }), [resumoItens, nomeProduto]);
 
@@ -1349,8 +1354,21 @@ export function AppProvider({ children }) {
           });
         });
         // catálogo e metas, nas mesmas chaves que visaoDoEstoque procura
+        // ⚠️ A QUEDA É O CATÁLOGO DA DEMO, não o padrão do produto (auditoria
+        // de 14/10/2026). Com o padrão, o Relatório da demonstração procurava
+        // "empanado" e "picanha" num catálogo que não os tem e mostrava os
+        // códigos no lugar dos nomes — na tela de venda. Os destinos (locais
+        // e destinos de apara) vêm do mesmo seed, pelo mesmo motivo.
+        const seedCat = gerarDemoSeed(tipoBase(catalogoDe(e.id))).catalogos;
+        const prodDemo = soEtiqRef.current ? PRODUTOS_DEMO_ETIQUETAS : seedCat.produtos;
         const cCat = chaveModulo(catalogoDe(e.id), 'produtos');
-        if (!docsDemo[cCat]) docsDemo[cCat] = cacheGet(rid, cCat, catalogosPadrao(tipoBase(e.id), soEtiqRef.current).produtos);
+        if (!docsDemo[cCat]) docsDemo[cCat] = cacheGet(rid, cCat, prodDemo);
+        const cCatg = chaveModulo(catalogoDe(e.id), 'categorias');
+        if (!docsDemo[cCatg]) docsDemo[cCatg] = cacheGet(rid, cCatg, soEtiqRef.current ? [...CATEGORIAS_BIBLIOTECA] : seedCat.categorias);
+        const catE = gerarDemoSeed(tipoBase(e.id)).catalogos;
+        const LOCE = locaisPadrao(catE.locais, estoquesRef.current, e.id, []);
+        docsDemo[chaveModulo(e.id, 'locais')] = mesclarFixos(cacheGet(rid, chaveModulo(e.id, 'locais'), LOCE), LOCE);
+        docsDemo[chaveModulo(e.id, 'destinos')] = cacheGet(rid, chaveModulo(e.id, 'destinos'), catE.destinos);
         const cMetas = chaveModulo(e.id, 'metas');
         docsDemo[cMetas] = cacheGet(rid, cMetas, {});
       });
@@ -1979,15 +1997,9 @@ export function AppProvider({ children }) {
     logAudit('apagou todos os registros', 'compras, entradas, saídas, aparas, perdas e contagens');
   }, [logAudit]);
 
-  // "Restaurar produtos ao padrão" precisa devolver o padrão DO MÓDULO ABERTO.
-  // Antes mandava PRODUTOS_BASE sempre: no Estoque Seco, restaurar substituía
-  // grãos e descartáveis por filé e molho da produção — e, como a chave de
-  // catálogo do seco é outra, o estrago era gravado direto por cima do
-  // catálogo do seco. catalogoDe() mantém a finalização lendo o da produção,
-  // que é o comportamento correto (ela não tem catálogo próprio).
-  // Restaura o CATÁLOGO. Não mexe nas metas: elas são de cada estoque, e
-  // apagá-las junto faria "restaurar produtos" zerar o mín/máx de todas as
-  // unidades de uma vez.
+  // ⚠️ "Restaurar produtos padrão" SAIU (auditoria de 14/10/2026): trocava o
+  // catálogo inteiro do cliente pelos exemplos de fábrica, com um toque na
+  // Zona de perigo. Não existe situação em que isso ajude quem já cadastrou.
   /**
    * Visão de QUALQUER estoque, sem mexer no que está aberto.
    *
@@ -2016,11 +2028,6 @@ export function AppProvider({ children }) {
     // soEtiq entra nas deps de verdade (nao via ref): isto e derivacao pura de
     // render, e ler ref durante o render devolveria valor defasado.
   }, [estoques, brutos, soEtiq, unidades]);
-
-  const resetarProdutos = useCallback(
-    () => persistCatalogo('produtos', setProdutosRaw, catalogosPadrao(catalogoDe(moduloRef.current), soEtiqRef.current).produtos),
-    [persistCatalogo],
-  );
 
   const exportarBackup = useCallback(() => {
     const d = dadosRef.current;
@@ -2173,7 +2180,7 @@ export function AppProvider({ children }) {
       prefs, setPref, setPrefs,
       modulo: moduloEfetivo, setModulo, recebimentos,
       estoque, lotes,
-      limparTudo, resetarProdutos,
+      limparTudo,
       exportarBackup, importarBackup,
       soLeitura,
       // id do restaurante — as telas precisam dele para gravar rascunho local
@@ -2198,7 +2205,7 @@ export function AppProvider({ children }) {
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,
     prefs, setPref, setPrefs, moduloEfetivo, setModulo, recebimentos,
-    estoque, lotes, limparTudo, resetarProdutos, exportarBackup, importarBackup, soLeitura,
+    estoque, lotes, limparTudo, exportarBackup, importarBackup, soLeitura,
     rid, pendencias, online, mortos, retentarMortos, descartarMortos,
     registrarImpressoes,
     unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,

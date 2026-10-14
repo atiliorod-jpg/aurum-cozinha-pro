@@ -45,7 +45,7 @@ export default function Auditoria() {
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {[['7', 'Últimos 7d'], ['30', 'Últimos 30d'], ['90', 'Últimos 90d'], ['todos', 'Tudo']].map(([v, l]) => (
             <button key={v} onClick={() => setPeriodo(v)}
-              className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+              className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
                 ${periodo === v ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
               {l}
             </button>
@@ -54,7 +54,7 @@ export default function Auditoria() {
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {['TODOS', ...usuarios].map(u => (
             <button key={u} onClick={() => setFiltroUsuario(u)}
-              className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold flex-shrink-0
+              className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0
                 ${filtroUsuario === u ? 'bg-polo-gold text-polo-navy' : 'bg-white text-gray-600 border border-gray-200'}`}>
               {u === 'TODOS' ? 'Todos usuários' : u}
             </button>
@@ -64,20 +64,20 @@ export default function Auditoria() {
 
       <div className="space-y-2">
         {registros.length === 0 && (
-          <div className="text-center text-gray-500 py-12 text-sm">Nenhuma mudança registrada ainda.</div>
+          <div className="text-center text-gray-600 py-12 text-sm">Nenhuma mudança registrada ainda.</div>
         )}
         {registros.map(a => (
           <div key={a.id} className="bg-white rounded-xl px-4 py-3 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-bold text-sm text-polo-navy">{a.usuario}</span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${COR_ACAO(a.acao)}`}>{a.acao}</span>
-              <span className="text-[11px] text-gray-500 ml-auto">{fmtQuando(a.ts)}</span>
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${COR_ACAO(a.acao)}`}>{a.acao}</span>
+              <span className="text-xs text-gray-500 ml-auto">{fmtQuando(a.ts)}</span>
             </div>
             {a.detalhe && <p className="text-xs text-gray-600 mt-1">{a.detalhe}</p>}
           </div>
         ))}
         {auditoria.length > 300 && registros.length === 300 && (
-          <p className="text-center text-[11px] text-gray-500 py-2">Mostrando as 300 mudanças mais recentes.</p>
+          <p className="text-center text-xs text-gray-500 py-2">Mostrando as 300 mudanças mais recentes.</p>
         )}
       </div>
     </Layout>

@@ -32,7 +32,7 @@ function BadgeStatus({ st }) {
     : st.tipo === 'teste' ? [`Teste (${st.diasRestantes}d)`, 'bg-amber-100 text-amber-700']
     : st.tipo === 'bloqueado' ? ['Suspenso', 'bg-red-100 text-red-700']
     : ['Vencido', 'bg-red-100 text-red-700'];
-  return <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${cfg[1]}`}>{cfg[0]}</span>;
+  return <span className={`text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 ${cfg[1]}`}>{cfg[0]}</span>;
 }
 
 // Qual PRODUTO esta conta contratou. Fica ao lado do status porque as duas
@@ -40,7 +40,7 @@ function BadgeStatus({ st }) {
 function BadgeProduto({ produto }) {
   const eEtiquetas = produto === 'etiquetas';
   return (
-    <span className={`text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0
+    <span className={`text-xs font-bold px-2 py-1 rounded-full flex-shrink-0
       ${eEtiquetas ? 'bg-polo-beige text-polo-navy' : 'bg-gray-100 text-gray-700'}`}>
       {eEtiquetas ? 'Etiquetas' : 'Cozinha Pro'}
     </span>
@@ -1362,8 +1362,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
         {/* Cabeçalho */}
         <div className="bg-polo-navy rounded-xl p-4 text-polo-gold">
           <p className="font-bold text-sm">Painel super-admin</p>
-          <p className="text-[11px] text-white/80 mt-0.5">Logado como {sessao.email}</p>
-          <p className="text-[11px] text-polo-gold/90 mt-1.5">
+          <p className="text-xs text-white/80 mt-0.5">Logado como {sessao.email}</p>
+          <p className="text-xs text-polo-gold/90 mt-1.5">
             Conta crítica: ative a verificação em duas etapas (MFA) no Supabase Auth e use uma senha forte e exclusiva.
           </p>
         </div>
@@ -1392,7 +1392,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                                active:bg-gray-50">
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold text-polo-navy truncate">{r.nome}</span>
-                      <span className="block text-[11px] text-gray-600">
+                      <span className="block text-xs text-gray-600">
                         {tipo === 'aviso' && <>
                           Avisou pagamento — {plano.label.toLowerCase()}
                           {r.aviso_pagamento_nome ? ` por ${r.aviso_pagamento_nome}` : ''}
@@ -1451,7 +1451,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 <button key={k} onClick={() => setSituacao(situacao === k ? 'todos' : k)}
                   className={`text-left rounded-lg px-2 py-1 -mx-2 ${situacao === k ? 'bg-polo-beige' : ''}`}>
                   <span className={`block text-xl font-bold tabular-nums ${cor}`}>{numeros[k]}</span>
-                  <span className="block text-[11px] text-gray-600">{rotulo}</span>
+                  <span className="block text-xs text-gray-600">{rotulo}</span>
                 </button>
               ))}
             </div>
@@ -1459,7 +1459,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 cada conta ativa, não de pagamento registrado — nada no sistema
                 guarda que houve pagamento (ver a seção H da auditoria). Chamar
                 de "receita" seria dar número de balanço a partir de estimativa. */}
-            <p className="text-[11px] text-gray-600 mt-2.5 pt-2.5 border-t border-gray-100">
+            <p className="text-xs text-gray-600 mt-2.5 pt-2.5 border-t border-gray-100">
               Receita mensal <strong>estimada</strong>: <strong className="text-polo-navy">{brlAdmin(numeros.mrr)}</strong>
               <span className="text-gray-500"> — pelo plano das contas ativas, não por pagamento registrado.</span>
             </p>
@@ -1475,13 +1475,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
             e depende de ele autorizar. */}
         <div className="bg-white border border-gray-100 rounded-xl p-4">
           <p className="text-sm font-bold text-polo-navy">Ver o app como o cliente vê</p>
-          <p className="text-[11px] text-gray-600 mt-0.5 mb-2.5">
+          <p className="text-xs text-gray-600 mt-0.5 mb-2.5">
             Abre a demonstração com dados de exemplo. Nada é salvo e você volta para o painel ao sair.
           </p>
           <div className="flex flex-wrap gap-2">
             {[['etiquetas', 'Aurum Etiquetas'], ['completo', 'Aurum Cozinha Pro']].map(([id, l]) => (
               <button key={id} onClick={() => verDemo(id)}
-                className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5">
+                className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5">
                 {l}
               </button>
             ))}
@@ -1513,10 +1513,10 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               <summary className="cursor-pointer px-4 py-3 flex items-center justify-between">
                 <span className="text-sm font-bold text-polo-navy">Feedback dos clientes</span>
                 {erroFeedback
-                  ? <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">erro</span>
+                  ? <span className="text-xs font-bold text-white bg-red-500 rounded-full px-2 py-0.5">erro</span>
                   : abertos > 0
-                    ? <span className="text-[11px] font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{abertos} novo(s)</span>
-                    : <span className="text-[11px] font-semibold text-gray-600">{feedbacks.length || 'nenhum'}</span>}
+                    ? <span className="text-xs font-bold text-white bg-red-500 rounded-full px-2 py-0.5">{abertos} novo(s)</span>
+                    : <span className="text-xs font-semibold text-gray-600">{feedbacks.length || 'nenhum'}</span>}
               </summary>
 
               {carregandoFeedback && (
@@ -1526,12 +1526,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               {!carregandoFeedback && erroFeedback && (
                 <div className="px-4 py-3 bg-red-50 border-t border-red-100">
                   <p className="text-xs font-bold text-red-700">Não consegui carregar o feedback</p>
-                  <p className="text-[11px] text-red-600 mt-0.5">{erroFeedback}</p>
-                  <p className="text-[11px] text-red-600 mt-1">
+                  <p className="text-xs text-red-600 mt-0.5">{erroFeedback}</p>
+                  <p className="text-xs text-red-600 mt-1">
                     Se a mensagem falar em função inexistente, falta rodar a migração 15 no Supabase.
                   </p>
                   <button onClick={carregarFeedback}
-                    className="mt-2 text-[11px] font-bold text-red-700 border border-red-200 rounded-lg px-2.5 py-1">
+                    className="mt-2 text-xs font-bold text-red-700 border border-red-200 rounded-lg px-2.5 py-1">
                     Tentar de novo
                   </button>
                 </div>
@@ -1556,7 +1556,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         : f.status !== 'resolvido' && !f.resposta)).length;
                     return (
                       <button key={id} onClick={() => setAbaFb(id)} aria-pressed={abaFb === id}
-                        className={`flex-1 text-[11px] font-semibold py-1.5 rounded-lg
+                        className={`flex-1 text-xs font-semibold py-1.5 rounded-lg
                           ${abaFb === id ? 'bg-polo-navy text-polo-gold' : 'text-gray-600 bg-gray-50'}`}>
                         {l} ({n})
                       </button>
@@ -1583,9 +1583,9 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         <span className="text-xs font-bold">
                           {fb.tipo === 'bug' ? 'Problema' : fb.tipo === 'pedido' ? 'Pedido' : 'Sugestão'}
                         </span>
-                        <span className="text-[11px] text-gray-600">{dataBR(fb.created_at)}</span>
+                        <span className="text-xs text-gray-600">{dataBR(fb.created_at)}</span>
                       </div>
-                      <p className="text-[11px] text-gray-600 mb-1.5">
+                      <p className="text-xs text-gray-600 mb-1.5">
                         {fb.restaurante_nome || '—'} · {fb.usuario_nome || '?'}{fb.contexto ? ` · ${fb.contexto}` : ''}
                       </p>
                       <div className="text-xs text-gray-700 space-y-0.5">
@@ -1602,7 +1602,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         <div className="mt-2 space-y-1.5">
                           {fb.mensagens.map((m, i) => (
                             <div key={i} className={`rounded-lg px-2.5 py-2 ${m.de === 'aurum' ? 'bg-polo-beige' : 'bg-gray-100'}`}>
-                              <p className="text-[11px] font-bold text-polo-navy">
+                              <p className="text-xs font-bold text-polo-navy">
                                 {m.de === 'aurum' ? 'Aurum' : 'Cliente'}
                                 {m.de === 'aurum' && i === fb.mensagens.length - 1 && (
                                   /* Saber se o cliente LEU muda o que fazer: sem
@@ -1628,9 +1628,9 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs text-gray-900" />
                           <div className="flex gap-2">
                             <button onClick={() => responder(fb)}
-                              className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-3 py-1.5">Enviar resposta</button>
+                              className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-3 py-1.5">Enviar resposta</button>
                             <button onClick={() => setRespondendo(null)}
-                              className="text-[11px] text-gray-600 px-2">Cancelar</button>
+                              className="text-xs text-gray-600 px-2">Cancelar</button>
                           </div>
                         </div>
                       ) : (
@@ -1650,7 +1650,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                                 cidade: d.unidadeCidade || '', uf: d.unidadeUf || 'PE', cep: '',
                               });
                             }}
-                              className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
+                              className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
                               Criar esta unidade
                             </button>
                           )}
@@ -1661,30 +1661,30 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                               irAoRestaurante(r.id);
                               abrirVendaImpressora(r, IMPRESSORA_PARCELADA[d.forma] ? d.forma : 'mensal');
                             }}
-                              className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
+                              className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
                               Vender a impressora
                             </button>
                           )}
                           {fb.status !== 'resolvido' && d.tipoPedido === 'contas' && fb.restaurante_id && (
                             <button onClick={() => irAoRestaurante(fb.restaurante_id)}
-                              className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
+                              className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
                               Abrir o cliente (limite de contas)
                             </button>
                           )}
                           <button onClick={() => setRespondendo({ id: fb.id, texto: '' })}
-                            className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                            className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
                             {Array.isArray(fb.mensagens) && fb.mensagens.length ? 'Responder de novo' : 'Responder'}
                           </button>
                           {fb.status !== 'resolvido' && (
                             <button onClick={() => marcarFeedback(fb, 'resolvido')}
-                              className="text-[11px] font-bold text-green-700 border border-green-200 rounded-lg px-2.5 py-1">Marcar resolvido</button>
+                              className="text-xs font-bold text-green-700 border border-green-200 rounded-lg px-2.5 py-1">Marcar resolvido</button>
                           )}
                           {fb.status === 'resolvido' && (
                             <button onClick={() => marcarFeedback(fb, 'novo')}
-                              className="text-[11px] font-semibold text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1">Reabrir</button>
+                              className="text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1">Reabrir</button>
                           )}
                           <button onClick={() => apagarFeedback(fb)}
-                            className="text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1">Apagar</button>
+                            className="text-xs font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1">Apagar</button>
                         </div>
                       )}
                     </div>
@@ -1709,7 +1709,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   ? restaurantes.length
                   : `${visiveis.length} de ${restaurantes.length}`})
               </p>
-              <span className="text-[11px] text-gray-600">
+              <span className="text-xs text-gray-600">
                 {restaurantes.filter(r => r.suporteAtivo).length} com suporte ativo
               </span>
             </div>
@@ -1729,7 +1729,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
             <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
               {[['todos', 'Todos'], ['etiquetas', 'Etiquetas'], ['completo', 'Cozinha Pro']].map(([v, l]) => (
                 <button key={v} onClick={() => setSituacao(v)} aria-pressed={situacao === v}
-                  className={`whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0 border
+                  className={`whitespace-nowrap text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 border
                     ${situacao === v ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
                   {l}
                 </button>
@@ -1737,7 +1737,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               {/* Presença (M58): quantas contas têm alguém com o app aberto. O
                   número é o do banco, atualizado a cada minuto. */}
               <button onClick={() => setSoEmUso(v => !v)} aria-pressed={soEmUso}
-                className={`whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0 border inline-flex items-center gap-1.5
+                className={`whitespace-nowrap text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 border inline-flex items-center gap-1.5
                   ${soEmUso ? 'bg-green-700 text-white border-green-700' : 'bg-white text-gray-600 border-gray-200'}`}>
                 <span aria-hidden="true" className={`w-2 h-2 rounded-full ${contasEmUso(presenca) > 0 ? (soEmUso ? 'bg-white' : 'bg-green-500') : 'bg-gray-300'}`} />
                 Em uso agora ({contasEmUso(presenca)})
@@ -1746,7 +1746,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   é pior que botão ausente. */}
               {!['todos', 'etiquetas', 'completo'].includes(situacao) && (
                 <button onClick={() => setSituacao('todos')}
-                  className="whitespace-nowrap text-[11px] font-bold px-3 py-1.5 rounded-full flex-shrink-0
+                  className="whitespace-nowrap text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0
                              bg-polo-beige text-polo-navy border border-polo-gold">
                   {{ pagantes: 'Pagando', teste: 'Em teste', vencidos: 'Vencidos', bloqueados: 'Suspensos' }[situacao]} <Icon name="fechar" size={12} className="inline" />
                 </button>
@@ -1759,15 +1759,15 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 <p className="text-xs font-bold text-polo-navy">Conta aberta: {contaCriada.nomeRestaurante}</p>
                 <div className="bg-polo-beige rounded-lg p-2.5 space-y-1">
                   <p className="text-sm">
-                    <span className="text-[11px] text-gray-600">E-mail </span>
+                    <span className="text-xs text-gray-600">E-mail </span>
                     <span className="font-semibold break-all">{contaCriada.email}</span>
                   </p>
                   <p className="text-sm">
-                    <span className="text-[11px] text-gray-600">Senha </span>
+                    <span className="text-xs text-gray-600">Senha </span>
                     <span className="font-mono font-bold text-base tracking-wide select-all">{contaCriada.senha}</span>
                   </p>
                 </div>
-                <p className="text-[11px] text-gray-600">
+                <p className="text-xs text-gray-600">
                   Copie ou anote AGORA: esta senha não aparece de novo. Falta liberar o teste no cartão
                   da conta. Na entrega, peça ao dono para trocar a senha em Administração → Trocar minha senha.
                 </p>
@@ -1791,7 +1791,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               escolhendoCliente ? (
                 <div className="bg-white rounded-xl p-3 space-y-2 border border-polo-gold/50">
                   <p className="text-xs font-bold text-polo-navy">Nova unidade (outro CNPJ) — de qual cliente?</p>
-                  <p className="text-[11px] text-gray-600">
+                  <p className="text-xs text-gray-600">
                     A unidade entra na conta do cliente, é paga junto com o plano dele (1/3 do plano por mês)
                     e usa os mesmos itens e a mesma equipe. Não precisa abrir conta nova.
                   </p>
@@ -1831,12 +1831,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
             {novaConta && (
               <div className="bg-white rounded-xl p-3 space-y-2 border border-polo-gold/50">
                 <p className="text-xs font-bold text-polo-navy">Abrir conta de cliente</p>
-                <p className="text-[11px] text-gray-600">
+                <p className="text-xs text-gray-600">
                   A conta nasce SEM acesso — libere o teste no cartão dela depois de criar.
                   A senha é sorteada e aparece aqui uma vez; nenhum e-mail é enviado.
                   O dono troca a senha dele depois, em Administração.
                 </p>
-                <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
                   Outra casa de um cliente que já existe? Não abra conta nova: cancele e use
                   <strong> + Unidade para um cliente</strong>. Conta nova é outro contrato, outra cobrança
                   e outra lista de itens.
@@ -1931,9 +1931,9 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             onKeyDown={e => { if (e.key === 'Enter') salvarNome(r); if (e.key === 'Escape') setRenomeando(null); }}
                             className="min-w-0 flex-1 border border-gray-300 rounded px-2 py-1 text-sm text-gray-900" />
                           <button onClick={() => salvarNome(r)}
-                            className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded px-2 py-1 flex-shrink-0">Salvar</button>
+                            className="text-xs font-bold bg-polo-navy text-polo-gold rounded px-2 py-1 flex-shrink-0">Salvar</button>
                           <button onClick={() => setRenomeando(null)}
-                            className="text-[11px] text-gray-600 px-1 flex-shrink-0">Cancelar</button>
+                            className="text-xs text-gray-600 px-1 flex-shrink-0">Cancelar</button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-1.5 min-w-0">
@@ -1946,12 +1946,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           <p className="font-semibold text-sm text-gray-900 truncate">{r.nome}</p>
                           <button onClick={() => setRenomeando({ id: r.id, valor: r.nome })}
                             aria-label={`Renomear ${r.nome}`} title="Renomear"
-                            className="text-[11px] text-gray-600 border border-gray-300 rounded px-1.5 py-0.5 flex-shrink-0">
+                            className="text-xs text-gray-600 border border-gray-300 rounded px-1.5 py-0.5 flex-shrink-0">
                             editar
                           </button>
                         </div>
                       )}
-                      <p className="text-[11px] text-gray-600 mt-0.5">
+                      <p className="text-xs text-gray-600 mt-0.5">
                         Criado em {dataBR(r.created_at)} ·{' '}
                         {pres.online
                           ? <strong className="text-green-700">{pres.texto}{pres.quem.length > 0 ? ` (${pres.quem.join(', ')})` : ''}</strong>
@@ -1965,7 +1965,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           cobrando quem não devia, ou contando como receita quem
                           não paga. O motivo aparece no cartão aberto. */}
                       {rotuloRegime(r.regime) && (
-                        <span className="text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 bg-polo-beige text-polo-navy border border-polo-gold">
+                        <span className="text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 bg-polo-beige text-polo-navy border border-polo-gold">
                           {rotuloRegime(r.regime)}
                         </span>
                       )}
@@ -1974,12 +1974,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           da M46) — provavelmente outra casa, imprimindo com o
                           CNPJ da principal. Some quando ela ganha unidade. */}
                       {r.nomesAntigos?.length > 0 && !extrasDe(r) && (
-                        <span className="text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 bg-amber-100 text-amber-900">
+                        <span className="text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 bg-amber-100 text-amber-900">
                           unidade a confirmar
                         </span>
                       )}
                       {extrasDe(r) > 0 && (
-                        <span className="text-[11px] font-bold px-2 py-1 rounded-full flex-shrink-0 bg-polo-beige text-polo-navy">
+                        <span className="text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 bg-polo-beige text-polo-navy">
                           {extrasDe(r) + 1} unidades
                         </span>
                       )}
@@ -1994,7 +1994,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       <button onClick={() => setAberto(aberto === r.id ? '' : r.id)}
                         aria-expanded={aberto === r.id}
                         aria-label={`${aberto === r.id ? 'Fechar' : 'Abrir'} ${r.nome}`}
-                        className="text-[11px] font-bold text-polo-navy border border-gray-300 rounded px-2 py-1">
+                        className="text-xs font-bold text-polo-navy border border-gray-300 rounded px-2 py-1">
                         {aberto === r.id ? 'fechar' : 'abrir'}
                       </button>
                     </div>
@@ -2004,18 +2004,18 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   {/* Aviso de pagamento (o cliente tocou "Já paguei") */}
                   {r.aviso_pagamento_em && (
                     <div className="px-4 py-2 bg-polo-gold/15 border-b border-polo-gold/30 flex items-center justify-between gap-2">
-                      <p className="text-[11px] text-polo-navy font-semibold">
+                      <p className="text-xs text-polo-navy font-semibold">
                         Avisou pagamento — plano <strong>{r.aviso_pagamento_plano || 'mensal'}</strong>
                         {r.aviso_pagamento_nome ? <> por <strong>{r.aviso_pagamento_nome}</strong></> : null}
                         {' '}em {dataBRHora(r.aviso_pagamento_em)}
                       </p>
                       <button onClick={() => dispensarAviso(r)}
-                        className="text-[11px] font-semibold text-gray-500 underline underline-offset-2 flex-shrink-0">dispensar</button>
+                        className="text-xs font-semibold text-gray-500 underline underline-offset-2 flex-shrink-0">dispensar</button>
                     </div>
                   )}
 
                   {/* Visão comercial */}
-                  <div className="px-4 py-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-600 border-b border-gray-50">
+                  <div className="px-4 py-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600 border-b border-gray-50">
                     <span>Teste até: <strong>{r.teste_ate ? dataBR(r.teste_ate) : '— não liberado'}</strong></span>
                     <span>Assinatura até: <strong>{dataBR(r.assinatura_ate)}</strong></span>
                     <span>Usuários: <strong>{r.usuarios.length}/{maxU}</strong></span>
@@ -2040,9 +2040,9 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       sua Cozinha de Produção e custa 1/3 do plano por mês. */}
                   <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Unidades</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Unidades</p>
                       {extrasDe(r) > 0 && (
-                        <p className="text-[11px] text-gray-600 text-right">
+                        <p className="text-xs text-gray-600 text-right">
                           {extrasDe(r)} extra(s) × R$ {fmtPreco(adicionalUnidade(r.produto))} ={' '}
                           <strong>R$ {fmtPreco(extrasDe(r) * adicionalUnidade(r.produto))}/mês</strong>
                         </p>
@@ -2051,7 +2051,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     {/* ⚠️ QUEM PAGA O ADICIONAL: esta conta (a principal), junto
                         com o plano — a unidade não tem cobrança própria. Com
                         contrato, vale a parcela (o painel oferece atualizar). */}
-                    <p className="text-[11px] text-gray-600">
+                    <p className="text-xs text-gray-600">
                       {extrasDe(r) > 0
                         ? <>Tudo é pago nesta conta: plano R$ {fmtPreco(produtoDe(r.produto).precoMes)} + {extrasDe(r)} × R$ {fmtPreco(adicionalUnidade(r.produto))}
                           {' '}= <strong>R$ {fmtPreco(mensalComUnidades(r.produto, extrasDe(r)))}/mês</strong>
@@ -2061,15 +2061,15 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     </p>
                     <ul className="space-y-1">
                       <li className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
-                        <span className="min-w-0 text-[11px] text-gray-700">
+                        <span className="min-w-0 text-xs text-gray-700">
                           <strong className="text-polo-navy">{r.nome}</strong>
                           {r.cnpj ? ` · CNPJ ${formatarCNPJ(r.cnpj)}` : ' · sem CNPJ'}
                         </span>
-                        <span className="text-[11px] text-gray-600 flex-shrink-0">principal</span>
+                        <span className="text-xs text-gray-600 flex-shrink-0">principal</span>
                       </li>
                       {(r.unidades || []).map(u => (
                         <li key={u.id} className={`flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5 ${u.arquivada_em ? 'opacity-60' : ''}`}>
-                          <span className="min-w-0 text-[11px] text-gray-700">
+                          <span className="min-w-0 text-xs text-gray-700">
                             <strong className="text-polo-navy">{u.nome}</strong>
                             {` · CNPJ ${formatarCNPJ(u.cnpj)}`}
                             {u.cidade ? ` · ${u.cidade}${u.uf ? `/${u.uf}` : ''}` : ''}
@@ -2079,16 +2079,16 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           <span className="flex items-center gap-2 flex-shrink-0">
                             {!u.arquivada_em && (
                               <button onClick={() => abrirUnidade(r, u)}
-                                className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">editar</button>
+                                className="text-xs font-semibold text-polo-navy underline underline-offset-2">editar</button>
                             )}
                             {!u.arquivada_em && (
                               <button onClick={() => mudarCatalogoDaUnidade(r, u, !u.catalogo_proprio)}
-                                className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">
+                                className="text-xs font-semibold text-polo-navy underline underline-offset-2">
                                 {u.catalogo_proprio ? 'usar lista da conta' : 'lista própria'}
                               </button>
                             )}
                             <button onClick={() => arquivarUnidade(r, u, !u.arquivada_em)}
-                              className={`text-[11px] font-semibold underline underline-offset-2 ${u.arquivada_em ? 'text-green-700' : 'text-red-700'}`}>
+                              className={`text-xs font-semibold underline underline-offset-2 ${u.arquivada_em ? 'text-green-700' : 'text-red-700'}`}>
                               {u.arquivada_em ? 'reativar' : 'arquivar'}
                             </button>
                           </span>
@@ -2096,14 +2096,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       ))}
                     </ul>
                     {r.nomesAntigos?.length > 0 && (
-                      <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                      <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
                         Cozinha com nome antigo na etiqueta: <strong>{r.nomesAntigos.join(', ')}</strong>. Se for outra
                         casa, crie a unidade com o CNPJ dela — hoje ela imprime com o CNPJ da principal.
                       </p>
                     )}
                     {unidadeForm?.restId === r.id ? (
                       <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
-                        <p className="text-[11px] font-bold text-polo-navy">{unidadeForm.id ? 'Editar unidade' : 'Nova unidade'}</p>
+                        <p className="text-xs font-bold text-polo-navy">{unidadeForm.id ? 'Editar unidade' : 'Nova unidade'}</p>
                         <input type="text" value={unidadeForm.nome} placeholder="Nome que sai na etiqueta" aria-label="Nome da unidade"
                           onChange={e => setUnidadeForm(v => ({ ...v, nome: e.target.value }))}
                           className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
@@ -2128,16 +2128,16 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </div>
                         <div className="flex gap-2">
                           <button onClick={() => setUnidadeForm(null)} disabled={salvandoUnidade}
-                            className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white">Cancelar</button>
+                            className="flex-1 text-xs font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white">Cancelar</button>
                           <button onClick={() => salvarUnidade(r)} disabled={salvandoUnidade}
-                            className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-2 disabled:opacity-60">
+                            className="flex-1 text-xs font-bold text-polo-gold bg-polo-navy rounded py-2 disabled:opacity-60">
                             {salvandoUnidade ? 'Salvando…' : unidadeForm.id ? 'Salvar' : 'Criar unidade'}
                           </button>
                         </div>
                       </div>
                     ) : (
                       <button onClick={() => abrirUnidade(r)}
-                        className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
+                        className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
                         + Nova unidade (outro CNPJ)
                       </button>
                     )}
@@ -2149,13 +2149,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       à parte (ex.: unidade no meio de um período já pago)
                       aparece em Planos e pagamento, com Pix próprio. */}
                   <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
-                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Desconto e cobrança à parte</p>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Desconto e cobrança à parte</p>
                     {descontoForm?.restId === r.id ? (
                       <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
                         <div className="flex gap-2">
                           {[['valor', 'Em reais (por mês)'], ['percentual', 'Em percentual']].map(([t, l]) => (
                             <button key={t} onClick={() => setDescontoForm(v => ({ ...v, tipo: t }))} aria-pressed={descontoForm.tipo === t}
-                              className={`flex-1 text-[11px] font-bold py-2 rounded-lg border-2 min-h-11 ${descontoForm.tipo === t ? 'border-polo-navy bg-white text-polo-navy' : 'border-gray-200 text-gray-600 bg-white'}`}>
+                              className={`flex-1 text-xs font-bold py-2 rounded-lg border-2 min-h-11 ${descontoForm.tipo === t ? 'border-polo-navy bg-white text-polo-navy' : 'border-gray-200 text-gray-600 bg-white'}`}>
                               {l}
                             </button>
                           ))}
@@ -2169,18 +2169,18 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             onChange={e => setDescontoForm(v => ({ ...v, ate: e.target.value }))}
                             className="w-36 border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                         </div>
-                        <p className="text-[11px] text-gray-600">Sem data, vale até você tirar. Contrato parcelado não usa o desconto: a parcela já é o valor combinado.</p>
+                        <p className="text-xs text-gray-600">Sem data, vale até você tirar. Contrato parcelado não usa o desconto: a parcela já é o valor combinado.</p>
                         <input type="text" value={descontoForm.motivo} maxLength={200} placeholder="Motivo (só a Aurum vê)" aria-label="Motivo do desconto"
                           onChange={e => setDescontoForm(v => ({ ...v, motivo: e.target.value }))}
                           className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                         <div className="flex gap-2">
-                          <button onClick={() => setDescontoForm(null)} className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
-                          <button onClick={() => salvarDesconto(r)} className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Salvar desconto</button>
+                          <button onClick={() => setDescontoForm(null)} className="flex-1 text-xs font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
+                          <button onClick={() => salvarDesconto(r)} className="flex-1 text-xs font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Salvar desconto</button>
                         </div>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-[11px] text-gray-700 min-w-0">
+                        <p className="text-xs text-gray-700 min-w-0">
                           {descontoDe(r)
                             ? <>Desconto: <strong>{rotuloDesconto(descontoDe(r))}</strong>{r.desconto_ate ? ` até ${dataBR(r.desconto_ate)}` : ' sem prazo'}
                                 {' '}· mês de R$ {fmtPreco(mensalComUnidades(r.produto, extrasDe(r)))} por <strong>R$ {fmtPreco(precoPlano(planoPorId('mensal'), r.produto, extrasDe(r), descontoDe(r)))}</strong>
@@ -2191,14 +2191,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           <button onClick={() => setDescontoForm({
                             restId: r.id, tipo: r.desconto_tipo || 'percentual',
                             valor: r.desconto_valor ? fmtPreco(r.desconto_valor) : '', ate: r.desconto_ate || '', motivo: r.desconto_motivo || '',
-                          })} className="text-[11px] font-semibold text-polo-navy underline underline-offset-2 min-h-11">
+                          })} className="text-xs font-semibold text-polo-navy underline underline-offset-2 min-h-11">
                             {r.desconto_tipo ? 'mudar' : 'dar desconto'}
                           </button>
                           {r.desconto_tipo && (
                             <button onClick={async () => {
                               if (await confirm({ titulo: 'Tirar o desconto', mensagem: `"${r.nome}" volta a ver o preço cheio.`, confirmar: 'Tirar', perigo: true })) salvarDesconto(r, true);
                             }}
-                              className="text-[11px] font-semibold text-red-700 underline underline-offset-2 min-h-11">tirar</button>
+                              className="text-xs font-semibold text-red-700 underline underline-offset-2 min-h-11">tirar</button>
                           )}
                         </span>
                       </div>
@@ -2206,12 +2206,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
 
                     {(avulsas[r.id] || []).map(a => (
                       <div key={a.id} className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                        <span className="min-w-0 text-[11px] text-amber-900">
+                        <span className="min-w-0 text-xs text-amber-900">
                           À parte: <strong>{a.descricao}</strong> · R$ {fmtPreco(a.valor)} · desde {dataBR(a.lancado_em)}
                         </span>
                         <span className="flex items-center gap-2 flex-shrink-0">
-                          <button onClick={() => baixarAvulsa(r, a, true)} className="text-[11px] font-bold text-green-700 underline underline-offset-2 min-h-11">recebi</button>
-                          <button onClick={() => baixarAvulsa(r, a, false)} className="text-[11px] font-semibold text-gray-600 underline underline-offset-2 min-h-11">dispensar</button>
+                          <button onClick={() => baixarAvulsa(r, a, true)} className="text-xs font-bold text-green-700 underline underline-offset-2 min-h-11">recebi</button>
+                          <button onClick={() => baixarAvulsa(r, a, false)} className="text-xs font-semibold text-gray-600 underline underline-offset-2 min-h-11">dispensar</button>
                         </span>
                       </div>
                     ))}
@@ -2224,13 +2224,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           onChange={e => setAvulsaForm(v => ({ ...v, valor: e.target.value }))}
                           className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                         <div className="flex gap-2">
-                          <button onClick={() => setAvulsaForm(null)} className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
-                          <button onClick={() => lancarAvulsa(r)} className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Lançar cobrança</button>
+                          <button onClick={() => setAvulsaForm(null)} className="flex-1 text-xs font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
+                          <button onClick={() => lancarAvulsa(r)} className="flex-1 text-xs font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Lançar cobrança</button>
                         </div>
                       </div>
                     ) : (
                       <button onClick={() => setAvulsaForm({ restId: r.id, descricao: '', valor: '' })}
-                        className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
+                        className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
                         + Cobrança à parte
                       </button>
                     )}
@@ -2240,13 +2240,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       do plano. "Cobrar o saldo" é para quem cancela antes de
                       quitar; "remover" é só para lançamento feito por engano. */}
                   <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
-                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Impressoras</p>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Impressoras</p>
                     {(impressoras[r.id] || []).length === 0 && impForm?.restId !== r.id && (
-                      <p className="text-[11px] text-gray-600">Nenhuma impressora vendida.</p>
+                      <p className="text-xs text-gray-600">Nenhuma impressora vendida.</p>
                     )}
                     {(impressoras[r.id] || []).map(i => (
                       <div key={i.id} className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 space-y-1">
-                        <p className="text-[11px] text-gray-700">
+                        <p className="text-xs text-gray-700">
                           <strong className="text-polo-navy">{i.parcelas} × R$ {fmtPreco(i.valor_parcela)}</strong> ({ROTULO_FORMA_IMP[i.forma]})
                           {i.unidade_id ? ` · ${(r.unidades || []).find(u => u.id === i.unidade_id)?.nome || 'unidade'}` : ''}
                           {' '}· desde {dataBR(i.inicio)}
@@ -2261,19 +2261,19 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             <input type="number" min="0" max={i.parcelas} value={impCorrige.pagas} aria-label="Parcelas pagas"
                               onChange={e => setImpCorrige(v => ({ ...v, pagas: e.target.value }))}
                               className="w-20 border border-gray-300 rounded px-2 py-1.5 text-sm bg-white min-h-11" />
-                            <span className="text-[11px] text-gray-600">de {i.parcelas} pagas</span>
-                            <button onClick={() => corrigirParcelasImpressora(r, i)} className="text-[11px] font-bold text-polo-gold bg-polo-navy rounded px-3 py-1.5 min-h-11">Salvar</button>
-                            <button onClick={() => setImpCorrige(null)} className="text-[11px] font-semibold text-gray-600 underline underline-offset-2 min-h-11">cancelar</button>
+                            <span className="text-xs text-gray-600">de {i.parcelas} pagas</span>
+                            <button onClick={() => corrigirParcelasImpressora(r, i)} className="text-xs font-bold text-polo-gold bg-polo-navy rounded px-3 py-1.5 min-h-11">Salvar</button>
+                            <button onClick={() => setImpCorrige(null)} className="text-xs font-semibold text-gray-600 underline underline-offset-2 min-h-11">cancelar</button>
                           </div>
                         ) : (
                           <div className="flex flex-wrap items-center gap-3">
                             {impressoraEmPagamento(i) && (
-                              <button onClick={() => cobrarSaldoImpressora(r, i)} className="text-[11px] font-semibold text-red-700 underline underline-offset-2 min-h-11">cobrar o saldo</button>
+                              <button onClick={() => cobrarSaldoImpressora(r, i)} className="text-xs font-semibold text-red-700 underline underline-offset-2 min-h-11">cobrar o saldo</button>
                             )}
                             {!i.saldo_cobrado_em && (
-                              <button onClick={() => setImpCorrige({ id: i.id, pagas: String(i.parcelas_pagas) })} className="text-[11px] font-semibold text-polo-navy underline underline-offset-2 min-h-11">corrigir parcelas</button>
+                              <button onClick={() => setImpCorrige({ id: i.id, pagas: String(i.parcelas_pagas) })} className="text-xs font-semibold text-polo-navy underline underline-offset-2 min-h-11">corrigir parcelas</button>
                             )}
-                            <button onClick={() => removerImpressora(r, i)} className="text-[11px] font-semibold text-gray-600 underline underline-offset-2 min-h-11">remover</button>
+                            <button onClick={() => removerImpressora(r, i)} className="text-xs font-semibold text-gray-600 underline underline-offset-2 min-h-11">remover</button>
                           </div>
                         )}
                       </div>
@@ -2287,7 +2287,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                               <button key={f} disabled={!!travada && travada !== f}
                                 onClick={() => setImpForm(v => ({ ...v, forma: f, parcelas: String(IMPRESSORA_PARCELADA[f].parcelas), valor: fmtPreco(IMPRESSORA_PARCELADA[f].valor) }))}
                                 aria-pressed={impForm.forma === f}
-                                className={`flex-1 text-[11px] font-bold py-1.5 rounded border min-h-11 disabled:opacity-40
+                                className={`flex-1 text-xs font-bold py-1.5 rounded border min-h-11 disabled:opacity-40
                                   ${impForm.forma === f ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
                                 {ROTULO_FORMA_IMP[f]}: {IMPRESSORA_PARCELADA[f].parcelas} × {fmtPreco(IMPRESSORA_PARCELADA[f].valor)}
                               </button>
@@ -2295,24 +2295,24 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           })}
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <label className="text-[10px] text-gray-600">Parcelas
+                          <label className="text-xs text-gray-600">Parcelas
                             <input type="number" min="1" max="24" value={impForm.parcelas} aria-label="Número de parcelas da impressora"
                               onChange={e => setImpForm(v => ({ ...v, parcelas: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </label>
-                          <label className="text-[10px] text-gray-600">Valor da parcela (R$)
+                          <label className="text-xs text-gray-600">Valor da parcela (R$)
                             <input type="text" inputMode="decimal" value={impForm.valor} aria-label="Valor da parcela da impressora"
                               onChange={e => setImpForm(v => ({ ...v, valor: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </label>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <label className="text-[10px] text-gray-600">Início (opcional)
+                          <label className="text-xs text-gray-600">Início (opcional)
                             <input type="date" value={impForm.inicio} aria-label="Início do pagamento da impressora"
                               onChange={e => setImpForm(v => ({ ...v, inicio: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </label>
-                          <label className="text-[10px] text-gray-600">Para qual unidade
+                          <label className="text-xs text-gray-600">Para qual unidade
                             <select value={impForm.unidade} aria-label="Unidade da impressora"
                               onChange={e => setImpForm(v => ({ ...v, unidade: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white">
@@ -2325,13 +2325,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           onChange={e => setImpForm(v => ({ ...v, obs: e.target.value }))}
                           className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                         <div className="flex gap-2">
-                          <button onClick={() => setImpForm(null)} className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
-                          <button onClick={() => venderImpressora(r)} className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Vender impressora</button>
+                          <button onClick={() => setImpForm(null)} className="flex-1 text-xs font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white min-h-11">Cancelar</button>
+                          <button onClick={() => venderImpressora(r)} className="flex-1 text-xs font-bold text-polo-gold bg-polo-navy rounded py-2 min-h-11">Vender impressora</button>
                         </div>
                       </div>
                     ) : (
                       <button onClick={() => abrirVendaImpressora(r)}
-                        className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
+                        className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
                         + Vender impressora
                       </button>
                     )}
@@ -2343,10 +2343,10 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       quando?". Separadas de "liberar dias", que é pagamento. */}
                   <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
                     <div>
-                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                         Teste grátis
                       </p>
-                      <p className="text-[11px] text-gray-600 mb-1.5">
+                      <p className="text-xs text-gray-600 mb-1.5">
                         {!r.teste_ate ? 'Sem teste liberado.'
                           : aindaVale(r.teste_ate, agora) ? `Em teste até ${dataBR(r.teste_ate)}.`
                           : `O teste acabou em ${dataBR(r.teste_ate)}.`}
@@ -2355,7 +2355,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       <div className="flex flex-wrap items-center gap-1.5">
                         {[7, 14, 30].map(d => (
                           <button key={d} onClick={() => darTeste(r, d)}
-                            className="text-[11px] font-semibold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1.5 min-h-11">
+                            className="text-xs font-semibold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1.5 min-h-11">
                             {d} dias
                           </button>
                         ))}
@@ -2364,15 +2364,15 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             value={diasLivres[r.id]?.teste ?? ''}
                             onChange={e => setDiasLivres(v => ({ ...v, [r.id]: { ...v[r.id], teste: e.target.value } }))}
                             aria-label={`Quantos dias de teste para ${r.nome}`}
-                            className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-[11px] min-h-11" />
+                            className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-xs min-h-11" />
                           <button onClick={() => { const n = lerDias(r, 'teste'); if (n) darTeste(r, n); }}
-                            className="text-[11px] font-bold text-white bg-polo-navy rounded-lg px-2.5 py-1.5 min-h-11">
+                            className="text-xs font-bold text-white bg-polo-navy rounded-lg px-2.5 py-1.5 min-h-11">
                             Liberar
                           </button>
                         </span>
                         {r.teste_ate && (
                           <button onClick={() => zerarTeste(r)}
-                            className="text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1.5 min-h-11">
+                            className="text-xs font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1.5 min-h-11">
                             Zerar teste
                           </button>
                         )}
@@ -2380,10 +2380,10 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     </div>
 
                     <div>
-                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">
                         Emprestar o outro plano
                       </p>
-                      <p className="text-[11px] text-gray-600 mb-1.5">
+                      <p className="text-xs text-gray-600 mb-1.5">
                         Ela continua pagando o {produtoDe(r.produto).label}. Quando a data passa,
                         volta sozinha — e o que ela lançou no plano emprestado fica guardado.
                       </p>
@@ -2391,7 +2391,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         {[7, 14, 30].map(d => (
                           <button key={d}
                             onClick={() => emprestarPlano(r, r.produto === 'etiquetas' ? 'completo' : 'etiquetas', d)}
-                            className="text-[11px] font-semibold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1.5 min-h-11">
+                            className="text-xs font-semibold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1.5 min-h-11">
                             {produtoDe(r.produto === 'etiquetas' ? 'completo' : 'etiquetas').label} · {d} dias
                           </button>
                         ))}
@@ -2400,18 +2400,18 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             value={diasLivres[r.id]?.emprestimo ?? ''}
                             onChange={e => setDiasLivres(v => ({ ...v, [r.id]: { ...v[r.id], emprestimo: e.target.value } }))}
                             aria-label={`Quantos dias de empréstimo de plano para ${r.nome}`}
-                            className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-[11px] min-h-11" />
+                            className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-xs min-h-11" />
                           <button onClick={() => {
                             const n = lerDias(r, 'emprestimo');
                             if (n) emprestarPlano(r, r.produto === 'etiquetas' ? 'completo' : 'etiquetas', n);
                           }}
-                            className="text-[11px] font-bold text-white bg-polo-navy rounded-lg px-2.5 py-1.5 min-h-11">
+                            className="text-xs font-bold text-white bg-polo-navy rounded-lg px-2.5 py-1.5 min-h-11">
                             Emprestar
                           </button>
                         </span>
                         {r.produto_teste && (
                           <button onClick={() => emprestarPlano(r, null, 0)}
-                            className="text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1.5 min-h-11">
+                            className="text-xs font-semibold text-red-700 border border-red-200 rounded-lg px-2.5 py-1.5 min-h-11">
                             encerrar
                           </button>
                         )}
@@ -2435,7 +2435,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                                   mostra um botão que daria erro. */}
                               {u.cargo === 'diretoria' && u.email && u.email !== SUPER_ADMIN_EMAIL && trocaEmail?.id !== u.id && (
                                 <button onClick={() => setTrocaEmail({ id: u.id, email: '', repetir: '' })}
-                                  className="text-[11px] font-semibold text-polo-navy underline underline-offset-2">
+                                  className="text-xs font-semibold text-polo-navy underline underline-offset-2">
                                   trocar e-mail
                                 </button>
                               )}
@@ -2446,16 +2446,16 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                                   troca é o dono, em Administração → Contas. */}
                               {temCaixaDeEntrada(u.email) && (
                                 <button onClick={() => mandarLinkSenha(r, u)} disabled={enviandoSenha === u.id}
-                                  className="text-[11px] font-semibold text-polo-navy underline underline-offset-2 disabled:opacity-50">
+                                  className="text-xs font-semibold text-polo-navy underline underline-offset-2 disabled:opacity-50">
                                   {enviandoSenha === u.id ? 'enviando…' : 'nova senha'}
                                 </button>
                               )}
-                              <span className="text-[11px] text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full">{u.cargo}</span>
+                              <span className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full">{u.cargo}</span>
                             </span>
                           </div>
                           {trocaEmail?.id === u.id && (
                             <div className="bg-polo-beige rounded-lg p-2.5 space-y-2">
-                              <p className="text-[11px] text-gray-700">
+                              <p className="text-xs text-gray-700">
                                 O cliente passa a entrar e a recuperar a senha pelo e-mail novo. A senha não muda.
                               </p>
                               <input type="email" value={trocaEmail.email} autoComplete="off"
@@ -2506,27 +2506,27 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     </>);
                     return (
                       <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
-                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Contrato anual parcelado</p>
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Contrato anual parcelado</p>
 
                         {parcelaEdit?.id === r.id ? (
                           <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
-                            <label htmlFor={`parc-${r.id}`} className="block text-[11px] font-bold text-polo-navy">
+                            <label htmlFor={`parc-${r.id}`} className="block text-xs font-bold text-polo-navy">
                               Valor da parcela mensal (R$)
                             </label>
                             <input id={`parc-${r.id}`} type="text" inputMode="decimal" value={parcelaEdit.valor}
                               onChange={e => setParcelaEdit(v => ({ ...v, valor: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-2 text-sm bg-white" />
-                            <p className="text-[11px] text-gray-600">
+                            <p className="text-xs text-gray-600">
                               O mesmo valor escrito no contrato. Ele fica fixo durante os 12 meses, mesmo que o
                               preço do plano mude.
                             </p>
                             <div className="flex gap-2">
                               <button onClick={() => setParcelaEdit(null)}
-                                className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded-lg py-2 bg-white min-h-11">
+                                className="flex-1 text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg py-2 bg-white min-h-11">
                                 Cancelar
                               </button>
                               <button onClick={() => salvarParcela(r, parcelaEdit.valor)}
-                                className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded-lg py-2 min-h-11">
+                                className="flex-1 text-xs font-bold text-polo-gold bg-polo-navy rounded-lg py-2 min-h-11">
                                 Salvar contrato
                               </button>
                             </div>
@@ -2537,17 +2537,17 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                               pagos e basta registrar o pagamento anual. Registrar
                               um cliente à vista daria a ele, no fim do ano,
                               tolerância e juros sobre uma parcela que não existe. */}
-                          <p className="text-[11px] text-gray-600">
+                          <p className="text-xs text-gray-600">
                             Use quando o cliente assinar o contrato anual <strong>pagando por mês</strong>: ele ganha{' '}
                             <strong>10 dias de tolerância</strong> antes de o acesso ser suspenso, e os{' '}
                             <strong>juros de atraso</strong> passam a ser calculados sobre a parcela.
                           </p>
-                          <p className="text-[11px] text-gray-600">
+                          <p className="text-xs text-gray-600">
                             Contrato pago <strong>à vista</strong> não precisa disto: basta registrar o pagamento
                             do plano anual em Financeiro.
                           </p>
                           <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(mensalComUnidades(r.produto, extrasDe(r))) })}
-                            className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
+                            className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
                             Registrar contrato parcelado
                           </button>
                         </>) : (<>
@@ -2555,7 +2555,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             <p className="text-sm font-bold text-polo-navy">
                               Contrato ativo — R$ {fmtPreco(r.parcela_contrato)}/mês
                             </p>
-                            <p className="text-[11px] text-gray-600">
+                            <p className="text-xs text-gray-600">
                               {cortesia ? 'Conta em cortesia: sem juros de atraso enquanto durar.'
                                 : emDia ? `Em dia — a próxima parcela vence em ${dataBR(r.assinatura_ate)}.`
                                 : st.tipo === 'atraso' ? `Em atraso — o acesso será suspenso em ${dataBR(st.suspendeEm)} se não pagar.`
@@ -2564,11 +2564,11 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           </div>
                           <div className="flex gap-2">
                             <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(r.parcela_contrato) })}
-                              className="flex-1 text-[11px] font-semibold text-polo-navy border border-polo-navy/30 rounded-lg py-1.5 min-h-11">
+                              className="flex-1 text-xs font-semibold text-polo-navy border border-polo-navy/30 rounded-lg py-1.5 min-h-11">
                               Alterar parcela
                             </button>
                             <button onClick={() => salvarParcela(r, null)}
-                              className="flex-1 text-[11px] font-semibold text-red-700 border border-red-200 rounded-lg py-1.5 min-h-11">
+                              className="flex-1 text-xs font-semibold text-red-700 border border-red-200 rounded-lg py-1.5 min-h-11">
                               Encerrar contrato
                             </button>
                           </div>
@@ -2576,35 +2576,35 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
 
                         {temContrato && enc && (
                           <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-1.5">
-                            <p className="text-[11px] font-bold text-amber-900">Juros lançados — aguardando pagamento</p>
-                            <dl className="grid grid-cols-[1fr_auto] gap-x-3 text-[11px] text-amber-900">
+                            <p className="text-xs font-bold text-amber-900">Juros lançados — aguardando pagamento</p>
+                            <dl className="grid grid-cols-[1fr_auto] gap-x-3 text-xs text-amber-900">
                               {linhaValor('Multa (2%)', enc.multa)}
                               {linhaValor(`Juros (${enc.dias_atraso} dia(s))`, enc.juros)}
                               {linhaValor('Total no QR Code do cliente', enc.valor, true)}
                             </dl>
-                            <p className="text-[10px] text-amber-800">Lançado em {dataBR(enc.lancado_em)}.</p>
+                            <p className="text-xs text-amber-800">Lançado em {dataBR(enc.lancado_em)}.</p>
                             <div className="flex gap-2">
                               <button onClick={() => baixarEncargo(r, 'pago')}
-                                className="flex-1 text-[11px] font-bold text-white bg-green-700 rounded-lg py-1.5 min-h-11">Já pagou</button>
+                                className="flex-1 text-xs font-bold text-white bg-green-700 rounded-lg py-1.5 min-h-11">Já pagou</button>
                               <button onClick={() => baixarEncargo(r, 'dispensar')}
-                                className="flex-1 text-[11px] font-semibold text-gray-700 border border-gray-300 rounded-lg py-1.5 bg-white min-h-11">Dispensar</button>
+                                className="flex-1 text-xs font-semibold text-gray-700 border border-gray-300 rounded-lg py-1.5 bg-white min-h-11">Dispensar</button>
                             </div>
                           </div>
                         )}
 
                         {temContrato && !enc && previa && (
                           <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 space-y-1.5">
-                            <p className="text-[11px] font-bold text-red-900">Juros de atraso — {previa.dias} dia(s)</p>
-                            <dl className="grid grid-cols-[1fr_auto] gap-x-3 text-[11px] text-red-900">
+                            <p className="text-xs font-bold text-red-900">Juros de atraso — {previa.dias} dia(s)</p>
+                            <dl className="grid grid-cols-[1fr_auto] gap-x-3 text-xs text-red-900">
                               {linhaValor('Multa (2%)', previa.multa)}
                               {linhaValor('Juros (1% ao mês, por dia)', previa.juros)}
                               {linhaValor('Total', previa.total, true)}
                             </dl>
                             <button onClick={() => lancarEncargo(r, previa)}
-                              className="w-full text-[11px] font-bold text-white bg-red-700 rounded-lg py-2 min-h-11">
+                              className="w-full text-xs font-bold text-white bg-red-700 rounded-lg py-2 min-h-11">
                               Cobrar R$ {fmtPreco(previa.total)} na próxima parcela
                             </button>
-                            <p className="text-[10px] text-red-800">
+                            <p className="text-xs text-red-800">
                               O valor entra uma vez no QR Code deste cliente e fica fixo até ele pagar.
                             </p>
                           </div>
@@ -2623,12 +2623,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     <div className="flex flex-wrap gap-2">
                       {cobrando?.id !== r.id && (
                         <button onClick={() => abrirCobranca(r)}
-                          className="text-[11px] font-bold text-white bg-green-700 rounded-lg px-2.5 py-1">
+                          className="text-xs font-bold text-white bg-green-700 rounded-lg px-2.5 py-1">
                           Registrar pagamento
                         </button>
                       )}
                       <button onClick={() => alternarPagamentos(r)}
-                        className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                        className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
                         {pagamentos?.id === r.id ? 'Fechar histórico' : 'Pagamentos'}
                       </button>
                       {regimeEdit?.id !== r.id && (
@@ -2637,7 +2637,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           motivo: r.regime_motivo || '',
                           ate: r.cortesia_ate ? String(r.cortesia_ate).slice(0, 10) : '',
                         })}
-                          className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                          className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
                           {rotuloRegime(r.regime) ? 'Mudar regime' : 'Tornar cortesia'}
                         </button>
                       )}
@@ -2646,13 +2646,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     {/* Registrar pagamento */}
                     {cobrando?.id === r.id && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-2.5 space-y-2">
-                        <p className="text-[11px] font-bold text-green-900">Registrar pagamento</p>
+                        <p className="text-xs font-bold text-green-900">Registrar pagamento</p>
                         <div className="flex gap-2">
                           {PLANOS.map(pl => (
                             <button key={pl.id}
                               onClick={() => setCobrando(v => ({ ...v, plano: pl.id, valor: String(valorCobranca(r, pl, v.incluiEncargo, v.incluiImpressora)), dias: String(pl.dias) }))}
                               aria-pressed={cobrando.plano === pl.id}
-                              className={`flex-1 text-[11px] font-bold py-1.5 rounded border
+                              className={`flex-1 text-xs font-bold py-1.5 rounded border
                                 ${cobrando.plano === pl.id ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
                               {pl.label}
                             </button>
@@ -2660,13 +2660,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label htmlFor={`pg-valor-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Valor recebido (R$)</label>
+                            <label htmlFor={`pg-valor-${r.id}`} className="block text-xs text-gray-600 mb-0.5">Valor recebido (R$)</label>
                             <input id={`pg-valor-${r.id}`} type="text" inputMode="decimal" value={cobrando.valor}
                               onChange={e => setCobrando(v => ({ ...v, valor: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </div>
                           <div>
-                            <label htmlFor={`pg-dias-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Libera quantos dias</label>
+                            <label htmlFor={`pg-dias-${r.id}`} className="block text-xs text-gray-600 mb-0.5">Libera quantos dias</label>
                             <input id={`pg-dias-${r.id}`} type="number" min="0" max="400" value={cobrando.dias}
                               onChange={e => setCobrando(v => ({ ...v, dias: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
@@ -2677,20 +2677,20 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             e é negociado caso a caso. Quem digita é quem cobra. */}
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label htmlFor={`pg-ex-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Contas extras</label>
+                            <label htmlFor={`pg-ex-${r.id}`} className="block text-xs text-gray-600 mb-0.5">Contas extras</label>
                             <input id={`pg-ex-${r.id}`} type="number" min="0" value={cobrando.extras} placeholder="0"
                               onChange={e => setCobrando(v => ({ ...v, extras: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </div>
                           <div>
-                            <label htmlFor={`pg-exv-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">Valor das extras (R$)</label>
+                            <label htmlFor={`pg-exv-${r.id}`} className="block text-xs text-gray-600 mb-0.5">Valor das extras (R$)</label>
                             <input id={`pg-exv-${r.id}`} type="text" inputMode="decimal" value={cobrando.valorExtras} placeholder="0"
                               onChange={e => setCobrando(v => ({ ...v, valorExtras: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </div>
                         </div>
                         {encargos[r.id] && (
-                          <label className="flex items-start gap-2 text-[11px] text-gray-700">
+                          <label className="flex items-start gap-2 text-xs text-gray-700">
                             <input type="checkbox" checked={!!cobrando.incluiEncargo} className="mt-0.5"
                               onChange={e => {
                                 const inclui = e.target.checked;
@@ -2703,7 +2703,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           </label>
                         )}
                         {parcelaDasImpressoras(impressoras[r.id]).total > 0 && (
-                          <label className="flex items-start gap-2 text-[11px] text-gray-700">
+                          <label className="flex items-start gap-2 text-xs text-gray-700">
                             <input type="checkbox" checked={!!cobrando.incluiImpressora} className="mt-0.5"
                               onChange={e => {
                                 const inclui = e.target.checked;
@@ -2722,9 +2722,9 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                         <div className="flex gap-2">
                           <button onClick={() => setCobrando(null)}
-                            className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-1.5 bg-white">Cancelar</button>
+                            className="flex-1 text-xs font-semibold text-gray-600 border border-gray-200 rounded py-1.5 bg-white">Cancelar</button>
                           <button onClick={() => registrarPagamento(r)}
-                            className="flex-1 text-[11px] font-bold text-white bg-green-700 rounded py-1.5">Registrar</button>
+                            className="flex-1 text-xs font-bold text-white bg-green-700 rounded py-1.5">Registrar</button>
                         </div>
                       </div>
                     )}
@@ -2732,12 +2732,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     {/* Regime da conta */}
                     {regimeEdit?.id === r.id && (
                       <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
-                        <p className="text-[11px] font-bold text-polo-navy">Regime da conta</p>
+                        <p className="text-xs font-bold text-polo-navy">Regime da conta</p>
                         <div className="flex gap-2">
                           {[['pagante', 'Paga'], ['cortesia', 'Cortesia'], ['parceiro', 'Parceiro']].map(([v, l]) => (
                             <button key={v} onClick={() => setRegimeEdit(x => ({ ...x, regime: v }))}
                               aria-pressed={regimeEdit.regime === v}
-                              className={`flex-1 text-[11px] font-bold py-1.5 rounded border
+                              className={`flex-1 text-xs font-bold py-1.5 rounded border
                                 ${regimeEdit.regime === v ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
                               {l}
                             </button>
@@ -2749,22 +2749,22 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             onChange={e => setRegimeEdit(x => ({ ...x, motivo: e.target.value }))}
                             className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           <div>
-                            <label htmlFor={`rg-ate-${r.id}`} className="block text-[10px] text-gray-600 mb-0.5">
+                            <label htmlFor={`rg-ate-${r.id}`} className="block text-xs text-gray-600 mb-0.5">
                               Até quando (deixe vazio para sem prazo)
                             </label>
                             <input id={`rg-ate-${r.id}`} type="date" value={regimeEdit.ate}
                               onChange={e => setRegimeEdit(x => ({ ...x, ate: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </div>
-                          <p className="text-[10px] text-gray-600">
+                          <p className="text-xs text-gray-600">
                             Conta de cortesia sai da fila de cobrança e não entra na receita.
                           </p>
                         </>)}
                         <div className="flex gap-2">
                           <button onClick={() => setRegimeEdit(null)}
-                            className="flex-1 text-[11px] font-semibold text-gray-600 border border-gray-200 rounded py-1.5 bg-white">Cancelar</button>
+                            className="flex-1 text-xs font-semibold text-gray-600 border border-gray-200 rounded py-1.5 bg-white">Cancelar</button>
                           <button onClick={() => salvarRegime(r)}
-                            className="flex-1 text-[11px] font-bold text-polo-gold bg-polo-navy rounded py-1.5">Salvar</button>
+                            className="flex-1 text-xs font-bold text-polo-gold bg-polo-navy rounded py-1.5">Salvar</button>
                         </div>
                       </div>
                     )}
@@ -2783,7 +2783,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         )}
                         <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
                           {pagamentos.itens.map(pg => (
-                            <div key={pg.id} className="flex items-center justify-between gap-2 py-1.5 text-[11px]">
+                            <div key={pg.id} className="flex items-center justify-between gap-2 py-1.5 text-xs">
                               <span className="min-w-0">
                                 <span className="block text-gray-700">{dataBR(pg.pago_em)} · {pg.plano || '—'}</span>
                                 {(pg.observacao || pg.contas_extras > 0) && (
@@ -2809,14 +2809,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       CONSEGUIU usar. Números só, nunca conteúdo (M36). */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <button onClick={() => alternarUso(r)}
-                      className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                      className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
                       {uso?.id === r.id ? 'Fechar uso' : 'Uso da conta'}
                     </button>
                     {/* ⚠️ Ao lado do uso de propósito: as duas respondem "o que
                         andou acontecendo nesta conta" — uma pelo lado do
                         cliente, outra pelo nosso. */}
                     <button onClick={() => alternarLog(r)}
-                      className="ml-2 text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                      className="ml-2 text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
                       {log?.id === r.id ? 'Fechar registro' : 'O que fizemos aqui'}
                     </button>
                     {log?.id === r.id && (
@@ -2826,7 +2826,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">{log.erro}</p>
                         )}
                         {!log.carregando && !log.erro && log.itens.length === 0 && (
-                          <p className="text-[11px] text-gray-600">
+                          <p className="text-xs text-gray-600">
                             Nada registrado ainda. A partir de agora, tudo que a Aurum mexer
                             nesta conta aparece aqui.
                           </p>
@@ -2834,14 +2834,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         <div className="max-h-64 overflow-y-auto divide-y divide-gray-50">
                           {log.itens.map(l => (
                             <div key={l.id} className="py-1.5">
-                              <p className="text-[11px] text-gray-700">
+                              <p className="text-xs text-gray-700">
                                 <strong>{nomeDoc(l.tabela)}</strong>
                                 <span className="text-gray-500"> · {dataHoraBR(l.criado_em)} · {l.feito_por}</span>
                               </p>
                               {/* Uma linha por campo que mudou, em vez do JSON cru:
                                   quem lê isto está com o cliente no telefone. */}
                               {Object.entries(l.mudancas || {}).map(([campo, v]) => (
-                                <p key={campo} className="text-[11px] text-gray-600 pl-2">
+                                <p key={campo} className="text-xs text-gray-600 pl-2">
                                   {campo}: {v && typeof v === 'object' && 'de' in v
                                     ? <><span className="line-through">{String(v.de ?? '—')}</span>{' → '}<strong>{String(v.para ?? '—')}</strong></>
                                     : String(v ?? '—')}
@@ -2861,7 +2861,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           </p>
                         )}
                         {!uso.carregando && !uso.erro && uso.dados && (
-                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-600">
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600">
                             <span>Último acesso: <strong>{dataHoraOuNunca(uso.dados.ultimo_acesso)}</strong></span>
                             <span>Última gravação: <strong>{dataHoraOuNunca(uso.dados.ultima_gravacao)}</strong></span>
                             <span>Itens cadastrados: <strong>{uso.dados.itens ?? 0}</strong></span>
@@ -2879,7 +2879,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       é só onde se devolve. */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <button onClick={() => alternarHistorico(r)}
-                      className="text-[11px] font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
+                      className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-2.5 py-1">
                       {historico?.id === r.id ? 'Fechar histórico' : 'Histórico e restaurar'}
                     </button>
                     {historico?.id === r.id && (
@@ -2901,13 +2901,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             <div key={h.id} className="flex items-center justify-between gap-2 py-1.5">
                               <div className="min-w-0">
                                 <p className="text-xs text-gray-800 truncate">{nomeDoc(h.chave)}</p>
-                                <p className="text-[11px] text-gray-600">
+                                <p className="text-xs text-gray-600">
                                   {dataHoraBR(h.criado_em)}
                                   {h.itens != null ? ` · ${h.itens} item(ns)` : ''}
                                 </p>
                               </div>
                               <button onClick={() => restaurar(r, h)}
-                                className="text-[11px] font-bold text-polo-navy border border-gray-300 rounded-lg px-2 py-1 flex-shrink-0">
+                                className="text-xs font-bold text-polo-navy border border-gray-300 rounded-lg px-2 py-1 flex-shrink-0">
                                 Restaurar
                               </button>
                             </div>
@@ -2923,12 +2923,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       sem conserto nenhum. */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">Cadastro</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cadastro</p>
                       {editandoCadastro?.id !== r.id && (
                         <button onClick={() => setEditandoCadastro({
                           id: r.id, cnpj: r.cnpj || '', whatsapp: r.whatsapp || '',
                           cidade: r.cidade || '', uf: r.uf || '',
-                        })} className="text-[11px] text-gray-600 border border-gray-300 rounded px-1.5 py-0.5">
+                        })} className="text-xs text-gray-600 border border-gray-300 rounded px-1.5 py-0.5">
                           editar
                         </button>
                       )}
@@ -2938,7 +2938,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         <div className="grid grid-cols-2 gap-2">
                           {[['cnpj', 'CNPJ', '00.000.000/0001-00'], ['whatsapp', 'WhatsApp', '(81) 99999-9999']].map(([k, l, ph]) => (
                             <label key={k} className="block">
-                              <span className="text-[11px] text-gray-600">{l}</span>
+                              <span className="text-xs text-gray-600">{l}</span>
                               <input value={editandoCadastro[k]} placeholder={ph}
                                 onChange={e => setEditandoCadastro(c => ({ ...c, [k]: e.target.value }))}
                                 className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-gray-900" />
@@ -2947,13 +2947,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </div>
                         <div className="flex gap-2">
                           <label className="block flex-1 min-w-0">
-                            <span className="text-[11px] text-gray-600">Cidade</span>
+                            <span className="text-xs text-gray-600">Cidade</span>
                             <input value={editandoCadastro.cidade}
                               onChange={e => setEditandoCadastro(c => ({ ...c, cidade: e.target.value }))}
                               className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-gray-900" />
                           </label>
                           <label className="block" style={{ flex: '0 0 4rem' }}>
-                            <span className="text-[11px] text-gray-600">UF</span>
+                            <span className="text-xs text-gray-600">UF</span>
                             <input value={editandoCadastro.uf} maxLength={2}
                               onChange={e => setEditandoCadastro(c => ({ ...c, uf: e.target.value.toUpperCase() }))}
                               className="w-full border border-gray-300 rounded px-2 py-1 text-xs text-gray-900" />
@@ -2961,11 +2961,11 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         </div>
                         <div className="flex gap-2">
                           <button onClick={() => salvarCadastro(r)}
-                            className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded px-3 py-1.5">Salvar</button>
+                            className="text-xs font-bold bg-polo-navy text-polo-gold rounded px-3 py-1.5">Salvar</button>
                           <button onClick={() => setEditandoCadastro(null)}
-                            className="text-[11px] text-gray-600 px-2">Cancelar</button>
+                            className="text-xs text-gray-600 px-2">Cancelar</button>
                         </div>
-                        <p className="text-[11px] text-gray-500">Campo em branco não apaga o que já está gravado.</p>
+                        <p className="text-xs text-gray-500">Campo em branco não apaga o que já está gravado.</p>
                       </div>
                     ) : (
                       <p className="text-xs text-gray-700">
@@ -2977,13 +2977,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
 
                   {/* Produto contratado (upgrade/downgrade comercial) */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
-                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Produto contratado</p>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Produto contratado</p>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {['etiquetas', 'completo'].map(id => {
                         const sel = (r.produto || 'completo') === id;
                         return (
                           <button key={id} onClick={() => mudarProduto(r, id)} disabled={sel}
-                            className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 border
+                            className={`text-xs font-bold rounded-lg px-2.5 py-1.5 border
                               ${sel ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'text-polo-navy border-gray-300'}`}>
                             {produtoDe(id).label} · R$ {fmtPreco(produtoDe(id).precoMes)}
                           </button>
@@ -2994,36 +2994,36 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
 
                   {/* Ativar plano pago (após confirmar o Pix) */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
-                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Ativar plano pago</p>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Ativar plano pago</p>
                     <div className="flex flex-wrap items-center gap-1.5 mb-2">
                       {/* ⚠️ O preço mostrado é o DESTE restaurante. Com dois produtos,
                           "Semestral" sozinho não diz se o Pix esperado é R$1.458 ou
                           R$2.700 — e é aqui que o dono confere o que caiu na conta. */}
                       {PLANOS.map(p => (
                         <button key={p.id} onClick={() => liberarDias(r, p.dias)}
-                          className="text-[11px] font-bold text-polo-gold bg-polo-navy rounded-lg px-2.5 py-1.5">
+                          className="text-xs font-bold text-polo-gold bg-polo-navy rounded-lg px-2.5 py-1.5">
                           {p.label} (+{p.dias}d) · {brlAdmin(precoPlano(p, r.produto, extrasDe(r), descontoDe(r)))}
                         </button>
                       ))}
                     </div>
-                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1.5">Cortesia (dias avulsos)</p>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5">Cortesia (dias avulsos)</p>
                     <div className="flex flex-wrap items-center gap-1.5">
                       {[7, 14, 30, 90].map(d => (
                         <button key={d} onClick={() => liberarDias(r, d)}
-                          className="text-[11px] font-bold text-polo-navy border border-polo-navy rounded-lg px-2.5 py-1.5">
+                          className="text-xs font-bold text-polo-navy border border-polo-navy rounded-lg px-2.5 py-1.5">
                           +{d}d
                         </button>
                       ))}
                       <input aria-label="dias" type="number" min="1" max="400" inputMode="numeric" placeholder="dias"
                         value={diasCustom[r.id] || ''}
                         onChange={e => setDiasCustom(p => ({ ...p, [r.id]: e.target.value }))}
-                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]" />
+                        className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
                       <button onClick={() => {
                           const d = parseInt(diasCustom[r.id]);
                           if (!d || d < 1 || d > 400) { toast('Digite entre 1 e 400 dias.', 'aviso'); return; }
                           liberarDias(r, d);
                         }}
-                        className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1.5">
+                        className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1.5">
                         Liberar
                       </button>
                     </div>
@@ -3032,7 +3032,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         dois controles ficam um embaixo do outro e a diferença
                         entre "+30d" e "vence em" é exatamente onde se erra.
                         Deixar vazio e salvar TIRA a assinatura. */}
-                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mt-3 mb-1.5">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mt-3 mb-1.5">
                       Vencimento exato (substitui a data)
                     </p>
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -3040,13 +3040,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         aria-label={`Data de vencimento de ${r.nome}`}
                         value={vencCustom[r.id] ?? (r.assinatura_ate ? String(r.assinatura_ate).slice(0, 10) : '')}
                         onChange={e => setVencCustom(p => ({ ...p, [r.id]: e.target.value }))}
-                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]" />
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
                       <button onClick={() => definirVencimento(r, vencCustom[r.id] ?? (r.assinatura_ate ? String(r.assinatura_ate).slice(0, 10) : ''))}
-                        className="text-[11px] font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1.5">
+                        className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1.5">
                         Gravar data
                       </button>
                       <button onClick={() => definirVencimento(r, '')}
-                        className="text-[11px] font-bold text-red-700 border border-red-300 rounded-lg px-2.5 py-1.5">
+                        className="text-xs font-bold text-red-700 border border-red-300 rounded-lg px-2.5 py-1.5">
                         Tirar assinatura
                       </button>
                     </div>
@@ -3054,15 +3054,15 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
 
                   {/* VIP (limite de usuários) + bloqueio */}
                   <div className="px-4 py-2.5 border-b border-gray-50 flex items-center justify-between gap-2">
-                    <label className="text-[11px] text-gray-600 flex items-center gap-1.5">
+                    <label className="text-xs text-gray-600 flex items-center gap-1.5">
                       Limite de usuários
                       <select value={maxU} onChange={e => mudarMax(r, parseInt(e.target.value))}
-                        className="border border-gray-200 rounded-lg px-1.5 py-1 text-[11px] bg-white">
+                        className="border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white">
                         {[3, 4, 5].map(n => <option key={n} value={n}>{n}{n === 3 ? ' (padrão)' : ' (VIP)'}</option>)}
                       </select>
                     </label>
                     <button onClick={() => alternarBloqueio(r)}
-                      className={`text-[11px] font-bold rounded-lg px-2.5 py-1.5 ${r.bloqueado ? 'bg-green-600 text-white' : 'bg-red-100 text-red-700'}`}>
+                      className={`text-xs font-bold rounded-lg px-2.5 py-1.5 ${r.bloqueado ? 'bg-green-600 text-white' : 'bg-red-100 text-red-700'}`}>
                       {r.bloqueado ? 'Reativar conta' : 'Suspender conta'}
                     </button>
                   </div>
@@ -3076,17 +3076,17 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       tela que não tem conserto. */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
                     <details>
-                      <summary className="text-[11px] font-bold text-red-700 cursor-pointer">
+                      <summary className="text-xs font-bold text-red-700 cursor-pointer">
                         Apagar esta conta
                       </summary>
                       <div className="mt-2 bg-red-50 border border-red-200 rounded-lg p-2.5 space-y-2">
-                        <p className="text-[11px] text-red-800">
+                        <p className="text-xs text-red-800">
                           Some tudo: itens, lançamentos, etiquetas, histórico, feedback e as
                           contas da equipe. Uma cópia é baixada antes, e você precisa digitar
                           o nome do restaurante para confirmar.
                         </p>
                         <button onClick={() => apagarRestaurante(r)}
-                          className="text-[11px] font-bold text-white bg-red-700 rounded-lg px-3 py-2 min-h-11">
+                          className="text-xs font-bold text-white bg-red-700 rounded-lg px-3 py-2 min-h-11">
                           Apagar &ldquo;{r.nome}&rdquo; definitivamente
                         </button>
                       </div>
@@ -3095,13 +3095,13 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
 
                   {/* Notas internas (invisíveis ao cliente) */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
-                    <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-1">Notas internas (só você vê)</p>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Notas internas (só você vê)</p>
                     <div className="flex gap-1.5">
                       <input aria-label="Ex: VIP · WhatsApp (81) 9" type="text" value={notasLocal[r.id] ?? ''} placeholder="Ex: VIP · WhatsApp (81) 9…"
                         onChange={e => setNotasLocal(p => ({ ...p, [r.id]: e.target.value }))}
-                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-[11px]" />
+                        className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs" />
                       <button onClick={() => salvarNotas(r)}
-                        className="text-[11px] font-semibold text-gray-600 border border-gray-200 rounded-lg px-2.5">Salvar</button>
+                        className="text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg px-2.5">Salvar</button>
                     </div>
                   </div>
 
@@ -3114,7 +3114,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         {r.podeMexer ? 'Entrar como este restaurante (pode EDITAR)' : 'Ver como este restaurante (somente leitura)'}
                       </button>
                     ) : (
-                      <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                      <p className="text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                         Para ver os dados deste restaurante, peça que ele autorize o suporte em Configurações → Sistema → Suporte remoto.
                       </p>
                     )}

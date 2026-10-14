@@ -190,11 +190,11 @@ export default function Impressas() {
             ].map(([rotulo, valor]) => (
               <div key={rotulo} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
                 <p className="text-xl font-bold text-polo-navy leading-none">{valor}</p>
-                <p className="text-[11px] text-gray-600 mt-1">{rotulo}</p>
+                <p className="text-xs text-gray-600 mt-1">{rotulo}</p>
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-gray-600 -mt-2">
+          <p className="text-xs text-gray-600 -mt-2">
             Etiquetas de papel, contando as cópias. “Este mês” é o mês do calendário.
           </p>
 
@@ -213,7 +213,7 @@ export default function Impressas() {
                 <h2 className="text-xs font-bold text-polo-navy uppercase">
                   {dia === hj ? 'Hoje' : fmtData(dia)}
                 </h2>
-                <span className="text-[11px] text-gray-600">
+                <span className="text-xs text-gray-600">
                   {totalDoDia(lista)} {totalDoDia(lista) === 1 ? 'etiqueta' : 'etiquetas'}
                 </span>
               </div>
@@ -236,7 +236,7 @@ export default function Impressas() {
                               rolo andou. Etiqueta gravada antes de 10/09 não
                               tem a hora — aí a linha sai sem ela, em vez de
                               inventar um horário. */}
-                          <p className="text-[11px] text-gray-600 mt-0.5">
+                          <p className="text-xs text-gray-600 mt-0.5">
                             {e.impressoEmHora ? `${e.impressoEmHora} · ` : ''}
                             {e.validade ? `Validade ${fmtData(e.validade)}` : 'sem validade'}
                             {e.responsavel ? ` · ${e.responsavel}` : ''}

@@ -77,7 +77,7 @@ export default function PrimeiroUso() {
 
       {faltaPessoa && (
         <div className="mt-2.5">
-          <label htmlFor="pu-pessoa" className="block text-[11px] font-semibold text-gray-600 mb-1">
+          <label htmlFor="pu-pessoa" className="block text-xs font-semibold text-gray-600 mb-1">
             Quem assina as etiquetas
           </label>
           <div className="flex gap-2">
@@ -89,7 +89,7 @@ export default function PrimeiroUso() {
               Adicionar
             </button>
           </div>
-          <p className="text-[11px] text-gray-600 mt-1">
+          <p className="text-xs text-gray-600 mt-1">
             Dá para cadastrar mais gente depois, na Administração.
           </p>
         </div>
@@ -97,12 +97,12 @@ export default function PrimeiroUso() {
 
       {faltaEndereco && (
         <div className="mt-2.5">
-          <label htmlFor="pu-end" className="block text-[11px] font-semibold text-gray-600 mb-1">
+          <label htmlFor="pu-end" className="block text-xs font-semibold text-gray-600 mb-1">
             Endereço do estabelecimento
           </label>
           <input id="pu-end" type="text" value={endereco} onChange={e => setEndereco(e.target.value)}
             placeholder="Rua, número" className={campo} />
-          <label htmlFor="pu-cid" className="block text-[11px] font-semibold text-gray-600 mb-1 mt-2">
+          <label htmlFor="pu-cid" className="block text-xs font-semibold text-gray-600 mb-1 mt-2">
             Cidade - UF
           </label>
           <input id="pu-cid" type="text" value={cidade} onChange={e => setCidade(e.target.value)}
