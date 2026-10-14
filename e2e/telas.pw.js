@@ -82,6 +82,11 @@ test('plano Etiquetas: imprimir pelo computador e ver na aba Impressas', async (
   const janela = page.getByRole('dialog');
   // a etiqueta sai assinada por quem entrou pelo nome
   await expect(janela.getByText('Assina: Maria')).toBeVisible();
+  // ⚠️ o plano Etiquetas não tem estoque nem leitor de QR (achado do dono,
+  // 14/10/2026): nem "Dar entrada no estoque", nem o código embaixo do QR
+  await expect(janela.locator('.etiqueta-label').first()).toContainText('Frango desfiado');
+  await expect(janela.getByText('Dar entrada no estoque')).toHaveCount(0);
+  await expect(janela.locator('.etiqueta-label').first()).not.toContainText(/[A-Z0-9]{4}-[A-Z0-9]{4}/);
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   // o computador pergunta se saiu no papel; "Sim" conta e fecha
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();

@@ -310,8 +310,15 @@ export default function EtiquetaPrint() {
   // ligado por padrão (Configurações → Etiquetas desliga).
   // ⚠️ `guardaHistorico` mora AQUI porque o QR depende dele — ver o porquê
   // do nome em `registrarImpressao`, mais abaixo.
-  const guardaHistorico = produtoTem(produtoAtivo(sessao, impersonando), 'historicoEtiquetas');
-  const qrLigado = guardaHistorico && configEtiqueta(prefs).incluirQR !== false;
+  // ⚠️ "SÓ NO PRO" É `estoque`, NÃO `historicoEtiquetas` (achado do dono,
+  // 14/10/2026). O histórico vale nos DOIS planos desde 09/09 (a aba
+  // Impressas do Etiquetas lê dele), então o QR e o "Dar entrada no estoque"
+  // apareciam no plano Etiquetas — que não tem estoque, nem tela que leia o
+  // código, nem a chave para desligar o QR (Ajustes esconde a opção).
+  const produto = produtoAtivo(sessao, impersonando);
+  const guardaHistorico = produtoTem(produto, 'historicoEtiquetas');
+  const temEstoque = produtoTem(produto, 'estoque');
+  const qrLigado = temEstoque && guardaHistorico && configEtiqueta(prefs).incluirQR !== false;
   const config = useMemo(() => ({ ...configEtiqueta(prefs), incluirQR: qrLigado }), [prefs, qrLigado]);
   // Estados de armazenamento configuráveis (Configurações → Sistema).
   const armazenamentos = armazenamentosAtivos(prefs);
@@ -321,7 +328,7 @@ export default function EtiquetaPrint() {
   // na cozinha que tem Entradas, a janela traz marcado "Dar entrada no
   // estoque". Não aparece quando a impressão já vem de uma entrada/produção
   // (`origemRegistro`), na reimpressão (mesmo código) nem na de teste.
-  const podeDarEntrada = guardaHistorico && temRecurso(modulo, 'entradas');
+  const podeDarEntrada = temEstoque && guardaHistorico && temRecurso(modulo, 'entradas');
   const elegivelEntrada = (item) => podeDarEntrada && !!item?.produtoId && !item.origemRegistro
     && !item.codigo && !item.reimpressao && !item.teste;
 
