@@ -13,6 +13,7 @@ import { planejarProducao } from '../utils/producao';
 import { pode } from '../utils/permissoes';
 import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazenamento';
 import Icon from '../components/Icons';
+import CalculadoraProducao from '../components/CalculadoraProducao';
 import RodapeLancamento from '../components/lancamento/RodapeLancamento';
 
 export default function Producao() {
@@ -210,6 +211,10 @@ export default function Producao() {
               </div>
               <QuemRegistra manual={responsavel} aoManual={setResponsavel} />
             </div>
+
+            {/* A calculadora saiu do Início (Lote 6): "quanto preciso para
+                fazer X?" é pergunta de quem está decidindo a produção */}
+            <CalculadoraProducao />
 
             {/* Estoque atual + resultado da produção */}
             {produtoId && (() => {

@@ -69,8 +69,11 @@ describe('só etiqueta — some das contas do estoque', () => {
     }
     const dash = ler('../../pages/Dashboard.jsx');
     expect(dash).toMatch(/const produtosAtivos = produtos\.filter\(ativoNoEstoque\);/);
-    // aplicar a sugestão de mín/máx grava sobre `produtos`, nunca sobre o filtro
-    expect(dash).toMatch(/const next = produtos\.map\(p => \{/);
+    // a lista completa foi para a tela Estoque (Lote 6): lá, aplicar a sugestão
+    // de mín/máx grava sobre `produtos`, nunca sobre o filtro
+    const est = ler('../../pages/Estoque.jsx');
+    expect(est).toMatch(/const produtosAtivos = useMemo\(\(\) => produtos\.filter\(ativoNoEstoque\), \[produtos\]\);/);
+    expect(est).toMatch(/const next = produtos\.map\(p => \{/);
     expect(ler('../../components/NavBar.jsx')).toMatch(/if \(!ativoNoEstoque\(p\)\) return false;/);
   });
 });

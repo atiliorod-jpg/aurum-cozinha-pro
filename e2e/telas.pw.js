@@ -18,7 +18,7 @@ const TELAS_ETIQUETAS = [
   '/administracao/conta', '/ajustes',
 ];
 const TELAS_PRO = [
-  '/', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
+  '/', '/estoque', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
   '/etiquetas', '/validades', '/fechar-turno', '/itens', '/desperdicio', '/fichas', '/inventario',
   '/relatorio', '/relatorio-etiquetas', '/impressas', '/auditoria', '/administracao', '/financeiro',
   '/estoques', '/balanco', '/pagamento', '/novidades',
@@ -171,6 +171,8 @@ test('plano Pro, Estoque Seco: etiqueta de abertura, ambiente como padrão, e va
 // "unidade_centro", e o Início, "7.50 kg".
 test('plano Pro: números com vírgula e relatório com nomes, não códigos', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
+  // a lista com os saldos saiu do Início para a tela Estoque (Lote 6)
+  await abrirTela(page, '/estoque');
   await expect(page.locator('main')).toContainText('7,5 kg');
   await expect(page.locator('main')).not.toContainText('7.50 kg');
   await abrirTela(page, '/relatorio');

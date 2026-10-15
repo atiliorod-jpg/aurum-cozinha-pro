@@ -609,3 +609,37 @@ Fechar turno) terminam do mesmo jeito.
 **Testes:** 920 testes e 46 cenários do robô (3 novos em `e2e/lote5.pw.js`:
 o resumo no pé, o Fechar turno que pede a contagem e apara/perda sem
 códigos).
+
+### Lote 6 — o Início diz o que fazer, aplicado em 15/10/2026
+
+**O Início de cada cozinha mostra só o que pede ação agora** (U4: eram duas
+telas e meia de rolagem):
+
+| Cozinha | O Início mostra |
+|---|---|
+| Produção | produzir hoje, vencendo, risco de faltar, lista de compras, etiquetas impressas hoje |
+| Finalização | **fechar o turno** (com quantos itens estão na bancada), vencendo, etiquetas de hoje |
+| Seco | vencendo, risco de faltar, lista de compras |
+
+- Em todas, um cartão leva ao **Estoque completo** (tela nova
+  `pages/Estoque.jsx`, rota `/estoque`). Na Produção e no Seco ele mostra os
+  números normal, abaixo do mínimo e acima do máximo.
+- Na tela Estoque, esses três números também são **filtro**. Ela tem as
+  categorias, os subgrupos, os lotes de cada item e as sugestões de mínimo e
+  máximo, que saíram do Início.
+- A **calculadora de produção** foi para a tela de Produção.
+
+**D5 — a Finalização sem as metas da Produção:**
+- novo recurso de cozinha `metasDeEstoque`: ligado na Produção e no Seco,
+  desligado na Finalização (`utils/modulos.js`);
+- na Finalização saem os "abaixo do mínimo", a bolinha vermelha da barra (que
+  ficava sempre acesa) e o selo e a barra de cada item. Os itens que nunca
+  chegaram à bancada ficam escondidos até pedir;
+- **defeito corrigido junto:** com o mínimo/máximo automático ligado, um
+  aparelho aberto na Finalização regravava as metas da Produção com o consumo
+  da bancada (as duas cozinhas leem o mesmo catálogo). O recálculo agora só
+  roda onde as metas são da própria cozinha.
+
+**Testes:** 926 testes (6 novos em `lote6Inicio.test.js`) e 49 cenários do
+robô (3 novos em `e2e/lote6.pw.js`). A medição de toque e contraste cobre a
+tela Estoque nas três cozinhas.

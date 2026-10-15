@@ -35,7 +35,7 @@ test('plano Pro, Produção', async ({ page }) => {
   await page.clock.setFixedTime(DIA);
   await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await percorrer(page, 'pro', [
-    '/', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
+    '/', '/estoque', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
     '/etiquetas', '/validades', '/itens', '/inventario', '/relatorio', '/impressas', '/administracao',
     '/financeiro', '/estoques', '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe',
     '/administracao/estoque', '/administracao/conta',
@@ -45,5 +45,5 @@ test('plano Pro, Produção', async ({ page }) => {
 test('plano Pro, Finalização', async ({ page }) => {
   await page.clock.setFixedTime(DIA);
   await entrarNaDemo(page, 'Aurum Cozinha Pro', /^Cozinha de Finalização/);
-  await percorrer(page, 'fin', ['/', '/registrar', '/fechar-turno', '/validades']);
+  await percorrer(page, 'fin', ['/', '/estoque', '/registrar', '/fechar-turno', '/validades']);
 });

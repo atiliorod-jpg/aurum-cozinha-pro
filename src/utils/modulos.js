@@ -166,6 +166,8 @@ export const RECURSOS_MODULO = {
     // câmara fria: o item entra congelado OU resfriado, e cada um tem prazo próprio
     armazenamento: true,
     armazenamentoNaEtiqueta: false, etiquetaDeAbertura: false, // já tem `armazenamento`
+    // mínimo e máximo do catálogo valem aqui (alertas, lista de compras, automático)
+    metasDeEstoque: true,
   },
   seco: {
     // ⚠️ No seco a COMPRA JÁ É A ENTRADA. Você compra 12 pacotes de arroz e eles
@@ -192,6 +194,7 @@ export const RECURSOS_MODULO = {
     armazenamentoNaEtiqueta: true,
     etiquetaDeAbertura: true,
     validadeDoProdutor: true,
+    metasDeEstoque: true,
   },
   finalizacao: {
     // Não compra de fornecedor nem porciona: só RECEBE da produção. A entrada é
@@ -205,6 +208,13 @@ export const RECURSOS_MODULO = {
     inventario: false, fecharTurno: true, perdas: true,
     etiquetas: true, armazenamento: true,
     armazenamentoNaEtiqueta: false, etiquetaDeAbertura: false,
+    // ⚠️ SEM METAS (D5, Lote 6 da auditoria, 15/10/2026). A Finalização lê o
+    // catálogo DA PRODUÇÃO (catalogoDe), e o mínimo e o máximo dele são as
+    // metas da Produção. Usados aqui, o Início acusava "abaixo do mínimo" em
+    // quase tudo (8 na demo) e a bolinha vermelha da barra ficava sempre
+    // acesa. Pior: com o mínimo/máximo automático ligado, um aparelho aberto na
+    // Finalização REGRAVAVA as metas da Produção pelo consumo da bancada.
+    metasDeEstoque: false,
   },
 };
 

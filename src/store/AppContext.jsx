@@ -1180,6 +1180,10 @@ export function AppProvider({ children }) {
     // ⚠️ M56: o banco só grava o catálogo de quem gerencia itens. O aparelho da
     // cozinha deixa o recálculo para o da gerência (senão a fila acumularia recusas).
     if (!podeCatalogoRef.current) return;
+    // ⚠️ SÓ ONDE AS METAS SÃO DESTA COZINHA (D5, 15/10/2026). A Finalização usa o
+    // catálogo da Produção: recalcular ali gravava nas metas da Produção o
+    // consumo da bancada, e os dois aparelhos ficavam se desfazendo.
+    if (!temRecurso(moduloEfetivo, 'metasDeEstoque')) return;
     const t = setTimeout(() => {
       const prods = produtosAutoRef.current;
       if (!prods) return;
@@ -1203,7 +1207,7 @@ export function AppProvider({ children }) {
       if (mudou) setProdutos(next);
     }, 1500);
     return () => clearTimeout(t);
-  }, [saidasParaConsumo, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana, setProdutos]);
+  }, [saidasParaConsumo, prefs.autoMinMax, prefs.diasMin, prefs.diasMax, prefs.minMaxPorDiaSemana, setProdutos, moduloEfetivo]);
 
   // ── O APARELHO ACORDOU (28/09/2026, achado da análise) ────────────
   // O tempo real cai quando o celular ou o computador dorme e, ao voltar, não

@@ -89,7 +89,10 @@ export default function NavBar({ soEtiquetas = false }) {
   // catálogo inteiro a cada render, de graça.
   // ⚠️ Só o ativo que controla estoque: sem o filtro, item DESATIVADO com
   // mínimo e saldo zero contava como alerta para sempre (achado do Lote 4).
-  const alertas = soEtiquetas ? 0 : produtos.filter(p => {
+  // ⚠️ E só onde as metas valem: na Finalização o mínimo é o da Produção, e a
+  // bolinha ficava acesa para sempre (D5).
+  const comMetas = temRecurso(modulo, 'metasDeEstoque');
+  const alertas = soEtiquetas || !comMetas ? 0 : produtos.filter(p => {
     if (!ativoNoEstoque(p)) return false;
     const s = statusEstoque(estoque[p.id] ?? 0, p.min, p.max);
     return s === 'critico' || s === 'zerado';

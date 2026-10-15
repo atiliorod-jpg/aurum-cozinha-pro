@@ -35,6 +35,7 @@ import Icon from './components/Icons';
 // primeira abertura, no produto que está sendo vendido.
 // O ramo do Etiquetas já estava separado logo abaixo; faltava só o `lazy`.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Estoque = lazy(() => import('./pages/Estoque'));
 const Registrar = lazy(() => import('./pages/Registrar'));
 const Historico = lazy(() => import('./pages/Historico'));
 const Compras = lazy(() => import('./pages/Compras'));
@@ -462,6 +463,8 @@ function Rotas() {
           ? <Navigate to="/admin" replace />
           : <Dashboard />
       } />
+      {/* o estoque completo saiu do Início (Lote 6): o Início ficou com o urgente */}
+      <Route path="/estoque" element={<Estoque />} />
       <Route path="/registrar" element={<Registrar />} />
       <Route path="/historico" element={<Historico />} />
       {/* Estas três estavam declaradas em RECURSOS_MODULO mas o gate nunca era

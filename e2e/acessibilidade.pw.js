@@ -56,7 +56,7 @@ test('plano Pro, Produção: telas e janelas', async ({ page }) => {
   await entrarNaDemo(page, 'Aurum Cozinha Pro');
   const r = {};
   await percorrer(page, [
-    '/', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
+    '/', '/estoque', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
     '/etiquetas', '/validades', '/itens', '/inventario', '/relatorio', '/relatorio-etiquetas', '/impressas',
     '/auditoria', '/administracao', '/financeiro', '/estoques', '/balanco',
     '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe', '/administracao/estoque', '/administracao/conta',
@@ -102,10 +102,10 @@ test('plano Pro, Produção: telas e janelas', async ({ page }) => {
 test('plano Pro, Finalização e Estoque Seco', async ({ page, browser }) => {
   await entrarNaDemo(page, 'Aurum Cozinha Pro', /^Cozinha de Finalização/);
   const r = {};
-  await percorrer(page, ['/', '/registrar', '/fechar-turno', '/validades', '/historico'], r, 'finalização');
+  await percorrer(page, ['/', '/estoque', '/registrar', '/fechar-turno', '/validades', '/historico'], r, 'finalização');
   const seco = await browser.newPage({ viewport: { width: 375, height: 812 } });
   await entrarNaDemo(seco, 'Aurum Cozinha Pro', /^Estoque Seco/);
-  await percorrer(seco, ['/', '/registrar', '/saidas', '/entradas', '/aparas', '/etiquetas', '/inventario'], r, 'seco');
+  await percorrer(seco, ['/', '/estoque', '/registrar', '/saidas', '/entradas', '/aparas', '/etiquetas', '/inventario'], r, 'seco');
   await seco.close();
   conferir(r);
 });

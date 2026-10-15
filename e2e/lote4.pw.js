@@ -32,7 +32,7 @@ test('Cozinha Pro: item de abertura nasce só etiqueta — imprime, mas fica for
   await abrir(page, '/entradas');
   await expect(page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' })).toBeVisible();
   await expect(page.getByRole('spinbutton', { name: 'Quantidade de Azeite' })).toHaveCount(0);
-  await abrir(page, '/');
+  await abrir(page, '/estoque');
   await expect(page.locator('main')).not.toContainText('Azeite');
   // ...mas imprime
   await abrir(page, '/etiquetas');
@@ -69,9 +69,9 @@ test('Cozinha Pro: a ficha guarda o que era de Configurações → Produtos (mí
   await page.getByRole('button', { name: /^Filé Mignon \(cru, kg\)/ }).click();
   await expect(ficha.getByText('mínimo 8 · máximo 20')).toBeVisible();
   await expect(ficha.getByText('entra cozido, perde 30%')).toBeVisible();
-  // e o Início ganhou o subgrupo novo no filtro da categoria
+  // e o Estoque ganhou o subgrupo novo no filtro da categoria
   await page.keyboard.press('Escape');
-  await abrir(page, '/');
+  await abrir(page, '/estoque');
   await page.getByRole('button', { name: 'PROTEÍNAS', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Bovinos', exact: true })).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);

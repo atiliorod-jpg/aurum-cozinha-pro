@@ -181,11 +181,11 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (15/10/2026) — LOTES 3, 2, 4 E 5 DA AUDITORIA PUBLICADOS
+## Onde paramos (15/10/2026) — LOTES 3, 2, 4, 5 E 6 DA AUDITORIA PUBLICADOS
 
 O plano está em `AUDITORIA_GERAL_2026-10-14.md` (seção "Andamento"). Feitos e
 publicados, nesta ordem: Lote 1, Lote 0, Lote 7 (parte 1), Lote 3, Lote 2 e
-Lote 4 (14/10) e Lote 5 (15/10). Testes: **920** e **46 cenários** do robô.
+Lote 4 (14/10), Lote 5 e Lote 6 (15/10). Testes: **926** e **49 cenários** do robô.
 
 **Lote 3 (navegação):** Imprimir na barra do Pro; o cabeçalho diz onde a
 pessoa está; o nome no topo abre "Sua conta" (não sai mais direto).
@@ -220,7 +220,16 @@ botão, `sticky bottom-16` = altura da barra), com o − / + de
 (sempre por unidade). Fechar turno pede confirmação se nada foi contado.
 Apara/Perda sem os códigos (STG, V) e com perguntas de bancada.
 
+**Lote 6 (Início por cozinha):** o Início mostra só o urgente; a lista
+completa é a tela `pages/Estoque.jsx` (`/estoque`), cujos contadores filtram.
+Recurso novo `metasDeEstoque` (Produção e Seco sim, Finalização não — D5): sem
+ele, nada de "abaixo do mínimo", bolinha da barra ou mínimo/máximo
+automático. A calculadora foi para a Produção.
+
 **⚠️ Armadilhas novas:**
+- a Finalização lê o catálogo DA PRODUÇÃO: tudo que GRAVA no catálogo a
+  partir da Finalização (como o mínimo/máximo automático fazia) mexe na
+  Produção. Conferir `metasDeEstoque` antes de gravar meta;
 - no robô, `getByLabel('Quantidade contada de X')` agora casa também com os
   botões "Diminuir/Aumentar quantidade contada de X": usar
   `{ exact: true }` ou `getByRole('spinbutton', …)`;
@@ -244,12 +253,10 @@ merge do main no ramo, resolver os conflitos, rodar
 `node scripts/conferir-m61.mjs`. O token do Supabase continua inválido.
 
 **Próximos, pela ordem:**
-1. Lote 6 — Início por cozinha; D5 (a Finalização sem os alarmes de
-   mínimo/máximo da Produção).
-2. Lote 9 — preços da demo, relatório de etiquetas local, faixa que cobre o
+1. Lote 9 — preços da demo, relatório de etiquetas local, faixa que cobre o
    cabeçalho.
-3. Lote 8 — dividir o AppContext atrás de `useApp`, **depois** da M61.
-4. Lote 10 — só IndexedDB e tempo real por Broadcast.
+2. Lote 8 — dividir o AppContext atrás de `useApp`, **depois** da M61.
+3. Lote 10 — só IndexedDB e tempo real por Broadcast.
 
 Lembrar o dono: APK e Stripe.
 
