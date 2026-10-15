@@ -1,7 +1,7 @@
 // Novidades do app (changelog voltado ao CLIENTE — linguagem simples, sem jargão).
 // A cada atualização relevante, adicione um item NO TOPO e atualize APP_VERSAO
 // com a mesma "versao". O app mostra um aviso "O que há de novo" uma vez quando
-// o cliente abre uma versão mais nova, e a lista fica em Configurações → Novidades.
+// o cliente abre uma versão mais nova, e a lista fica em Administração → Conta → Novidades.
 
 export const APP_VERSAO = '2026.07.18';
 

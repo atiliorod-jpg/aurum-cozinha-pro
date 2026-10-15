@@ -508,3 +508,68 @@ inválido em 14/10.
 **Testes:** 890 testes e 38 cenários do robô. Novos: navegação, o lançamento
 perguntando o nome, quem tem senha digitando no formulário e o nome que expira
 com a janela de imprimir aberta.
+
+### Lote 4 — um lugar para cada coisa, aplicado em 14/10/2026
+
+**Resposta do dono:** item com data de abertura nasce **"só etiqueta"**.
+
+**Itens — um editor só (Meus itens), nos dois planos:**
+- a ficha tem três partes: **Etiqueta** (os dois planos), **Estoque** e
+  **Produção** (só no Pro). As partes de estoque e produção ficam recolhidas,
+  com um resumo do que já está preenchido;
+- trouxe de Configurações → Produtos o que só existia lá: subgrupo, "entra no
+  estoque já cozido" com a perda na cocção, a sugestão de mínimo e máximo pelo
+  consumo e o fator de correção (vazio = automático);
+- chave **"Controla estoque"**: desligada, o item só imprime. A regra mora em
+  `utils/itens.js` (`controlaEstoque`, `ativoNoEstoque`). Item novo de
+  abertura nasce desligado; no Estoque Seco, onde a etiqueta é sempre de
+  abertura, nasce ligado. A ficha grava a escolha explícita;
+- as telas de estoque (Início, barra, Entradas, Saídas, Contagem, Validades,
+  Relatório, custos, lista de compras, sugestões) leem só o que controla
+  estoque. O catálogo continua inteiro: é ele que se grava (resolve o **D6**:
+  o "Leite aberto" saiu do Início, das Entradas, das Saídas e da Contagem);
+- na lista, o item se anuncia com **"só etiqueta"**;
+- **"Itens removidos"** no fim da lista, com "Devolver" (era o Ativo/Inativo
+  de Configurações), e **"Grupos criados por você"**, com remover;
+- "Tem hoje" só no item novo; no item que já tem lançamentos o campo vira
+  "Estoque inicial", com o aviso de usar a Contagem — digitar a contagem ali
+  somava em cima dos lançamentos;
+- a unidade ganha grafia única ao salvar ("Kg", "un" → kg, unid).
+
+**Planilha — um botão dentro de Meus itens, nos dois planos:**
+- sai com os itens **da conta** (ou vazia), para editar no Excel e importar de
+  volta. Antes o modelo vinha com os 55 itens do Polo;
+- uma coluna de prazo por armazenamento da casa;
+- corrigidos: dois itens com o mesmo nome viravam um ao importar; coluna
+  ausente zerava o valor; o prazo importado não valia (ia para o campo
+  antigo); unidade fora da lista virava "kg";
+- regras em `utils/planilhaItens.js`, com testes.
+
+**Administração em cinco grupos, a mesma nos dois planos:**
+
+| Grupo | O que tem |
+|---|---|
+| A casa | dados do estabelecimento (saíram de dentro do cartão Etiquetas); no Pro, o caminho para Unidades e cozinhas; no Etiquetas, unidades e a equipe por unidade |
+| Etiqueta | armazenamentos, campos e QR (Pro), e o caminho para a impressora (`?aba=impressora`) |
+| Equipe | nomes e senhas, contas da equipe (uma lista só, com troca de cargo), cargos e acessos |
+| Estoque (Pro) | receitas, destinos de saída e de apara, mínimo e máximo automáticos, rendimento, guia do turno — com o aviso de qual cozinha está sendo ajustada |
+| Conta | plano e pagamento, minha senha, suporte remoto, cópia de segurança, instalar o app, novidades e (Pro) apagar os registros |
+
+- consultas (relatórios, custos, balanço, histórico) e Meus itens (Pro) no
+  topo; o aviso de lançamento que não subiu também;
+- quem alcança o quê: `store/acessosAdmin.js`, a mesma regra no hub e nos
+  grupos. Duas travas **fecharam** no Pro: suporte remoto e "apagar todos os
+  registros" passam a ser só da conta dona (antes, qualquer cargo com
+  "configurar o sistema");
+- Configurações e Ajustes deixaram de existir. `/configuracoes?secao=...` e
+  `/ajustes` levam ao lugar novo;
+- contas da equipe: senha mínima de 8 (o texto dizia 6), botões de 44 px, o
+  erro do banco aparece ao bloquear ou liberar, e o cargo mostrado é o atual
+  (o rótulo antigo ficava velho depois de uma troca);
+- títulos de verdade (`h2`) nos cartões que ainda usavam parágrafo.
+
+**Testes:** 913 testes (23 novos em `lote4Itens.test.js`) e 43 cenários do
+robô (5 novos em `e2e/lote4.pw.js`: só etiqueta, a ficha com os campos de
+estoque, a planilha, e a Administração nos dois planos). A medição de toque e
+contraste passou a cobrir os cinco grupos, a ficha do item aberta e a janela
+da planilha.

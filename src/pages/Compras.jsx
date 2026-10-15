@@ -563,7 +563,7 @@ export default function Compras() {
                       Usar “{vinculo.parecido.nome}”
                     </button>
                   ) : (
-                    <p className="mt-1">Cadastre-o em Administração → Cadastros, ou salve assim mesmo para só registrar a compra.</p>
+                    <p className="mt-1">Cadastre-o em Meus itens, ou salve assim mesmo para só registrar a compra.</p>
                   )}
                 </div>
               )}

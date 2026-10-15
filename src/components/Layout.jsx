@@ -23,8 +23,12 @@ const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
  * nas duas. A barra de operação continua fora da Administração: ela leva para
  * Registrar/Validades, que são de dentro de um estoque, e um toque ali tirava
  * a pessoa da área em que ela acabou de entrar.
+ *
+ * `voltar`: rota da seta no lugar do logo, para tela que tem barra no rodapé
+ * e mesmo assim é "de dentro" de outra — os grupos da Administração no plano
+ * Etiquetas (Lote 4), onde a Administração é uma aba da barra.
  */
-export default function Layout({ title, children, actions, area = 'estoque' }) {
+export default function Layout({ title, children, actions, area = 'estoque', voltar = null }) {
   const { sessao, logout, impersonando } = useAuth();
   const { pendencias, online, estoqueAtual, unidades, unidadeAtual, unidadeFixa } = useApp();
   const navigate = useNavigate();
@@ -52,6 +56,10 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   // restaurante que não existe. A área se chama "admin" nos dois casos, mas só
   // uma delas tem para onde voltar.
   const dentroDaAdmin = emAdmin && !semCozinhas && pathname !== '/administracao';
+  const destinoVoltar = voltar || (dentroDaAdmin ? '/administracao' : null);
+  // a Administração do plano Etiquetas não usa a área 'admin' (tem barra), mas
+  // o cabeçalho diz onde a pessoa está do mesmo jeito
+  const naAdministracao = (emAdmin && !semCozinhas) || pathname.startsWith('/administracao');
   // Onde a pessoa está agora. Num estoque é o nome da INSTÂNCIA, não o rótulo
   // do tipo: com dois restaurantes na conta, "Estoque Seco" sozinho não diz de
   // qual casa é, e o cabeçalho é onde se confere isso antes de lançar.
@@ -78,7 +86,7 @@ export default function Layout({ title, children, actions, area = 'estoque' }) {
   // celular — o título dizia "Entradas", mas não de qual cozinha. Agora a linha
   // de baixo do título diz onde a pessoa está; com várias unidades, a unidade
   // vem primeiro (é ela que decide o CNPJ impresso).
-  const onde = dentroDaAdmin || (emAdmin && !semCozinhas) ? 'Administração'
+  const onde = naAdministracao ? 'Administração'
     : semCozinhas ? 'Painel Aurum'
     : soEtiq ? (variasUnidades ? `Unidade: ${nomeUnidade}` : (sessao?.restauranteNome || ''))
     : [variasUnidades ? nomeUnidade : '', mod.label].filter(Boolean).join(' · ');
@@ -119,11 +127,11 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
     <div className={`min-h-screen flex flex-col bg-polo-beige ${emAdmin ? 'pb-6' : 'pb-24'}`}>
       <header className="bg-gradient-to-r from-polo-navy via-polo-navy to-[#24375456] bg-polo-navy text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-lg">
         <div className="flex items-center gap-2.5 min-w-0">
-          {dentroDaAdmin ? (
+          {destinoVoltar ? (
             /* Dentro da Administração o logo dá lugar à volta: é o mesmo canto
                da tela onde todo app põe o "voltar", e o logo não leva a lugar
-               nenhum. Alvo de 44 px porque é tablet. */
-            <button onClick={() => navigate('/administracao')}
+               nenhum. Alvo de 44 px: é dedo, não mouse. */
+            <button onClick={() => navigate(destinoVoltar)}
               aria-label="Voltar para a Administração"
               className="w-11 h-11 rounded-xl bg-white/10 text-polo-gold flex items-center justify-center flex-shrink-0
                          active:scale-95 transition-transform
@@ -136,7 +144,9 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           )}
           <div className="min-w-0 leading-tight">
             <h1 className="text-base font-bold text-polo-gold tracking-wide truncate">{title}</h1>
-            {onde && (
+            {/* a linha de baixo some quando repete o título (o hub da
+                Administração dizia "Administração / Administração") */}
+            {onde && onde !== title && (
               <p className={`text-xs truncate ${variasUnidades ? 'text-polo-gold/90 font-semibold' : 'text-white/80'}`}>{onde}</p>
             )}
           </div>

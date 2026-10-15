@@ -205,7 +205,7 @@ describe('o que existe no Etiquetas existe no Pro', () => {
     // `/` e `/etiquetas` são a mesma tela nos dois; `*` é o curinga
     const doPro = new Set(rotas(ramoPro));
     const faltando = rotas(ramoEtiquetas)
-      .filter(p => !['*', '/', '/ajustes'].includes(p))
+      .filter(p => !['*', '/', '/ajustes'].includes(p)) // /ajustes: endereço antigo da Administração
       .filter(p => !doPro.has(p));
     expect(faltando).toEqual([]);
   });

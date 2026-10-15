@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Abas from '../components/ui/Abas';
 import Filtros from '../components/ui/Filtros';
 import Layout from '../components/Layout';
@@ -178,7 +178,10 @@ export default function Etiquetas() {
     return v.map(x => `${x.nome} ${x.dias}d`).join(' · ');
   };
 
-  const [tab, setTab] = useState('catalogo'); // 'catalogo' | 'impressora'
+  // `?aba=impressora` abre direto no guia da impressora: é o caminho do
+  // cartão "Impressora e rolo" em Administração → Etiqueta (Lote 4)
+  const abaDaUrl = new URLSearchParams(useLocation().search).get('aba');
+  const [tab, setTab] = useState(abaDaUrl === 'impressora' ? 'impressora' : 'catalogo'); // 'catalogo' | 'impressora'
   const [busca, setBusca] = useState('');
   const [catAtiva, setCatAtiva] = useState('');
 

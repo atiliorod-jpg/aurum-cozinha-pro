@@ -411,7 +411,7 @@ export default function EtiquetaPrint() {
   // Espelha o estado externo numa cópia local editável — setState síncrono intencional.
   useEffect(() => {
     if (etiquetaState) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- espelho de valor externo (mesmo padrão de Configuracoes)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- espelho de valor externo (mesmo padrão do CartaoMinMaxAuto)
       setItens(etiquetaState.map(i => {
         const p = i.produtoId ? produtos.find(x => x.id === i.produtoId) : null;
         const resolvido = {
@@ -1373,7 +1373,7 @@ export default function EtiquetaPrint() {
               {desenhos.some(d => !d.cabe) && (
                 <Aviso tom="erro" className="mb-2">
                   Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
-                  Em Administração → Etiquetas, desligue um campo (marca ou validade original).
+                  Em Administração → Etiqueta, desligue um campo (marca ou validade original).
                 </Aviso>
               )}
               {/* ⚠️ CADA APARELHO VÊ A PRÉVIA DO SEU PRÓPRIO PAPEL, e é isto

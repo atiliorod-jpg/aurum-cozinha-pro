@@ -231,13 +231,13 @@ describe('relatório de etiquetas por unidade', () => {
 
 describe('unidades nos dois planos (o Etiquetas é um recorte do Pro)', () => {
   it('o Etiquetas tem o cartão Unidades e o seletor de unidade; o Pro tem "Unidades e cozinhas"', () => {
-    expect(ler('../../pages/etiquetas/Ajustes.jsx')).toMatch(/<CartaoUnidades \/>/);
+    expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/<CartaoUnidades \/>/);
     expect(ler('../../components/Layout.jsx')).toMatch(/<SeletorModulo soUnidades=\{soEtiq\}/);
     // o pedido de unidade nova mora em Planos e pagamento (27/09/2026), nos dois planos
     expect(ler('../../pages/Estoques.jsx')).toMatch(/to="\/pagamento#unidades"/);
     expect(ler('../../components/config/CartoesConfig.jsx')).toMatch(/to="\/pagamento#unidades"/);
     expect(ler('../../pages/Pagamento.jsx')).toMatch(/<SecaoUnidades \/>/);
-    expect(ler('../../pages/Administracao.jsx')).toMatch(/titulo: 'Unidades e cozinhas'/);
+    expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/titulo="Unidades e cozinhas"/);
   });
 
   it('a etiqueta tira nome, CNPJ e endereço de UM lugar só, e grava a unidade no relatório', () => {
@@ -336,7 +336,7 @@ describe('cobrança com unidades: um número só em todas as telas', () => {
   });
 
   it('a linha do plano na Administração mostra o que o cliente paga: parcela do contrato, ou plano + unidades', () => {
-    expect(ler('../../pages/etiquetas/Ajustes.jsx')).toMatch(/<ResumoDoPlano \/>/);
+    expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/<ResumoDoPlano \/>/);
     const aj = ler('../../components/PlanoExtras.jsx');
     expect(aj).toMatch(/const valor = parcela \? brl\(parcela\) : brl\(mensalCombinado\(prod\.id, extras, sessao\?\.desconto\)\);/);
     expect(aj).toMatch(/const parcela = Number\(sessao\?\.parcelaContrato\) \|\| 0/);

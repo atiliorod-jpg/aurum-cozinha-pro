@@ -148,7 +148,7 @@ test('Cozinha Pro: se o nome expira com a janela de imprimir aberta, ela pergunt
 
 test('Etiquetas: o dono cria a senha da Maria em Administração', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
-  await abrir(page, '/ajustes');
+  await abrir(page, '/administracao/equipe');
   await page.getByRole('button', { name: 'Criar senha de Maria' }).click();
   await page.getByLabel('Nova senha de Maria').fill('0512');
   await page.getByLabel('Repita a senha de Maria').fill('0513');

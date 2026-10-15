@@ -25,6 +25,7 @@
 // saída de 20 zera o primeiro lote sozinha.
 
 import { ordemTs } from './estoque';
+import { ativoNoEstoque } from './itens';
 
 const num = (v) => parseFloat(v) || 0;
 const r3 = (v) => Math.round(v * 1000) / 1000;
@@ -199,7 +200,7 @@ export function semValidadeConhecida(estoqueDoProduto, lotesDoProduto = [], unid
 export function lotesVencendo(lotes, produtos, estoque, diasAteFn, limiteDias = 5) {
   const lista = [];
   produtos.forEach(p => {
-    if (!p.ativo) return;
+    if (!ativoNoEstoque(p)) return; // inativo, ou só de etiqueta (Lote 4)
     const limiar = p.unidade === 'unid' ? 1 : 0.001;
     if ((estoque[p.id] ?? 0) < limiar) return; // zerado (ex.: por contagem) → sem alerta fantasma
     (lotes[p.id] || []).forEach(l => {

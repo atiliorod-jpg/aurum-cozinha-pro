@@ -1113,13 +1113,17 @@ describe('plano Etiquetas não abre tela do plano completo', () => {
       // `/relatorio-etiquetas` entrou em 10/09/2026, a pedido do dono: quantas
       // etiquetas por dia, semana e mês (M43). É relatório DESTE produto — não
       // confundir com `/relatorio`, o de estoque, que continua fora daqui.
-      ['*', '/', '/admin', '/ajustes', '/etiquetas', '/impressas', '/itens', '/novidades', '/pagamento', '/relatorio-etiquetas'].sort(),
+      // `/administracao` (e os grupos) entraram no Lote 4 (14/10/2026): a
+      // Administração passou a ser a MESMA nos dois planos, e o que o plano
+      // não tem não aparece nela (store/acessosAdmin.js). `/ajustes` ficou só
+      // como endereço antigo que leva para lá.
+      ['*', '/', '/admin', '/administracao', '/administracao/:grupo', '/ajustes', '/etiquetas', '/impressas', '/itens', '/novidades', '/pagamento', '/relatorio-etiquetas'].sort(),
     );
   });
 
   it.each([
     '/compras', '/entradas', '/saidas', '/producao', '/inventario',
-    '/aparas', '/relatorio', '/financeiro', '/administracao', '/estoques',
+    '/aparas', '/relatorio', '/financeiro', '/configuracoes', '/estoques',
     '/balanco', '/fechar-turno', '/validades', '/historico', '/registrar',
   ])('não abre %s', (rota) => {
     expect(rotasDoRamo).not.toContain(rota);

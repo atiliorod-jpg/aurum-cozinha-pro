@@ -38,7 +38,13 @@ test('plano Etiquetas: telas e janelas', async ({ page }) => {
   r['teclado da senha'] = await medirAcessibilidade(page);
   await page.getByRole('button', { name: 'Voltar aos nomes' }).click();
   await entrarComo(page, 'Maria');
-  await percorrer(page, ['/', '/itens', '/impressas', '/relatorio-etiquetas', '/ajustes', '/pagamento', '/novidades'], r, 'etiquetas');
+  await percorrer(page, ['/', '/itens', '/impressas', '/relatorio-etiquetas', '/pagamento', '/novidades',
+    '/administracao', '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe', '/administracao/conta'], r, 'etiquetas');
+  // a ficha do item (Lote 4): no plano Etiquetas, só a parte da etiqueta
+  await abrir(page, '/itens');
+  await page.getByRole('button', { name: /^Frango desfiado/ }).click();
+  r['ficha do item'] = await medirAcessibilidade(page, ['[role=dialog]']);
+  await page.keyboard.press('Escape');
   // a janela de imprimir — a mais usada do app
   await abrir(page, '/');
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
@@ -52,14 +58,26 @@ test('plano Pro, Produção: telas e janelas', async ({ page }) => {
   await percorrer(page, [
     '/', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
     '/etiquetas', '/validades', '/itens', '/inventario', '/relatorio', '/relatorio-etiquetas', '/impressas',
-    '/auditoria', '/administracao', '/financeiro', '/estoques', '/balanco', '/configuracoes',
-    '/configuracoes?secao=receitas', '/configuracoes?secao=acessos', '/configuracoes?secao=sistema',
+    '/auditoria', '/administracao', '/financeiro', '/estoques', '/balanco',
+    '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe', '/administracao/estoque', '/administracao/conta',
     '/ler', '/pagamento',
   ], r, 'pro');
   // a matriz de acessos de um cargo (fica fechada até tocar em "acessos")
-  await abrir(page, '/configuracoes?secao=acessos');
+  await abrir(page, '/administracao/equipe');
   await page.getByRole('button', { name: 'acessos', exact: true }).first().click();
   r['matriz de acessos aberta'] = await medirAcessibilidade(page);
+  // a ficha do item do Pro (Lote 4), com as partes recolhidas abertas
+  await abrir(page, '/itens');
+  await page.getByRole('button', { name: /^Filé de Frango \(porção\)/ }).click();
+  const ficha = page.getByRole('dialog');
+  for (const parte of await ficha.locator('summary').all()) await parte.click();
+  await ficha.getByRole('switch', { name: 'Entra no estoque já cozido' }).click();
+  r['ficha do item (Pro)'] = await medirAcessibilidade(page, ['[role=dialog]']);
+  await page.keyboard.press('Escape');
+  // a planilha de itens
+  await page.getByRole('button', { name: 'Planilha', exact: true }).click();
+  r['janela da planilha'] = await medirAcessibilidade(page, ['[role=dialog]']);
+  await page.keyboard.press('Escape');
   // o formulário pedindo o nome ("Quem está registrando?") e o teclado da
   // senha dentro dele; depois, a janela de imprimir que abre já assinada
   await abrir(page, '/entradas');

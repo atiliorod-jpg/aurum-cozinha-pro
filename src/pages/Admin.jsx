@@ -1110,7 +1110,7 @@ O login e a recuperação de senha passam a usar o e-mail novo. A senha continua
       `Endereço: ${window.location.origin}${import.meta.env.BASE_URL}`,
       `E-mail: ${contaCriada.email}`,
       `Senha: ${contaCriada.senha}`,
-      'Troque a senha em Administração → Trocar minha senha.',
+      'Troque a senha em Administração → Conta → Trocar minha senha.',
     ].join('\n');
     try {
       await navigator.clipboard.writeText(texto);
@@ -1769,7 +1769,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 </div>
                 <p className="text-xs text-gray-600">
                   Copie ou anote AGORA: esta senha não aparece de novo. Falta liberar o teste no cartão
-                  da conta. Na entrega, peça ao dono para trocar a senha em Administração → Trocar minha senha.
+                  da conta. Na entrega, peça ao dono para trocar a senha em Administração → Conta → Trocar minha senha.
                 </p>
                 <div className="flex gap-2">
                   <button onClick={copiarAcesso}

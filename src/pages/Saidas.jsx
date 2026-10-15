@@ -16,6 +16,7 @@ import { validarDataRegistro, diasAte } from '../utils/datas';
 import { partirPorValidade } from '../utils/lotes';
 import { tipoBase } from '../utils/modulos';
 import { casaBusca } from '../utils/busca';
+import { ativoNoEstoque } from '../utils/itens';
 
 
 export default function Saidas() {
@@ -38,7 +39,7 @@ export default function Saidas() {
   const [busca, setBusca] = useState('');
   const [tab, setTab] = useState('novo');
 
-  const produtosAtivos = produtos.filter(p => p.ativo);
+  const produtosAtivos = produtos.filter(ativoNoEstoque);
   const buscando = busca.trim().length > 0;
   const produtosVisiveis = buscando
     ? produtosAtivos.filter(p => casaBusca(busca, p.nome))

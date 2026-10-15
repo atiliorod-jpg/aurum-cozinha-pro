@@ -18,6 +18,7 @@ import { temRecurso } from '../utils/modulos';
 import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazenamento';
 import { casaBusca } from '../utils/busca';
 import { plural } from '../utils/formatters';
+import { ativoNoEstoque } from '../utils/itens';
 
 export default function Entradas() {
   const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo, permissoes, rid } = useApp();
@@ -46,7 +47,7 @@ export default function Entradas() {
   const [tab, setTab] = useState('novo'); // 'novo' | 'historico'
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
 
-  const produtosAtivos = produtos.filter(p => p.ativo && !producoes.some(r => r.produtoFinalId === p.id));
+  const produtosAtivos = produtos.filter(p => ativoNoEstoque(p) && !producoes.some(r => r.produtoFinalId === p.id));
   const buscando = busca.trim().length > 0;
   const produtosVisiveis = buscando
     ? produtosAtivos.filter(p => casaBusca(busca, p.nome))

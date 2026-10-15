@@ -127,7 +127,7 @@ describe('equipe presa a uma unidade', () => {
   });
 
   it('a conta dona escolhe a unidade de cada conta, nos dois planos', () => {
-    expect(ler('../../pages/etiquetas/Ajustes.jsx')).toMatch(/<CartaoEquipeDasUnidades \/>/);
+    expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/<CartaoEquipeDasUnidades \/>/);
     expect(ler('../../pages/Estoques.jsx')).toMatch(/<CartaoEquipeDasUnidades \/>/);
     const auth = ler('../../store/AuthContext.jsx');
     expect(auth).toMatch(/supabase\.rpc\('definir_unidade_da_conta'/);

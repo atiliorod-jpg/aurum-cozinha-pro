@@ -1,10 +1,9 @@
 // Cartoes de Configuracao compartilhados.
 //
-// ⚠️ Estes tres viviam DENTRO de Configuracoes.jsx como funcoes internas. O
-// plano Aurum Etiquetas tem tela de Ajustes propria e precisa dos mesmos
-// cartoes; copiar ~250 linhas faria as duas versoes divergirem, que e o
-// defeito ja registrado nas abas daquele arquivo (a lista de botoes era
-// escrita de novo la embaixo, e as duas divergiram).
+// ⚠️ Estes viviam DENTRO da antiga tela de Configurações como funções
+// internas, e o plano Etiquetas tinha outra tela (Ajustes) com os mesmos
+// cartões. Desde o Lote 4 (14/10/2026) as duas viraram a Administração em
+// grupos (pages/AdministracaoGrupo.jsx), que usa estes cartões nos dois planos.
 import Chave from '../ui/Chave';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
@@ -188,7 +187,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
   );
 }
 
-export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeRestaurante = '', cnpjDaConta = '' }) {
+export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
   const cfg = configEtiqueta(prefs);
   // ⚠️ O TAMANHO SAIU DA TELA. Aqui havia dois campos de mm, e eles causavam um
   // defeito que só aparece no papel: o app dizia um tamanho, o driver da
@@ -211,9 +210,10 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
     ['responsavel', 'Responsável'],
   ];
 
-  // Dados do estabelecimento (rodapé da etiqueta): os da UNIDADE deste
-  // aparelho — ver DadosDoEstabelecimento, logo abaixo.
-  const { unidadeAtual, pessoas } = useApp();
+  // ⚠️ Os dados do estabelecimento (rodapé) SAÍRAM deste cartão no Lote 4:
+  // são da CASA, não do jeito de imprimir — moram em Administração → A casa
+  // (CartaoEstabelecimento, logo abaixo).
+  const { pessoas } = useApp();
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
@@ -291,6 +291,24 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true, nomeR
         </label>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Dados do estabelecimento — o rodapé da etiqueta (Administração → A casa).
+ * `key` pela unidade: trocar de unidade REMONTA o formulário (ver abaixo).
+ */
+export function CartaoEstabelecimento({ prefs, setPref, toast, nomeRestaurante = '', cnpjDaConta = '' }) {
+  const { unidadeAtual } = useApp();
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-bold text-polo-navy">Dados do estabelecimento</h2>
+        <p className="text-xs text-gray-600 mt-0.5">
+          Saem no rodapé da etiqueta: quem manipulou o alimento, para a fiscalização.
+        </p>
+      </div>
       <DadosDoEstabelecimento key={unidadeAtual?.id || 'principal'} prefs={prefs} setPref={setPref}
         toast={toast} nomeRestaurante={nomeRestaurante} cnpjDaConta={cnpjDaConta} />
     </div>
@@ -342,8 +360,7 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
   const campo = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs disabled:bg-gray-50';
 
   return (
-    <div className="border-t border-gray-100 pt-3 space-y-2">
-      <p className="text-xs font-semibold text-gray-600">Dados do estabelecimento (rodapé da etiqueta)</p>
+    <div className="space-y-2">
       {variasUnidades && (
         <p className="text-xs text-polo-navy bg-polo-beige rounded-lg px-2.5 py-1.5">
           São os dados da unidade <strong>{nome || '—'}</strong>, a deste aparelho. Para ver outra
@@ -494,11 +511,12 @@ export function CartaoUnidades() {
 export function CartaoContas({
   sessao, usuarios, cargos, criarConta, trocarSenhaDe, removerConta,
   desativarUsuario, reativarUsuario, definirApelido, toast, confirm,
-  // ⚠️ O plano completo já tem a própria lista de usuários, com troca de
-  // cargo. Repetir a lista aqui mostraria as mesmas pessoas duas vezes na
-  // mesma tela, com botões diferentes em cada — o tipo de coisa que faz
-  // duvidar de qual das duas é a de verdade.
-  mostrarLista = true,
+  // ⚠️ UMA LISTA SÓ NOS DOIS PLANOS (Lote 4 da auditoria, 14/10/2026). O Pro
+  // tinha a própria lista embaixo deste cartão, só para trocar o cargo — as
+  // mesmas pessoas apareciam em dois lugares da tela, com botões diferentes
+  // em cada um. A troca de cargo veio para cá; sem `alterarCargo` ela não
+  // aparece. `logAudit` deixa rastro no Histórico de mudanças.
+  alterarCargo = null, logAudit = null, permissoes = null,
 }) {
   const [criando, setCriando] = useState(false);
   const [form, setForm] = useState({ usuario: '', senha: '', cargo: 'cozinha' });
@@ -510,9 +528,27 @@ export function CartaoContas({
   const vagas = Math.max(0, max - ativos.length);
   const casa = sessao?.apelido || '';
   const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
+  const registrar = (acao, detalhe) => { if (logAudit) logAudit(acao, detalhe); };
+  // Nomes como a casa chama os cargos (o dono pode renomear "Cozinha")
+  const daCasa = cargosDaCasa(permissoes);
+  const nomeDoCargo = (id) => daCasa.find(c => c.id === id)?.nome || cargos.find(c => c.id === id)?.nome || id;
+  // ⚠️ `cargo_rotulo` guarda o NOME do cargo no dia da criação. Depois de uma
+  // troca de cargo ele ficava velho, e a lista dizia "Cozinha" para quem já era
+  // Gerência. O cargo de verdade é `cargo`; o rótulo só vale se for um cargo
+  // criado pela casa.
+  const rotuloDe = (u) => {
+    const proprio = u.cargo_rotulo && daCasa.find(c => c.id === u.cargo_rotulo && !c.fixo);
+    return proprio ? proprio.nome : nomeDoCargo(u.cargo);
+  };
+  // Ninguém dá um cargo acima do próprio (o banco confere em alterar_cargo), e
+  // diretoria não se dá por aqui: seria uma segunda conta dona, que esta lista
+  // não deixa mais mexer — o caminho de volta sumiria.
+  const nivel = (id) => cargos.find(c => c.id === id)?.nivel ?? 0;
+  const cargosAtribuiveis = cargos.filter(c => c.base !== 'diretoria'
+    && (sessao?.eSuperAdmin || c.nivel <= nivel(sessao?.cargo)));
 
   const limpar = (t) => String(t || '').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
 
   // ⚠️ O APELIDO NÃO É PERGUNTADO. Ele saía como um campo a mais que o dono
   // preenchia sem entender para quê — e escolhia mal. Vem do NOME DO
@@ -544,6 +580,9 @@ export function CartaoContas({
 
   const criar = async () => {
     const usuario = limpar(form.usuario);
+    // ⚠️ O texto dizia "mín. 6" e o servidor pede 8: a pessoa digitava 6,
+    // tocava em Criar e recebia um erro que contradizia a própria tela.
+    if ((form.senha || '').trim().length < 8) { toast('A senha precisa de ao menos 8 caracteres.', 'aviso'); return; }
     setOcupado(true);
     const r = await criarConta({
       // O usuário serve de nome da conta: não há duas coisas para inventar.
@@ -554,6 +593,7 @@ export function CartaoContas({
     if (r.erro) { toast(r.erro, 'erro'); return; }
     setCriando(false);
     setForm({ usuario: '', senha: '', cargo: 'cozinha' });
+    registrar('criou conta', `${usuario} (${nomeDoCargo(form.cargo)})`);
     toast(`Conta criada. Login: ${r.login}`, 'sucesso', { duracao: 9000 });
   };
 
@@ -565,6 +605,7 @@ export function CartaoContas({
     setOcupado(false);
     if (r.erro) { toast(r.erro, 'erro'); return; }
     setNovaSenha(null);
+    registrar('trocou a senha da conta', u.usuario || u.nome);
     toast(`Senha de ${u.usuario || u.nome} trocada. Avise quem usa.`, 'sucesso', { duracao: 8000 });
   };
 
@@ -578,27 +619,48 @@ export function CartaoContas({
     });
     if (!ok) return;
     const r = await removerConta(u.id);
+    if (!r.erro) registrar('apagou conta', u.usuario || u.nome);
     toast(r.erro || 'Conta apagada.', r.erro ? 'erro' : 'sucesso');
   };
 
+  // ⚠️ O ERRO DO BANCO AGORA APARECE. A versão anterior ignorava a resposta e
+  // dizia "bloqueado" mesmo quando o servidor recusava (sem internet, sem
+  // permissão) — o dono ia embora achando que a conta estava fechada.
   const alternarBloqueio = async (u) => {
     const quem = u.usuario || u.nome;
-    if (u.ativo === false) { await reativarUsuario(u.id); toast(`${quem} liberado.`, 'sucesso'); return; }
+    if (u.ativo === false) {
+      const erro = await reativarUsuario(u.id);
+      if (erro) { toast(erro, 'erro'); return; }
+      registrar('liberou conta', quem);
+      toast(`${quem} liberado.`, 'sucesso');
+      return;
+    }
     const ok = await confirm({
       titulo: `Bloquear ${quem}?`,
       mensagem: 'A conta para de entrar até você liberar. Nada é apagado, e a vaga continua ocupada.',
       confirmar: 'Bloquear',
     });
     if (!ok) return;
-    await desativarUsuario(u.id);
+    const erro = await desativarUsuario(u.id);
+    if (erro) { toast(erro, 'erro'); return; }
+    registrar('bloqueou conta', quem);
     toast(`${quem} bloqueado.`, 'sucesso');
   };
+
+  const mudarCargo = async (u, novo) => {
+    const erro = await alterarCargo(u.id, novo);
+    if (erro) { toast(erro, 'erro'); return; } // o banco recusou — não registra
+    registrar('alterou cargo', `${u.usuario || u.nome} → ${nomeDoCargo(novo)}`);
+    toast(`Cargo de ${u.usuario || u.nome} alterado para ${nomeDoCargo(novo)}.`, 'sucesso');
+  };
+
+  const botao = 'min-h-11 px-3 rounded-lg text-sm font-semibold border';
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Contas da equipe</h2>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-gray-600 mt-0.5">
           Quem entra no app. Pode ser uma pessoa ou um posto — “chef”, “cozinha”, “noite”.
         </p>
       </div>
@@ -610,57 +672,67 @@ export function CartaoContas({
         </p>
       )}
 
-      <div className={`space-y-1.5 ${mostrarLista ? '' : 'hidden'}`}>
+      <ul className="space-y-1.5">
         {(usuarios || []).map(u => {
           const ehEu = u.id === sessao?.usuarioId;
           const dono = u.cargo === 'diretoria';
           const quem = u.usuario || u.nome;
+          // a conta dona não se mexe por aqui: é quem paga e quem administra as
+          // outras. Uma casa sem ela fica sem comando.
+          const mexe = !dono && !ehEu;
           return (
-            <div key={u.id} className={`border rounded-lg p-2.5 ${u.ativo === false ? 'bg-gray-50 border-gray-200' : 'border-gray-200'}`}>
+            <li key={u.id} className={`border rounded-lg p-2.5 space-y-2 ${u.ativo === false ? 'bg-gray-50 border-gray-200' : 'border-gray-200'}`}>
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">
-                    {quem}{u.ativo === false && <span className="text-xs font-normal text-gray-500"> · bloqueado</span>}
+                    {quem}
+                    {ehEu && <span className="text-xs font-normal text-green-800"> · você</span>}
+                    {u.ativo === false && <span className="text-xs font-normal text-gray-600"> · bloqueado</span>}
                   </p>
                   <p className="text-xs text-gray-600">
-                    {u.cargo_rotulo || cargos.find(c => c.id === u.cargo)?.nome || u.cargo}
+                    {rotuloDe(u)}
                     {u.usuario && casa ? ` · entra como ${u.usuario}.${casa}` : ''}
                   </p>
                 </div>
-                {/* A conta dona não se mexe por aqui: é quem paga e quem
-                    administra as outras. Uma casa sem ela fica sem comando. */}
-                {!dono && !ehEu && (
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    <button onClick={() => setNovaSenha({ id: u.id, valor: '' })}
-                      className="text-xs font-semibold text-polo-navy border border-gray-300 rounded px-2 py-1">senha</button>
-                    <button onClick={() => alternarBloqueio(u)}
-                      className="text-xs font-semibold text-gray-600 border border-gray-300 rounded px-2 py-1">
-                      {u.ativo === false ? 'liberar' : 'bloquear'}
-                    </button>
-                    <button onClick={() => remover(u)}
-                      className="text-xs font-semibold text-red-700 border border-red-200 rounded px-2 py-1">apagar</button>
-                  </div>
+                {mexe && alterarCargo && cargosAtribuiveis.some(c => c.id === u.cargo) && (
+                  <select value={u.cargo} onChange={e => mudarCargo(u, e.target.value)}
+                    aria-label={`Cargo de ${quem}`}
+                    className="min-h-11 text-sm font-semibold text-polo-navy bg-polo-beige border border-polo-gold/40 rounded-lg px-2 flex-shrink-0 max-w-[45%]">
+                    {cargosAtribuiveis.map(c => <option key={c.id} value={c.id}>{nomeDoCargo(c.id)}</option>)}
+                  </select>
                 )}
               </div>
-              {novaSenha?.id === u.id && (
-                <div className="mt-2 flex gap-2">
-                  <input type="text" value={novaSenha.valor} autoFocus minLength={8}
-                    onChange={e => setNovaSenha({ id: u.id, valor: e.target.value })}
-                    placeholder="Nova senha (mín. 6)" aria-label={`Nova senha de ${quem}`}
-                    className={`${inputCls} flex-1 min-w-0`} />
-                  <Botao onClick={() => trocar(u)} tamanho="sm" largura="auto" disabled={ocupado}>Trocar</Botao>
-                  <button onClick={() => setNovaSenha(null)} className="text-xs text-gray-600 px-1">cancelar</button>
+              {mexe && (
+                <div className="flex flex-wrap gap-1.5">
+                  <button onClick={() => setNovaSenha({ id: u.id, valor: '' })} aria-label={`Trocar a senha de ${quem}`}
+                    className={`${botao} text-polo-navy border-gray-300`}>Senha</button>
+                  <button onClick={() => alternarBloqueio(u)} aria-label={`${u.ativo === false ? 'Liberar' : 'Bloquear'} ${quem}`}
+                    className={`${botao} text-gray-700 border-gray-300`}>
+                    {u.ativo === false ? 'Liberar' : 'Bloquear'}
+                  </button>
+                  <button onClick={() => remover(u)} aria-label={`Apagar a conta ${quem}`}
+                    className={`${botao} text-red-700 border-red-200`}>Apagar</button>
                 </div>
               )}
-            </div>
+              {novaSenha?.id === u.id && (
+                <div className="flex gap-2">
+                  <input type="text" value={novaSenha.valor} autoFocus minLength={8}
+                    onChange={e => setNovaSenha({ id: u.id, valor: e.target.value })}
+                    placeholder="Nova senha (mín. 8)" aria-label={`Nova senha de ${quem}`}
+                    className={`${inputCls} flex-1 min-w-0`} />
+                  <Botao onClick={() => trocar(u)} tamanho="sm" largura="auto" disabled={ocupado}>Trocar</Botao>
+                  <button onClick={() => setNovaSenha(null)} className="min-h-11 text-sm text-gray-600 px-2">Cancelar</button>
+                </div>
+              )}
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       <div className="border-t border-gray-100 pt-3">
         {!criando ? (<>
           <Botao onClick={() => setCriando(true)} disabled={!casa || vagas <= 0} tamanho="sm">
-            + Criar conta {vagas > 0 ? `(${vagas} vaga${vagas > 1 ? 's' : ''})` : '— sem vagas'}
+            + Criar conta {vagas > 0 ? `(${plural(vagas, 'vaga', 'vagas')})` : '— sem vagas'}
           </Botao>
           {/* sem vagas não é beco sem saída: o pedido (sem custo) mora em Planos e pagamento */}
           {vagas <= 0 && !sessao?.eSuperAdmin && (
@@ -680,11 +752,11 @@ export function CartaoContas({
               )}
             </div>
             <input type="text" value={form.senha} onChange={e => setForm(f => ({ ...f, senha: e.target.value }))}
-              placeholder="Senha inicial (mín. 6)" aria-label="Senha inicial" className={inputCls} />
+              placeholder="Senha inicial (mín. 8)" aria-label="Senha inicial" className={inputCls} />
             <select value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))}
               aria-label="Cargo" className={`${inputCls} bg-white`}>
               {cargos.filter(c => c.base !== 'diretoria').map(c => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
+                <option key={c.id} value={c.id}>{nomeDoCargo(c.id)}</option>
               ))}
             </select>
             {/* ⚠️ A senha aparece em texto: quem digita é o DONO, para outra
@@ -697,7 +769,7 @@ export function CartaoContas({
               <Botao onClick={criar} disabled={ocupado || !form.usuario.trim()} className="flex-1">
                 {ocupado ? 'Criando…' : 'Criar conta'}
               </Botao>
-              <button onClick={() => setCriando(false)} className="text-xs text-gray-600 px-3">Cancelar</button>
+              <button onClick={() => setCriando(false)} className="min-h-11 text-sm text-gray-600 px-3">Cancelar</button>
             </div>
           </div>
         )}

@@ -156,8 +156,8 @@ describe('erros antigos que apareceram no caminho', () => {
     expect(ler('../../pages/Historico.jsx')).toMatch(/fechamento de turno\$\{r\.turno/);
   });
 
-  it('as sugestões de mín/máx das Configurações usam o consumo do Fechar Turno na Finalização', () => {
-    expect(ler('../../pages/Configuracoes.jsx')).toMatch(/calcSugestoesMinMax\(produtos, saidasParaConsumo,/);
+  it('a sugestão de mín/máx da ficha do item usa o consumo do Fechar Turno na Finalização', () => {
+    expect(ler('../../pages/etiquetas/Itens.jsx')).toMatch(/calcSugestoesMinMax\(\[original\], saidasParaConsumo,/);
   });
 });
 

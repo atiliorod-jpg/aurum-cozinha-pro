@@ -60,7 +60,7 @@ describe('busca sem acento e por palavras', () => {
     for (const tela of [
       '../../pages/Etiquetas.jsx', '../../pages/etiquetas/Itens.jsx', '../../pages/etiquetas/Impressas.jsx',
       '../../pages/Entradas.jsx', '../../pages/Saidas.jsx', '../../pages/Compras.jsx',
-      '../../pages/Configuracoes.jsx', '../../pages/AparasPerdas.jsx', '../../pages/Historico.jsx',
+      '../../pages/AparasPerdas.jsx', '../../pages/Historico.jsx',
       '../../pages/Auditoria.jsx',
     ]) {
       const src = ler(tela);

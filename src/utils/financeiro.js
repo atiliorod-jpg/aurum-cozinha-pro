@@ -13,6 +13,8 @@
 // Por isso `custoUnitario` devolve null quando não dá para converter, e quem
 // soma precisa dizer na tela o que ficou de fora.
 
+import { controlaEstoque } from './itens';
+
 /** Converte o custo da unidade da COMPRA para a unidade do ESTOQUE. */
 export function custoUnitario(produto, registro) {
   if (!produto || !registro) return null;
@@ -56,7 +58,8 @@ export function valorDoEstoque(produtos, estoque, precos) {
   const porCategoria = {};
 
   (produtos || []).forEach(p => {
-    if (!p || p.ativo === false) return;
+    // só de etiqueta (Lote 4): não tem saldo, então não tem valor parado
+    if (!p || p.ativo === false || !controlaEstoque(p)) return;
     const qtd = Number(estoque?.[p.id]) || 0;
     const unit = custoUnitario(p, precos?.[p.id]);
     if (unit == null) {

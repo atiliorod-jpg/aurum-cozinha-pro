@@ -2,10 +2,11 @@ import { NavLink } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { statusEstoque } from '../utils/calculos';
-import { pode, podeAbrirConfig } from '../utils/permissoes';
+import { pode } from '../utils/permissoes';
 import { temRecurso } from '../utils/modulos';
 import Icon from './Icons';
 import { plural } from '../utils/formatters';
+import { ativoNoEstoque } from '../utils/itens';
 
 const NAV = [
   { to: '/',              icon: 'inicio',    label: 'Início' },
@@ -50,8 +51,8 @@ const NAV = [
 //    ele imprime a etiqueta com a data. Quem quer acompanhar vencimento
 //    compra o Aurum Cozinha Pro. Ter a aba aqui prometia um controle que o
 //    produto não entrega.
-//  • Ajustes tem lugar fixo porque neste plano não existe Administração —
-//    sem ele as Configurações ficariam sem porta nenhuma.
+//  • A Administração tem lugar fixo: neste plano não há seletor de área no
+//    cabeçalho, então a barra é a única porta dela.
 const NAV_ETIQUETAS = [
   { to: '/',        icon: 'etiqueta', label: 'Imprimir' },
   // ⚠️ MESMA REGRA DO /ajustes, e ela faltava aqui. O cargo Cozinha não tem
@@ -70,11 +71,14 @@ const NAV_ETIQUETAS = [
   // quis poder liberar a Administração para outros cargos. O que é contrato e
   // chave da casa — assinatura, contas da equipe, matriz de acessos e suporte
   // remoto — continua aparecendo só para a conta dona, decidido lá dentro
-  // (etiquetas/Ajustes.jsx), não aqui na porta.
+  // (store/acessosAdmin.js), não aqui na porta.
   // ⚠️ "Administração" e não "Configurações": ali dentro se controla quem tem
   // acesso, a assinatura e o suporte remoto. Chamar de configuração sugere
   // ajuste fino de tela, e a pessoa não procura conta de funcionário ali.
-  { to: '/ajustes', icon: 'config',   label: 'Administração', cap: 'configurarSistema' },
+  // ⚠️ /administracao, a MESMA do Pro desde o Lote 4 (era /ajustes, uma tela
+  // só deste plano). Os grupos ficam em /administracao/..., e a aba continua
+  // acesa dentro deles (NavLink sem `end`).
+  { to: '/administracao', icon: 'config', label: 'Administração', cap: 'configurarSistema' },
 ];
 
 export default function NavBar({ soEtiquetas = false }) {
@@ -83,14 +87,17 @@ export default function NavBar({ soEtiquetas = false }) {
   // ⚠️ Os badges de estoque ficam FORA do ramo de etiquetas: além de serem
   // sempre 0 lá (não há entrada nem saída), rodavam dois .filter sobre o
   // catálogo inteiro a cada render, de graça.
+  // ⚠️ Só o ativo que controla estoque: sem o filtro, item DESATIVADO com
+  // mínimo e saldo zero contava como alerta para sempre (achado do Lote 4).
   const alertas = soEtiquetas ? 0 : produtos.filter(p => {
+    if (!ativoNoEstoque(p)) return false;
     const s = statusEstoque(estoque[p.id] ?? 0, p.min, p.max);
     return s === 'critico' || s === 'zerado';
   }).length;
   // badge de produção: receitas cujo produto final está abaixo do mínimo
   const precisaProduzir = soEtiquetas ? 0 : producoes.filter(r => {
     const p = produtos.find(x => x.id === r.produtoFinalId);
-    return p?.ativo && p.min > 0 && (estoque[p.id] ?? 0) < p.min;
+    return ativoNoEstoque(p) && p.min > 0 && (estoque[p.id] ?? 0) < p.min;
   }).length;
 
   // Sem badge de vencimento: este produto não acompanha validade (ver acima).
@@ -111,7 +118,6 @@ export default function NavBar({ soEtiquetas = false }) {
     if (n.recurso && !temRecurso(modulo, n.recurso)) return false;
     if (n.semRecurso && temRecurso(modulo, n.semRecurso)) return false;
     if (!n.cap) return true;
-    if (n.cap === 'config') return podeAbrirConfig(sessao, permissoes);
     return pode(sessao, permissoes, n.cap);
   });
 
@@ -119,7 +125,7 @@ export default function NavBar({ soEtiquetas = false }) {
     <BarraNav itens={itens} badges={{
       '/': [
         alertas > 0 && { lado: 'direita', texto: alertas > 9 ? '9+' : String(alertas), cor: 'bg-red-700',
-          rotulo: `${alertas} produtos abaixo do mínimo` },
+          rotulo: `${plural(alertas, 'produto', 'produtos')} abaixo do mínimo` },
         precisaProduzir > 0 && { lado: 'esquerda', icone: 'producao', cor: 'bg-amber-700',
           rotulo: `${plural(precisaProduzir, 'receita precisa', 'receitas precisam')} ser produzida${precisaProduzir === 1 ? '' : 's'}` },
       ].filter(Boolean),

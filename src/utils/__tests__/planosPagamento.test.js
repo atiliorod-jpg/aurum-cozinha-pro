@@ -33,12 +33,14 @@ describe('CNPJ na etiqueta com a pontuação', () => {
 });
 
 describe('Administração do cliente enxuta; conta e dinheiro em Planos e pagamento', () => {
-  const ajustes = ler('../../pages/etiquetas/Ajustes.jsx');
+  // a Administração dos dois planos (Lote 4): o plano mora no grupo Conta
+  const ajustes = ler('../../pages/AdministracaoGrupo.jsx');
   const pagamento = ler('../../pages/Pagamento.jsx');
   const extras = ler('../../components/PlanoExtras.jsx');
 
-  it('a Administração do Etiquetas tem uma linha do plano, sem o cartão grande nem o anúncio do Pro', () => {
-    expect(ajustes).toMatch(/\{ehDono && <ResumoDoPlano \/>\}/);
+  it('a Administração tem uma linha do plano, sem o cartão grande nem o anúncio do Pro', () => {
+    expect(ajustes).toMatch(/\{a\.plano && <ResumoDoPlano \/>\}/);
+    expect(ler('../../store/acessosAdmin.js')).toMatch(/plano: dono && !sessao\?\.eSuperAdmin,/);
     expect(ajustes).not.toMatch(/O Aurum Cozinha Pro/);
     expect(ajustes).not.toMatch(/Sua conta<\/p>/);
     expect(ajustes).not.toMatch(/Preciso de outra unidade/);
@@ -53,7 +55,7 @@ describe('Administração do cliente enxuta; conta e dinheiro em Planos e pagame
   it('Planos e pagamento tem as três seções novas, nos dois planos', () => {
     expect(pagamento).toMatch(/<Layout title="Planos e pagamento"/);
     expect(pagamento).toMatch(/<SecaoUnidades \/>\s*<SecaoContas \/>\s*<SecaoCozinhaPro \/>/);
-    expect(ler('../../pages/Administracao.jsx')).toMatch(/titulo: 'Planos e pagamento'/);
+    expect(ler('../../components/PlanoExtras.jsx')).toMatch(/Planos e pagamento<\/span>/);
     // os links levam direto à seção
     expect(pagamento).toMatch(/document\.getElementById\(hash\.slice\(1\)\)\?\.scrollIntoView/);
     expect(extras).toMatch(/<section id="unidades"/);

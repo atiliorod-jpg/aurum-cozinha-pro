@@ -12,6 +12,7 @@
 
 import { lerTipo, ehTipoGlobal, chaveModulo, catalogoDe, tipoBase, temRecurso, MODULO_PADRAO } from './modulos';
 import { calcEstoquePuro } from './estoque';
+import { controlaEstoque } from './itens';
 
 const PARA_LISTA = {
   compra: 'compras', entrada: 'entradas', saida: 'saidas',
@@ -271,7 +272,7 @@ export function balancoConsolidado(estoques, visoes) {
       const v = visoes?.[e.id];
       if (!v) return;
       (v.produtos || []).forEach(p => {
-        if (!p || p.ativo === false) return;
+        if (!p || p.ativo === false || !controlaEstoque(p)) return;
         const qtd = Number(v.estoque?.[p.id]) || 0;
         if (!porProduto[p.id]) {
           porProduto[p.id] = { id: p.id, nome: p.nome, unidade: p.unidade, total: 0, porEstoque: {} };

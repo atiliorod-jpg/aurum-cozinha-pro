@@ -23,7 +23,8 @@ test('plano Etiquetas', async ({ page }) => {
   await entrarNaDemo(page, 'Aurum Etiquetas');
   await fotografar(page, 'etq_nomes');
   await entrarComo(page, 'Maria');
-  await percorrer(page, 'etq', ['/', '/itens', '/impressas', '/ajustes', '/pagamento']);
+  await percorrer(page, 'etq', ['/', '/itens', '/impressas', '/administracao', '/administracao/etiqueta',
+    '/administracao/equipe', '/administracao/conta', '/pagamento']);
   await abrir(page, '/');
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   // o código do QR é sorteado a cada etiqueta: fica de fora da comparação
@@ -36,7 +37,8 @@ test('plano Pro, Produção', async ({ page }) => {
   await percorrer(page, 'pro', [
     '/', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
     '/etiquetas', '/validades', '/itens', '/inventario', '/relatorio', '/impressas', '/administracao',
-    '/financeiro', '/estoques', '/configuracoes', '/configuracoes?secao=sistema', '/configuracoes?secao=acessos',
+    '/financeiro', '/estoques', '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe',
+    '/administracao/estoque', '/administracao/conta',
   ]);
 });
 

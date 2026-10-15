@@ -702,7 +702,7 @@ describe('producaoPorItem — soma o produzido por produto final', () => {
 
 describe('statusEstoque — teto não definido', () => {
   it('produto com mínimo preenchido e máximo em branco (0) não vira EXCESSO', () => {
-    // Configuracoes.jsx salva `max: parseFloat('') || 0` — máximo vazio vira 0.
+    // A ficha do item salva `max: Number('') || 0` — máximo vazio vira 0.
     // Antes desta guarda, tudo acima de zero era lido como excesso e o produto
     // nunca aparecia como OK no painel.
     expect(statusEstoque(25, 20, 0)).toBe('ok');

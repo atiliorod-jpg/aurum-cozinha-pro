@@ -2,6 +2,7 @@ import { hoje } from './formatters';
 // relatorios.js não importa daqui — sem ciclo.
 import { rendimentoPorItem, unidadeBase, quantidadeBase } from './relatorios';
 import { ITEM_APAGADO } from './calculos';
+import { ativoNoEstoque } from './itens';
 
 const num = (v) => parseFloat(v) || 0;
 const DIA_MS = 86400000;
@@ -47,7 +48,7 @@ export function mediaDiariaSaidas(saidas, ref = hoje(), janelaDias = 15) {
  */
 export function previsaoRuptura(produtos, estoque, medias) {
   return produtos
-    .filter(p => p.ativo && (medias[p.id] || 0) > 0 && (estoque[p.id] ?? 0) > 0)
+    .filter(p => ativoNoEstoque(p) && (medias[p.id] || 0) > 0 && (estoque[p.id] ?? 0) > 0)
     .map(p => ({ p, dias: (estoque[p.id] ?? 0) / medias[p.id] }))
     .sort((a, b) => a.dias - b.dias);
 }
@@ -62,7 +63,7 @@ export function previsaoRuptura(produtos, estoque, medias) {
  */
 export function listaDeCompras(produtos, estoque, compras = [], aparas = [], desperdicio = []) {
   return produtos
-    .filter(p => p.ativo && p.min > 0 && (estoque[p.id] ?? 0) < p.min)
+    .filter(p => ativoNoEstoque(p) && p.min > 0 && (estoque[p.id] ?? 0) < p.min)
     .map(p => {
       const atual = estoque[p.id] ?? 0;
       const alvo = p.max > p.min ? p.max : p.min;

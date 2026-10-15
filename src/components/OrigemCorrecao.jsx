@@ -1,6 +1,7 @@
 import { useApp } from '../store/AppContext';
 import { fmtData } from '../utils/formatters';
 import { temRecurso } from '../utils/modulos';
+import { ativoNoEstoque } from '../utils/itens';
 
 /**
  * O que está sendo perdido — e, por consequência, se o estoque abate.
@@ -27,7 +28,7 @@ import { temRecurso } from '../utils/modulos';
  */
 export default function OrigemCorrecao({ form, onChange }) {
   const { produtos, compras, categorias, modulo, estoque } = useApp();
-  const ativos = produtos.filter(p => p.ativo);
+  const ativos = produtos.filter(ativoNoEstoque);
   const comprasRecentes = [...compras].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 30);
   // A Finalização não tem tela de Compras (`compras: false`), então o seletor
   // de compra ali seria uma caixa eternamente vazia.

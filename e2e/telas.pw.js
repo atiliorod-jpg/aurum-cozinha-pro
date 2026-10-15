@@ -12,13 +12,18 @@ import { test, expect } from '@playwright/test';
 
 // As rotas de cada ramo do App.jsx. Se nascer tela nova, ela entra aqui.
 const TELAS_ETIQUETAS = [
-  '/', '/etiquetas', '/itens', '/impressas', '/relatorio-etiquetas', '/ajustes', '/pagamento', '/novidades',
+  '/', '/etiquetas', '/itens', '/impressas', '/relatorio-etiquetas', '/pagamento', '/novidades',
+  // a Administração em grupos (Lote 4); /ajustes é o endereço antigo
+  '/administracao', '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe',
+  '/administracao/conta', '/ajustes',
 ];
 const TELAS_PRO = [
   '/', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',
   '/etiquetas', '/validades', '/fechar-turno', '/itens', '/desperdicio', '/fichas', '/inventario',
   '/relatorio', '/relatorio-etiquetas', '/impressas', '/auditoria', '/administracao', '/financeiro',
-  '/estoques', '/balanco', '/pagamento', '/configuracoes', '/novidades',
+  '/estoques', '/balanco', '/pagamento', '/novidades',
+  '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe', '/administracao/estoque',
+  '/administracao/conta', '/configuracoes', '/configuracoes?secao=acessos',
 ];
 
 // Rede que falha no ambiente de teste não é defeito do app (a demonstração

@@ -293,7 +293,7 @@ export default function Login() {
           </>}
 
           {/* ⚠️ O CADASTRO POR CÓDIGO DE CONVITE SAIU DAQUI. Quem coloca gente
-              para dentro agora é o dono, em Administração → Contas da equipe:
+              para dentro agora é o dono, em Administração → Equipe:
               ele cria o acesso e entrega. O convite obrigava cada pessoa a ter
               e-mail próprio e escolher a própria senha — e deixava o dono sem
               como socorrer quem esquecesse. Link antigo com ?convite= cai na

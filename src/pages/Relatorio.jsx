@@ -10,6 +10,7 @@ import { saidasPorDestinoDia, chegadasPorDia, rendimentoPorItem, producaoPorItem
 import { fmtData, fmtNum, hoje, plural } from '../utils/formatters';
 import { addDias } from '../utils/datas';
 import { temRecurso } from '../utils/modulos';
+import { ativoNoEstoque } from '../utils/itens';
 import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../components/Charts';
 
 
@@ -119,7 +120,7 @@ export default function Relatorio() {
   // Rendimento considera as compras do período, mas correções associadas de qualquer data
   const fornecedores = useMemo(() => rendimentoPorFornecedor(comprasF, aparas, desperdicio), [comprasF, aparas, desperdicio]);
 
-  const produtosAtivos = produtos.filter(p => p.ativo);
+  const produtosAtivos = produtos.filter(ativoNoEstoque);
 
   // ⚠️ Por UNIDADE, nunca num número só: 10 kg de filé + 3 unid de pão viravam
   // "13" sob o rótulo "Perdas", e sem unidade nenhuma ao lado para denunciar.

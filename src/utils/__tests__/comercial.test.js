@@ -745,7 +745,7 @@ describe('preço na tela', () => {
   });
 
   it('nenhuma tela escreve o preço cru', () => {
-    for (const arq of ['../../pages/Login.jsx', '../../pages/etiquetas/Ajustes.jsx', '../../pages/Admin.jsx']) {
+    for (const arq of ['../../pages/Login.jsx', '../../pages/AdministracaoGrupo.jsx', '../../pages/Admin.jsx']) {
       const src = readFileSync(new URL(arq, import.meta.url), 'utf8');
       expect(src, arq).not.toMatch(/R\$ \{[^}]*precoMes\}/);
       expect(src, arq).not.toMatch(/R\$ \$\{[^}]*precoMes\}/);

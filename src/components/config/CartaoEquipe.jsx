@@ -76,7 +76,7 @@ function FormSenha({ nome, aoSalvar, aoCancelar }) {
   );
 }
 
-export default function CartaoEquipe({ titulo = 'Equipe', descricao = '', estiloSecao = false }) {
+export default function CartaoEquipe({ titulo = 'Equipe', descricao = '' }) {
   const { pessoas, addPessoa, removePessoa, senhasEquipe, definirSenhaDaPessoa } = useApp();
   const { temPermissao } = useAuth();
   const { toast, confirm } = useUI();
@@ -123,10 +123,9 @@ export default function CartaoEquipe({ titulo = 'Equipe', descricao = '', estilo
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
-        {estiloSecao
-          ? <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide">{titulo}</h2>
-          : <p className="text-sm font-bold text-polo-navy">{titulo}</p>}
-        {descricao && <p className="text-xs text-gray-500 mt-0.5">{descricao}</p>}
+        {/* título de verdade (h2) nos dois planos: era um <p> no Etiquetas */}
+        <h2 className="text-sm font-bold text-polo-navy">{titulo}</h2>
+        {descricao && <p className="text-xs text-gray-600 mt-0.5">{descricao}</p>}
         <p className="text-xs text-gray-500 mt-1">
           Não precisa ter conta de acesso: a conta pode ser de um posto (como “Produção”) e aqui entra
           todo mundo que imprime. Com senha, só quem sabe os {DIGITOS} números imprime naquele nome.

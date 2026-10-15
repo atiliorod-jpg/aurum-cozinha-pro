@@ -14,6 +14,7 @@ import Icon from '../components/Icons';
 import { useNavigate } from 'react-router-dom';
 import { temRecurso } from '../utils/modulos';
 import { produtoTem, produtoAtivo } from '../utils/produto';
+import { ativoNoEstoque } from '../utils/itens';
 import { useAuth } from '../store/AuthContext';
 
 const FILTROS = [
@@ -58,7 +59,7 @@ export default function Validades() {
 
   const linhasLotes = useMemo(() => {
     const out = [];
-    produtos.filter(p => p.ativo).forEach(p => {
+    produtos.filter(ativoNoEstoque).forEach(p => {
       const limiar = p.unidade === 'unid' ? 1 : 0.001;
       if ((estoque[p.id] ?? 0) < limiar) return; // zerado por contagem → não é alerta real
       (lotes[p.id] || []).forEach(l => {
@@ -73,7 +74,7 @@ export default function Validades() {
   // o que está no estoque sem data conhecida (lançado sem validade, ou saída
   // antiga para a Finalização): não se inventa data, mas também não se esconde
   const semData = useMemo(() => produtos
-    .filter(p => p.ativo)
+    .filter(ativoNoEstoque)
     .map(p => ({ produto: p, qtd: semValidadeConhecida(estoque[p.id], lotes[p.id], p.unidade) }))
     .filter(x => x.qtd > 0)
     .sort((a, b) => a.produto.nome.localeCompare(b.produto.nome)),

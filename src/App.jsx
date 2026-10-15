@@ -7,7 +7,7 @@ import DuasEtapas from './components/DuasEtapas';
 import { statusAssinatura, produtoDe } from './utils/assinatura';
 import SeletorModulo from './components/SeletorModulo';
 import { temRecurso } from './utils/modulos';
-import { pode, podeAbrirConfig, podeAbrirAdministracao } from './utils/permissoes';
+import { pode, podeAbrirAdministracao } from './utils/permissoes';
 import { AppProvider, useApp } from './store/AppContext';
 import { OperadorProvider } from './store/OperadorContext';
 import { UIProvider, useUI } from './store/UIContext';
@@ -24,7 +24,6 @@ import Etiquetas from './pages/Etiquetas';
 import Novidades from './pages/Novidades';
 import Termos from './pages/Termos';
 import Itens from './pages/etiquetas/Itens';
-import EtiquetasAjustes from './pages/etiquetas/Ajustes';
 import EtiquetasImpressas from './pages/etiquetas/Impressas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 import Icon from './components/Icons';
@@ -48,9 +47,9 @@ const Auditoria = lazy(() => import('./pages/Auditoria'));
 const FecharTurno = lazy(() => import('./pages/FecharTurno'));
 const Validades = lazy(() => import('./pages/Validades'));
 const Relatorio = lazy(() => import('./pages/Relatorio'));
-const Configuracoes = lazy(() => import('./pages/Configuracoes'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Administracao = lazy(() => import('./pages/Administracao'));
+const AdministracaoGrupo = lazy(() => import('./pages/AdministracaoGrupo'));
 const Financeiro = lazy(() => import('./pages/Financeiro'));
 const Estoques = lazy(() => import('./pages/Estoques'));
 const Balanco = lazy(() => import('./pages/Balanco'));
@@ -432,7 +431,12 @@ function Rotas() {
           {/* ⚠️ Por CAPACIDADE, não por cargo — o dono passou a poder delegar a
               Administração. A trava por URL direta continua existindo: quem
               não tem a chave é mandado de volta, como sempre. */}
-          <Route path="/ajustes"    element={can('configurarSistema') ? <EtiquetasAjustes /> : <Navigate to="/" replace />} />
+          <Route path="/administracao" element={can('configurarSistema') ? <Administracao /> : <Navigate to="/" replace />} />
+          <Route path="/administracao/:grupo" element={can('configurarSistema') ? <AdministracaoGrupo /> : <Navigate to="/" replace />} />
+          {/* ⚠️ ERA A ADMINISTRAÇÃO DESTE PLANO (Ajustes). Virou a mesma
+              Administração do Pro, em grupos (Lote 4, 14/10/2026); o endereço
+              antigo continua chegando nela. */}
+          <Route path="/ajustes"    element={<Navigate to="/administracao" replace />} />
           <Route path="/pagamento"  element={<Restrito><Pagamento /></Restrito>} />
           {/* ⚠️ O PAINEL PRECISA EXISTIR AQUI TAMBÉM. Esta tabela de rotas
               manda `*` para `/`, então sem esta linha o /admin simplesmente
@@ -515,6 +519,8 @@ function Rotas() {
           MESMA que a barra inferior e o seletor usam, para não divergirem. */}
       <Route path="/administracao" element={
         podeAbrirAdministracao(sessao, permissoes) ? <Administracao /> : <Navigate to="/" replace />} />
+      <Route path="/administracao/:grupo" element={
+        podeAbrirAdministracao(sessao, permissoes) ? <AdministracaoGrupo /> : <Navigate to="/" replace />} />
       {/* A rota existe para quem tem a capacidade; a própria tela explica o
           bloqueio para quem chega sem ela (o servidor já não manda os custos). */}
       <Route path="/financeiro" element={can('verFinanceiro') ? <Financeiro /> : <Navigate to="/administracao" replace />} />
@@ -524,7 +530,7 @@ function Rotas() {
       <Route path="/estoques" element={podeAbrirAdministracao(sessao, permissoes) ? <Estoques /> : <Navigate to="/" replace />} />
       <Route path="/balanco" element={can('verRelatorio') ? <Balanco /> : <Navigate to="/administracao" replace />} />
       <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
-      <Route path="/configuracoes" element={podeAbrirConfig(sessao, permissoes) ? <Configuracoes /> : <Navigate to="/" replace />} />
+      <Route path="/configuracoes" element={<DeConfiguracoes />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
       {/* Sem isto, qualquer URL desconhecida renderizava TELA BRANCA — nenhuma
           rota casava e nada era desenhado. Acontece com link antigo, favorito
@@ -538,6 +544,16 @@ function Rotas() {
       <NovidadesPopup />
     </>
   );
+}
+
+// ⚠️ CONFIGURAÇÕES VIROU A ADMINISTRAÇÃO EM GRUPOS (Lote 4, 14/10/2026). Link
+// antigo, favorito e o caminho decorado continuam chegando no assunto certo:
+// Produtos virou Meus itens; Receitas, o grupo Estoque; Acessos, o grupo
+// Equipe. Quem cai num grupo que o cargo não alcança volta para o hub.
+function DeConfiguracoes() {
+  const secao = new URLSearchParams(useLocation().search).get('secao');
+  const destino = { produtos: '/itens', receitas: '/administracao/estoque', acessos: '/administracao/equipe' }[secao];
+  return <Navigate to={destino || '/administracao'} replace />;
 }
 
 export default function App() {

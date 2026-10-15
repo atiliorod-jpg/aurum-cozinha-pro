@@ -66,10 +66,11 @@ describe('D10 — motivo da perda por extenso', () => {
 });
 
 describe('D3 e D4 — um só "Minha senha"; catálogo nasce vazio; sem "Restaurar produtos padrão"', () => {
-  const cfg = semComentarios(ler('../../pages/Configuracoes.jsx'));
+  // Configurações saiu no Lote 4: o "Minha senha" mora em Administração → Conta
+  const cfg = semComentarios(ler('../../pages/AdministracaoGrupo.jsx'));
   const app = semComentarios(ler('../../store/AppContext.jsx'));
 
-  it('Configurações não tem mais o cartão de senha escrito à mão (só o CartaoMinhaSenha, da conta dona)', () => {
+  it('a Administração não tem cartão de senha escrito à mão (só o CartaoMinhaSenha, da conta dona)', () => {
     expect(cfg).not.toMatch(/NovaSenha/);
     expect(cfg).toMatch(/<CartaoMinhaSenha toast=\{toast\} \/>/);
     expect(ler('../../components/config/CartaoMinhaSenha.jsx')).toMatch(/sessao\.eSuperAdmin \|\| sessao\.cargo !== 'diretoria'\) return null;/);
@@ -96,8 +97,10 @@ describe('D7 — o aviso de vencimento usa o dia do aparelho', () => {
 
 describe('toque e leitura', () => {
   it('nenhuma letra menor que 12 px nas telas', () => {
-    for (const tela of ['../../pages/Configuracoes.jsx', '../../pages/Dashboard.jsx', '../../pages/Relatorio.jsx',
-      '../../pages/Historico.jsx', '../../pages/etiquetas/Ajustes.jsx', '../../components/Layout.jsx', '../../components/NavBar.jsx']) {
+    for (const tela of ['../../pages/Administracao.jsx', '../../pages/AdministracaoGrupo.jsx', '../../pages/Dashboard.jsx',
+      '../../pages/Relatorio.jsx', '../../pages/Historico.jsx', '../../pages/etiquetas/Itens.jsx',
+      '../../components/config/CartoesEstoque.jsx', '../../components/config/CartoesConta.jsx',
+      '../../components/Layout.jsx', '../../components/NavBar.jsx']) {
       expect(ler(tela), tela).not.toMatch(/text-\[(8|9|10|11)px\]/);
     }
   });

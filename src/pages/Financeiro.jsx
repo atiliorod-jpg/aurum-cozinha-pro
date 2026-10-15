@@ -69,7 +69,7 @@ export default function Financeiro() {
           <p className="text-sm font-bold text-polo-navy">Sem acesso aos custos</p>
           <p className="text-xs text-gray-500 mt-1 leading-relaxed">
             Você não tem permissão para ver custos. Peça à diretoria em
-            Administração → Equipe e acessos.
+            Administração → Equipe.
           </p>
         </div>
       </Layout>

@@ -1,5 +1,6 @@
 import { hoje } from './formatters';
 import { addDias } from './datas';
+import { ativoNoEstoque } from './itens';
 
 // Dia da semana (0=domingo) de uma data YYYY-MM-DD, no fuso local (meio-dia evita
 // virada de dia na conversão UTC).
@@ -115,7 +116,7 @@ export function calcSugestoesMinMax(produtos, saidas, ref = hoje(), diasMin = DI
 export function produtosDivergentes(produtos, sug, tolerancia = 0.2) {
   return produtos.filter(p => {
     const s = sug[p.id];
-    if (!s || !p.ativo) return false;
+    if (!s || !ativoNoEstoque(p)) return false;
     const dMin = p.min > 0 ? Math.abs(p.min - s.min) / p.min : (s.min > 0 ? 1 : 0);
     const dMax = p.max > 0 ? Math.abs(p.max - s.max) / p.max : (s.max > 0 ? 1 : 0);
     return dMin > tolerancia || dMax > tolerancia;

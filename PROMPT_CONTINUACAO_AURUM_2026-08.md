@@ -181,6 +181,69 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (14/10/2026, noite) — LOTES 3, 2 E 4 DA AUDITORIA PUBLICADOS
+
+O plano está em `AUDITORIA_GERAL_2026-10-14.md` (seção "Andamento"). Feitos e
+publicados, nesta ordem: Lote 1, Lote 0, Lote 7 (parte 1), Lote 3, Lote 2 e
+Lote 4. Testes: **913** e **43 cenários** do robô.
+
+**Lote 3 (navegação):** Imprimir na barra do Pro; o cabeçalho diz onde a
+pessoa está; o nome no topo abre "Sua conta" (não sai mais direto).
+
+**Lote 2 ("Quem está registrando?"):** os lançamentos usam a mesma pessoa que
+entrou pelo nome para imprimir (`useQuemRegistra`, em OperadorContext). Com a
+equipe vazia, o seletor antigo continua.
+
+**Lote 4 (um lugar para cada coisa):**
+- **Meus itens é o único editor** (`pages/etiquetas/Itens.jsx`), nos dois
+  planos: partes Etiqueta / Estoque / Produção. Configurações → Produtos não
+  existe mais;
+- **"Só etiqueta"**: a regra mora em `utils/itens.js` (`controlaEstoque`,
+  `ativoNoEstoque`). Item de abertura nasce só etiqueta (decisão do dono); no
+  Seco nasce controlando. As telas de estoque filtram NA LEITURA;
+- **planilha** dentro de Meus itens (`components/PlanilhaDeItens.jsx` +
+  `utils/planilhaItens.js`), sai com os itens da conta;
+- **Administração em 5 grupos** (A casa, Etiqueta, Equipe, Estoque, Conta),
+  a MESMA nos dois planos: hub em `pages/Administracao.jsx`, grupos em
+  `pages/AdministracaoGrupo.jsx`, regra de acesso em `store/acessosAdmin.js`.
+  Cartões de estoque em `components/config/CartoesEstoque.jsx`, de conta em
+  `components/config/CartoesConta.jsx`;
+- `Configuracoes.jsx` e `etiquetas/Ajustes.jsx` foram APAGADOS.
+  `/configuracoes?secao=` e `/ajustes` redirecionam (componente
+  `DeConfiguracoes` no App.jsx);
+- suporte remoto e "apagar todos os registros" agora só para a conta dona.
+
+**⚠️ Armadilhas novas:**
+- **nunca** gravar com `setProdutos` uma lista filtrada por `ativoNoEstoque`:
+  apagaria os itens só de etiqueta. O filtro é só para LER;
+- a ficha do Pro grava `controlaEstoque` explícito. Sem isso, no Seco a regra
+  do tipo de data diria "só etiqueta" para tudo;
+- `cargo_rotulo` guarda o NOME do cargo no dia da criação e fica velho depois
+  de uma troca. Mostrar o cargo pela coluna `cargo` (ver `rotuloDe` em
+  CartaoContas);
+- fotos de comparação: buildar **sem** `VITE_PIX_*` (a base foi tirada assim);
+  o robô local, **com** `VITE_PIX_*`, como no CI.
+
+**O ramo `etapa2-lote-b` (M61)** não mexe em Configurações nem em Ajustes, mas
+mexe em Saidas, Validades, FecharTurno, BaixaEtiqueta, LerEtiquetas e
+AppContext, que os Lotes 2 e 4 também mudaram. Antes de aplicar a M61:
+merge do main no ramo, resolver os conflitos, rodar
+`node scripts/conferir-m61.mjs`. O token do Supabase continua inválido.
+
+**Próximos, pela ordem:**
+1. Lote 5 — formulário de lançamento único; Fechar turno conta primeiro e
+   depois fecha.
+2. Lote 6 — Início por cozinha; D5 (a Finalização sem os alarmes de
+   mínimo/máximo da Produção).
+3. Lote 9 — preços da demo, relatório de etiquetas local, faixa que cobre o
+   cabeçalho.
+4. Lote 8 — dividir o AppContext atrás de `useApp`, **depois** da M61.
+5. Lote 10 — só IndexedDB e tempo real por Broadcast.
+
+Lembrar o dono: APK e Stripe.
+
+---
+
 ## Onde paramos (14/10/2026, fim) — LOTE 7 EM ANDAMENTO (peças padrão de tela)
 
 **Peças criadas em `src/components/ui/`:** `Abas`, `Filtros`, `Chave`,

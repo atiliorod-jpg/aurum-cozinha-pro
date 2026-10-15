@@ -58,7 +58,7 @@ export const CAPACIDADES = [
   // contas da equipe, matriz de acessos e suporte remoto continuam só da conta
   // dona. As três primeiras são o contrato e a chave da casa; a matriz, em
   // especial, precisa ficar fora — quem pudesse editá-la se daria qualquer
-  // outra permissão, e a restrição não valeria nada. Ver etiquetas/Ajustes.jsx.
+  // outra permissão, e a restrição não valeria nada. Ver store/acessosAdmin.js.
   { id: 'configurarSistema', grupo: 'Gestão',   label: 'Configurar o sistema',
     desc: 'Destinos de saída, etiquetas, mín/máx automático e demais ajustes.',
     etiquetas: true,
@@ -198,15 +198,8 @@ export function cargosDaCasa(permissoes) {
   return [...fixos, ...extras];
 }
 
-// Consegue abrir a tela de Configurações? (qualquer capacidade de gestão)
-export function podeAbrirConfig(sessao, permissoes) {
-  if (!sessao) return false;
-  if (sessao.eSuperAdmin || sessao.cargo === 'diretoria') return true;
-  return ['gerenciarProdutos', 'configurarSistema', 'verRelatorio']
-    .some(c => pode(sessao, permissoes, c))
-    // gerência sempre entra (gerencia acessos/convites), mesmo sem cap de gestão
-    || sessao.cargo === 'gerencia';
-}
+// (podeAbrirConfig saiu com a tela de Configurações — Lote 4, 14/10/2026: a
+// porta de tudo é a Administração, com a regra de podeAbrirAdministracao.)
 
 // Normaliza a matriz vinda das prefs para a forma completa (todas as chaves),
 // partindo do padrão. Usada pela tela de edição da diretoria.

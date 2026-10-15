@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../store/AppContext';
 import { planejarProducao } from '../utils/producao';
 import { fmtNum } from '../utils/formatters';
+import { ativoNoEstoque } from '../utils/itens';
 
 // Calculadora de apoio no Início.
 // Modo Receita: escolhe receita + quantidade → mostra ingredientes e o que falta.
@@ -13,7 +14,7 @@ export default function CalculadoraProducao() {
   const [modo, setModo] = useState('receita'); // 'receita' | 'gramatura'
 
   // Produtos com gramatura configurada (fonte única de verdade, unificado)
-  const produtosComGramatura = produtos.filter(p => p.ativo && p.gramatura > 0);
+  const produtosComGramatura = produtos.filter(p => ativoNoEstoque(p) && p.gramatura > 0);
 
   // Modo receita
   const [receitaId, setReceitaId] = useState(producoes[0]?.id || '');

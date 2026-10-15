@@ -21,6 +21,7 @@ import { acharArmazenamento } from '../utils/armazenamento';
 import { pode } from '../utils/permissoes';
 import { useAuth } from '../store/AuthContext';
 import { plural } from '../utils/formatters';
+import { ativoNoEstoque } from '../utils/itens';
 
 export default function Dashboard() {
   const { produtos, setProdutos, saidas, saidasParaConsumo, entradas, desperdicio, compras, aparas, producoes, estoque, lotes, categorias, listaManual, prefs, modulo, permissoes } = useApp();
@@ -66,7 +67,7 @@ export default function Dashboard() {
   const produzirHoje = useMemo(() => producoes
     .map(r => {
       const produto = produtos.find(p => p.id === r.produtoFinalId);
-      if (!produto?.ativo) return null;
+      if (!ativoNoEstoque(produto)) return null;
       const atual = estoque[r.produtoFinalId] ?? 0;
       if (produto.min > 0 && atual >= produto.min) return null;
       return { receita: r, produto, atual };
@@ -89,13 +90,17 @@ export default function Dashboard() {
   // Estoque negativo: quase sempre é um lançamento faltando (entrada/produção não registrada)
   const negativos = useMemo(
     () => produtos
-      .filter(p => p.ativo && (estoque[p.id] ?? 0) < 0)
+      .filter(p => ativoNoEstoque(p) && (estoque[p.id] ?? 0) < 0)
       .map(p => ({ p, atual: estoque[p.id] ?? 0 }))
       .sort((a, b) => a.atual - b.atual),
     [produtos, estoque]
   );
 
-  const produtosAtivos = produtos.filter(p => p.ativo);
+  // ⚠️ Só o que CONTROLA estoque (Lote 4): o item só de etiqueta não tem
+  // saldo, e aqui viraria um card "sem meta" com zero para sempre. A gravação
+  // (aplicarSugestao) continua sobre `produtos`, a lista inteira.
+  const produtosAtivos = produtos.filter(ativoNoEstoque);
+  const temSoEtiqueta = produtosAtivos.length === 0 && produtos.some(p => p.ativo);
   // subgrupos disponíveis dentro da categoria escolhida
   const subgruposDaCategoria = useMemo(() => {
     const base = catAtiva === 'TODOS' ? produtosAtivos : produtosAtivos.filter(p => p.categoria === catAtiva);
@@ -475,14 +480,16 @@ export default function Dashboard() {
           {/* Estoque ZERADO de cadastro era um beco: a tela dizia "nenhum
               produto" e não oferecia caminho nenhum para criar o primeiro —
               quem abria um Estoque Seco novo ficava parado aqui. */}
-          <p>{produtosAtivos.length === 0
-            ? 'Este estoque ainda não tem nenhum produto cadastrado.'
-            : 'Nenhum produto nesta categoria.'}</p>
+          <p>{temSoEtiqueta
+            ? 'Os itens cadastrados aqui são só de etiqueta. Para contar o estoque de um deles, ligue “Controla estoque” na ficha dele, em Meus itens.'
+            : produtosAtivos.length === 0
+              ? 'Este estoque ainda não tem nenhum produto cadastrado.'
+              : 'Nenhum produto nesta categoria.'}</p>
           {produtosAtivos.length === 0 && pode(sessao, permissoes, 'gerenciarProdutos') && (
             <Link to="/itens"
               className="inline-block min-h-11 px-5 py-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm
                          active:scale-95 transition-transform">
-              Cadastrar o primeiro produto
+              {temSoEtiqueta ? 'Abrir Meus itens' : 'Cadastrar o primeiro produto'}
             </Link>
           )}
         </div>

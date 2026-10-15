@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
+import { ativoNoEstoque } from '../utils/itens';
 
 // ⚠️ O QUE ESTE CARTÃO EVITA. A conta sobe de Etiquetas para Cozinha Pro no
 // painel, longe do cliente. Do lado dele o app amanhece com telas novas e o
@@ -24,7 +25,9 @@ export default function BoasVindasCompleto() {
 
   if (!prefs.upgradeEm || contou) return null;
 
-  const n = produtos.filter(p => p.ativo).length;
+  // "falta dizer quanto tem" só vale para o que controla estoque (Lote 4)
+  const n = produtos.filter(ativoNoEstoque).length;
+  if (n === 0) return null;
 
   return (
     <div className="bg-polo-beige border border-polo-gold/40 rounded-xl px-3 pt-2.5 pb-3 mb-3">

@@ -171,7 +171,7 @@ test('Etiquetas: item da biblioteca e item do zero entram em Meus itens e na tel
 
 test('Etiquetas: a cópia de segurança baixa um arquivo da conta', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
-  await abrir(page, '/ajustes');
+  await abrir(page, '/administracao/conta');
   const baixando = page.waitForEvent('download');
   await page.getByRole('button', { name: /Baixar uma cópia/ }).click();
   const arquivo = await baixando;

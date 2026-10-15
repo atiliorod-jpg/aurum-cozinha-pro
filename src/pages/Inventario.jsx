@@ -15,6 +15,7 @@ import { lerLoteIdDoQR, quantoSomaNaContagem } from '../utils/etiquetas';
 import { embalagensRestantes } from '../utils/baixaEtiqueta';
 import { cacheGet, cacheSet } from '../lib/cache';
 import { casaBusca } from '../utils/busca';
+import { ativoNoEstoque } from '../utils/itens';
 
 export default function Inventario() {
   const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref, etiquetasImpressas, permissoes, modulo, rid } = useApp();
@@ -48,7 +49,7 @@ export default function Inventario() {
   const [catAtiva, setCatAtiva] = useState('');
   const [buscaCont, setBuscaCont] = useState('');
   const [tab, setTab] = useState('novo');
-  const produtosAtivos = produtos.filter(p => p.ativo);
+  const produtosAtivos = produtos.filter(ativoNoEstoque);
 
   const setCont = (id, val) => {
     setContagem(prev => ({ ...prev, [id]: val }));

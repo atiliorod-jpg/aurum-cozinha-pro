@@ -49,7 +49,7 @@ export default function CartaoMinhaSenha({ toast }) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
       <div>
-        <p className="text-sm font-bold text-polo-navy">Trocar minha senha</p>
+        <h2 className="text-sm font-bold text-polo-navy">Trocar minha senha</h2>
         <p className="text-xs text-gray-500 mt-0.5">
           A senha desta conta, a que entra com o seu e-mail. Se a conta foi entregue pela Aurum, troque aqui.
         </p>
