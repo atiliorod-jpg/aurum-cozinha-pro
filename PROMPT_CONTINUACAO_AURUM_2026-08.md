@@ -181,11 +181,11 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (15/10/2026) — LOTES 3, 2, 4, 5, 6 E 9 DA AUDITORIA PUBLICADOS
+## Onde paramos (15/10/2026) — AUDITORIA: LOTES 0 A 7, 9 E 10 (PARTE 1) PUBLICADOS
 
 O plano está em `AUDITORIA_GERAL_2026-10-14.md` (seção "Andamento"). Feitos e
 publicados, nesta ordem: Lote 1, Lote 0, Lote 7 (parte 1), Lote 3, Lote 2 e
-Lote 4 (14/10), Lotes 5, 6 e 9 (15/10). Testes: **931** e **51 cenários** do robô.
+Lote 4 (14/10), Lotes 5, 6, 9 e 10 parte 1 (15/10). Testes: **934** e **51 cenários** do robô.
 
 **Lote 3 (navegação):** Imprimir na barra do Pro; o cabeçalho diz onde a
 pessoa está; o nome no topo abre "Sua conta" (não sai mais direto).
@@ -231,7 +231,13 @@ valor), relatório de etiquetas montado no aparelho na demo, e a faixa do topo
 (`components/FaixaTopo.jsx`) publica `--faixa-topo` para o cabeçalho grudar
 abaixo dela.
 
+**Lote 10, parte 1:** Nova senha, Pagamento, Novidades, Termos, Meus itens e
+Impressas carregam sob demanda (primeira abertura 255 → 235 KB). O resto do
+Lote 10 (só IndexedDB, Broadcast, retenção) vai com o Lote 8, depois da M61.
+
 **⚠️ Armadilhas novas:**
+- tela `lazy` renderizada FORA do `<Suspense>` das rotas (Termos, Nova senha,
+  o Pagamento da tela de bloqueio) precisa do próprio `<Suspense>`;
 - elemento `sticky` novo no topo da página precisa de
   `top: var(--faixa-topo, 0px)` (ou mais), senão some atrás da faixa da demo;
 - a Finalização lê o catálogo DA PRODUÇÃO: tudo que GRAVA no catálogo a
@@ -259,9 +265,11 @@ ganharam o pé fixo no Lote 5). Antes de aplicar a M61:
 merge do main no ramo, resolver os conflitos, rodar
 `node scripts/conferir-m61.mjs`. O token do Supabase continua inválido.
 
-**Próximos, pela ordem:**
-1. Lote 10 — só IndexedDB e tempo real por Broadcast (sem mudança visível).
-2. Lote 8 — dividir o AppContext atrás de `useApp`, **depois** da M61.
+**Próximos, quando o token do Supabase voltar:**
+1. M61 (Lote B): merge do main no ramo `etapa2-lote-b`, conferir, aplicar.
+2. Lote 8 junto com o resto do Lote 10 — dividir o AppContext atrás de
+   `useApp` (a sincronização sai do React), lançamentos só no IndexedDB,
+   tempo real por Broadcast e retenção das etiquetas (precisam de migração).
 
 
 Lembrar o dono: APK e Stripe.

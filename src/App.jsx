@@ -18,13 +18,17 @@ import EtiquetaPrint from './components/EtiquetaPrint';
 import AvisoVencimento from './components/AvisoVencimento';
 import NovidadesPopup from './components/NovidadesPopup';
 import Login from './pages/Login';
-import NovaSenha from './pages/NovaSenha';
-import Pagamento from './pages/Pagamento';
+// ⚠️ SOB DEMANDA TAMBÉM (Lote 10 da auditoria, 15/10/2026): nova senha,
+// pagamento, novidades, termos, Meus itens e Impressas não são a primeira
+// tela de ninguém. Saíram do pacote da primeira abertura (−20 KB comprimidos,
+// medido). A tela de imprimir e o login continuam no pacote principal.
+const NovaSenha = lazy(() => import('./pages/NovaSenha'));
+const Pagamento = lazy(() => import('./pages/Pagamento'));
 import Etiquetas from './pages/Etiquetas';
-import Novidades from './pages/Novidades';
-import Termos from './pages/Termos';
-import Itens from './pages/etiquetas/Itens';
-import EtiquetasImpressas from './pages/etiquetas/Impressas';
+const Novidades = lazy(() => import('./pages/Novidades'));
+const Termos = lazy(() => import('./pages/Termos'));
+const Itens = lazy(() => import('./pages/etiquetas/Itens'));
+const EtiquetasImpressas = lazy(() => import('./pages/etiquetas/Impressas'));
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 import Icon from './components/Icons';
 import FaixaTopo from './components/FaixaTopo';
@@ -216,11 +220,13 @@ function Rotas() {
   // quem ainda está decidindo, e sem depender de sessão carregada. Também abre
   // logada, para o cliente reler o que aceitou. Um contrato que só existe
   // dentro do app depois de entrar não serve como contrato.
-  if (pathname.endsWith('/termos')) return <Termos />;
+  // (as três telas abaixo carregam sob demanda desde o Lote 10: precisam da
+  // sua própria espera, porque ficam fora do Suspense das rotas)
+  if (pathname.endsWith('/termos')) return <Suspense fallback={<Splash />}><Termos /></Suspense>;
 
   if (carregando) return <Splash />;
   // Veio do link de recuperação de senha → tela de nova senha (tem prioridade)
-  if (recuperando) return <NovaSenha />;
+  if (recuperando) return <Suspense fallback={<Splash />}><NovaSenha /></Suspense>;
   // A conta foi aberta em outro aparelho (sessão única) → avisa e volta ao login
   if (derrubado) {
     return (
@@ -316,10 +322,12 @@ function Rotas() {
     // conta suspensa: nem a página de assinatura resolve (reativação é com o suporte)
     if (bloqueado) return <BloqueioAssinatura bloqueado podeAssinar={false} onSair={logout} />;
     return (
+      <Suspense fallback={<Splash />}>
       <Routes>
         <Route path="/pagamento" element={temPermissao('gerencia') ? <Pagamento /> : <BloqueioAssinatura podeAssinar={false} onSair={logout} />} />
         <Route path="*" element={<BloqueioAssinatura aguardando={plano.tipo === 'aguardando'} eraAssinante={!!sessao?.assinaturaAte} podeAssinar={temPermissao('gerencia')} onSair={logout} />} />
       </Routes>
+      </Suspense>
     );
   }
 

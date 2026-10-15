@@ -663,3 +663,25 @@ tela Estoque nas três cozinhas.
 **Testes:** 931 testes (5 novos em `lote9Demo.test.js`) e 51 cenários do
 robô (2 novos em `e2e/lote9.pw.js`: custos e relatório com dados, e a faixa
 que não cobre o título ao rolar).
+
+### Lote 10, parte 1 — a primeira abertura mais leve, aplicada em 15/10/2026
+
+- Nova senha, Pagamento, Novidades, Termos, Meus itens e Impressas passaram
+  a carregar **sob demanda**. Não são a primeira tela de ninguém. A tela de
+  imprimir e o login continuam no pacote principal.
+- Medido: a primeira abertura caiu de **255 KB para 235 KB** comprimidos (−8%).
+  O pacote principal sozinho caiu mais (de 255 para 150 KB), mas parte do
+  código foi para pedaços que também carregam no início.
+- Termos, Nova senha e o Pagamento da tela de bloqueio ficam fora da área de
+  carregamento das rotas; cada um ganhou a própria espera.
+
+**O resto do Lote 10 vai junto do Lote 8, depois da M61:**
+- **Lançamentos só no IndexedDB:** mexe na mesma camada de sincronização
+  que o Lote 8 separa. O risco que ele resolve, a fila sem lugar no
+  localStorage cheio, já tem proteção desde 28/09: a fila apaga os caches que
+  se refazem pelo banco e avisa a tela se ainda assim não couber.
+- **Tempo real por Broadcast e retenção das etiquetas antigas:** precisam de
+  migração no banco, e o token do Supabase continua inválido.
+
+**Testes:** 934 testes (3 novos em `lote10Leveza.test.js`) e 51 cenários do
+robô.
