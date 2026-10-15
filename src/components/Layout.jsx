@@ -125,7 +125,11 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
 
   return (
     <div className={`min-h-screen flex flex-col bg-polo-beige ${emAdmin ? 'pb-6' : 'pb-24'}`}>
-      <header className="bg-gradient-to-r from-polo-navy via-polo-navy to-[#24375456] bg-polo-navy text-white px-4 py-2.5 flex items-center justify-between sticky top-0 z-40 shadow-lg">
+      {/* ⚠️ `top` pela altura da faixa de cima (demonstração, modo suporte):
+          as duas eram `sticky top-0` e, ao rolar, a faixa cobria o cabeçalho
+          (D9). Ver components/FaixaTopo.jsx. */}
+      <header style={{ top: 'var(--faixa-topo, 0px)' }}
+        className="bg-gradient-to-r from-polo-navy via-polo-navy to-[#24375456] bg-polo-navy text-white px-4 py-2.5 flex items-center justify-between sticky z-40 shadow-lg">
         <div className="flex items-center gap-2.5 min-w-0">
           {destinoVoltar ? (
             /* Dentro da Administração o logo dá lugar à volta: é o mesmo canto

@@ -276,6 +276,27 @@ const etq = (id, nome, categoria, unidade, armazenamentoPadrao, prazos, tipoData
   estoqueInicial: 0, min: 0, max: 0, marca: '', sif: '', medidaPadrao: '',
 });
 
+// ─────────────────────────────────────────────────────────────────────
+//  PREÇOS DE EXEMPLO (Lote 9 da auditoria, D9, 15/10/2026)
+//  Sem eles, Custos e valor do estoque abria zerado na demonstração — a tela
+//  que mais vende o Pro para o dono de restaurante. Por kg (ou L) de compra,
+//  como a compra grava; o app converte para a porção pelo peso da unidade.
+// ─────────────────────────────────────────────────────────────────────
+const preco = (custo, unidade = 'kg', fornecedor = '') => ({ custo, unidade, em: '2026-10-01', fornecedor });
+export const PRECOS_DEMO = {
+  picanha: preco(89.9, 'kg', 'Frigorífico Boa Carne'),
+  frango: preco(24.9, 'kg', 'Sadia'),
+  tilapia: preco(49.9, 'kg', 'Peixaria do Porto'),
+  file: preco(79.9, 'kg', 'Frigorífico Boa Carne'),
+  queijo: preco(42.9, 'kg', 'Tirolez'),
+  batata: preco(18.9, 'kg', 'Distribuidora Centro'),
+  molho: preco(8.5, 'L'),
+  empanado: preco(4.2, 'unid'),
+  seco_arroz: preco(29.9, 'unid'),
+  seco_feijao: preco(8.9, 'unid'),
+  seco_oleo: preco(7.5, 'unid'),
+};
+
 export const PRODUTOS_DEMO_ETIQUETAS = [
   etq('picanha_porcao', 'Picanha (porção)', 'BOVINOS', 'unid', 'congelado', { congelado: 180, refrigerado: 3 }),
   etq('frango_desfiado', 'Frango desfiado', 'AVES', 'kg', 'refrigerado', { congelado: 90, refrigerado: 3 }),

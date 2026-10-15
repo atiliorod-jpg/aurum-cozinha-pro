@@ -27,6 +27,7 @@ import Itens from './pages/etiquetas/Itens';
 import EtiquetasImpressas from './pages/etiquetas/Impressas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 import Icon from './components/Icons';
+import FaixaTopo from './components/FaixaTopo';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 // ⚠️ AS TELAS DO PLANO COMPLETO SÓ BAIXAM QUANDO ALGUÉM ABRE UMA DELAS.
 // Elas eram importadas direto, então o cliente do Aurum Etiquetas — que nunca
@@ -80,17 +81,17 @@ function Splash({ texto = 'Carregando…' }) {
 // Âmbar = somente leitura; vermelha = cliente autorizou EDITAR (24h).
 function BannerSuporte({ nome, podeMexer, onSair }) {
   return (
-    <div className={`sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md
-      ${podeMexer ? 'bg-red-600 text-red-50' : 'bg-amber-500 text-amber-950'}`}>
+    <FaixaTopo className={`px-4 py-0.5 flex items-center justify-between gap-3 shadow-md
+      ${podeMexer ? 'bg-red-700 text-red-50' : 'bg-amber-500 text-amber-950'}`}>
       <p className="text-xs font-semibold min-w-0 truncate">
         Modo suporte — <strong>{nome || 'cliente'}</strong> {podeMexer ? '(EDITANDO a conta do cliente)' : '(somente leitura)'}
       </p>
       <button onClick={onSair}
-        className={`font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0
+        className={`font-bold text-xs px-3 min-h-11 my-0.5 rounded-lg whitespace-nowrap flex-shrink-0
           ${podeMexer ? 'bg-red-950 text-red-50' : 'bg-amber-950 text-amber-50'}`}>
         Sair do modo suporte
       </button>
-    </div>
+    </FaixaTopo>
   );
 }
 
@@ -360,7 +361,7 @@ function Rotas() {
       {impersonando && <BannerSuporte nome={impersonando.restauranteNome} podeMexer={impersonando.podeMexer} onSair={sairImpersonacao} />}
       {/* Faixa do modo demonstração — lembra o visitante que nada é salvo */}
       {sessao?.demo && (
-        <div className="sticky top-0 z-50 px-4 py-2 flex items-center justify-between gap-3 shadow-md bg-polo-gold text-polo-navy print:hidden">
+        <FaixaTopo className="px-4 py-0.5 flex items-center justify-between gap-3 shadow-md bg-polo-gold text-polo-navy">
           <p className="text-xs font-semibold min-w-0 truncate">Demonstração — dados de exemplo, nada é salvo</p>
           {/* ⚠️ RECARREGA quando a demonstração foi aberta pelo painel. O
               logout do modo demonstração zera a sessão em memória, mas a do
@@ -376,10 +377,10 @@ function Rotas() {
             await logout();
             if (doPainel) window.location.reload();
           }}
-            className="font-bold text-xs px-3 py-1.5 rounded-lg whitespace-nowrap flex-shrink-0 bg-polo-navy text-polo-gold">
+            className="font-bold text-xs px-3 min-h-11 my-0.5 rounded-lg whitespace-nowrap flex-shrink-0 bg-polo-navy text-polo-gold">
             Sair da demo
           </button>
-        </div>
+        </FaixaTopo>
       )}
       {/* Faixa do período de teste (some quando a assinatura é ativada) */}
       {plano.tipo === 'teste' && (

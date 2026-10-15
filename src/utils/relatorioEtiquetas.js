@@ -270,3 +270,48 @@ export function planilhaDoRelatorio(resumo, { de, ate }, porUnidade = []) {
     ...abaUnidades,
   ];
 }
+
+// =====================================================================
+//  O RELATÓRIO NA DEMONSTRAÇÃO (Lote 9 da auditoria, D9, 15/10/2026)
+//
+//  A demonstração mostrava "o relatório vem da nuvem e não existe aqui" — a
+//  vitrine pela metade, justo na tela que o dono pediu. Agora ela monta as
+//  linhas no aparelho, no mesmo formato que o banco entrega: os dias
+//  anteriores são de exemplo, e o que o visitante imprimir hoje entra de
+//  verdade (lido da lista de Impressas).
+// =====================================================================
+
+/**
+ * Linhas de exemplo dos `dias` anteriores a hoje. Determinístico de propósito
+ * (nada de sorteio): a demonstração mostra os mesmos números a cada vez que
+ * abre, e o teste consegue conferir.
+ */
+export function linhasDeDemonstracao(hojeISO, itens = [], responsaveis = ['Maria', 'João'], dias = 70) {
+  const linhas = [];
+  const nomes = itens.length ? itens : ['Item de exemplo'];
+  for (let i = 1; i <= dias; i++) {
+    const dia = somarDias(hojeISO, -i);
+    const semana = paraData(dia).getUTCDay();   // 0 = domingo
+    if (semana === 0) continue;                  // domingo a cozinha não produz
+    nomes.forEach((item, j) => {
+      // sexta e sábado produzem mais — o gráfico precisa mostrar o ritmo
+      const n = ((i * 7 + j * 13) % 5) + (semana >= 5 ? 2 : 0);
+      if (!n) return;
+      linhas.push({
+        dia, item, responsavel: responsaveis[(i + j) % responsaveis.length],
+        reimpressao: (i + j) % 11 === 0, etiquetas: n, impressoes: 1, unidade_id: null,
+      });
+    });
+  }
+  return linhas;
+}
+
+/** As etiquetas impressas NESTE aparelho, no formato das linhas do banco. */
+export function linhasDasImpressas(impressas = []) {
+  return (impressas || [])
+    .filter(e => e && e.impressoEm)
+    .map(e => ({
+      dia: e.impressoEm, item: e.nome || '', responsavel: e.responsavel || '',
+      reimpressao: false, etiquetas: Number(e.copias) || 1, impressoes: 1, unidade_id: null,
+    }));
+}

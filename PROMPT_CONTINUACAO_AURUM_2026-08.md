@@ -181,11 +181,11 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (15/10/2026) — LOTES 3, 2, 4, 5 E 6 DA AUDITORIA PUBLICADOS
+## Onde paramos (15/10/2026) — LOTES 3, 2, 4, 5, 6 E 9 DA AUDITORIA PUBLICADOS
 
 O plano está em `AUDITORIA_GERAL_2026-10-14.md` (seção "Andamento"). Feitos e
 publicados, nesta ordem: Lote 1, Lote 0, Lote 7 (parte 1), Lote 3, Lote 2 e
-Lote 4 (14/10), Lote 5 e Lote 6 (15/10). Testes: **926** e **49 cenários** do robô.
+Lote 4 (14/10), Lotes 5, 6 e 9 (15/10). Testes: **931** e **51 cenários** do robô.
 
 **Lote 3 (navegação):** Imprimir na barra do Pro; o cabeçalho diz onde a
 pessoa está; o nome no topo abre "Sua conta" (não sai mais direto).
@@ -226,7 +226,14 @@ Recurso novo `metasDeEstoque` (Produção e Seco sim, Finalização não — D5)
 ele, nada de "abaixo do mínimo", bolinha da barra ou mínimo/máximo
 automático. A calculadora foi para a Produção.
 
+**Lote 9 (demonstração como vitrine, D9):** `PRECOS_DEMO` (Custos com
+valor), relatório de etiquetas montado no aparelho na demo, e a faixa do topo
+(`components/FaixaTopo.jsx`) publica `--faixa-topo` para o cabeçalho grudar
+abaixo dela.
+
 **⚠️ Armadilhas novas:**
+- elemento `sticky` novo no topo da página precisa de
+  `top: var(--faixa-topo, 0px)` (ou mais), senão some atrás da faixa da demo;
 - a Finalização lê o catálogo DA PRODUÇÃO: tudo que GRAVA no catálogo a
   partir da Finalização (como o mínimo/máximo automático fazia) mexe na
   Produção. Conferir `metasDeEstoque` antes de gravar meta;
@@ -253,10 +260,9 @@ merge do main no ramo, resolver os conflitos, rodar
 `node scripts/conferir-m61.mjs`. O token do Supabase continua inválido.
 
 **Próximos, pela ordem:**
-1. Lote 9 — preços da demo, relatório de etiquetas local, faixa que cobre o
-   cabeçalho.
+1. Lote 10 — só IndexedDB e tempo real por Broadcast (sem mudança visível).
 2. Lote 8 — dividir o AppContext atrás de `useApp`, **depois** da M61.
-3. Lote 10 — só IndexedDB e tempo real por Broadcast.
+
 
 Lembrar o dono: APK e Stripe.
 

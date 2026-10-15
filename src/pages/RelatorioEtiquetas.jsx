@@ -12,6 +12,7 @@ import { temUnidadesExtras, opcoesDeUnidade, nomeDaUnidade } from '../utils/unid
 import {
   PERIODOS, periodoDoRelatorio, periodoAnterior, resumirRelatorio, variacao,
   diaDaSemana, planilhaDoRelatorio, totaisPorUnidade, linhasDaUnidade,
+  linhasDeDemonstracao, linhasDasImpressas,
 } from '../utils/relatorioEtiquetas';
 
 const fmtCurta = (iso) => fmtData(iso).slice(0, 5);
@@ -58,7 +59,7 @@ function Barra({ rotulo, valor, maximo }) {
  * filtro.
  */
 export default function RelatorioEtiquetas() {
-  const { rid, online, unidades, unidadeFixa } = useApp();
+  const { rid, online, unidades, unidadeFixa, produtos, etiquetasImpressas } = useApp();
   const { sessao, impersonando } = useAuth();
   const { toast } = useUI();
   const soEtiquetas = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
@@ -76,6 +77,14 @@ export default function RelatorioEtiquetas() {
   // chave atual for outra, a tela está esperando. Assim uma resposta atrasada
   // de um período antigo nunca aparece como se fosse do período novo.
   const semNuvem = !rid || rid === 'demo';
+  // ⚠️ NA DEMONSTRAÇÃO O RELATÓRIO É MONTADO NO APARELHO (D9, Lote 9): os dias
+  // anteriores são de exemplo, os de hoje são as etiquetas que o visitante
+  // imprimiu. Antes a tela dizia "não existe na demonstração".
+  const demo = rid === 'demo';
+  const linhasDemo = useMemo(() => (demo ? [
+    ...linhasDeDemonstracao(hj, (produtos || []).filter(p => p.ativo !== false).slice(0, 6).map(p => p.nome)),
+    ...linhasDasImpressas(etiquetasImpressas),
+  ] : []), [demo, hj, produtos, etiquetasImpressas]);
   const [tentativa, setTentativa] = useState(0);
   const chave = `${rid}|${anterior.de}|${periodo.ate}|${tentativa}`;
   const [resposta, setResposta] = useState({ chave: '', linhas: [], erro: '' });
@@ -93,7 +102,9 @@ export default function RelatorioEtiquetas() {
   }, [semNuvem, chave, anterior.de, periodo.ate, rid]);
 
   const carregando = !semNuvem && resposta.chave !== chave;
-  const todasAsLinhas = useMemo(() => (resposta.chave === chave ? resposta.linhas : []), [resposta, chave]);
+  const todasAsLinhas = useMemo(
+    () => (demo ? linhasDemo : resposta.chave === chave ? resposta.linhas : []),
+    [demo, linhasDemo, resposta, chave]);
   // ⚠️ UNIDADES (M46): o filtro corta TUDO — números, gráficos, itens,
   // comparação com o período anterior. 'todas' é o grupo inteiro; `null` é a
   // unidade principal. O filtro só aparece quando a conta tem mais de uma
@@ -207,10 +218,15 @@ export default function RelatorioEtiquetas() {
           </div>
         )}
 
-        {semNuvem ? (
+        {demo && (
           <Aviso tom="neutro">
-            O relatório vem da nuvem e não existe na demonstração. Numa conta de verdade,
-            cada etiqueta impressa entra aqui.
+            Demonstração: os dias anteriores são de exemplo. As etiquetas que você imprimir
+            hoje entram de verdade.
+          </Aviso>
+        )}
+        {semNuvem && !demo ? (
+          <Aviso tom="neutro">
+            O relatório vem da nuvem. Numa conta de verdade, cada etiqueta impressa entra aqui.
           </Aviso>
         ) : carregando ? (
           <Aviso tom="neutro">Carregando o relatório…</Aviso>

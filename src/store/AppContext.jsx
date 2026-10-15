@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, us
 import { PESSOAS_BASE, DESTINOS_APARA, rotuloMotivo } from '../data/produtos';
 import { FICHAS_BASE } from '../data/fichas';
 import { iniciarPresenca } from '../lib/presenca';
-import { gerarDemoSeed, PRODUTOS_DEMO_ETIQUETAS, PREFS_DEMO_ETIQUETAS, SENHAS_EQUIPE_DEMO } from '../data/demo';
+import { gerarDemoSeed, PRODUTOS_DEMO_ETIQUETAS, PREFS_DEMO_ETIQUETAS, SENHAS_EQUIPE_DEMO, PRECOS_DEMO } from '../data/demo';
 import { comSenha, semOrfas, temSenha } from '../utils/senhaEquipe';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { consumoComoSaidas } from '../utils/turno';
@@ -1328,7 +1328,8 @@ export function AppProvider({ children }) {
       // para a raiz funciona (a proteção está certa), mas parece bug.
       setEstoquesDocRaw(cacheGet(rid, 'estoques', {}));
       setPermissoesRaw(cacheGet(rid, 'permissoes', {}));
-      setPrecosRaw(cacheGet(rid, 'precos', {}));
+      // preços de exemplo: Custos não abre zerado na demonstração (D9)
+      setPrecosRaw(cacheGet(rid, 'precos', soEtiqRef.current ? {} : PRECOS_DEMO));
 
       // A demo não passa pela rede, então não existe "bruto" vindo do servidor —
       // e sem ele o Balanço e os seletores de visão da Administração ficariam

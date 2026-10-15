@@ -643,3 +643,23 @@ telas e meia de rolagem):
 **Testes:** 926 testes (6 novos em `lote6Inicio.test.js`) e 49 cenários do
 robô (3 novos em `e2e/lote6.pw.js`). A medição de toque e contraste cobre a
 tela Estoque nas três cozinhas.
+
+### Lote 9 — a demonstração como vitrine, aplicado em 15/10/2026 (D9)
+
+- **Custos e valor do estoque** com valores na demonstração: preços de
+  exemplo para os itens da Produção e alguns do Seco (`PRECOS_DEMO`, em
+  `data/demo.js`). Antes abria zerado.
+- **Relatório de etiquetas** montado no aparelho na demonstração
+  (`linhasDeDemonstracao` e `linhasDasImpressas`, em
+  `utils/relatorioEtiquetas.js`). Os dias anteriores são de exemplo e não
+  mudam de uma abertura para outra; o que o visitante imprime hoje entra de
+  verdade. Antes a tela dizia "não existe na demonstração".
+- **A faixa amarela não cobre mais o cabeçalho.** Ela e o cabeçalho eram os
+  dois `sticky top-0`. Agora a faixa (demonstração ou modo suporte) publica a
+  própria altura (`components/FaixaTopo.jsx`) e o cabeçalho gruda logo abaixo.
+  Os botões "Sair da demo" e "Sair do modo suporte" ganharam 44 px.
+- Relatórios e Custos já liam o catálogo da demo desde o Lote 1 (D2).
+
+**Testes:** 931 testes (5 novos em `lote9Demo.test.js`) e 51 cenários do
+robô (2 novos em `e2e/lote9.pw.js`: custos e relatório com dados, e a faixa
+que não cobre o título ao rolar).
