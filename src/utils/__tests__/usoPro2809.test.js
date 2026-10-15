@@ -26,8 +26,10 @@ describe('perda e validades', () => {
 
   it('o botão Registrar apagado diz o que falta', () => {
     expect(perdas).toMatch(/const faltaPerda = /);
-    expect(ler('../../pages/Entradas.jsx')).toMatch(/Para registrar, digite a quantidade de pelo menos um item abaixo\./);
-    expect(ler('../../pages/Saidas.jsx')).toMatch(/Para registrar, digite a quantidade de pelo menos um item abaixo\./);
+    // sem o "abaixo" desde o Lote 5: o aviso foi para o pé da tela, e a lista
+    // agora fica ACIMA dele
+    expect(ler('../../pages/Entradas.jsx')).toMatch(/Para registrar, digite a quantidade de pelo menos um item\./);
+    expect(ler('../../pages/Saidas.jsx')).toMatch(/Para registrar, digite a quantidade de pelo menos um item\./);
   });
 });
 

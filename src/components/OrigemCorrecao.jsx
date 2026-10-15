@@ -81,8 +81,8 @@ export default function OrigemCorrecao({ form, onChange }) {
       {noEstoque ? (
         <>
           <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Produto que perdeu</label>
-            <select aria-label="Produto que perdeu" value={form.produtoId || ''} onChange={e => selecionarProduto(e.target.value)}
+            <label htmlFor="pd-item" className="block text-xs font-semibold text-gray-600 mb-1">Qual item foi perdido</label>
+            <select id="pd-item" value={form.produtoId || ''} onChange={e => selecionarProduto(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm bg-white">
               <option value="">Selecione o produto...</option>
               {agrupaPorSaldo ? (
@@ -113,17 +113,7 @@ export default function OrigemCorrecao({ form, onChange }) {
               Seco não dava para abater o saldo E medir o rendimento da compra
               ao mesmo tempo — que é exatamente o que aquela cozinha precisa. */}
           {temCompras && (
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Veio de qual compra? (opcional)</label>
-              <select aria-label="Veio de qual compra? (opcional)" value={form.compraId || ''} onChange={e => onChange({ compraId: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm bg-white">
-                <option value="">— Não associar —</option>
-                {comprasRecentes.map(c => (
-                  <option key={c.id} value={c.id}>{fmtData(c.data)} • {c.item} ({c.quantidade}{c.unidade})</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-600 mt-1">Liga a perda ao recebimento para calcular o rendimento.</p>
-            </div>
+            <CompraDeOrigem form={form} onChange={onChange} compras={comprasRecentes} id="pd-compra-est" />
           )}
         </>
       ) : (
@@ -131,21 +121,27 @@ export default function OrigemCorrecao({ form, onChange }) {
           <p className="text-xs text-gray-600">
             Fica registrado no relatório de desperdício, sem mexer no saldo de nenhum produto.
           </p>
-          {temCompras && (
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Veio de qual compra? (opcional)</label>
-              <select aria-label="Veio de qual compra? (opcional)" value={form.compraId || ''} onChange={e => onChange({ compraId: e.target.value })}
-                className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm bg-white">
-                <option value="">— Não associar —</option>
-                {comprasRecentes.map(c => (
-                  <option key={c.id} value={c.id}>{fmtData(c.data)} • {c.item} ({c.quantidade}{c.unidade})</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-600 mt-1">Liga a perda ao recebimento para calcular o rendimento.</p>
-            </div>
-          )}
+          {temCompras && <CompraDeOrigem form={form} onChange={onChange} compras={comprasRecentes} id="pd-compra" />}
         </>
       )}
+    </div>
+  );
+}
+
+// "De qual compra veio?" — o mesmo campo nos dois lados da pergunta (era
+// escrito duas vezes, igual, e com o jargão "Associar à compra")
+function CompraDeOrigem({ form, onChange, compras, id }) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-xs font-semibold text-gray-600 mb-1">De qual compra veio? (opcional)</label>
+      <select id={id} value={form.compraId || ''} onChange={e => onChange({ compraId: e.target.value })}
+        className="w-full border border-gray-200 rounded-lg px-3 min-h-11 py-2 text-sm bg-white">
+        <option value="">Não sei / nenhuma</option>
+        {compras.map(c => (
+          <option key={c.id} value={c.id}>{fmtData(c.data)} • {c.item} ({c.quantidade}{c.unidade})</option>
+        ))}
+      </select>
+      <p className="text-xs text-gray-600 mt-1">Ajuda a calcular quanto rende o que foi comprado.</p>
     </div>
   );
 }

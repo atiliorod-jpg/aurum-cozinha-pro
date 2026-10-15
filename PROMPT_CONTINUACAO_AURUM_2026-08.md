@@ -181,11 +181,11 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (14/10/2026, noite) — LOTES 3, 2 E 4 DA AUDITORIA PUBLICADOS
+## Onde paramos (15/10/2026) — LOTES 3, 2, 4 E 5 DA AUDITORIA PUBLICADOS
 
 O plano está em `AUDITORIA_GERAL_2026-10-14.md` (seção "Andamento"). Feitos e
 publicados, nesta ordem: Lote 1, Lote 0, Lote 7 (parte 1), Lote 3, Lote 2 e
-Lote 4. Testes: **913** e **43 cenários** do robô.
+Lote 4 (14/10) e Lote 5 (15/10). Testes: **920** e **46 cenários** do robô.
 
 **Lote 3 (navegação):** Imprimir na barra do Pro; o cabeçalho diz onde a
 pessoa está; o nome no topo abre "Sua conta" (não sai mais direto).
@@ -213,7 +213,19 @@ equipe vazia, o seletor antigo continua.
   `DeConfiguracoes` no App.jsx);
 - suporte remoto e "apagar todos os registros" agora só para a conta dona.
 
+**Lote 5 (formulário de lançamento único):** as 7 telas de lançamento
+terminam no pé fixo `components/lancamento/RodapeLancamento.jsx` (resumo +
+botão, `sticky bottom-16` = altura da barra), com o − / + de
+`components/lancamento/Passador.jsx` e o resumo de `utils/lancamento.js`
+(sempre por unidade). Fechar turno pede confirmação se nada foi contado.
+Apara/Perda sem os códigos (STG, V) e com perguntas de bancada.
+
 **⚠️ Armadilhas novas:**
+- no robô, `getByLabel('Quantidade contada de X')` agora casa também com os
+  botões "Diminuir/Aumentar quantidade contada de X": usar
+  `{ exact: true }` ou `getByRole('spinbutton', …)`;
+- foto de página inteira mostra o pé fixo no meio da imagem (é onde a tela
+  estava): não é defeito;
 - **nunca** gravar com `setProdutos` uma lista filtrada por `ativoNoEstoque`:
   apagaria os itens só de etiqueta. O filtro é só para LER;
 - a ficha do Pro grava `controlaEstoque` explícito. Sem isso, no Seco a regra
@@ -226,19 +238,18 @@ equipe vazia, o seletor antigo continua.
 
 **O ramo `etapa2-lote-b` (M61)** não mexe em Configurações nem em Ajustes, mas
 mexe em Saidas, Validades, FecharTurno, BaixaEtiqueta, LerEtiquetas e
-AppContext, que os Lotes 2 e 4 também mudaram. Antes de aplicar a M61:
+AppContext, que os Lotes 2, 4 e 5 também mudaram (Saidas e FecharTurno
+ganharam o pé fixo no Lote 5). Antes de aplicar a M61:
 merge do main no ramo, resolver os conflitos, rodar
 `node scripts/conferir-m61.mjs`. O token do Supabase continua inválido.
 
 **Próximos, pela ordem:**
-1. Lote 5 — formulário de lançamento único; Fechar turno conta primeiro e
-   depois fecha.
-2. Lote 6 — Início por cozinha; D5 (a Finalização sem os alarmes de
+1. Lote 6 — Início por cozinha; D5 (a Finalização sem os alarmes de
    mínimo/máximo da Produção).
-3. Lote 9 — preços da demo, relatório de etiquetas local, faixa que cobre o
+2. Lote 9 — preços da demo, relatório de etiquetas local, faixa que cobre o
    cabeçalho.
-4. Lote 8 — dividir o AppContext atrás de `useApp`, **depois** da M61.
-5. Lote 10 — só IndexedDB e tempo real por Broadcast.
+3. Lote 8 — dividir o AppContext atrás de `useApp`, **depois** da M61.
+4. Lote 10 — só IndexedDB e tempo real por Broadcast.
 
 Lembrar o dono: APK e Stripe.
 

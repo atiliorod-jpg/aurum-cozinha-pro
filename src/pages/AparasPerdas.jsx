@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import Abas from '../components/ui/Abas';
 import Vazio from '../components/ui/Vazio';
 import Layout from '../components/Layout';
-import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
@@ -12,10 +11,11 @@ import { pode } from '../utils/permissoes';
 import QuemRegistra from '../components/QuemRegistra';
 import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
 import OrigemCorrecao from '../components/OrigemCorrecao';
-import { DESTINOS_APARA, MOTIVOS_DESPERDICIO } from '../data/produtos';
+import { DESTINOS_APARA, MOTIVOS_DESPERDICIO, rotuloMotivo } from '../data/produtos';
 import { hoje, fmtData, fmtHora, fmtNum } from '../utils/formatters';
 import { validarDataRegistro } from '../utils/datas';
 import { casaBusca } from '../utils/busca';
+import RodapeLancamento from '../components/lancamento/RodapeLancamento';
 
 const TURNOS = ['Manhã', 'Tarde', 'Noite'];
 
@@ -208,20 +208,20 @@ export default function AparasPerdas() {
     : ['kg', 'unid', 'g'];
 
   return (
-    <Layout title="Aparas & Perdas">
+    <Layout title={temApara ? 'Aparas e perdas' : 'Perdas'}>
       <Abas opcoes={[['novo', '+ Novo registro'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
           {/* Tipo: Apara ou Perda — módulo sem apara já abre em Perda */}
           {temApara && (
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setTipo('apara')}
+            <button type="button" onClick={() => setTipo('apara')} aria-pressed={tipo === 'apara'}
               className={`py-3 px-3 rounded-xl text-sm font-bold border-2 transition-colors
                 ${tipo === 'apara' ? 'border-amber-700 bg-amber-700 text-white' : 'border-gray-200 bg-white text-gray-600'}`}>
               Apara
               <span className="block text-xs font-normal opacity-90">reaproveita no freezer</span>
             </button>
-            <button onClick={() => setTipo('perda')}
+            <button type="button" onClick={() => setTipo('perda')} aria-pressed={tipo === 'perda'}
               className={`py-3 px-3 rounded-xl text-sm font-bold border-2 transition-colors
                 ${tipo === 'perda' ? 'border-red-400 bg-red-600 text-white' : 'border-gray-200 bg-white text-gray-500'}`}>
               Perda
@@ -232,12 +232,6 @@ export default function AparasPerdas() {
 
           {tipo === 'apara' ? (
             <>
-              <Botao onClick={salvarApara}
-                disabled={salvando || quemApara.falta || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}>
-                Registrar Apara
-              </Botao>
-              {!salvando && faltaApara && <p className="text-xs text-gray-600 -mt-2" role="status">{faltaApara}</p>}
-
               <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-900">
                 Sobra aproveitável da limpeza. Não abate o estoque.
               </div>
@@ -258,28 +252,35 @@ export default function AparasPerdas() {
                   </div>
                 </div>
 
+                {/* "quem" logo depois da data, como em todo lançamento (Lote 5):
+                    estava no fim do formulário, depois de tudo preenchido */}
+                <QuemRegistra manual={formApara.responsavel} aoManual={v => setA('responsavel', v)} />
+
+                {/* ⚠️ LINGUAGEM DE BANCADA (Lote 5, U9): era "Associar à compra"
+                    e "Produto de origem" — termos de sistema que quem está com
+                    a faca na mão não sabia preencher. */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Associar à compra (opcional)</label>
-                  <select aria-label="Associar à compra (opcional)" value={formApara.compraId} onChange={e => setA('compraId', e.target.value)}
+                  <label htmlFor="ap-compra" className="block text-xs font-semibold text-gray-600 mb-1">De qual compra veio? (opcional)</label>
+                  <select id="ap-compra" value={formApara.compraId} onChange={e => setA('compraId', e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="">— Não associar —</option>
+                    <option value="">Não sei / nenhuma</option>
                     {comprasRecentes.map(c => (
                       <option key={c.id} value={c.id}>{fmtData(c.data)} • {c.item} ({c.quantidade}{c.unidade})</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Liga a apara ao recebimento para calcular o rendimento da compra.</p>
+                  <p className="text-xs text-gray-600 mt-1">Ajuda a calcular quanto rende o que foi comprado.</p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Produto de origem (opcional)</label>
-                  <select aria-label="Produto de origem (opcional)" value={formApara.produtoId} onChange={e => setA('produtoId', e.target.value)}
+                  <label htmlFor="ap-item" className="block text-xs font-semibold text-gray-600 mb-1">De qual item é a apara? (opcional)</label>
+                  <select id="ap-item" value={formApara.produtoId} onChange={e => setA('produtoId', e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="">— Não vincular —</option>
+                    <option value="">Nenhum</option>
                     {[...produtos].sort((a, b) => a.nome.localeCompare(b.nome)).map(p => (
                       <option key={p.id} value={p.id}>{p.nome}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">Ao vincular, o rendimento médio deste produto é atualizado automaticamente na lista de compras.</p>
+                  <p className="text-xs text-gray-600 mt-1">Com o item escolhido, a lista de compras passa a pedir a mais o que se perde na limpeza.</p>
                 </div>
 
                 <div>
@@ -308,15 +309,17 @@ export default function AparasPerdas() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Destino previsto</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <p id="ap-destino" className="block text-xs font-semibold text-gray-600 mb-1">Para onde vai a apara</p>
+                  {/* o nome por extenso: "STG — Strogonoff" pedia para
+                      decorar um código que só existe no sistema */}
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="ap-destino">
                     {destinos.map(d => (
-                      <button key={d.cod} onClick={() => setA('destino', d.cod)}
-                        className={`min-h-11 py-2 px-3 rounded-lg text-xs font-semibold text-left border-2 transition-colors
+                      <button key={d.cod} type="button" onClick={() => setA('destino', d.cod)} aria-pressed={formApara.destino === d.cod}
+                        className={`min-h-11 py-2 px-3 rounded-lg text-sm font-semibold text-left border-2 transition-colors
                           ${formApara.destino === d.cod
                             ? 'border-polo-gold bg-polo-navy text-polo-gold'
-                            : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                        <span className="font-bold">{d.cod}</span> — {d.label}
+                            : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
+                        {d.label}
                       </button>
                     ))}
                   </div>
@@ -327,17 +330,18 @@ export default function AparasPerdas() {
                   )}
                 </div>
 
-                <QuemRegistra manual={formApara.responsavel} aoManual={v => setA('responsavel', v)} />
               </div>
+
+              <RodapeLancamento
+                resumo={formApara.item.trim() && parseFloat(formApara.quantidade) > 0
+                  ? `Apara · ${formApara.item.trim()} · ${fmtNum(formApara.quantidade)} ${formApara.unidade} → ${formApara.destino === 'OUT' ? (formApara.destinoOutro.trim() || 'outro') : (destinos.find(d => d.cod === formApara.destino)?.label || formApara.destino)}`
+                  : ''}
+                rotulo="Registrar Apara" aoTocar={salvarApara} ocupado={salvando}
+                desativado={quemApara.falta || !formApara.item.trim() || !formApara.quantidade || (formApara.destino === 'OUT' && !formApara.destinoOutro.trim())}
+                falta={faltaApara} />
             </>
           ) : (
             <>
-              <Botao onClick={salvarPerda}
-                disabled={salvando || quemPerda.falta || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}>
-                Registrar Perda
-              </Botao>
-              {!salvando && faltaPerda && <p className="text-xs text-gray-600 -mt-2" role="status">{faltaPerda}</p>}
-
               {/* O bloco saiu inteiro: citava "POP-07" (jargão de consultoria,
                   sem significado para quem opera) e explicava em três frases o
                   que os botões de origem logo abaixo já dizem no momento da
@@ -357,6 +361,8 @@ export default function AparasPerdas() {
                     </select>
                   </div>
                 </div>
+
+                <QuemRegistra manual={formPerda.responsavel} aoManual={v => setP('responsavel', v)} />
 
                 <OrigemCorrecao form={formPerda} onChange={patchPerda} />
 
@@ -394,15 +400,17 @@ export default function AparasPerdas() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Motivo do descarte</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <p id="pd-motivo" className="block text-xs font-semibold text-gray-600 mb-1">Por que foi perdido?</p>
+                  {/* o motivo por extenso: "V — Vencimento" mostrava o código
+                      que o sistema grava, não o que a pessoa diz */}
+                  <div className="grid grid-cols-2 gap-2" role="group" aria-labelledby="pd-motivo">
                     {MOTIVOS_DESPERDICIO.map(m => (
-                      <button key={m.cod} onClick={() => setP('motivo', m.cod)}
-                        className={`min-h-11 py-2 px-3 rounded-lg text-xs font-semibold text-left border-2 transition-colors
+                      <button key={m.cod} type="button" onClick={() => setP('motivo', m.cod)} aria-pressed={formPerda.motivo === m.cod}
+                        className={`min-h-11 py-2 px-3 rounded-lg text-sm font-semibold text-left border-2 transition-colors
                           ${formPerda.motivo === m.cod
                             ? 'border-polo-gold bg-polo-navy text-polo-gold'
-                            : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
-                        <span className="font-bold">{m.cod}</span> — {m.label}
+                            : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
+                        {m.label}
                       </button>
                     ))}
                   </div>
@@ -413,8 +421,15 @@ export default function AparasPerdas() {
                   )}
                 </div>
 
-                <QuemRegistra manual={formPerda.responsavel} aoManual={v => setP('responsavel', v)} />
               </div>
+
+              <RodapeLancamento
+                resumo={formPerda.item.trim() && parseFloat(formPerda.quantidade) > 0
+                  ? `Perda · ${formPerda.item.trim()} · ${fmtNum(formPerda.quantidade)} ${formPerda.unidade} · ${rotuloMotivo(formPerda.motivo, formPerda.motivoOutro)}${formPerda.origem === 'estoque' ? ' · sai do estoque' : ''}`
+                  : ''}
+                rotulo="Registrar Perda" aoTocar={salvarPerda} ocupado={salvando}
+                desativado={quemPerda.falta || !formPerda.item.trim() || !formPerda.quantidade || (formPerda.origem === 'estoque' && !formPerda.produtoId) || (formPerda.motivo === 'O' && !formPerda.motivoOutro.trim())}
+                falta={faltaPerda} />
             </>
           )}
         </div>

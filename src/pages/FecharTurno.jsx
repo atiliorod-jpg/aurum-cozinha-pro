@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import Layout from '../components/Layout';
-import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useUI } from '../store/UIContext';
 import QuemRegistra from '../components/QuemRegistra';
@@ -8,6 +7,9 @@ import { useQuemRegistra, AVISO_FALTA_QUEM } from '../store/OperadorContext';
 import { hoje, fmtHora, fmtNum, fmtData } from '../utils/formatters';
 import { turnoAberto, consumoDoTurno, linhasParaGravar } from '../utils/turno';
 import { plural } from '../utils/formatters';
+import RodapeLancamento from '../components/lancamento/RodapeLancamento';
+import Passador from '../components/lancamento/Passador';
+import { resumoDeQuantidades } from '../utils/lancamento';
 
 const TURNOS = ['Almoço', 'Jantar'];
 
@@ -37,7 +39,11 @@ export default function FecharTurno() {
 
   const linhas = useMemo(() => consumoDoTurno(aberto.linhas, sobras), [aberto.linhas, sobras]);
   const temInconsistencia = linhas.some(l => l.inconsistente);
-  const totalConsumo = linhas.reduce((s, l) => s + Math.max(0, l.consumo), 0);
+  // ⚠️ POR UNIDADE (Lote 5): o total somava 3 unid + 3 L + 2 unid num "18"
+  // sem unidade nenhuma — o mesmo defeito que o relatório já teve
+  const consumoTexto = resumoDeQuantidades(linhas.map(l => ({ quantidade: Math.max(0, l.consumo), unidade: l.unidade }))) || '0';
+  // quantos itens já têm a sobra digitada (em branco vale zero)
+  const contados = aberto.linhas.filter(l => String(sobras[l.produtoId] ?? '').trim() !== '').length;
 
   const setSobra = (id, v) => {
     const n = parseFloat(v);
@@ -49,6 +55,18 @@ export default function FecharTurno() {
     if (quem.falta) { toast(AVISO_FALTA_QUEM, 'aviso'); return; }
     if (!aberto.linhas.length) { toast('Nada recebido neste turno ainda.', 'aviso'); return; }
     setSalvando(true);
+    // ⚠️ CONTAR ANTES DE FECHAR (Lote 5, U10). O botão ficava ANTES da
+    // contagem: um toque sem contar nada fechava o turno com sobra zero em
+    // tudo — o disponível inteiro virava consumo. Em branco continua valendo
+    // zero (é o jeito de dizer "acabou"), mas nada contado pede confirmação.
+    if (!contados) {
+      const ok = await confirm({
+        titulo: 'Nenhuma sobra contada',
+        mensagem: 'Fechar sem contar nada é dizer que não sobrou nada na bancada: tudo o que estava disponível vira consumo do turno. Fechar assim mesmo?',
+        perigo: true, confirmar: 'Fechar sem sobra',
+      });
+      if (!ok) { setSalvando(false); return; }
+    }
     if (temInconsistencia) {
       const quais = linhas.filter(l => l.inconsistente).map(l => `• ${l.nome}: contou ${fmtNum(l.sobra)}, disponível ${fmtNum(l.disponivel)}`).join('\n');
       const ok = await confirm({
@@ -86,14 +104,9 @@ export default function FecharTurno() {
         <div className="bg-polo-navy text-white rounded-2xl p-4">
           <p className="text-polo-gold font-bold text-sm">Fechamento do turno</p>
           <p className="text-xs text-white/80 mt-1">
-            Conte o que <strong>sobrou na bancada</strong>.
+            1. Conte o que <strong>sobrou na bancada</strong>. 2. Feche o turno no pé da tela.
           </p>
         </div>
-
-        {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
-        <Botao onClick={fechar} disabled={salvando || !aberto.linhas.length || quem.falta}>
-          {salvando ? 'Fechando…' : 'Fechar turno'}
-        </Botao>
 
         <div className="bg-white rounded-xl p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -140,21 +153,17 @@ export default function FecharTurno() {
                 <div key={l.produtoId} className={`border rounded-xl p-3 ${l.inconsistente ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}`}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm text-gray-800 truncate">{l.nome}</p>
-                      <p className="text-xs text-gray-500">
+                      {/* o nome quebra em duas linhas em vez de cortar (U6) */}
+                      <p className="font-semibold text-sm text-gray-800 line-clamp-2 break-words">{l.nome}</p>
+                      <p className="text-xs text-gray-600">
                         {l.abertura > 0 && <>abriu {fmtNum(l.abertura)} · </>}
                         recebeu {fmtNum(l.recebido)}
                         {l.perdido > 0 && <> · perdeu {fmtNum(l.perdido)}</>}
                         {' '}· <strong>disponível {fmtNum(l.disponivel)} {l.unidade}</strong>
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <input type="number" inputMode="decimal" min="0" step="0.5"
-                        value={sobras[l.produtoId] ?? ''} onChange={e => setSobra(l.produtoId, e.target.value)}
-                        aria-label={`Sobra de ${l.nome}`} placeholder="0"
-                        className="w-20 text-center border border-gray-200 rounded-lg py-2 text-sm font-semibold" />
-                      <span className="text-xs text-gray-600 w-8">{l.unidade}</span>
-                    </div>
+                    <Passador valor={sobras[l.produtoId]} aoMudar={v => setSobra(l.produtoId, v)}
+                      rotulo={`Sobra de ${l.nome}`} />
                   </div>
                   <p className={`text-xs mt-1.5 font-semibold ${l.inconsistente ? 'text-orange-700' : 'text-polo-navy'}`}>
                     {l.inconsistente
@@ -165,9 +174,17 @@ export default function FecharTurno() {
               ))}
             </div>
             {!temInconsistencia && (
-              <p className="text-xs text-gray-500 mt-3">Consumo total do turno: <strong className="text-polo-navy">{fmtNum(totalConsumo)}</strong></p>
+              <p className="text-xs text-gray-600 mt-3">Consumo do turno: <strong className="text-polo-navy">{consumoTexto}</strong></p>
             )}
           </div>
+        )}
+
+        {aberto.linhas.length > 0 && (
+          <RodapeLancamento
+            resumo={`Sobra contada em ${contados} de ${plural(aberto.linhas.length, 'item', 'itens')}${!temInconsistencia ? ` · consumo ${consumoTexto}` : ''}`}
+            rotulo="Fechar turno" rotuloOcupado="Fechando…" aoTocar={fechar}
+            desativado={quem.falta} ocupado={salvando}
+            falta={quem.falta ? AVISO_FALTA_QUEM : ''} />
         )}
 
         {fechados.length > 0 && (

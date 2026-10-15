@@ -19,6 +19,9 @@ import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazen
 import { casaBusca } from '../utils/busca';
 import { plural } from '../utils/formatters';
 import { ativoNoEstoque } from '../utils/itens';
+import RodapeLancamento from '../components/lancamento/RodapeLancamento';
+import Passador from '../components/lancamento/Passador';
+import { resumoDoLancamento } from '../utils/lancamento';
 
 export default function Entradas() {
   const { produtos, producoes, addEntrada, entradas, removeEntrada, restaurarRegistro, categorias, prefs, setPref, modulo, permissoes, rid } = useApp();
@@ -61,6 +64,10 @@ export default function Entradas() {
   };
 
   const itensPreenchidos = Object.entries(qtds).filter(([, v]) => parseFloat(v) > 0);
+  // o pé da tela: "2 itens · 5 unid → Congelado" (Lote 5)
+  const resumo = resumoDoLancamento(
+    itensPreenchidos.map(([id, q]) => ({ quantidade: q, unidade: produtos.find(p => p.id === id)?.unidade })),
+    temArmazenamento ? (armazenamentos.find(a => a.id === armazenamento)?.nome || '') : '');
 
   const handleSalvar = async () => {
     if (salvando) return; // toque repetido — já registrando
@@ -140,18 +147,6 @@ export default function Entradas() {
       <Abas opcoes={[['novo', '+ Nova entrada'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
-          <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando || quem.falta}
-            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
-                       disabled:opacity-40 active:scale-95 transition-transform">
-            {salvando ? 'Registrando…' : 'Registrar Entrada'}
-          </button>
-          {/* o botão apagado diz o que falta (28/09/2026) */}
-          {!salvando && (quem.falta || !itensPreenchidos.length) && (
-            <p className="text-xs text-gray-600 -mt-2" role="status">
-              {quem.falta ? AVISO_FALTA_QUEM : 'Para registrar, digite a quantidade de pelo menos um item abaixo.'}
-            </p>
-          )}
-
           {/* Cabeçalho */}
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div>
@@ -209,8 +204,10 @@ export default function Entradas() {
               return (
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
-                  <div className="text-xs text-gray-500">{p.unidade}</div>
+                  {/* o nome quebra em duas linhas em vez de cortar (U6): é ele
+                      que a pessoa procura na lista */}
+                  <div className="font-medium text-sm text-gray-800 line-clamp-2 break-words">{p.nome}</div>
+                  <div className="text-xs text-gray-600">{p.unidade}</div>
                   {temQtd && diasVal > 0 && (
                     <div className="text-xs font-semibold text-polo-navy bg-polo-beige rounded px-1.5 py-0.5 mt-1 inline-block">
                       Etiqueta: fab. {fmtData(data)} • venc. {fmtData(addDias(data, diasVal))}
@@ -220,22 +217,7 @@ export default function Entradas() {
                     <div className="text-xs text-gray-500 mt-0.5">sem prazo de validade cadastrado (Meus itens)</div>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <button aria-label={`Diminuir quantidade de ${p.nome}`}
-                    onClick={() => setQtd(p.id, Math.max(0, (parseFloat(qtds[p.id]) || 0) - 1).toString())}
-                    className="w-11 h-11 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center flex-shrink-0">−</button>
-                  <input
-                    type="number" inputMode="decimal" min="0" step="0.5"
-                    value={qtds[p.id] ?? ''}
-                    onChange={e => setQtd(p.id, e.target.value)}
-                    placeholder="0"
-                    aria-label={`Quantidade de ${p.nome}`}
-                    className="w-16 text-center border border-gray-200 rounded-lg py-2.5 text-sm font-semibold"
-                  />
-                  <button aria-label={`Aumentar quantidade de ${p.nome}`}
-                    onClick={() => setQtd(p.id, ((parseFloat(qtds[p.id]) || 0) + 1).toString())}
-                    className="w-11 h-11 rounded-full bg-polo-navy text-polo-gold font-bold text-lg flex items-center justify-center flex-shrink-0">+</button>
-                </div>
+                <Passador valor={qtds[p.id]} aoMudar={v => setQtd(p.id, v)} rotulo={`Quantidade de ${p.nome}`} />
               </div>
             );})}
           </div>
@@ -248,21 +230,9 @@ export default function Entradas() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
 
-          {itensPreenchidos.length > 0 && (
-            <div className="bg-polo-navy/10 rounded-xl p-3">
-              <p className="text-xs font-semibold text-polo-navy mb-1">Itens a registrar:</p>
-              {itensPreenchidos.map(([id, qtd]) => {
-                const p = produtos.find(x => x.id === id);
-                return (
-                  <div key={id} className="flex justify-between text-sm">
-                    <span>{p?.nome}</span>
-                    <span className="font-bold">{qtd} {p?.unidade}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
+          <RodapeLancamento resumo={resumo} rotulo="Registrar Entrada" aoTocar={handleSalvar}
+            desativado={!itensPreenchidos.length || quem.falta} ocupado={salvando}
+            falta={quem.falta ? AVISO_FALTA_QUEM : !itensPreenchidos.length ? 'Para registrar, digite a quantidade de pelo menos um item.' : ''} />
         </div>
       ) : (
         <div className="space-y-3">

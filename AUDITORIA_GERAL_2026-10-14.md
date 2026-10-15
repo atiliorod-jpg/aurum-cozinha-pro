@@ -573,3 +573,39 @@ robô (5 novos em `e2e/lote4.pw.js`: só etiqueta, a ficha com os campos de
 estoque, a planilha, e a Administração nos dois planos). A medição de toque e
 contraste passou a cobrir os cinco grupos, a ficha do item aberta e a janela
 da planilha.
+
+### Lote 5 — formulário de lançamento único, aplicado em 15/10/2026
+
+As sete telas (Entrada, Saída, Apara/Perda, Produção, Compra, Contagem e
+Fechar turno) terminam do mesmo jeito.
+
+- **Pé fixo** (`components/lancamento/RodapeLancamento.jsx`), logo acima da
+  barra: o resumo do que vai ser gravado e o botão. Exemplos de resumo:
+  "2 itens · 5 unid → Congelado", "Apara · Ponta de picanha · 0,3 kg →
+  Strogonoff". O botão apagado diz o que falta. Resolve o **U3**: o botão
+  ficava no topo em umas telas e no fim em outras.
+- **Data e quem no topo** em todas: em Compras e em Apara/Perda o "quem
+  está registrando" ficava depois de tudo preenchido.
+- **− / + iguais** (`components/lancamento/Passador.jsx`) em Entrada,
+  Saída, Contagem e Fechar turno. A Contagem e o Fechar turno só tinham o
+  campo.
+- **Nomes inteiros** (U6): quebram em duas linhas, não cortam mais.
+- **Resumo por unidade** (`utils/lancamento.js`): o consumo do turno
+  somava "3 unid + 3 L + 2 unid" num "18" sem unidade.
+- **Fechar turno: contar antes de fechar** (U10). O botão foi para o pé.
+  Fechar sem nenhuma sobra contada pede confirmação, porque isso vira
+  consumo de tudo o que estava disponível. Em branco continua valendo zero.
+- **Língua da bancada em Apara/Perda** (U9):
+  - "De qual compra veio?" e "De qual item é a apara?" no lugar de "Associar
+    à compra" e "Produto de origem";
+  - "Para onde vai a apara" e "Por que foi perdido?" com o nome por extenso
+    ("Strogonoff", "Vencimento"), sem os códigos "STG —" e "V —";
+  - "Qual item foi perdido".
+- Produção com o armazenamento em 2 por linha (U12). Saídas: a validade que
+  vai para a Finalização aparece acima do pé.
+- Títulos: "Contagem" (era "Inventário / Contagem") e "Aparas e perdas"
+  ("Perdas" onde não há apara).
+
+**Testes:** 920 testes e 46 cenários do robô (3 novos em `e2e/lote5.pw.js`:
+o resumo no pé, o Fechar turno que pede a contagem e apara/perda sem
+códigos).

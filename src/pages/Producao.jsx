@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useRascunho } from '../lib/useRascunho';
 import Layout from '../components/Layout';
-import Botao from '../components/Botao';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -14,6 +13,7 @@ import { planejarProducao } from '../utils/producao';
 import { pode } from '../utils/permissoes';
 import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazenamento';
 import Icon from '../components/Icons';
+import RodapeLancamento from '../components/lancamento/RodapeLancamento';
 
 export default function Producao() {
   const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref, permissoes, modulo, rid } = useApp();
@@ -160,7 +160,7 @@ export default function Producao() {
             </p>
             {podeCriarFicha
               ? <Link to="/administracao/estoque" className="inline-block mt-2 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">Criar ficha de produção</Link>
-              : <p className="text-xs text-gray-600 mt-2">Peça à gerência para cadastrar as receitas em Configurações.</p>}
+              : <p className="text-xs text-gray-600 mt-2">Peça à gerência para cadastrar as receitas em Administração → Estoque.</p>}
           </div>
         ) : (
           <div className="space-y-4">
@@ -196,10 +196,12 @@ export default function Producao() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento do item produzido</label>
-                <div className="flex gap-2">
+                {/* 2 por linha, como na Entrada (U12): numa linha só,
+                    "Temperatura ambiente" quebrava espremido */}
+                <div className="grid grid-cols-2 gap-2">
                   {armazenamentos.map(({ id: v, nome: l }) => (
-                    <button key={v} onClick={() => setArmazenamento(v)}
-                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors
+                    <button key={v} type="button" onClick={() => setArmazenamento(v)}
+                      className={`min-h-11 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors
                         ${armazenamento === v ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
                       {l}
                     </button>
@@ -258,7 +260,7 @@ export default function Producao() {
                     {plano.itens.map((i, idx) => (
                       <div key={idx} className="flex items-center justify-between px-4 py-3">
                         <div className="min-w-0">
-                          <div className="font-medium text-sm text-gray-800 truncate">
+                          <div className="font-medium text-sm text-gray-800 break-words">
                             {i.abate ? prodNome(i.produtoId) : i.nome}
                             {!i.abate && <span className="ml-1.5 text-xs font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">não controlado</span>}
                           </div>
@@ -323,10 +325,13 @@ export default function Producao() {
                 Adicionar ingredientes à lista de compras
               </button>
             )}
-            {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
-            <Botao onClick={handleProduzir} disabled={salvando || quem.falta}>
-              {salvando ? 'Registrando…' : 'Registrar Produção'}
-            </Botao>
+            <RodapeLancamento
+              resumo={produtoId && quantidadeNum > 0
+                ? `${fmtNum(quantidadeNum)} ${prodUnid(produtoId)} de ${prodNome(produtoId)}${validadePrevisao ? ` · vence ${fmtData(validadePrevisao)}` : ''}`
+                : ''}
+              rotulo="Registrar Produção" aoTocar={handleProduzir}
+              desativado={quem.falta || !produtoId || !(quantidadeNum > 0)} ocupado={salvando}
+              falta={quem.falta ? AVISO_FALTA_QUEM : !produtoId ? 'Para registrar, escolha o que foi produzido.' : !(quantidadeNum > 0) ? 'Para registrar, digite a quantidade produzida.' : ''} />
             {/* O rodapé saiu: explicava o que o sistema faz por dentro, e a
                 própria tela já mostra o efeito em números logo acima. */}
           </div>

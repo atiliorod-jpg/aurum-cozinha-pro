@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import Abas from '../components/ui/Abas';
 import Layout from '../components/Layout';
-import Botao from '../components/Botao';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { pode } from '../utils/permissoes';
@@ -17,6 +16,7 @@ import { validarDataRegistro } from '../utils/datas';
 import { listaDeCompras, agruparListaPorMateriaPrima, fcEfetivo, preparacoesDoItem } from '../utils/analise';
 import { casaBusca } from '../utils/busca';
 import Icon from '../components/Icons';
+import RodapeLancamento from '../components/lancamento/RodapeLancamento';
 
 // Faixas de boas práticas no recebimento. Não bloqueia nada — só avisa, porque
 // a decisão de aceitar ou recusar a carga é de quem está na doca.
@@ -539,6 +539,10 @@ export default function Compras() {
               </div>
             </div>
 
+            {/* "quem" logo depois da data, como em todo lançamento (Lote 5):
+                estava no fim do formulário, depois de tudo preenchido */}
+            <QuemRegistra manual={form.responsavel} aoManual={v => set('responsavel', v)} />
+
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Item comprado</label>
               <AutocompleteInput
@@ -686,14 +690,15 @@ export default function Compras() {
                 </p>
               </div>
             )}
-
-            <QuemRegistra manual={form.responsavel} aoManual={v => set('responsavel', v)} />
           </div>
 
-          {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
-          <Botao onClick={handleSalvar} disabled={!form.item.trim() || !form.quantidade || salvando || quem.falta}>
-            Registrar Compra
-          </Botao>
+          <RodapeLancamento
+            resumo={form.item.trim() && parseFloat(form.quantidade) > 0
+              ? `${form.item.trim()} · ${fmtNum(form.quantidade)} ${form.unidade === 'cx' ? 'caixa' : form.unidade}${form.fornecedor.trim() ? ` · ${form.fornecedor.trim()}` : ''}`
+              : ''}
+            rotulo="Registrar Compra" aoTocar={handleSalvar}
+            desativado={!form.item.trim() || !form.quantidade || quem.falta} ocupado={salvando}
+            falta={quem.falta ? AVISO_FALTA_QUEM : !form.item.trim() ? 'Para registrar, escreva o item comprado.' : !form.quantidade ? 'Para registrar, digite a quantidade.' : ''} />
         </div>
       ) : null}
     </Layout>

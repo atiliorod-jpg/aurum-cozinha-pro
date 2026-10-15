@@ -16,6 +16,9 @@ import { embalagensRestantes } from '../utils/baixaEtiqueta';
 import { cacheGet, cacheSet } from '../lib/cache';
 import { casaBusca } from '../utils/busca';
 import { ativoNoEstoque } from '../utils/itens';
+import RodapeLancamento from '../components/lancamento/RodapeLancamento';
+import Passador from '../components/lancamento/Passador';
+import { nomeProduto } from '../utils/calculos';
 
 export default function Inventario() {
   const { produtos, estoque, addAjuste, ajustes, removeAjuste, categorias, prefs, setPref, etiquetasImpressas, permissoes, modulo, rid } = useApp();
@@ -149,7 +152,7 @@ export default function Inventario() {
   }, [ajustes]);
 
   return (
-    <Layout title="Inventário / Contagem">
+    <Layout title="Contagem">
       <Abas opcoes={[['novo', 'Contar'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
 
       {tab === 'novo' ? (
@@ -215,16 +218,13 @@ export default function Inventario() {
                 <div key={p.id} className={`px-4 py-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                   <div className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
-                      <div className="text-xs text-gray-500">Sistema: {fmtNum(calc)} {p.unidade}</div>
+                      {/* o nome quebra em duas linhas em vez de cortar (U6) */}
+                      <div className="font-medium text-sm text-gray-800 line-clamp-2 break-words">{p.nome}</div>
+                      <div className="text-xs text-gray-600">Sistema: {fmtNum(calc)} {p.unidade}</div>
                     </div>
-                    <input aria-label={`Quantidade contada de ${p.nome}`}
-                      type="number" inputMode="decimal" min="0" step="0.5"
-                      value={contagem[p.id] ?? ''}
-                      onChange={e => setCont(p.id, e.target.value)}
-                      placeholder="contado"
-                      className="w-24 text-center border border-gray-200 rounded-lg py-2 text-sm font-semibold"
-                    />
+                    {/* − / + também aqui (Lote 5): contar de um em um é o gesto */}
+                    <Passador valor={contagem[p.id]} aoMudar={v => setCont(p.id, v)}
+                      rotulo={`Quantidade contada de ${p.nome}`} placeholder="—" />
                   </div>
                   {diff !== null && diff !== 0 && (
                     <div className={`text-xs font-semibold mt-1 text-right ${diff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
@@ -236,12 +236,11 @@ export default function Inventario() {
             })}
           </div>
 
-          {quem.falta && <p className="text-xs text-gray-600" role="status">{AVISO_FALTA_QUEM}</p>}
-          <button onClick={handleSalvar} disabled={!itensContados.length || salvando || quem.falta}
-            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
-                       disabled:opacity-40 active:scale-95 transition-transform">
-            Salvar Contagem ({itensContados.length})
-          </button>
+          <RodapeLancamento
+            resumo={itensContados.length ? `${plural(itensContados.length, 'item contado', 'itens contados')} · o contado vira o novo saldo` : ''}
+            rotulo={`Salvar Contagem (${itensContados.length})`} aoTocar={handleSalvar} rotuloOcupado="Salvando…"
+            desativado={!itensContados.length || quem.falta} ocupado={salvando}
+            falta={quem.falta ? AVISO_FALTA_QUEM : !itensContados.length ? 'Para salvar, conte pelo menos um item.' : ''} />
         </div>
       ) : (
         <div className="space-y-3">
@@ -253,7 +252,7 @@ export default function Inventario() {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="font-semibold text-sm text-polo-navy">
-                    Contagem — {sessao.itens.length} produto{sessao.itens.length > 1 ? 's' : ''}
+                    Contagem — {plural(sessao.itens.length, 'item', 'itens')}
                   </div>
                   <div className="text-xs text-gray-500">
                     {fmtData(sessao.data)} {sessao.hora && `• ${sessao.hora}`} {sessao.responsavel && `• ${sessao.responsavel}`}
@@ -274,7 +273,7 @@ export default function Inventario() {
                 const p = produtos.find(x => x.id === aj.produtoId);
                 return (
                   <div key={aj.id} className="flex justify-between text-sm border-t border-gray-50 pt-1 mt-1">
-                    <span className="text-gray-700">{p?.nome || aj.produtoId}</span>
+                    <span className="text-gray-700">{p?.nome || nomeProduto(produtos, aj.produtoId)}</span>
                     <span className="font-bold text-blue-700">{fmtNum(aj.quantidade)} {p?.unidade}</span>
                   </div>
                 );

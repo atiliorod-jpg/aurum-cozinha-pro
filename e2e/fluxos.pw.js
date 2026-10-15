@@ -56,7 +56,7 @@ test('Pro: perda do estoque abate o saldo e mostra o motivo por extenso', async 
   await abrir(page, '/aparas');
   await page.getByRole('button', { name: /^Perda/ }).click();
   await entrarComo(page, 'Maria');
-  await page.getByLabel('Produto que perdeu').selectOption('queijo');
+  await page.getByLabel('Qual item foi perdido').selectOption('queijo');
   await page.getByLabel('Quantidade').fill('0.5');
   await page.getByRole('button', { name: /Vencimento/ }).click();
   await page.getByRole('button', { name: 'Registrar Perda' }).click();
@@ -117,7 +117,8 @@ test('Pro: contagem física troca o saldo pelo valor contado', async ({ page }) 
   const item = 'Picanha (porção)';
   await abrir(page, '/inventario');
   await entrarComo(page, 'Maria');
-  await page.getByLabel(`Quantidade contada de ${item}`).fill('3');
+  // o campo, não os botões − / + (que dizem "Diminuir quantidade contada de…")
+  await page.getByLabel(`Quantidade contada de ${item}`, { exact: true }).fill('3');
   await page.getByRole('button', { name: /^Salvar Contagem/ }).click();
   // a confirmação explica que o contado vira a nova base
   await page.getByRole('dialog').getByRole('button', { name: 'Salvar contagem' }).click();
@@ -130,7 +131,7 @@ test('Finalização: fechar o turno contando a sobra', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro', /^Cozinha de Finalização/);
   await abrir(page, '/fechar-turno');
   await entrarComo(page, 'Maria');
-  await page.getByLabel('Sobra de Empanado de Filé (porção)').fill('2');
+  await page.getByLabel('Sobra de Empanado de Filé (porção)', { exact: true }).fill('2');
   await page.getByRole('button', { name: 'Fechar turno', exact: true }).click();
   await expect(page.getByText(/Turno (Almoço|Jantar) fechado/)).toBeVisible();
   // o fechamento de hoje entra na lista dos últimos turnos

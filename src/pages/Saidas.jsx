@@ -17,6 +17,9 @@ import { partirPorValidade } from '../utils/lotes';
 import { tipoBase } from '../utils/modulos';
 import { casaBusca } from '../utils/busca';
 import { ativoNoEstoque } from '../utils/itens';
+import RodapeLancamento from '../components/lancamento/RodapeLancamento';
+import Passador from '../components/lancamento/Passador';
+import { resumoDoLancamento } from '../utils/lancamento';
 
 
 export default function Saidas() {
@@ -63,6 +66,10 @@ export default function Saidas() {
     (paraFinalizacao ? partirPorValidade(quantidade, lotes[produtoId]) : []);
 
   const [salvando, setSalvando] = useState(false); // trava anti-duplo-toque
+  // o pé da tela: "3 itens · 12 unid → Unidade Centro" (Lote 5)
+  const resumo = resumoDoLancamento(
+    itensPreenchidos.map(([id, q]) => ({ quantidade: q, unidade: produtos.find(p => p.id === id)?.unidade })),
+    destino ? rotuloDestino(destino) : '');
   const registrar = () => {
     setTimeout(() => setSalvando(false), 800);
     addSaida({
@@ -150,18 +157,6 @@ export default function Saidas() {
       <Abas opcoes={[['novo', '+ Nova saída'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
-          <button onClick={handleSalvar} disabled={!itensPreenchidos.length || salvando || quem.falta}
-            className="w-full bg-polo-navy text-polo-gold font-bold py-4 rounded-xl text-base
-                       disabled:opacity-40 active:scale-95 transition-transform">
-            Registrar Saída
-          </button>
-          {/* o botão apagado diz o que falta (28/09/2026) */}
-          {!salvando && (quem.falta || !itensPreenchidos.length) && (
-            <p className="text-xs text-gray-600 -mt-2" role="status">
-              {quem.falta ? AVISO_FALTA_QUEM : 'Para registrar, digite a quantidade de pelo menos um item abaixo.'}
-            </p>
-          )}
-
           <div className="bg-white rounded-xl p-4 space-y-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
@@ -171,7 +166,7 @@ export default function Saidas() {
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Destino</label>
               {destinosDeSaida.length === 0 ? (
-                <p className="text-xs text-amber-600">Nenhum destino cadastrado. Crie em Configurações → Sistema.</p>
+                <p className="text-xs text-amber-800">Nenhum destino cadastrado. Crie em Administração → Estoque.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {destinosDeSaida.map(l => (
@@ -209,8 +204,9 @@ export default function Saidas() {
             {produtosVisiveis.map((p, i, arr) => (
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
-                  <div className="text-xs text-gray-500">
+                  {/* o nome quebra em duas linhas em vez de cortar (U6) */}
+                  <div className="font-medium text-sm text-gray-800 line-clamp-2 break-words">{p.nome}</div>
+                  <div className="text-xs text-gray-600">
                     Em estoque: <span className={`font-semibold ${(estoque[p.id] ?? 0) <= 0 ? 'text-red-700' : 'text-gray-600'}`}>{fmtNum(estoque[p.id] ?? 0)} {p.unidade}</span>
                   </div>
                   {(lotes[p.id] || []).length > 0 && (
@@ -230,22 +226,7 @@ export default function Saidas() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <button aria-label={`Diminuir quantidade de ${p.nome}`}
-                    onClick={() => setQtd(p.id, Math.max(0, (parseFloat(qtds[p.id]) || 0) - 1).toString())}
-                    className="w-11 h-11 rounded-full bg-gray-100 text-gray-600 font-bold text-lg flex items-center justify-center flex-shrink-0">−</button>
-                  <input
-                    type="number" inputMode="decimal" min="0" step="0.5"
-                    value={qtds[p.id] ?? ''}
-                    onChange={e => setQtd(p.id, e.target.value)}
-                    placeholder="0"
-                    aria-label={`Quantidade de ${p.nome}`}
-                    className="w-16 text-center border border-gray-200 rounded-lg py-2.5 text-sm font-semibold"
-                  />
-                  <button aria-label={`Aumentar quantidade de ${p.nome}`}
-                    onClick={() => setQtd(p.id, ((parseFloat(qtds[p.id]) || 0) + 1).toString())}
-                    className="w-11 h-11 rounded-full bg-polo-navy text-polo-gold font-bold text-lg flex items-center justify-center flex-shrink-0">+</button>
-                </div>
+                <Passador valor={qtds[p.id]} aoMudar={v => setQtd(p.id, v)} rotulo={`Quantidade de ${p.nome}`} />
               </div>
             ))}
           </div>
@@ -257,31 +238,26 @@ export default function Saidas() {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
           </div>
 
-          {itensPreenchidos.length > 0 && (
-            <div className="bg-red-50 rounded-xl p-3 border border-red-100">
-              <p className="text-xs font-semibold text-red-700 mb-1">
-                Saída para {rotuloDestino(destino)}:
-              </p>
+          {/* ⚠️ Para a Finalização, a validade que vai junto (2ª etapa): fica
+              logo acima do pé, porque é o que a outra cozinha vai receber */}
+          {paraFinalizacao && itensPreenchidos.some(([id, qtd]) => porValidadeDe(id, parseFloat(qtd)).length) && (
+            <div className="bg-white rounded-xl p-3 border border-gray-200">
+              <p className="text-xs font-semibold text-polo-navy mb-1">Vai com a validade dos lotes mais antigos:</p>
               {itensPreenchidos.map(([id, qtd]) => {
-                const p = produtos.find(x => x.id === id);
                 const partes = porValidadeDe(id, parseFloat(qtd));
+                if (!partes.length) return null;
                 return (
-                  <div key={id} className="text-sm">
-                    <div className="flex justify-between">
-                      <span>{p?.nome}</span>
-                      <span className="font-bold text-red-700">−{qtd} {p?.unidade}</span>
-                    </div>
-                    {partes.length > 0 && (
-                      <p className="text-xs text-gray-600">
-                        {partes.map(x => `${fmtNum(x.quantidade)} vence ${fmtData(x.validade)}`).join(' + ')}
-                      </p>
-                    )}
-                  </div>
+                  <p key={id} className="text-xs text-gray-700">
+                    <strong>{nomeProduto(produtos, id)}</strong>: {partes.map(x => `${fmtNum(x.quantidade)} vence ${fmtData(x.validade)}`).join(' + ')}
+                  </p>
                 );
               })}
             </div>
           )}
 
+          <RodapeLancamento resumo={resumo} rotulo="Registrar Saída" aoTocar={handleSalvar}
+            desativado={!itensPreenchidos.length || quem.falta} ocupado={salvando}
+            falta={quem.falta ? AVISO_FALTA_QUEM : !itensPreenchidos.length ? 'Para registrar, digite a quantidade de pelo menos um item.' : ''} />
         </div>
       ) : (
         <div className="space-y-3">
