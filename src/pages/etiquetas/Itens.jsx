@@ -8,11 +8,13 @@ import Aviso from '../../components/Aviso';
 import PlanilhaDeItens from '../../components/PlanilhaDeItens';
 import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
-import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../../data/bibliotecaEtiquetas';
+import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
 import { armazenamentosAtivos, listarArmazenamentos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../../utils/armazenamento';
 import { metodosDoProduto, normalizarMetodo, espelhoDosMetodos, metodosRepetidos, novoIdDeMetodo,
          temPrazo, prazoComHoras, listarEstados } from '../../utils/metodos';
 import PreviaEtiquetaItem from '../../components/PreviaEtiquetaItem';
+import OrganizarGrupos from '../../components/OrganizarGrupos';
+import { gruposDoProduto, comGrupos, ordemDosGrupos, nomeDeGrupo } from '../../utils/grupos';
 import { medidaDoProduto, gramasDeMedida } from '../../utils/etiquetas';
 import { useAuth } from '../../store/AuthContext';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../../utils/produto';
@@ -20,7 +22,7 @@ import { casaBusca } from '../../utils/busca';
 import { temRecurso } from '../../utils/modulos';
 import { calcSugestoesMinMax } from '../../utils/sugestoes';
 import { fatorCorrecaoProduto } from '../../utils/analise';
-import { fmtNum, plural } from '../../utils/formatters';
+import { fmtNum } from '../../utils/formatters';
 import { controlaEstoque, controlaPorPadrao, normalizarUnidade, UNIDADES_COMUNS } from '../../utils/itens';
 import { idDoNome } from '../../utils/planilhaItens';
 import Icon from '../../components/Icons';
@@ -67,22 +69,23 @@ export default function Itens() {
   const [busca, setBusca] = useState('');
   const [editando, setEditando] = useState(null); // {produto} | {rascunho} | null
   const [planilha, setPlanilha] = useState(false);
+  const [organizando, setOrganizando] = useState(false);
 
   const meus = useMemo(() => produtos.filter(p => p.ativo !== false), [produtos]);
   const removidos = useMemo(() => produtos.filter(p => p.ativo === false), [produtos]);
   const meusFiltrados = useMemo(() => {
-    return busca.trim() ? meus.filter(p => casaBusca(busca, p.nome, p.categoria)) : meus;
+    // a busca acha pelo nome e por QUALQUER grupo do item ("almoço" acha o frango)
+    return busca.trim() ? meus.filter(p => casaBusca(busca, p.nome, ...gruposDoProduto(p))) : meus;
   }, [meus, busca]);
 
   // ⚠️ Agrupado por categoria, sempre — nas duas abas, com a MESMA ordem.
   // "Proteínas na ala delas" é requisito do produto, não enfeite: lista corrida
   // de 200 itens é onde se perde tempo no meio do serviço.
-  const ordemCategorias = useMemo(() => {
-    // as da biblioteca primeiro (ordem pensada), depois as que o cliente criou
-    const extras = categorias.filter(c => !CATEGORIAS_BIBLIOTECA.includes(c));
-    return [...CATEGORIAS_BIBLIOTECA, ...extras];
-  }, [categorias]);
-  const gruposCriados = useMemo(() => categorias.filter(c => !CATEGORIAS_BIBLIOTECA.includes(c)), [categorias]);
+  // ⚠️ A ORDEM É A DA LISTA DA CASA (Lote 11, parte 2): o dono ordena em
+  // "Organizar grupos". Conta nova nasce com a da biblioteca, na ordem dela.
+  // O cabeçalho é o grupo PRINCIPAL do item (o primeiro): item em dois grupos
+  // não aparece duas vezes na lista.
+  const ordemCategorias = useMemo(() => ordemDosGrupos(categorias), [categorias]);
 
   const gruposMeus = useMemo(
     () => agruparPorCategoria(meusFiltrados, ordemCategorias),
@@ -158,7 +161,8 @@ export default function Itens() {
     const dados = {
       ...comEspelhoDePrazos({
         nome,
-        categoria: form.categoria,
+        // o principal vira a `categoria`, que o estoque lê (ver utils/grupos.js)
+        ...comGrupos({}, form.grupos?.length ? form.grupos : [form.categoria]),
         unidade: normalizarUnidade(form.unidade),
         tipoData,
         armazenamentoPadrao,
@@ -197,8 +201,9 @@ export default function Itens() {
     };
 
     // categoria nova criada na hora entra no catálogo do restaurante
-    if (dados.categoria && !categorias.includes(dados.categoria)) {
-      setCategorias([...categorias, dados.categoria]);
+    const novos = dados.grupos.filter(g => !categorias.includes(g));
+    if (novos.length) {
+      setCategorias([...categorias, ...novos]);
     }
 
     if (form.id) {
@@ -246,18 +251,6 @@ export default function Itens() {
     toast(`"${p.nome}" voltou para a lista.`, 'sucesso');
   };
 
-  const removerGrupo = async (g) => {
-    const emUso = produtos.filter(p => p.categoria === g).length;
-    if (emUso > 0) {
-      toast(`${plural(emUso, 'item usa', 'itens usam')} o grupo "${g}". Mude esses itens de grupo antes.`, 'aviso');
-      return;
-    }
-    const ok = await confirm({ titulo: 'Remover grupo', mensagem: `Remover o grupo "${g}"?`, perigo: true, confirmar: 'Remover' });
-    if (!ok) return;
-    setCategorias(categorias.filter(c => c !== g));
-    toast('Grupo removido.', 'sucesso');
-  };
-
   const semPrazo = meus.filter(p => !temAlgumPrazo(p)).length;
 
   return (
@@ -294,6 +287,11 @@ export default function Itens() {
             {/* Cadastro em massa: baixar, mexer no Excel, importar de volta */}
             <Botao variante="secundario" largura="auto" className="px-4" onClick={() => setPlanilha(true)}>Planilha</Botao>
           </div>
+          {/* os grupos da casa: criar, renomear, ordenar e apagar (Lote 11) */}
+          <button type="button" onClick={() => setOrganizando(true)}
+            className="w-full min-h-11 mb-4 rounded-xl border border-polo-navy/30 bg-white text-sm font-bold text-polo-navy">
+            Organizar grupos
+          </button>
 
           {meus.length === 0 ? (
             <div className="bg-white rounded-xl p-6 text-center">
@@ -323,6 +321,11 @@ export default function Itens() {
                             {p.tipoData === 'abertura' && ' · data de abertura'}
                             {p.marca && ` · ${p.marca}`}
                           </span>
+                          {gruposDoProduto(p).length > 1 && (
+                            <span className="block text-xs text-gray-600 truncate">
+                              também em {gruposDoProduto(p).slice(1).join(', ')}
+                            </span>
+                          )}
                         </span>
                         {/* no Pro, o item que não entra nas contas do estoque
                             precisa se anunciar: senão a pessoa procura ele na
@@ -365,31 +368,6 @@ export default function Itens() {
             </details>
           )}
 
-          {/* Remover grupo morava em Configurações → Produtos. Os grupos da
-              biblioteca são fixos; só os criados pela casa saem. */}
-          {gruposCriados.length > 0 && (
-            <details className="mt-3 bg-white rounded-xl">
-              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-700">
-                Grupos criados por você ({gruposCriados.length})
-              </summary>
-              <ul className="divide-y divide-gray-100 border-t border-gray-100">
-                {gruposCriados.map(g => {
-                  const n = produtos.filter(p => p.categoria === g).length;
-                  return (
-                    <li key={g} className="flex items-center gap-3 px-4 py-1">
-                      <span className="flex-1 min-w-0 text-sm text-gray-700 truncate">
-                        {g} <span className="text-gray-600">· {plural(n, 'item', 'itens')}</span>
-                      </span>
-                      <button type="button" onClick={() => removerGrupo(g)} aria-label={`Remover o grupo ${g}`}
-                        className="min-h-11 px-3 text-sm font-bold text-red-700">
-                        Remover
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </details>
-          )}
         </>
       ) : (
         <div className="space-y-4">
@@ -432,7 +410,7 @@ export default function Itens() {
       {editando && (
         <ModalItem
           inicial={editando}
-          categorias={ordemCategorias}
+          categorias={categorias}
           armazenamentos={armazenamentos}
           todosArmazenamentos={todosArmazenamentos}
           estados={estados}
@@ -451,6 +429,10 @@ export default function Itens() {
       )}
 
       {planilha && <PlanilhaDeItens soEtiq={soEtiq} aoFechar={() => setPlanilha(false)} />}
+      {organizando && (
+        <OrganizarGrupos produtos={produtos} setProdutos={setProdutos}
+          categorias={categorias} setCategorias={setCategorias} aoFechar={() => setOrganizando(false)} />
+      )}
     </Layout>
   );
 }
@@ -489,6 +471,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
     fcPct: inicial.fcManual ? String(Math.round((inicial.fcMedio || 0) * 100)) : '',
     prazos: Object.fromEntries(Object.entries(inicial.prazos || {}).map(([k, v]) => [k, numVazio(v)])),
     // no Seco, o aberto fica em temperatura ambiente (ver produtoParaEtiqueta)
+    grupos: gruposDoProduto(inicial),
     metodos: metodosDaFicha(inicial, armazenamentos,
       abertoPorPadrao && armazenamentos.some(a => a.id === 'ambiente') ? 'ambiente' : null),
   }));
@@ -507,11 +490,12 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
     return () => window.removeEventListener('keydown', h);
   }, [onFechar]);
 
-  // ⚠️ A categoria ATUAL entra na lista mesmo que não esteja em `categorias`:
-  // um <select> cujo value não casa com nenhuma option mostra a primeira e, ao
-  // salvar, move o item de categoria sem ninguém pedir.
-  const opcoes = categorias.includes(form.categoria) || !form.categoria
-    ? categorias : [form.categoria, ...categorias];
+  // ⚠️ Os grupos ATUAIS do item entram na lista mesmo fora da lista da casa
+  // (grupo apagado, planilha antiga): senão não teria como desmarcá-los.
+  const opcoes = [...categorias, ...form.grupos.filter(g => !categorias.includes(g))];
+  // recolhido: no plano Etiquetas a ficha é curta de propósito, e 13 grupos
+  // abertos ocupariam meia tela de botões
+  const [vendoGrupos, setVendoGrupos] = useState(false);
 
   const semPrazo = !(form.metodos || []).some(temPrazo);
   const repetidos = metodosRepetidos(form.metodos);
@@ -545,12 +529,22 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
     String(form.fcPct || '').trim() !== '' && `fator de correção ${form.fcPct}%`,
   ].filter(Boolean).join(' · ');
 
+  // o grupo criado aqui já entra marcado (e na lista da casa, ao salvar)
   const confirmarCat = () => {
-    const c = novaCat.trim().toUpperCase();
+    const c = nomeDeGrupo(novaCat);
     if (!c) return;
-    set('categoria', c);
+    setForm(p => ({ ...p, grupos: p.grupos.includes(c) ? p.grupos : [...p.grupos, c] }));
     setNovaCat(''); setCriandoCat(false);
   };
+  // ⚠️ O item precisa de PELO MENOS UM grupo: sem nenhum ele cairia em
+  // "OUTROS" sem ninguém pedir. Desmarcar o único não faz nada (o texto
+  // embaixo diz por quê).
+  const alternarGrupo = (g) => setForm(p => {
+    if (!p.grupos.includes(g)) return { ...p, grupos: [...p.grupos, g] };
+    if (p.grupos.length === 1) return p;
+    return { ...p, grupos: p.grupos.filter(x => x !== g) };
+  });
+  const tornarPrincipal = (g) => setForm(p => ({ ...p, grupos: [g, ...p.grupos.filter(x => x !== g)] }));
 
   const tituloParte = 'text-sm font-bold text-polo-navy uppercase tracking-wide pt-2 border-t border-gray-100';
 
@@ -580,28 +574,64 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
               tela, a pessoa respondia "geladeira" aqui e criava um grupo com
               nome de câmara. "Grupo" é a palavra que o próprio botão + Novo já
               usa no campo de baixo. */}
-          <label htmlFor="mi-cat" className="block text-xs font-semibold text-gray-600 mb-1">Grupo</label>
-          {criandoCat ? (
-            <div className="flex items-center gap-2">
-              <input type="text" value={novaCat} onChange={e => setNovaCat(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') confirmarCat(); }}
-                autoFocus placeholder="Nome do grupo (ex.: VEGANOS)"
-                aria-label="Nome do novo grupo" className={inputCls} />
-              <Botao onClick={confirmarCat} tamanho="sm" largura="auto">OK</Botao>
-              <button onClick={() => { setCriandoCat(false); setNovaCat(''); }}
-                className="min-h-11 text-sm text-gray-600 px-2">Cancelar</button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <select id="mi-cat" value={form.categoria} onChange={e => set('categoria', e.target.value)}
-                className={`${inputCls} bg-white flex-1`}>
-                {opcoes.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              {/* O cliente pode criar grupos além dos tradicionais */}
-              <button onClick={() => setCriandoCat(true)}
-                className="min-h-11 text-sm font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 flex-shrink-0">
-                + Novo
-              </button>
+          {/* ⚠️ VÁRIOS GRUPOS (Lote 11, parte 2 — visto no Suflex): o item
+              pode estar em "AVES" e em "ALMOÇO DE FUNCIONÁRIOS". O primeiro é
+              o principal: é o cabeçalho dele nas listas e o que o estoque lê. */}
+          <div className="flex items-center gap-2">
+            <p id="mi-grupos" className="flex-1 min-w-0 text-xs text-gray-600">
+              <span className="block font-semibold">Grupos</span>
+              <span className="block text-sm font-bold text-polo-navy truncate">{form.grupos.join(' · ')}</span>
+            </p>
+            <button type="button" onClick={() => setVendoGrupos(v => !v)} aria-expanded={vendoGrupos}
+              className="min-h-11 text-sm font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 flex-shrink-0">
+              {vendoGrupos ? 'Fechar' : 'Escolher grupos'}
+            </button>
+          </div>
+          {vendoGrupos && (
+            <div className="mt-2 space-y-2">
+              <div role="group" aria-labelledby="mi-grupos" className="flex flex-wrap gap-1.5">
+                {opcoes.map(g => {
+                  const marcado = form.grupos.includes(g);
+                  return (
+                    <button key={g} type="button" aria-pressed={marcado} onClick={() => alternarGrupo(g)}
+                      className={`min-h-11 px-3 rounded-full border-2 text-xs font-bold flex items-center gap-1
+                        ${marcado ? 'border-polo-navy bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-700'}`}>
+                      {marcado && <span aria-hidden="true"><Icon name="check" size={14} /></span>}
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
+              {criandoCat ? (
+                <div className="flex items-center gap-2">
+                  <input type="text" value={novaCat} onChange={e => setNovaCat(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') confirmarCat(); }}
+                    autoFocus placeholder="Nome do grupo (ex.: Almoço de funcionários)" maxLength={40}
+                    aria-label="Nome do novo grupo" className={inputCls} />
+                  <Botao onClick={confirmarCat} tamanho="sm" largura="auto">OK</Botao>
+                  <button onClick={() => { setCriandoCat(false); setNovaCat(''); }}
+                    className="min-h-11 text-sm text-gray-600 px-2">Cancelar</button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setCriandoCat(true)}
+                  className="min-h-11 text-sm font-bold text-polo-navy underline">
+                  + Novo grupo
+                </button>
+              )}
+              {form.grupos.length > 1 ? (
+                <div>
+                  <label htmlFor="mi-principal" className="block text-xs font-semibold text-gray-600 mb-1">Grupo principal</label>
+                  <select id="mi-principal" value={form.grupos[0]} onChange={e => tornarPrincipal(e.target.value)}
+                    className={`${inputCls} bg-white min-h-11`}>
+                    {form.grupos.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                  <p className="text-xs text-gray-600 mt-1">
+                    É nele que o item aparece nas listas. Nos outros, ele aparece quando você filtra pelo grupo.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-600">Toque para marcar mais de um. O item precisa de pelo menos um grupo.</p>
+              )}
             </div>
           )}
         </div>

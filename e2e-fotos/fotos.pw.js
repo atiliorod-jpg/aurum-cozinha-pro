@@ -35,6 +35,13 @@ test('plano Etiquetas', async ({ page }) => {
   await page.getByRole('button', { name: /^Molho de tomate da casa/ }).click();
   await page.getByRole('dialog').getByRole('group', { name: 'Método principal' }).getByRole('button', { name: 'Ver etiqueta' }).click();
   await fotografar(page, 'etq_ficha_metodos', { fullPage: false });
+  // os grupos na ficha e a janela de organizar (Lote 11, parte 2)
+  await page.getByRole('dialog').getByRole('button', { name: 'Escolher grupos' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Escolher grupos' }).or(page.getByRole('dialog').getByRole('button', { name: 'Fechar', exact: true }).last()).first().scrollIntoViewIfNeeded();
+  await fotografar(page, 'etq_ficha_grupos', { fullPage: false });
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Organizar grupos' }).click();
+  await fotografar(page, 'etq_organizar_grupos', { fullPage: false });
 });
 
 test('plano Pro, Produção', async ({ page }) => {

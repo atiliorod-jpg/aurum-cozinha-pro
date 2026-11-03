@@ -26,6 +26,7 @@
 
 import { comEspelhoDePrazos } from './armazenamento';
 import { metodosDoProduto, aplicarPrazosDaPlanilha, espelhoDosMetodos } from './metodos';
+import { gruposDoProduto, gruposDoTexto, SEPARADOR_DE_GRUPOS } from './grupos';
 import { gramasDeMedida } from './etiquetas';
 import { normalizarUnidade, controlaEstoque, controlaPorPadrao } from './itens';
 
@@ -78,6 +79,8 @@ export function linhaDoItem(p, colunas) {
     if (k.startsWith('prazo:')) return Number(prazos[k.slice(6)]) || '';
     switch (k) {
       case 'tipoData': return p.tipoData === 'abertura' ? 'abertura' : 'manipulação';
+      // vários grupos numa célula, o principal primeiro: "AVES; ALMOÇO DE FUNCIONÁRIOS"
+      case 'categoria': return gruposDoProduto(p).join(`${SEPARADOR_DE_GRUPOS} `);
       case 'controlaEstoque': return controlaEstoque(p) ? 'sim' : 'não';
       case 'entradaCozida': return p.entradaCozida ? 'sim' : 'não';
       case 'medidaPadrao': return p.medidaPadrao || (p.gramatura > 0 ? `${p.gramatura} g` : '');
@@ -158,7 +161,13 @@ export function lerPlanilhaDeItens(rows, { armazenamentos = [] } = {}) {
       if (campo.startsWith('prazo:')) { prazos[campo.slice(6)] = Math.max(0, Math.round(numBR(v))); return; }
       switch (campo) {
         case 'nome': item.nome = texto(v); break;
-        case 'categoria': if (texto(v)) item.categoria = texto(v).toUpperCase(); break;
+        // ⚠️ Vários grupos separados por ";" (Lote 11, parte 2). O primeiro é o
+        // principal e vira a `categoria`, que o estoque lê.
+        case 'categoria': {
+          const grupos = gruposDoTexto(texto(v));
+          if (grupos.length) { item.grupos = grupos; item.categoria = grupos[0]; }
+          break;
+        }
         case 'unidade': if (texto(v)) item.unidade = normalizarUnidade(v); break;
         case 'medidaPadrao': item.medidaPadrao = texto(v); break;
         case 'gramatura': if (numBR(v) > 0 && !item.medidaPadrao) item.medidaPadrao = `${numBR(v)} g`; break;

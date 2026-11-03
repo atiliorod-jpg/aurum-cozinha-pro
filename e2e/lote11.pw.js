@@ -108,3 +108,60 @@ test('Estoque Seco: salvar a ficha não troca o pote aberto para congelado', asy
   await expect(janela.getByText(/Sugerimos/)).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
+
+// ── Parte 2: grupos da casa (03/11/2026) ──
+test('Etiquetas: a casa cria o grupo, põe o item em dois grupos e filtra na hora de imprimir', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await abrir(page, '/itens');
+  await page.getByRole('button', { name: 'Organizar grupos' }).click();
+  let janela = page.getByRole('dialog');
+  await janela.getByLabel('Nome do novo grupo').fill('Almoço de funcionários');
+  await janela.getByRole('button', { name: 'Criar', exact: true }).click();
+  await expect(janela.getByText('ALMOÇO DE FUNCIONÁRIOS', { exact: true })).toBeVisible();
+  // BOVINOS só tem a picanha: não dá para apagar
+  await janela.getByRole('button', { name: 'Remover o grupo BOVINOS' }).click();
+  await expect(page.getByText(/1 item só está no grupo "BOVINOS"/)).toBeVisible();
+  await janela.getByRole('button', { name: 'Pronto' }).click();
+
+  // o frango vai também para o almoço
+  await page.getByRole('button', { name: /^Frango desfiado/ }).click();
+  const ficha = page.getByRole('dialog');
+  await ficha.getByRole('button', { name: 'Escolher grupos' }).click();
+  const almoco = ficha.getByRole('button', { name: 'ALMOÇO DE FUNCIONÁRIOS' });
+  await expect(almoco).toHaveAttribute('aria-pressed', 'false');
+  await almoco.click();
+  await expect(almoco).toHaveAttribute('aria-pressed', 'true');
+  await expect(ficha.getByLabel('Grupo principal')).toHaveValue('AVES');
+  await ficha.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('main')).toContainText('também em ALMOÇO DE FUNCIONÁRIOS');
+
+  // na tela de imprimir, o botão do grupo filtra; a busca acha pelo grupo
+  await abrir(page, '/');
+  await entrarComo(page, 'Maria');
+  const filtros = page.getByRole('group', { name: 'Grupo' });
+  await filtros.getByRole('button', { name: 'ALMOÇO DE FUNCIONÁRIOS' }).click();
+  await expect(page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Imprimir etiqueta de Picanha (porção)' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'ALMOÇO DE FUNCIONÁRIOS' })).toBeVisible();
+  await filtros.getByRole('button', { name: 'Todos' }).click();
+  await expect(page.getByRole('button', { name: 'Imprimir etiqueta de Picanha (porção)' })).toBeVisible();
+
+  // renomear troca no item também
+  await abrir(page, '/itens');
+  await page.getByRole('button', { name: 'Organizar grupos' }).click();
+  janela = page.getByRole('dialog');
+  await janela.getByRole('button', { name: 'Renomear o grupo ALMOÇO DE FUNCIONÁRIOS' }).click();
+  await janela.getByLabel('Novo nome do grupo ALMOÇO DE FUNCIONÁRIOS').fill('Almoço da equipe');
+  await janela.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(janela.getByText('ALMOÇO DA EQUIPE', { exact: true })).toBeVisible();
+  // e sobe para o topo da lista
+  for (let i = 0; i < 20; i++) {
+    const subir = janela.getByRole('button', { name: 'Subir o grupo ALMOÇO DA EQUIPE' });
+    if (await subir.isDisabled()) break;
+    await subir.click();
+  }
+  await janela.getByRole('button', { name: 'Pronto' }).click();
+  await expect(page.locator('main')).toContainText('também em ALMOÇO DA EQUIPE');
+  expect(erros, erros.join('\n')).toEqual([]);
+});

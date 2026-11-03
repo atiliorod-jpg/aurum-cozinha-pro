@@ -79,7 +79,8 @@ describe('toques e contraste nos pontos que importam', () => {
     const f = ler('../../components/ui/Filtros.jsx');
     expect(f).toMatch(/aria-pressed=\{valor === v\}/);
     expect(f).toMatch(/min-h-11 px-4 rounded-full/);
-    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/<Filtros rotulo="Categoria" valor=\{catAtiva\} aoTrocar=\{setCatAtiva\}/);
+    // "Grupo" desde o Lote 11, parte 2 (os grupos da casa)
+    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/<Filtros rotulo="Grupo" valor=\{catAtiva\} aoTrocar=\{setCatAtiva\}/);
     expect(ler('../../pages/Validades.jsx')).toMatch(/aria-pressed=\{filtro === v\}/);
     expect(ler('../../pages/Pagamento.jsx')).toMatch(/role="radiogroup" aria-label="Duração do plano"/);
   });

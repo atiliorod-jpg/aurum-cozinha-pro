@@ -181,13 +181,13 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (03/11/2026) — LOTE 11, PARTE 1: MÉTODOS DE CONSERVAÇÃO (sem migração)
+## Onde paramos (03/11/2026) — LOTE 11 INTEIRO: MÉTODOS DE CONSERVAÇÃO + GRUPOS DA CASA (sem migração)
 
 Ideia das fotos do Suflex que o dono mandou. Aprovado por ele: prazo em dias,
 horas e minutos; vários métodos por item; horário na etiqueta por método;
 "Ver etiqueta" dentro da ficha. Regra da hora: **"manter como hoje"** (prazo
-em dias repete a hora da manipulação; nada de 23h59). Testes: **978** e
-**54 cenários** do robô.
+em dias repete a hora da manipulação; nada de 23h59). Testes: **995** e
+**55 cenários** do robô (parte 1: commit ec24ce9; parte 2: grupos, abaixo).
 
 **Como ficou:**
 - `utils/metodos.js` (puro, com o porquê de cada regra): o item tem
@@ -236,12 +236,27 @@ nova — investigar Entradas/useRascunho antes de subir o Vite. `npm audit fix`
 solto também subiu o eslint-plugin-react-refresh e acusou o LeitorQR: atualizar
 só o pacote com falha.
 
-**Próximo: Lote 11, parte 2 — grupos** (aprovado): grupos criados pelo
-cliente (criar, renomear, ordenar, esconder os da biblioteca), item em VÁRIOS
-grupos escolhidos na ficha, e a tela de imprimir filtrando/buscando por
-grupo. Hoje "Grupo" na ficha é a `categoria` (um só) — planejar a migração
-de leitura como foi com `prazos` → `metodos`, e mostrar a ideia final ao dono
-antes de aplicar.
+**Parte 2 — grupos da casa** (aprovado: "Sim, pode fazer"; botões em Meus
+itens):
+- `utils/grupos.js`: o item tem `grupos: [...]`, o PRIMEIRO é o principal e
+  continua gravado em `categoria` (é o que o estoque e os aparelhos velhos
+  leem). Item antigo: `gruposDoProduto` = [categoria]. Nomes em MAIÚSCULAS;
+- a lista da casa (`categorias`) é a ORDEM: `ordemDosGrupos` (conta nova =
+  biblioteca na ordem dela, igual a antes). Cabeçalhos das listas = grupo
+  principal (item em dois grupos não aparece duas vezes);
+- **Meus itens → "Organizar grupos"** (`components/OrganizarGrupos.jsx`):
+  criar, renomear (troca nos itens também), ↑/↓, remover. Remover TRAVA se
+  algum item ativo ficaria sem grupo; grava na hora;
+- **ficha**: "Grupos" recolhido (resumo + "Escolher grupos"), pílulas com
+  `aria-pressed`, "+ Novo grupo", "Grupo principal" quando há 2+. Pelo menos
+  um grupo sempre;
+- **Imprimir**: filtro "Grupo" por QUALQUER grupo do item (um cabeçalho só,
+  o do grupo escolhido); a busca acha pelos grupos;
+- **planilha**: coluna Grupo com vários separados por ";" (o primeiro é o
+  principal); todos entram na lista da casa.
+
+**Ideias que ficaram de fora (não pedidas):** grupos não aparecem como filtro
+nas telas do estoque (Entradas, Saídas, Contagem usam só o principal).
 
 **Depois, quando o token do Supabase voltar:** M61 → Lote 8 + resto do
 Lote 10 (ver a seção de 15/10 abaixo).

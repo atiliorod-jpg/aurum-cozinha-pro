@@ -36,7 +36,7 @@ export default function PlanilhaDeItens({ soEtiq, aoFechar }) {
     const instrucoes = [
       ['Coluna', 'O que preencher'],
       ['Nome', 'Obrigatório. Igual ao de um item seu: atualiza o item. Nome novo: cria um item.'],
-      ['Grupo', 'Obrigatório. Ex.: PROTEÍNAS, LATICÍNIOS. Grupo novo é criado sozinho.'],
+      ['Grupo', 'Obrigatório. Ex.: PROTEÍNAS, LATICÍNIOS. Grupo novo é criado sozinho. Mais de um grupo: separe com ponto e vírgula (AVES; ALMOÇO DE FUNCIONÁRIOS) — o primeiro é o principal.'],
       ['Unidade', 'kg, g, L, mL ou unid.'],
       ['Medida padrão', 'Sugestão do campo Medida ao imprimir. Ex.: 150 g, 1 kg.'],
       ['Data na etiqueta', '"manipulação" (você porcionou, cortou ou cozinhou) ou "abertura" (você abriu a embalagem do fabricante).'],
@@ -85,7 +85,8 @@ export default function PlanilhaDeItens({ soEtiq, aoFechar }) {
           comEstoque,
           abertoPorPadrao: temRecurso(modulo, 'etiquetaDeAbertura'),
         });
-        const novas = [...new Set(itens.map(i => i.categoria).filter(c => c && !categorias.includes(c)))];
+        // todos os grupos da planilha entram na lista da casa, não só o principal
+        const novas = [...new Set(itens.flatMap(i => i.grupos || [i.categoria]).filter(c => c && !categorias.includes(c)))];
         if (novas.length) setCategorias([...categorias, ...novas]);
         setProdutos(r.produtos);
         logAudit('importou planilha de itens', `${r.criados} novos, ${r.atualizados} atualizados`);

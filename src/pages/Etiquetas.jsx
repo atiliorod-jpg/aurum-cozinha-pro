@@ -6,13 +6,14 @@ import Layout from '../components/Layout';
 import PrimeiroUso from '../components/PrimeiroUso';
 import { FaixaImpressora, CartaoImpressora } from '../components/Impressora';
 import { useApp } from '../store/AppContext';
-import { agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../data/bibliotecaEtiquetas';
+import { agruparPorCategoria } from '../data/bibliotecaEtiquetas';
 import { useUI } from '../store/UIContext';
 import { hoje } from '../utils/formatters';
 import { etiquetaComArmazenamento, produtoParaEtiqueta } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
 import { armazenamentoInicial } from '../utils/etiquetas';
 import { metodosDoProduto, metodoInicial, rotuloDoMetodo, prazoCurto, temPrazo, listarEstados } from '../utils/metodos';
+import { gruposDoProduto, estaNoGrupo, ordemDosGrupos } from '../utils/grupos';
 import { medidaDoProduto, maisUsados } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
@@ -187,11 +188,14 @@ export default function Etiquetas() {
   // ── Aba Catálogo ─────────────────────────────────────────────
   const produtosAtivos = produtos.filter(p => p.ativo);
   const buscando = busca.trim().length > 0;
+  // ⚠️ O FILTRO É POR QUALQUER GRUPO DO ITEM (Lote 11, parte 2): o frango de
+  // AVES aparece também em "ALMOÇO DE FUNCIONÁRIOS". A busca acha pelos
+  // grupos também.
   const produtosVisiveis = buscando
-    ? produtosAtivos.filter(p => casaBusca(busca, p.nome, p.categoria))
+    ? produtosAtivos.filter(p => casaBusca(busca, p.nome, ...gruposDoProduto(p)))
     : catAtiva === ''
       ? produtosAtivos
-      : produtosAtivos.filter(p => p.categoria === catAtiva);
+      : produtosAtivos.filter(p => estaNoGrupo(p, catAtiva));
 
   // ⚠️ AGRUPADO POR CATEGORIA, IGUAL A "MEUS ITENS". Esta tela era a única
   // lista corrida do app: os itens saíam na ordem em que foram cadastrados, e
@@ -202,10 +206,15 @@ export default function Etiquetas() {
   // A ordem das categorias é a da biblioteca (pensada: proteínas juntas),
   // com as que o restaurante criou no fim, em ordem alfabética. Dentro de
   // cada uma, alfabética — nome é o que a pessoa procura.
-  const ordemCategorias = useMemo(() => {
-    const extras = categorias.filter(c => !CATEGORIAS_BIBLIOTECA.includes(c));
-    return [...CATEGORIAS_BIBLIOTECA, ...extras];
-  }, [categorias]);
+  // ⚠️ Desde o Lote 11 (parte 2) a ordem é a da lista da casa, que o dono
+  // arruma em Meus itens → Organizar grupos (conta nova: a da biblioteca).
+  const ordemCategorias = useMemo(() => ordemDosGrupos(categorias), [categorias]);
+  // os botões de grupo: só os que têm item, na ordem da casa
+  const gruposEmUso = useMemo(() => {
+    const usados = new Set(produtos.filter(p => p.ativo).flatMap(gruposDoProduto));
+    return [...ordemCategorias.filter(g => usados.has(g)),
+      ...[...usados].filter(g => !ordemCategorias.includes(g)).sort()];
+  }, [produtos, ordemCategorias]);
 
   // Os mais etiquetados dos últimos 14 dias NESTA cozinha (a lista de
   // impressas é por cozinha — com unidades, por unidade). Ver maisUsados.
@@ -216,8 +225,11 @@ export default function Etiquetas() {
   const gruposVisiveis = useMemo(() => {
     const ordenados = [...produtosVisiveis].sort((a, b) =>
       (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' }));
+    // com um grupo escolhido, um cabeçalho só — o dele: o item que é de AVES
+    // e do almoço apareceria sob "AVES" no filtro do almoço
+    if (catAtiva !== '' && !buscando) return [[catAtiva, ordenados]];
     return agruparPorCategoria(ordenados, ordemCategorias);
-  }, [produtosVisiveis, ordemCategorias]);
+  }, [produtosVisiveis, ordemCategorias, catAtiva, buscando]);
 
   const imprimirProduto = (original) => {
     // no Estoque Seco a etiqueta é de ABERTURA e o padrão é o ambiente (se a
@@ -357,8 +369,8 @@ export default function Etiquetas() {
               nenhum. Desde o Lote 7 (14/10/2026) Entradas e Saídas seguem a
               mesma regra. */}
           {!buscando && (
-            <Filtros rotulo="Categoria" valor={catAtiva} aoTrocar={setCatAtiva}
-              opcoes={categorias.filter(c => produtosAtivos.some(p => p.categoria === c))} />
+            <Filtros rotulo="Grupo" valor={catAtiva} aoTrocar={setCatAtiva}
+              opcoes={gruposEmUso} />
           )}
           <div className="bg-white rounded-xl overflow-hidden">
             {produtosVisiveis.length === 0 && !buscando && !nuvemCarregada && <Esqueleto rotulo="Carregando os itens" />}
