@@ -12,6 +12,7 @@ import { hoje } from '../utils/formatters';
 import { etiquetaComArmazenamento, produtoParaEtiqueta } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
 import { armazenamentoInicial } from '../utils/etiquetas';
+import { metodosDoProduto, metodoInicial, rotuloDoMetodo, prazoCurto, temPrazo, listarEstados } from '../utils/metodos';
 import { medidaDoProduto, maisUsados } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { useAuth } from '../store/AuthContext';
@@ -161,21 +162,19 @@ export default function Etiquetas() {
   const primeiroUsoNaTela = faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria: temPermissao('diretoria') }).mostrar;
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   const armazenamentos = armazenamentosAtivos(prefs);
-  // Prazos que o item tem, por estado, na ordem configurada. Só os preenchidos:
-  // listar "0d" para os quatro estados enche a linha de ruído.
-  const prazosVisiveis = (p) => {
-    const prazos = prazosDoProduto(p);
-    return armazenamentos
-      .map(a => ({ nome: a.nome, dias: Number(prazos[a.id]) || 0 }))
-      .filter(x => x.dias > 0);
-  };
+  const estados = listarEstados(prefs);
+  // Os métodos do item com prazo, num armazenamento que a casa ainda usa. Só
+  // os preenchidos: listar "0d" para os quatro estados enche a linha de ruído.
+  const prazosVisiveis = (p) => metodosDoProduto(p)
+    .filter(m => temPrazo(m) && armazenamentos.some(a => a.id === m.armazenamento))
+    .map(m => ({ nome: rotuloDoMetodo(m, armazenamentos, estados), prazo: prazoCurto(m) }));
 
   // Uma linha só quando todos os estados dão o mesmo número.
   const resumoDePrazos = (p) => {
     const v = prazosVisiveis(p);
     if (!v.length) return 'sem prazo cadastrado — etiqueta só de identificação';
-    if (v.length > 1 && v.every(x => x.dias === v[0].dias)) return `${v[0].dias}d em qualquer estado`;
-    return v.map(x => `${x.nome} ${x.dias}d`).join(' · ');
+    if (v.length > 1 && v.every(x => x.prazo === v[0].prazo)) return `${v[0].prazo} em qualquer estado`;
+    return v.map(x => `${x.nome} ${x.prazo}`).join(' · ');
   };
 
   // `?aba=impressora` abre direto no guia da impressora: é o caminho do
@@ -245,9 +244,16 @@ export default function Etiquetas() {
     // cada item no meio do serviço é o atrito que faz largar o app.
     // `armazenamentoInicial` só aceita a memória se o estado ainda existe e
     // tem prazo; senão cai no cadastro, como sempre foi.
-    armazenamento: etiquetaComArmazenamento(modulo)
-      ? armazenamentoInicial(p, prefs.ultimoArmazenamento, armazenamentos, prazosDoProduto(p))
-      : null,
+    // ⚠️ COM MÉTODOS (Lote 11), quem abre é o método — e o armazenamento é o
+    // dele. A mesma memória do aparelho, agora com o id do método.
+    ...(() => {
+      if (!etiquetaComArmazenamento(modulo)) return { armazenamento: null, metodoId: null };
+      const metodos = metodosDoProduto(p);
+      const m = metodoInicial(p, prefs.ultimoArmazenamento, armazenamentos, metodos);
+      return m
+        ? { armazenamento: m.armazenamento, metodoId: m.id, metodos }
+        : { armazenamento: armazenamentoInicial(p, prefs.ultimoArmazenamento, armazenamentos, prazosDoProduto(p)), metodoId: null, metodos };
+    })(),
     // Prazo por estado, no formato novo. Os dois campos antigos seguem indo
     // junto porque o produto pode ainda não ter sido salvo no formato novo —
     // prazosDoProduto resolve os dois.

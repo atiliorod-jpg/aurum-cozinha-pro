@@ -29,6 +29,12 @@ test('plano Etiquetas', async ({ page }) => {
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   // o código do QR é sorteado a cada etiqueta: fica de fora da comparação
   await fotografar(page, 'etq_janela_imprimir', { fullPage: false, mask: [page.locator('.etiqueta-label')] });
+  // a ficha do item com os métodos de conservação e a prévia (Lote 11)
+  await page.keyboard.press('Escape');
+  await abrir(page, '/itens');
+  await page.getByRole('button', { name: /^Molho de tomate da casa/ }).click();
+  await page.getByRole('dialog').getByRole('group', { name: 'Método principal' }).getByRole('button', { name: 'Ver etiqueta' }).click();
+  await fotografar(page, 'etq_ficha_metodos', { fullPage: false });
 });
 
 test('plano Pro, Produção', async ({ page }) => {

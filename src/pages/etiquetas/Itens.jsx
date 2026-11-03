@@ -9,7 +9,10 @@ import PlanilhaDeItens from '../../components/PlanilhaDeItens';
 import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
 import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria, CATEGORIAS_BIBLIOTECA } from '../../data/bibliotecaEtiquetas';
-import { armazenamentosAtivos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../../utils/armazenamento';
+import { armazenamentosAtivos, listarArmazenamentos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../../utils/armazenamento';
+import { metodosDoProduto, normalizarMetodo, espelhoDosMetodos, metodosRepetidos, novoIdDeMetodo,
+         temPrazo, prazoComHoras, listarEstados } from '../../utils/metodos';
+import PreviaEtiquetaItem from '../../components/PreviaEtiquetaItem';
 import { medidaDoProduto, gramasDeMedida } from '../../utils/etiquetas';
 import { useAuth } from '../../store/AuthContext';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../../utils/produto';
@@ -50,6 +53,9 @@ export default function Itens() {
   const { sessao, impersonando } = useAuth();
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   const armazenamentos = armazenamentosAtivos(prefs);
+  // todos (também os desligados): o método antigo pode estar num deles
+  const todosArmazenamentos = listarArmazenamentos(prefs);
+  const estados = listarEstados(prefs);
   // No Estoque Seco a etiqueta é sempre de ABERTURA (o lacrado já vem
   // etiquetado pelo fabricante) — a ficha nasce assim, e controlando estoque.
   const abertoPorPadrao = temRecurso(modulo, 'etiquetaDeAbertura');
@@ -132,8 +138,16 @@ export default function Itens() {
     // etiqueta — erro que vai colado no pote. Derivado, sem pedir mais um
     // campo no formulário: manda o que o usuário escolheu, senão o único
     // estado que tem prazo preenchido, senão a sugestão da biblioteca.
-    const comPrazo = Object.entries(form.prazos || {}).filter(([, v]) => Number(v) > 0).map(([k]) => k);
-    const armazenamentoPadrao = form.armazenamentoPadrao
+    // ⚠️ MÉTODOS (Lote 11): o primeiro cartão É o padrão do item. E o
+    // formato antigo (`prazos`) continua gravado, espelhado dos métodos — é o
+    // que o estoque e os aparelhos com versão velha leem (ver utils/metodos.js).
+    // Prazo em horas mostra o horário sempre; a chave fica gravada ligada.
+    const metodos = (form.metodos || []).map(normalizarMetodo)
+      .map(m => (prazoComHoras(m) ? { ...m, mostrarHora: true } : m));
+    const prazos = metodos.length ? espelhoDosMetodos(metodos) : (form.prazos || {});
+    const comPrazo = Object.entries(prazos).filter(([, v]) => Number(v) > 0).map(([k]) => k);
+    const armazenamentoPadrao = metodos[0]?.armazenamento
+      || form.armazenamentoPadrao
       || (comPrazo.length === 1 ? comPrazo[0] : null)
       || form.armazenamentoSugerido
       || comPrazo[0]
@@ -162,7 +176,8 @@ export default function Itens() {
         estoqueInicial: Number(form.estoqueInicial) || 0,
         pesoUnidade: Number(form.pesoUnidade) || 0,
         ativo: true,
-      }, form.prazos),
+        metodos,
+      }, prazos),
       // ⚠️ O Pro grava a escolha EXPLÍCITA de controlar estoque. A regra do
       // tipo de data (utils/itens.js) só vale para item que nunca passou por
       // esta ficha; no Seco, por exemplo, ela diria "só etiqueta" para tudo.
@@ -419,6 +434,8 @@ export default function Itens() {
           inicial={editando}
           categorias={ordemCategorias}
           armazenamentos={armazenamentos}
+          todosArmazenamentos={todosArmazenamentos}
+          estados={estados}
           soEtiq={soEtiq}
           tipoPadrao={tipoPadrao}
           abertoPorPadrao={abertoPorPadrao}
@@ -438,7 +455,27 @@ export default function Itens() {
   );
 }
 
-function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, onFechar, soEtiq,
+// Os cartões da ficha: os números ficam como texto enquanto edita.
+// ⚠️ O ARMAZENAMENTO PADRÃO DO ITEM É SEMPRE O PRIMEIRO CARTÃO, mesmo sem
+// prazo — e o primeiro cartão vira o padrão ao salvar. Sem isto, o item
+// antigo cujo padrão não tinha prazo mudava de padrão só por ser salvo. O caso
+// grave é o Estoque Seco: o item abre em temperatura ambiente e o "congelado"
+// dele é o prazo de prateleira da embalagem FECHADA (540 dias no extrato);
+// salvar a ficha fazia o pote aberto sair "CONGELADO" com 540 dias. A ficha
+// antiga já fazia isso (o padrão ia para o único prazo preenchido).
+// Item sem método nenhum abre com um cartão vazio: nunca zero cartões.
+function metodosDaFicha(inicial, armazenamentos, padraoDoModulo = null) {
+  const padrao = inicial.armazenamentoPadrao || inicial.armazenamentoSugerido || padraoDoModulo;
+  const lista = metodosDoProduto({ ...inicial, armazenamentoPadrao: padrao })
+    .map(m => ({ ...m, dias: numVazio(m.dias), horas: numVazio(m.horas), minutos: numVazio(m.minutos) }));
+  const vazio = (armazenamento) => ({ id: novoIdDeMetodo(lista), armazenamento, estado: '', dias: '', horas: '', minutos: '', mostrarHora: true });
+  if (padrao && !lista.some(m => m.armazenamento === padrao)) return [vazio(padrao), ...lista];
+  if (lista.length) return lista;
+  return [vazio(armazenamentos[0]?.id || 'congelado')];
+}
+
+function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = armazenamentos, estados = [],
+  onSalvar, onRemover, onFechar, soEtiq,
   tipoPadrao = 'fabricacao', abertoPorPadrao = false, temProducao = false, sugestao = null,
   autoMinMax = false, fcAuto = null, subgruposExistentes = [] }) {
   const [form, setForm] = useState(() => ({
@@ -451,7 +488,12 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
     controlaEstoque: inicial.id ? controlaEstoque(inicial) : inicial.controlaEstoque,
     fcPct: inicial.fcManual ? String(Math.round((inicial.fcMedio || 0) * 100)) : '',
     prazos: Object.fromEntries(Object.entries(inicial.prazos || {}).map(([k, v]) => [k, numVazio(v)])),
+    // no Seco, o aberto fica em temperatura ambiente (ver produtoParaEtiqueta)
+    metodos: metodosDaFicha(inicial, armazenamentos,
+      abertoPorPadrao && armazenamentos.some(a => a.id === 'ambiente') ? 'ambiente' : null),
   }));
+  // qual cartão está com a prévia aberta ("Ver etiqueta")
+  const [previa, setPrevia] = useState(null);
   const [novaCat, setNovaCat] = useState('');
   const [criandoCat, setCriandoCat] = useState(false);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -471,7 +513,23 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
   const opcoes = categorias.includes(form.categoria) || !form.categoria
     ? categorias : [form.categoria, ...categorias];
 
-  const semPrazo = !Object.values(form.prazos || {}).some(v => Number(v) > 0);
+  const semPrazo = !(form.metodos || []).some(temPrazo);
+  const repetidos = metodosRepetidos(form.metodos);
+  const mudarMetodo = (i, patch) => setForm(p => ({ ...p, metodos: p.metodos.map((m, j) => (j === i ? { ...m, ...patch } : m)) }));
+  // ⚠️ O cartão novo nasce num armazenamento que o item AINDA NÃO usa: com o
+  // primeiro da lista, quase sempre sairia repetido, já com o aviso vermelho.
+  const adicionarMetodo = () => setForm(p => {
+    const livre = armazenamentos.find(a => !p.metodos.some(m => m.armazenamento === a.id))
+      || armazenamentos[0];
+    return { ...p, metodos: [...p.metodos, {
+      id: novoIdDeMetodo(p.metodos), armazenamento: livre?.id || 'congelado', estado: '',
+      dias: '', horas: '', minutos: '', mostrarHora: true,
+    }] };
+  });
+  const removerMetodo = (i) => {
+    setForm(p => ({ ...p, metodos: p.metodos.filter((_, j) => j !== i) }));
+    setPrevia(null);
+  };
   const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
   const daBiblioteca = !!inicial.origemBiblioteca;
   const controla = form.controlaEstoque ?? controlaPorPadrao(form.tipoData, abertoPorPadrao);
@@ -640,26 +698,113 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
               que era a validade de fábrica, que não é o que o app calcula. */}
           <p className="text-xs font-semibold text-gray-600 mb-1.5">
             {form.tipoData === 'abertura'
-              ? 'Depois de ABERTO, dura quantos dias?'
-              : 'Depois de MANIPULADO, dura quantos dias?'}
+              ? 'Depois de ABERTO, como fica guardado e quanto dura?'
+              : 'Depois de MANIPULADO, como fica guardado e quanto dura?'}
           </p>
           <p className="text-xs text-gray-600 mb-2">
             {form.tipoData === 'abertura'
-              ? 'Está na embalagem do fabricante — algo como "após aberto, consumir em 3 dias". Preencha na temperatura em que você guarda.'
-              : 'É o prazo do processo da sua cozinha, em cada temperatura de guarda.'}
+              ? 'Está na embalagem do fabricante — algo como "após aberto, consumir em 3 dias". '
+              : 'É o prazo do processo da sua cozinha. '}
+            Um método para cada jeito de guardar (na câmara, na pista fria, descongelando). O primeiro é o
+            que a etiqueta usa se ninguém escolher outro.
           </p>
-          <div className="grid grid-cols-2 gap-3">
-            {armazenamentos.map(a => (
-              <div key={a.id}>
-                <label htmlFor={`mi-prazo-${a.id}`} className="block text-xs text-gray-600 mb-1">
-                  {a.nome}{a.faixa && <span className="text-gray-600"> · {a.faixa}</span>}
-                </label>
-                <input id={`mi-prazo-${a.id}`} type="number" inputMode="numeric" min="0"
-                  value={form.prazos?.[a.id] ?? ''}
-                  onChange={e => set('prazos', { ...(form.prazos || {}), [a.id]: e.target.value })}
-                  placeholder="0" className={inputCls} />
-              </div>
-            ))}
+          {/* ⚠️ MÉTODOS EM CARTÕES (Lote 11, ideia do Suflex): antes eram um
+              campo de dias para CADA armazenamento da casa, usado ou não, e um
+              só prazo por armazenamento. Agora o item tem só os métodos que
+              usa, o mesmo armazenamento pode repetir com um estado diferente,
+              e o prazo pode ser em horas. */}
+          <div className="space-y-3">
+            {form.metodos.map((m, i) => {
+              const base = `${id}-m${i}`;
+              const titulo = i === 0 ? 'Método principal' : `Método ${i + 1}`;
+              const repetido = repetidos.has(`${m.armazenamento}|${m.estado || ''}`);
+              const comHoras = prazoComHoras(m);
+              // ⚠️ O valor ATUAL entra na lista mesmo fora dela (armazenamento
+              // desligado, estado apagado): um <select> sem a opção mostra a
+              // primeira e, ao salvar, troca o método sem ninguém pedir.
+              const opcoesArm = armazenamentos.some(a => a.id === m.armazenamento)
+                ? armazenamentos
+                : [{ id: m.armazenamento, nome: `${todosArmazenamentos.find(a => a.id === m.armazenamento)?.nome || m.armazenamento} (desligado)` }, ...armazenamentos];
+              const opcoesEst = !m.estado || estados.some(e => e.id === m.estado)
+                ? estados : [{ id: m.estado, nome: `${m.estado} (apagado)` }, ...estados];
+              return (
+                <div key={m.id} role="group" aria-labelledby={`${base}-t`}
+                  className={`rounded-xl border-2 p-3 space-y-2 ${repetido ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p id={`${base}-t`} className="text-sm font-bold text-polo-navy">{titulo}</p>
+                    {form.metodos.length > 1 && (
+                      <button type="button" onClick={() => removerMetodo(i)}
+                        aria-label={`Remover ${titulo.toLowerCase()}`}
+                        className="min-h-11 px-2 text-sm font-bold text-red-700">
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label htmlFor={`${base}-arm`} className="block text-xs text-gray-600 mb-1">Armazenamento</label>
+                      <select id={`${base}-arm`} value={m.armazenamento}
+                        onChange={e => mudarMetodo(i, { armazenamento: e.target.value })}
+                        className={`${inputCls} bg-white min-h-11`}>
+                        {/* só o nome: em meia largura, com a faixa, o celular
+                            cortava no meio ("Refrigerado · 0°C..."). A faixa
+                            aparece na prévia, que é o papel. */}
+                        {opcoesArm.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label htmlFor={`${base}-est`} className="block text-xs text-gray-600 mb-1">Estado (opcional)</label>
+                      <select id={`${base}-est`} value={m.estado || ''}
+                        onChange={e => mudarMetodo(i, { estado: e.target.value })}
+                        className={`${inputCls} bg-white min-h-11`}>
+                        <option value="">Nenhum</option>
+                        {opcoesEst.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[['dias', 'Dias', 3650], ['horas', 'Horas', 23], ['minutos', 'Minutos', 59]].map(([k, rotulo, max]) => (
+                      <div key={k}>
+                        <label htmlFor={`${base}-${k}`} className="block text-xs text-gray-600 mb-1">{rotulo}</label>
+                        <input id={`${base}-${k}`} type="number" inputMode="numeric" min="0" max={max}
+                          value={m[k] ?? ''} placeholder="0"
+                          onChange={e => mudarMetodo(i, { [k]: e.target.value })}
+                          className={inputCls} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span id={`${base}-hora`} className="flex-1 text-sm text-gray-800">Mostrar horário na etiqueta</span>
+                    {/* ⚠️ Prazo em horas: a chave trava LIGADA. "Vence 14/10"
+                        de um molho que dura 2 h não diz quando jogar fora. */}
+                    <Chave ligada={comHoras || m.mostrarHora !== false} desativada={comHoras}
+                      aoTrocar={v => mudarMetodo(i, { mostrarHora: v })} rotuladoPor={`${base}-hora`} />
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    {comHoras
+                      ? 'Prazo em horas: o horário sai sempre, na manipulação e na validade.'
+                      : m.mostrarHora !== false
+                        ? 'A manipulação e a validade saem com o horário (a validade repete a hora da manipulação).'
+                        : 'As datas saem sem o horário.'}
+                  </p>
+                  {repetido && (
+                    <p className="text-xs font-semibold text-red-700">
+                      Já existe outro método com este armazenamento e este estado. Mude um dos dois ou remova este.
+                    </p>
+                  )}
+                  <button type="button" onClick={() => setPrevia(previa === m.id ? null : m.id)}
+                    aria-expanded={previa === m.id}
+                    className="min-h-11 text-sm font-bold text-polo-navy underline">
+                    {previa === m.id ? 'Esconder etiqueta' : 'Ver etiqueta'}
+                  </button>
+                  {previa === m.id && <PreviaEtiquetaItem item={form} metodo={m} />}
+                </div>
+              );
+            })}
+            <button type="button" onClick={adicionarMetodo}
+              className="w-full min-h-11 rounded-xl border-2 border-dashed border-polo-navy/40 text-sm font-bold text-polo-navy">
+              + Adicionar método
+            </button>
           </div>
           {/* Aviso, não bloqueio — mas o texto antigo dizia que ficar em branco
               era "certo para item que segue a validade do fabricante", e o dono
@@ -811,7 +956,9 @@ function ModalItem({ inicial, categorias, armazenamentos, onSalvar, onRemover, o
         <div className="flex gap-3 pt-1">
           <button onClick={onFechar}
             className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Cancelar</button>
-          <Botao onClick={() => onSalvar(form)} disabled={!(form.nome || '').trim()} className="flex-1">
+          {/* método repetido trava: dois "Resfriado" sem estado, e a impressão
+              não teria como saber qual dos dois prazos vale */}
+          <Botao onClick={() => onSalvar(form)} disabled={!(form.nome || '').trim() || repetidos.size > 0} className="flex-1">
             {inicial.id ? 'Salvar' : 'Adicionar'}
           </Botao>
         </div>

@@ -181,6 +181,75 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (03/11/2026) — LOTE 11, PARTE 1: MÉTODOS DE CONSERVAÇÃO (sem migração)
+
+Ideia das fotos do Suflex que o dono mandou. Aprovado por ele: prazo em dias,
+horas e minutos; vários métodos por item; horário na etiqueta por método;
+"Ver etiqueta" dentro da ficha. Regra da hora: **"manter como hoje"** (prazo
+em dias repete a hora da manipulação; nada de 23h59). Testes: **978** e
+**54 cenários** do robô.
+
+**Como ficou:**
+- `utils/metodos.js` (puro, com o porquê de cada regra): o item tem
+  `metodos: [{ id, armazenamento, estado, dias, horas, minutos, mostrarHora }]`.
+  Item antigo não tem: `metodosDoProduto` deriva do `prazos` (id = id do
+  armazenamento, o padrão primeiro). **O formato antigo continua gravado**:
+  `espelhoDosMetodos` → `prazos` + valCongelado/valResfriado, com os DIAS do
+  método sem estado de cada armazenamento (sem ele, o primeiro). Prazo só em
+  horas vira **0** no espelho, de propósito (aparelho velho imprime sem
+  validade em vez de uma mais longa);
+- **estados** da casa (Pista fria, Pista quente, Descongelando) em
+  `prefs.estadosConservacao`, cartão `CartaoEstados` em Administração →
+  Etiqueta. O id nasce do nome e não muda ao renomear;
+- **ficha** (`pages/etiquetas/Itens.jsx`): cartões por método (armazenamento,
+  estado, dias/horas/minutos, chave "Mostrar horário na etiqueta", "Ver
+  etiqueta", remover) + "Adicionar método". Repetido (mesmo armazenamento E
+  estado) trava o Salvar. O primeiro cartão é o padrão do item;
+- **prévia** `components/PreviaEtiquetaItem.jsx` usa o `EtiquetaLabel`
+  (agora exportado do EtiquetaPrint), sem QR e sem responsável;
+- **janela de impressão**: "Método de conservação" com `m:<id>` (método) ou
+  `a:<armazenamento>` (outro armazenamento, sem prazo); Dias/Horas/Minutos
+  valem JUNTOS (basta um preenchido); a memória do aparelho
+  (`ultimoArmazenamento`) guarda o id do MÉTODO (`metodoInicial`);
+- `montarCamposEtiqueta` ganhou `estadoNome`, `horasValidade`,
+  `minutosValidade`, `validadeHora`, `mostrarHora`. Prazo com horas mostra a
+  hora SEMPRE (a chave trava ligada);
+- a linha da etiqueta impressa guarda `estado`, `estadoNome`, `metodoId`,
+  `validadeHora` (só quando difere da hora) e `semHora` (no `dados` jsonb,
+  sem migração; teto de 2 KB da M55). Impressas mostra a hora e o estado, e
+  `statusEtiqueta(e, hoje, agora)` vence a de prazo em horas na hora dela;
+- planilha: `aplicarPrazosDaPlanilha` (número igual ao baixado não mexe;
+  diferente vai para o método que a coluna mostra);
+- **defeito antigo corrigido junto:** no Estoque Seco, salvar a ficha mudava
+  o padrão do item para "congelado" (o único prazo preenchido, que no Seco é
+  a validade da embalagem FECHADA) e o pote aberto saía "CONGELADO 540
+  dias". Agora o padrão do item é sempre o primeiro cartão, mesmo sem prazo,
+  e `metodoInicial` abre no padrão sem método quando ele não tem método.
+
+**Dependências (segurança):** o `npm audit` passou a acusar vite (launch-editor
+e servidor de desenvolvimento) e zod (só no lint) — travaria o deploy. Vite
+**8.1.6** (não o 8.3.x) e zod 4.6.7. ⚠️ Com o **Vite 8.3.4/8.3.5** o cenário
+"Pro: entrada avulsa" falhou em 3 de 4 rodadas completas (o "3" digitado
+some do campo, a pessoa já escolhida) e passou 30/30 sozinho; com 8.0.16 e
+8.1.6, tudo verde em todas as rodadas. Corrida de tempo exposta pela versão
+nova — investigar Entradas/useRascunho antes de subir o Vite. `npm audit fix`
+solto também subiu o eslint-plugin-react-refresh e acusou o LeitorQR: atualizar
+só o pacote com falha.
+
+**Próximo: Lote 11, parte 2 — grupos** (aprovado): grupos criados pelo
+cliente (criar, renomear, ordenar, esconder os da biblioteca), item em VÁRIOS
+grupos escolhidos na ficha, e a tela de imprimir filtrando/buscando por
+grupo. Hoje "Grupo" na ficha é a `categoria` (um só) — planejar a migração
+de leitura como foi com `prazos` → `metodos`, e mostrar a ideia final ao dono
+antes de aplicar.
+
+**Depois, quando o token do Supabase voltar:** M61 → Lote 8 + resto do
+Lote 10 (ver a seção de 15/10 abaixo).
+
+Lembrar o dono: APK e Stripe.
+
+---
+
 ## Onde paramos (15/10/2026) — AUDITORIA: LOTES 0 A 7, 9 E 10 (PARTE 1) PUBLICADOS
 
 O plano está em `AUDITORIA_GERAL_2026-10-14.md` (seção "Andamento"). Feitos e

@@ -157,7 +157,9 @@ test('plano Pro, Estoque Seco: etiqueta de abertura, ambiente como padrão, e va
   await page.getByRole('button', { name: 'Imprimir etiqueta de Extrato de tomate (340g)' }).click();
   const janela = page.getByRole('dialog');
   await expect(janela.getByText('Data de abertura').first()).toBeVisible();
-  await expect(janela.getByRole('combobox').filter({ hasText: /ambiente/i }).first()).toHaveValue('ambiente');
+  // "a:" = armazenamento sem método (Lote 11): o "congelado" do seco é o
+  // prazo da embalagem fechada, e o pote aberto sai em ambiente
+  await expect(janela.getByRole('combobox').filter({ hasText: /ambiente/i }).first()).toHaveValue('a:ambiente');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);

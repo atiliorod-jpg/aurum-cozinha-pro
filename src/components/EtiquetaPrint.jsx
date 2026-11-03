@@ -16,9 +16,10 @@ import Dialogo from './Dialogo';
 import Aviso from './Aviso';
 import { linkSuporte } from '../utils/suporte';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId,
-         DIAS_VALIDADE_MAX, limitarDias, avisoDePrazo,
-         diasIniciaisDaEtiqueta, usandoSugestaoDeAbertura,
-         lembrarArmazenamentos, quantoSomaNaContagem } from '../utils/etiquetas';
+         DIAS_VALIDADE_MAX, limitarDias, limitarAte, avisoDePrazo,
+         usandoSugestaoDeAbertura,
+         lembrarArmazenamentos, quantoSomaNaContagem, prazoInicialDaEtiqueta, metodoDoItem } from '../utils/etiquetas';
+import { metodosDoProduto, normalizarMetodo, rotuloDoMetodo, textoDoPrazo, listarEstados } from '../utils/metodos';
 import { armazenamentosAtivos, acharArmazenamento } from '../utils/armazenamento';
 import { loteTSPL, medirEtiqueta, nivelDeDesenho } from '../utils/tspl';
 import EtiquetaTSPL from './EtiquetaTSPL';
@@ -125,7 +126,9 @@ function Linha({ rotulo, valor, forte = false, corpo = '3mm' }) {
 const NIVEL_PADRAO = { linhasNome: 1, sifLoteSeparado: false, linhasEndereco: 1 };
 
 // Um bloco de etiqueta física (repetido N vezes conforme a quantidade de cópias).
-function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADRAO }) {
+// ⚠️ EXPORTADA para a prévia da ficha do item (Meus itens → "Ver etiqueta"):
+// o desenho é um só, e a prévia de lá não pode virar uma terceira versão.
+export function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADRAO }) {
   const c = config.campos;
   const comQR = config.incluirQR && qr?.svg;
   const est = estabelecimento || {};
@@ -322,6 +325,9 @@ export default function EtiquetaPrint() {
   const config = useMemo(() => ({ ...configEtiqueta(prefs), incluirQR: qrLigado }), [prefs, qrLigado]);
   // Estados de armazenamento configuráveis (Configurações → Sistema).
   const armazenamentos = armazenamentosAtivos(prefs);
+  // Pista fria, Pista quente... — os estados da casa (Lote 11)
+  const estados = listarEstados(prefs);
+  const nomeDoEstado = (id) => estados.find(e => e.id === id)?.nome || '';
   // ⚠️ IMPRIMIR DÁ ENTRADA, SE A PESSOA QUISER (decisão do dono, 01/10/2026).
   // Imprimir pela tela Etiquetas não lançava nada no estoque: a saída pelo QR
   // depois deixava o saldo negativo e não achava o lote da validade. No Pro,
@@ -441,11 +447,34 @@ export default function EtiquetaPrint() {
         // é a abertura do modal (efeito), nunca o render.
         // ⚠️ Produto ABERTO sem prazo cadastrado ganha a sugestão de 3 dias em
         // vez de sair sem validade nenhuma — ver diasIniciaisDaEtiqueta.
-        const diasIniciais = diasIniciaisDaEtiqueta(resolvido);
+        // ⚠️ OS MÉTODOS DO ITEM (Lote 11): vêm de quem abriu a janela ou do
+        // cadastro. O método escolhido é o pedido; senão, o do armazenamento
+        // (e do estado, na reimpressão) — é o que faz a entrada, a produção e
+        // a reimpressão abrirem no método certo sem saber que ele existe.
+        const metodos = Array.isArray(resolvido.metodos)
+          ? resolvido.metodos.map(normalizarMetodo)
+          : (p ? metodosDoProduto(p) : []);
+        const metodo = resolvido.metodoId !== undefined
+          ? metodos.find(m => m.id === resolvido.metodoId) || null
+          : metodos.find(m => m.armazenamento === resolvido.armazenamento && m.estado === (resolvido.estado || '')) || null;
+        const ini = prazoInicialDaEtiqueta({ ...resolvido, metodos, metodoId: metodo?.id || null });
+        const diasIniciais = ini.dias;
+        const txt = (n) => (n > 0 ? String(n) : '');
         return {
           ...resolvido,
-          diasOverride: diasIniciais > 0 ? String(diasIniciais) : '',
-          _diasOriginal: diasIniciais > 0 ? String(diasIniciais) : '',
+          metodos,
+          metodoId: metodo?.id || null,
+          // ⚠️ A REIMPRESSÃO diz se o papel original tinha hora (`semHora`) e
+          // manda ela: a etiqueta de reposição sai igual, mesmo que o método
+          // tenha mudado depois. Fora dela, vale a chave do método.
+          mostrarHora: resolvido.semHora != null ? !resolvido.semHora : (metodo ? metodo.mostrarHora : true),
+          diasOverride: txt(diasIniciais),
+          horasOverride: txt(ini.horas),
+          minutosOverride: txt(ini.minutos),
+          _diasOriginal: txt(diasIniciais),
+          _horasOriginal: txt(ini.horas),
+          _minutosOriginal: txt(ini.minutos),
+          _metodoOriginal: metodo?.id || null,
           // ⚠️ REIMPRESSÃO MANTÉM O CÓDIGO (30/09/2026): a etiqueta nova
           // substitui a estragada. Com código novo, o sistema contaria uma
           // embalagem a mais — e a velha continuaria "na prateleira".
@@ -485,7 +514,13 @@ export default function EtiquetaPrint() {
   // como ponto de partida e deixar a pessoa mudar.
   const diasDoCadastro = (item) => {
     if (item.diasValidade != null) return item.diasValidade;
+    const m = metodoDoItem(item);
+    if (m) return m.dias;
     if (!comArmazenamento) return item.prazos?.congelado ?? item.diasCongelado ?? 0;
+    // ⚠️ Item com métodos, fora deles: SEM prazo. O `prazos` de um item novo
+    // é o espelho dos métodos, e o "resfriado" dele pode ser o da pista fria.
+    // (Item antigo dá no mesmo: cada prazo preenchido já virou um método.)
+    if (item.metodos?.length) return 0;
     return item.prazos?.[item.armazenamento]
       ?? (item.armazenamento === 'congelado' ? item.diasCongelado
         : item.armazenamento === 'resfriado' ? item.diasResfriado
@@ -503,18 +538,31 @@ export default function EtiquetaPrint() {
     // saída era largar a impressão e ir até Meus itens — com o pote na mão, no
     // meio do serviço. Também cobre o lote que veio com prazo diferente do
     // padrão, que é caso comum e não justifica mexer no cadastro.
-    const dias = item.diasOverride != null && item.diasOverride !== ''
+    // ⚠️ DIAS, HORAS E MINUTOS ANDAM JUNTOS (Lote 11): basta um dos três
+    // preenchido para valer o que está na tela. Se só os dias contassem, um
+    // "2 h" com os dias em branco cairia no prazo do cadastro, e o
+    // `prazos[armazenamento]` é o do método SEM estado — a pista quente de
+    // 2 h sairia com os 3 dias do resfriado comum.
+    const m = metodoDoItem(item);
+    const vale = (v) => v != null && v !== '';
+    const digitou = vale(item.diasOverride) || vale(item.horasOverride) || vale(item.minutosOverride);
+    const horas = digitou ? (parseInt(item.horasOverride) || 0) : (item.diasValidade == null && m ? m.horas : 0);
+    const minutos = digitou ? (parseInt(item.minutosOverride) || 0) : (item.diasValidade == null && m ? m.minutos : 0);
+    const dias = digitou
       ? (parseInt(item.diasOverride) || 0)
       : item.diasValidade != null ? item.diasValidade
+      : m ? m.dias
       // sem câmara fria (despensa): o prazo de prateleira é único e fica em
       // diasCongelado. Sem esta linha a etiqueta do seco saía SEM validade.
       : !comArmazenamento ? (item.prazos?.congelado ?? item.diasCongelado ?? 0)
+      : item.metodos?.length ? 0
       : (item.prazos?.[item.armazenamento]
          ?? (item.armazenamento === 'congelado' ? item.diasCongelado
            : item.armazenamento === 'resfriado' ? item.diasResfriado
            : 0)
          ?? 0);
-    const naoEditado = item._dataOriginal === item.dataFabricacao && item._armazOriginal === item.armazenamento;
+    const naoEditado = item._dataOriginal === item.dataFabricacao && item._armazOriginal === item.armazenamento
+      && (item._metodoOriginal ?? null) === (item.metodoId ?? null);
     const armaz = acharArmazenamento(prefs, item.armazenamento);
     return montarCamposEtiqueta({
       nome: item.nome,
@@ -523,6 +571,12 @@ export default function EtiquetaPrint() {
       armazenamento: item.armazenamento,
       armazenamentoNome: armaz?.nome || '',
       armazenamentoFaixa: armaz?.faixa || '',
+      // sem método escolhido, o estado gravado na etiqueta original (reimpressão)
+      estadoNome: m ? nomeDoEstado(m.estado) : (naoEditado ? item.estadoNome || '' : ''),
+      horasValidade: horas,
+      minutosValidade: minutos,
+      validadeHora: naoEditado ? item.validadeHora || '' : '',
+      mostrarHora: item.mostrarHora !== false,
       restauranteNome: nomeImpresso,
       responsavel,
       // validade pronta (de registro real) só vale enquanto data/armazenamento não mudarem
@@ -694,6 +748,36 @@ export default function EtiquetaPrint() {
   };
 
   const setItem = (idx, patch) => setItens(prev => prev.map((it, i) => i === idx ? comLotes({ ...it, ...patch }) : it));
+
+  // ── Método de conservação (Lote 11) ──
+  // Os métodos do item cujo armazenamento a casa ainda usa, e os armazenamentos
+  // que sobram (sem prazo para este item). O seletor guarda "m:<método>" ou
+  // "a:<armazenamento>".
+  const metodosLigados = (item) => (item.metodos || []).filter(m => armazenamentos.some(a => a.id === m.armazenamento));
+  const outrosArmazenamentos = (item) => armazenamentos.filter(a =>
+    !metodosLigados(item).some(m => m.armazenamento === a.id && !m.estado));
+  const textoOuVazio = (n) => (n > 0 ? String(n) : '');
+  // ⚠️ Trocar o método RESEMEIA dias, horas e minutos com o prazo dele — o
+  // mesmo motivo do armazenamento: o número do anterior grudado no campo
+  // sairia impresso, com data errada e sem aviso.
+  const escolherConservacao = (idx, item, valor) => {
+    if (valor.startsWith('m:')) {
+      const m = (item.metodos || []).find(x => x.id === valor.slice(2));
+      if (!m) return;
+      const ini = prazoInicialDaEtiqueta({ ...item, metodoId: m.id });
+      setItem(idx, {
+        metodoId: m.id, armazenamento: m.armazenamento, mostrarHora: m.mostrarHora,
+        diasOverride: textoOuVazio(ini.dias), horasOverride: textoOuVazio(ini.horas), minutosOverride: textoOuVazio(ini.minutos),
+      });
+      return;
+    }
+    const armazenamento = valor.slice(2);
+    setItem(idx, {
+      metodoId: null, armazenamento, mostrarHora: true,
+      diasOverride: textoOuVazio(diasDoCadastro({ ...item, metodoId: null, armazenamento })),
+      horasOverride: '', minutosOverride: '',
+    });
+  };
   // Stepper com update funcional: toques rápidos seguidos não podem ler closure velha
   const mudarQtd = (idx, delta) => setItens(prev => prev.map((it, i) =>
     i === idx ? comLotes({ ...it, quantidade: limitarCopias((parseInt(it.quantidade) || 0) + delta) }) : it));
@@ -821,6 +905,12 @@ export default function EtiquetaPrint() {
           // Vai o id, não o rótulo — o nome e a faixa de temperatura são
           // configuráveis e a etiqueta nova deve sair com o texto de hoje.
           armazenamento: c.armazenamento || null,
+          // Lote 11: o estado e o horário da validade, para a reimpressão
+          // sair igual. Só quando existem — a linha tem teto de 2 KB (M55).
+          ...(c.estadoNome && { estado: metodoDoItem(item)?.estado || item.estado || '', estadoNome: c.estadoNome }),
+          ...(item.metodoId && { metodoId: item.metodoId }),
+          ...(c.validadeHora && c.validadeHora !== c.hora && { validadeHora: c.validadeHora }),
+          ...(!c.mostrarHora && { semHora: true }),
           tipoData: c.tipoData || 'fabricacao',
           // ⚠️ DUAS HORAS DIFERENTES, e confundir as duas estraga as duas
           // telas. `hora` é a que está IMPRESSA no papel (na reimpressão, a da
@@ -1168,32 +1258,42 @@ export default function EtiquetaPrint() {
                     <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
                       <label htmlFor={`ep-armaz-${idx}`}
                         className="block text-xs font-bold text-polo-navy uppercase tracking-wide mb-1">
-                        Armazenamento — sai impresso na etiqueta
+                        {metodosLigados(item).length
+                          ? 'Método de conservação — sai impresso na etiqueta'
+                          : 'Armazenamento — sai impresso na etiqueta'}
                       </label>
-                      {/* ⚠️ Trocar o estado RESEMEIA os dias com o prazo
-                          daquele estado. Antes só esvaziava — e o campo
-                          ficava em branco, dando a impressão de que não havia
-                          prazo cadastrado. Deixar o número do estado anterior
-                          grudado seria pior ainda: data errada, sem aviso. */}
-                      <select id={`ep-armaz-${idx}`} value={item.armazenamento || 'congelado'}
-                        onChange={e => setItem(idx, {
-                          armazenamento: e.target.value,
-                          diasOverride: String(diasDoCadastro({ ...item, armazenamento: e.target.value }) || ''),
-                        })}
+                      {/* ⚠️ Trocar RESEMEIA o prazo (ver escolherConservacao).
+                          ⚠️ Mostra o PRAZO de cada opção: sem isto não dá para
+                          comparar congelado x refrigerado na hora de escolher,
+                          e a pessoa só descobre o número depois de trocar.
+                          ⚠️ Os métodos do item vêm primeiro (Lote 11); os
+                          outros armazenamentos continuam na lista, sem prazo —
+                          o pote que foi para outro lugar hoje é caso real. */}
+                      <select id={`ep-armaz-${idx}`}
+                        value={item.metodoId ? `m:${item.metodoId}` : `a:${item.armazenamento || 'congelado'}`}
+                        onChange={e => escolherConservacao(idx, item, e.target.value)}
                         className="w-full bg-white border-2 border-polo-navy/40 rounded-lg px-3 py-2.5
                                    text-base font-bold text-polo-navy min-h-11">
-                        {/* ⚠️ Mostra o PRAZO de cada estado. Sem isto não dá
-                            para comparar congelado x refrigerado na hora de
-                            escolher, e a pessoa só descobre o número depois
-                            de trocar. */}
-                        {armazenamentos.map(a => {
-                          const d = diasDoCadastro({ ...item, armazenamento: a.id });
+                        {metodosLigados(item).map(m => {
+                          const faixa = armazenamentos.find(a => a.id === m.armazenamento)?.faixa;
                           return (
-                            <option key={a.id} value={a.id}>
-                              {a.nome}{a.faixa ? ` · ${a.faixa}` : ''} · {d > 0 ? `${d} dias` : 'sem prazo'}
+                            <option key={m.id} value={`m:${m.id}`}>
+                              {rotuloDoMetodo(m, armazenamentos, estados)}{faixa ? ` · ${faixa}` : ''} · {textoDoPrazo(m) || 'sem prazo'}
                             </option>
                           );
                         })}
+                        {(() => {
+                          const outros = outrosArmazenamentos(item).map(a => {
+                            const d = diasDoCadastro({ ...item, metodoId: null, armazenamento: a.id });
+                            return (
+                              <option key={a.id} value={`a:${a.id}`}>
+                                {a.nome}{a.faixa ? ` · ${a.faixa}` : ''} · {d > 0 ? `${d} dias` : 'sem prazo'}
+                              </option>
+                            );
+                          });
+                          if (!outros.length) return null;
+                          return metodosLigados(item).length ? <optgroup label="Outro armazenamento">{outros}</optgroup> : outros;
+                        })()}
                       </select>
                     </div>
                   )}
@@ -1211,28 +1311,45 @@ export default function EtiquetaPrint() {
                         onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      {/* ⚠️ A Dica fica FORA do <label>: botão dentro de label
-                          herda o clique dele e, além de abrir a explicação,
-                          jogava o foco no campo — atrapalhando justo quem
-                          navega por teclado ou leitor de tela. */}
-                      <div className="mb-0.5">
-                        <label htmlFor={`ep-dias-${idx}`} className="text-xs font-semibold text-gray-500">
-                          Validade (dias)
-                        </label>
-                        <Dica texto="Vem do cadastro do item. Mude se a embalagem deste lote disser outro prazo." />
+                  <div>
+                    {/* ⚠️ A Dica fica FORA do <label>: botão dentro de label
+                        herda o clique dele e, além de abrir a explicação,
+                        jogava o foco no campo — atrapalhando justo quem
+                        navega por teclado ou leitor de tela. */}
+                    <div className="mb-0.5 flex items-center gap-1">
+                      <span className="text-xs font-semibold text-gray-500">Validade</span>
+                      <Dica texto="Vem do cadastro do item. Mude se a embalagem deste lote disser outro prazo." />
+                    </div>
+                    {/* ⚠️ DIAS, HORAS E MINUTOS (Lote 11): a pista quente vence
+                        em horas. Os três valem juntos — ver camposDe. */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label htmlFor={`ep-dias-${idx}`} className="block text-xs text-gray-500 mb-0.5">Dias</label>
+                        {/* ⚠️ TETO NO CAMPO E CORTE NO CÓDIGO. O `max` sozinho não
+                            segura nada: o navegador deixa digitar 18000 e só
+                            reclama em formulário validado, que aqui não existe.
+                            Quem garante é `limitarDias`. */}
+                        <input id={`ep-dias-${idx}`} type="number" inputMode="numeric"
+                          min="0" max={DIAS_VALIDADE_MAX}
+                          value={item.diasOverride ?? ''}
+                          placeholder={String(diasDoCadastro(item) || 0)}
+                          onChange={e => setItem(idx, { diasOverride: limitarDias(e.target.value) })}
+                          className={inputCls} />
                       </div>
-                      {/* ⚠️ TETO NO CAMPO E CORTE NO CÓDIGO. O `max` sozinho não
-                          segura nada: o navegador deixa digitar 18000 e só
-                          reclama em formulário validado, que aqui não existe.
-                          Quem garante é `limitarDias`. */}
-                      <input id={`ep-dias-${idx}`} type="number" inputMode="numeric"
-                        min="0" max={DIAS_VALIDADE_MAX}
-                        value={item.diasOverride ?? ''}
-                        placeholder={String(diasDoCadastro(item) || 0)}
-                        onChange={e => setItem(idx, { diasOverride: limitarDias(e.target.value) })}
-                        className={inputCls} />
+                      <div>
+                        <label htmlFor={`ep-horas-${idx}`} className="block text-xs text-gray-500 mb-0.5">Horas</label>
+                        <input id={`ep-horas-${idx}`} type="number" inputMode="numeric" min="0" max="23"
+                          value={item.horasOverride ?? ''} placeholder="0"
+                          onChange={e => setItem(idx, { horasOverride: limitarAte(e.target.value, 23) })}
+                          className={inputCls} />
+                      </div>
+                      <div>
+                        <label htmlFor={`ep-min-${idx}`} className="block text-xs text-gray-500 mb-0.5">Minutos</label>
+                        <input id={`ep-min-${idx}`} type="number" inputMode="numeric" min="0" max="59"
+                          value={item.minutosOverride ?? ''} placeholder="0"
+                          onChange={e => setItem(idx, { minutosOverride: limitarAte(e.target.value, 59) })}
+                          className={inputCls} />
+                      </div>
                     </div>
                   </div>
                   {/* Prazo que destoa do cadastrado — aviso, nunca bloqueio:
@@ -1300,7 +1417,10 @@ export default function EtiquetaPrint() {
                       sair com <strong>{campos.validadeFmt}</strong>. Para guardar parte em outro armazenamento,
                       registre em duas partes.{' '}
                       <button type="button" className="underline font-semibold min-h-11"
-                        onClick={() => setItem(idx, { dataFabricacao: item._dataOriginal, armazenamento: item._armazOriginal, diasOverride: item._diasOriginal })}>
+                        onClick={() => setItem(idx, {
+                          dataFabricacao: item._dataOriginal, armazenamento: item._armazOriginal, metodoId: item._metodoOriginal,
+                          diasOverride: item._diasOriginal, horasOverride: item._horasOriginal, minutosOverride: item._minutosOriginal,
+                        })}>
                         Voltar à data do estoque
                       </button>
                     </Aviso>

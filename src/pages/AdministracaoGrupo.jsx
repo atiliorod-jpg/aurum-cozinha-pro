@@ -7,7 +7,7 @@ import { useUI } from '../store/UIContext';
 import { GRUPOS_ADMIN, useAcessosAdmin } from '../store/acessosAdmin';
 import { temRecurso } from '../utils/modulos';
 import {
-  CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEtiquetas, CartaoEstabelecimento, CartaoContas,
+  CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEstados, CartaoEtiquetas, CartaoEstabelecimento, CartaoContas,
   CartaoCargos, CartaoMeusDados, CartaoUnidades, CartaoEquipeDasUnidades,
 } from '../components/config/CartoesConfig';
 import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
@@ -96,6 +96,8 @@ function GrupoEtiqueta({ a }) {
     <>
       {/* Armazenamento vem primeiro: define o que a etiqueta imprime */}
       <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
+      {/* os estados (pista fria...) vivem dentro de um armazenamento — Lote 11 */}
+      <CartaoEstados prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
       {/* ⚠️ QR só no Pro: quem lê o código é a baixa pela etiqueta e a
           contagem por câmera, telas que só existem lá. */}
       <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} mostrarQR={!a.soEtiq} />

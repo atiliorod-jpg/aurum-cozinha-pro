@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import Botao from '../Botao';
 import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
+import { listarEstados, ESTADOS_PADRAO, MAX_NOME_ESTADO, idDoEstado } from '../../utils/metodos';
 import { formatarCNPJ, formatarCEP } from '../../utils/documentos';
 import { CAPACIDADES, PERMISSOES_PADRAO, cargosDaCasa, capacidadesDoProduto } from '../../utils/permissoes';
 import { temUnidadesExtras, opcoesDeUnidade, acharUnidade } from '../../utils/unidades';
@@ -180,6 +181,92 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
       {JSON.stringify(lista) !== JSON.stringify(ARMAZENAMENTOS_PADRAO) && (
         <button onClick={() => { salvar(ARMAZENAMENTOS_PADRAO.map(a => ({ ...a }))); toast('Armazenamentos voltaram ao padrão.', 'sucesso'); }}
           className="text-xs text-gray-600 underline underline-offset-2">
+          Voltar ao padrão
+        </button>
+      )}
+    </div>
+  );
+}
+
+// =====================================================================
+//  ESTADOS DE CONSERVAÇÃO (Lote 11, 02/11/2026 — visto no Suflex): o que
+//  acontece com o item DENTRO de um armazenamento — pista fria, pista quente,
+//  descongelando. Cada item escolhe, na ficha, em quais métodos usa cada um,
+//  com o prazo dele. Sai impresso junto do armazenamento.
+//
+//  ⚠️ O id nasce do nome e NÃO muda ao renomear: é o que os métodos dos
+//  itens guardam. Renomear "Pista fria" para "Bancada fria" muda o texto em
+//  todas as etiquetas novas, sem precisar abrir item por item.
+// =====================================================================
+export function CartaoEstados({ prefs, setPref, toast, confirm }) {
+  // ⚠️ A lista CRUA, com nome vazio e tudo: `listarEstados` esconde o estado
+  // sem nome, e apagar o nome para reescrever faria o campo sumir da tela no
+  // meio da digitação. Quem imprime lê pelo listarEstados, que filtra.
+  const lista = Array.isArray(prefs?.estadosConservacao) ? prefs.estadosConservacao : listarEstados(prefs);
+  const salvar = (nova) => setPref('estadosConservacao', nova);
+  const editar = (id, nome) => salvar(lista.map(e => (e.id === id ? { ...e, nome } : e)));
+
+  const [novo, setNovo] = useState('');
+  const adicionar = () => {
+    const nome = novo.trim();
+    if (!nome) return;
+    const id = idDoEstado(nome);
+    if (!id) { toast('Dê um nome com letras.', 'aviso'); return; }
+    if (lista.some(e => e.id === id)) { toast('Já existe um estado com esse nome.', 'aviso'); return; }
+    salvar([...lista, { id, nome }]);
+    setNovo('');
+    toast(`"${nome}" adicionado. Use na ficha do item, em cada método.`, 'sucesso');
+  };
+
+  const remover = async (e) => {
+    const ok = await confirm({
+      titulo: `Remover "${e.nome}"?`,
+      mensagem: 'As etiquetas já impressas continuam como estão. Nos itens que usam esse estado, o método passa a sair sem ele.',
+      perigo: true, confirmar: 'Remover',
+    });
+    if (!ok) return;
+    salvar(lista.filter(x => x.id !== e.id));
+    toast(`"${e.nome}" removido.`, 'sucesso');
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+      <div>
+        <h2 className="text-sm font-bold text-polo-navy">Estados de conservação</h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          O que acontece com o item dentro do armazenamento, como “pista fria”. Sai impresso junto
+          do armazenamento (RESFRIADO · PISTA FRIA), e cada item tem o prazo dele em cada estado.
+        </p>
+      </div>
+      {lista.length === 0 && (
+        <p className="text-xs text-gray-600">Nenhum estado. Os itens usam só o armazenamento.</p>
+      )}
+      <div className="space-y-2">
+        {lista.map(e => (
+          <div key={e.id} className="flex items-center gap-2">
+            <input type="text" value={e.nome} maxLength={MAX_NOME_ESTADO}
+              onChange={ev => editar(e.id, ev.target.value)}
+              aria-label={`Nome do estado ${e.nome}`}
+              className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm font-semibold" />
+            <button onClick={() => remover(e)} aria-label={`Remover ${e.nome}`}
+              className="text-red-700 text-xs font-bold px-3 min-h-11 flex-shrink-0">Remover</button>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-gray-500">
+        O nome cabe em {MAX_NOME_ESTADO} letras: ele divide a linha com o armazenamento e a temperatura.
+      </p>
+      <div className="flex items-center gap-2 border-t border-gray-100 pt-3">
+        <input type="text" value={novo} maxLength={MAX_NOME_ESTADO} onChange={e => setNovo(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') adicionar(); }}
+          placeholder="Novo estado (ex.: Buffet)"
+          aria-label="Nome do novo estado"
+          className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm" />
+        <Botao onClick={adicionar} tamanho="sm" largura="auto">Adicionar</Botao>
+      </div>
+      {JSON.stringify(lista) !== JSON.stringify(ESTADOS_PADRAO) && (
+        <button onClick={() => { salvar(ESTADOS_PADRAO.map(e => ({ ...e }))); toast('Estados voltaram ao padrão.', 'sucesso'); }}
+          className="text-xs text-gray-600 underline underline-offset-2 min-h-11">
           Voltar ao padrão
         </button>
       )}

@@ -106,9 +106,20 @@ export function prazosDoProduto(p) {
 
 export const prazoDe = (produto, armazId) => Number(prazosDoProduto(produto)[armazId]) || 0;
 
-/** O produto tem prazo em algum estado? (usado no aviso de cadastro incompleto) */
-export const temAlgumPrazo = (produto) =>
-  Object.values(prazosDoProduto(produto)).some(v => Number(v) > 0);
+/**
+ * O produto tem prazo em algum estado? (usado no aviso de cadastro incompleto)
+ * ⚠️ Olha os MÉTODOS quando existem (Lote 11): um item só com "Pista quente
+ * 2 h" tem `prazos` zerado de propósito (ver espelhoDosMetodos) e não pode
+ * aparecer como "sem prazo". A conta fica aqui, e não importando metodos.js,
+ * porque metodos.js já importa este arquivo.
+ */
+export const temAlgumPrazo = (produto) => {
+  if (Array.isArray(produto?.metodos) && produto.metodos.length) {
+    return produto.metodos.some(m =>
+      (Number(m?.dias) || 0) + (Number(m?.horas) || 0) + (Number(m?.minutos) || 0) > 0);
+  }
+  return Object.values(prazosDoProduto(produto)).some(v => Number(v) > 0);
+};
 
 /**
  * Espelha `prazos` nos campos antigos ao SALVAR.

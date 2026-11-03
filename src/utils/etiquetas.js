@@ -5,6 +5,7 @@
 import { addDias } from './datas';
 import { fmtData } from './formatters';
 import { prazoDe } from './armazenamento';
+import { validadeDoPrazo, temPrazo } from './metodos';
 
 // Configuração padrão da etiqueta (sobrescrita por prefs.etiquetaConfig, em Config → Sistema)
 // ⚠️ TAMANHO ÚNICO, 60 x 50 mm, e isto é decisão de produto, não limitação.
@@ -74,6 +75,9 @@ export const configEtiqueta = (prefs) => ({
  *   'abertura' → "ABERTURA" (itens tipo "Leite aberto").
  * - `hora` (HH:MM) é a hora da impressão — aparece junto das datas de
  *   manipulação/validade, como nas etiquetas profissionais.
+ * - `horasValidade`/`minutosValidade` (Lote 11): o prazo do método também
+ *   em horas. Aí a validade é a conta de verdade (14:30 + 2 h = 16:30), e a
+ *   hora sai mesmo com `mostrarHora` desligado.
  */
 export function montarCamposEtiqueta({
   nome,
@@ -100,18 +104,35 @@ export function montarCamposEtiqueta({
   // mantém funcionando qualquer chamada vinda de cache ou rascunho velho.
   armazenamentoNome = '',
   armazenamentoFaixa = '',
+  // ── Lote 11: métodos de conservação (ver utils/metodos.js) ──
+  estadoNome = '',
+  horasValidade = 0,
+  minutosValidade = 0,
+  // a validade pronta (reimpressão) com a hora DELA, quando era outra
+  validadeHora = '',
+  mostrarHora = true,
 }) {
+  const horasV = Number(horasValidade) || 0, minutosV = Number(minutosValidade) || 0;
   let dias = parseFloat(diasValidade) || 0;
-  if (!dias && produto && armazenamento) {
+  if (!dias && !horasV && !minutosV && produto && armazenamento) {
     dias = prazoDe(produto, armazenamento);
   }
-  const validadeCalc = validade || (dias > 0 && dataFabricacao ? addDias(dataFabricacao, dias) : null);
+  // Só dias: a conta de sempre, e a validade repete a hora da manipulação.
+  const calculada = horasV || minutosV
+    ? validadeDoPrazo(dataFabricacao, hora, { dias, horas: horasV, minutos: minutosV })
+    : { validade: dias > 0 && dataFabricacao ? addDias(dataFabricacao, dias) : null, validadeHora: hora };
+  const validadeCalc = validade || calculada.validade;
+  const horaDaValidade = validade ? (validadeHora || hora) : calculada.validadeHora;
+  // ⚠️ Prazo em horas mostra a hora SEMPRE: "vence 14/10" de um molho que dura
+  // 2 h não diz quando jogar fora. A chave só esconde a hora do prazo em dias.
+  const exibirHora = mostrarHora !== false || horasV > 0 || minutosV > 0
+    || (!!validadeHora && validadeHora !== hora);
   // ⚠️ O ERRO QUE ESTE CAMPO EXISTE PARA PEGAR: porcionar um produto cuja
   // embalagem vence antes do prazo da casa faz a etiqueta imprimir uma validade
   // MAIOR que a do fabricante. Grave e invisível — ninguém confere de cabeça.
   // Comparação de strings ISO (AAAA-MM-DD), que é o formato dos dois lados.
   const passaDoFornecedor = !!(valOriginal && validadeCalc && validadeCalc > valOriginal);
-  const comHora = (dataFmt) => dataFmt && hora ? `${dataFmt} - ${hora}` : dataFmt;
+  const comHora = (dataFmt, h = hora) => dataFmt && h && exibirHora ? `${dataFmt} - ${h}` : dataFmt;
 
   return {
     nome: nome || produto?.nome || '',
@@ -120,17 +141,23 @@ export function montarCamposEtiqueta({
     dataFabricacao: dataFabricacao || null,
     dataFabricacaoFmt: dataFabricacao ? comHora(fmtData(dataFabricacao)) : '',
     validade: validadeCalc,
-    validadeFmt: validadeCalc ? comHora(fmtData(validadeCalc)) : '',
+    validadeFmt: validadeCalc ? comHora(fmtData(validadeCalc), horaDaValidade) : '',
+    validadeHora: validadeCalc && exibirHora ? (horaDaValidade || '') : '',
+    mostrarHora: exibirHora,
     valOriginal: valOriginal || null,
     valOriginalFmt: valOriginal ? fmtData(valOriginal) : '',
     passaDoFornecedor,
     armazenamento,
     // Nome resolvido pelo chamador; sem ele, o par fixo de sempre.
-    armazenamentoLabel:
+    // O estado da casa vem junto: "RESFRIADO · PISTA FRIA".
+    armazenamentoLabel: [
       armazenamentoNome ? armazenamentoNome.toUpperCase()
-      : armazenamento === 'congelado' ? 'CONGELADO'
-      : armazenamento === 'resfriado' ? 'RESFRIADO'
-      : '',
+        : armazenamento === 'congelado' ? 'CONGELADO'
+        : armazenamento === 'resfriado' ? 'RESFRIADO'
+        : '',
+      (estadoNome || '').toUpperCase(),
+    ].filter(Boolean).join(' · '),
+    estadoNome: estadoNome || '',
     // Faixa de temperatura ("-18°C a -12°C") — sai ao lado do nome na etiqueta.
     // Vazia quando o restaurante não preencheu: a linha continua válida só com
     // o nome, e imprimir uma faixa inventada seria pior que não imprimir.
@@ -164,11 +191,17 @@ export const STATUS_ETIQUETA = {
   descartada: { label: 'Descartada', cor: 'text-orange-700 bg-orange-100' },
 };
 
-/** Status efetivo: o vencimento é derivado da data, não precisa ser gravado. */
-export function statusEtiqueta(etq, hojeISO) {
+/**
+ * Status efetivo: o vencimento é derivado da data, não precisa ser gravado.
+ * ⚠️ `agora` (HH:MM) só conta para etiqueta com `validadeHora` — a de prazo
+ * em horas (Lote 11): a pista quente de 2 h vence às 16:30, não à meia-noite.
+ * A de prazo em dias continua vencendo na virada do dia, como sempre.
+ */
+export function statusEtiqueta(etq, hojeISO, agora = '') {
   if (!etq) return 'valida';
   if (etq.status === 'consumida' || etq.status === 'descartada') return etq.status;
   if (etq.validade && etq.validade < hojeISO) return 'vencida';
+  if (agora && etq.validadeHora && etq.validade === hojeISO && etq.validadeHora <= agora) return 'vencida';
   return 'valida';
 }
 
@@ -432,6 +465,15 @@ export function limitarDias(valor) {
   return String(Math.min(n, DIAS_VALIDADE_MAX));
 }
 
+/** Horas (0–23) e minutos (0–59) do prazo: mesmo jeito do limitarDias. */
+export function limitarAte(valor, max) {
+  const txt = String(valor ?? '');
+  if (txt === '') return '';
+  const n = parseInt(txt, 10);
+  if (!Number.isFinite(n)) return '';
+  return String(Math.min(Math.max(n, 0), max));
+}
+
 /**
  * Aviso quando o prazo digitado destoa do cadastrado. `null` = está tudo bem.
  * Três vezes o cadastrado é o corte: cobre o erro de digitação (um zero a
@@ -476,12 +518,31 @@ export function diasIniciaisDaEtiqueta(item) {
   return 0;
 }
 
+/** O método escolhido na janela de impressão (Lote 11), ou null. */
+export const metodoDoItem = (item) =>
+  (item?.metodoId && (item.metodos || []).find(m => m.id === item.metodoId)) || null;
+
+/**
+ * Dias, horas e minutos com que a janela abre. Com um método escolhido, é o
+ * prazo DELE — ⚠️ e não o `prazos[armazenamento]`, que guarda só o método sem
+ * estado: "Resfriado · Pista fria" abriria com o prazo do resfriado comum.
+ * Método sem prazo nenhum segue a regra da abertura (3 dias sugeridos).
+ */
+export function prazoInicialDaEtiqueta(item) {
+  const m = item?.diasValidade == null ? metodoDoItem(item) : null;
+  if (!m) return { dias: diasIniciaisDaEtiqueta(item), horas: 0, minutos: 0 };
+  if (temPrazo(m)) return { dias: m.dias, horas: m.horas, minutos: m.minutos };
+  return { dias: item?.tipoData === 'abertura' ? DIAS_SUGERIDOS_ABERTURA : 0, horas: 0, minutos: 0 };
+}
+
 /** A sugestão está sendo usada? É o que faz a explicação aparecer na tela. */
-export const usandoSugestaoDeAbertura = (item, diasNoCampo) =>
-  item?.tipoData === 'abertura'
-  && Number(diasNoCampo) === DIAS_SUGERIDOS_ABERTURA
-  && !(Number(item?.diasValidade) > 0)
-  && !(Number(item?.prazos?.[item?.armazenamento]) > 0);
+export const usandoSugestaoDeAbertura = (item, diasNoCampo) => {
+  const m = metodoDoItem(item);
+  return item?.tipoData === 'abertura'
+    && Number(diasNoCampo) === DIAS_SUGERIDOS_ABERTURA
+    && !(Number(item?.diasValidade) > 0)
+    && (m ? !temPrazo(m) : !(Number(item?.prazos?.[item?.armazenamento]) > 0));
+};
 
 
 // ── O armazenamento que a pessoa usou da última vez ───────────
@@ -504,7 +565,8 @@ export const usandoSugestaoDeAbertura = (item, diasNoCampo) =>
 export function lembrarArmazenamentos(memoria, itens, idsValidos = null) {
   const novo = { ...(memoria || {}) };
   for (const it of itens || []) {
-    if (it?.produtoId && it?.armazenamento) novo[it.produtoId] = it.armazenamento;
+    // o MÉTODO, quando há um (ver metodoInicial); senão o armazenamento
+    if (it?.produtoId && (it?.metodoId || it?.armazenamento)) novo[it.produtoId] = it.metodoId || it.armazenamento;
   }
   if (Array.isArray(idsValidos)) {
     const vivos = new Set(idsValidos);

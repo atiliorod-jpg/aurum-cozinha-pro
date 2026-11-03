@@ -25,6 +25,7 @@
 // =====================================================================
 
 import { comEspelhoDePrazos } from './armazenamento';
+import { metodosDoProduto, aplicarPrazosDaPlanilha, espelhoDosMetodos } from './metodos';
 import { gramasDeMedida } from './etiquetas';
 import { normalizarUnidade, controlaEstoque, controlaPorPadrao } from './itens';
 
@@ -225,9 +226,16 @@ export function mesclarItens(produtos = [], itens = [], {
     if (idx >= 0) {
       const ex = lista[idx];
       const junto = { ...ex, ...n, ativo: true };
-      lista[idx] = prazosLidos
-        ? comEspelhoDePrazos(junto, { congelado: ex.valCongelado || 0, resfriado: ex.valResfriado || 0, ...(ex.prazos || {}), ...prazosLidos })
-        : junto;
+      // ⚠️ Item com métodos (Lote 11): o prazo da planilha entra NOS MÉTODOS,
+      // que é o que a etiqueta lê — ver aplicarPrazosDaPlanilha.
+      if (prazosLidos && Array.isArray(ex.metodos) && ex.metodos.length) {
+        const metodos = aplicarPrazosDaPlanilha(metodosDoProduto(ex), prazosLidos);
+        lista[idx] = comEspelhoDePrazos({ ...junto, metodos }, espelhoDosMetodos(metodos));
+      } else {
+        lista[idx] = prazosLidos
+          ? comEspelhoDePrazos(junto, { congelado: ex.valCongelado || 0, resfriado: ex.valResfriado || 0, ...(ex.prazos || {}), ...prazosLidos })
+          : junto;
+      }
       casado.add(idx);
       atualizados++;
       return;

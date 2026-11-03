@@ -7,7 +7,7 @@ import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { pode } from '../../utils/permissoes';
 import { supabase } from '../../lib/supabase';
-import { hoje, fmtData } from '../../utils/formatters';
+import { hoje, fmtData, fmtHora } from '../../utils/formatters';
 import { statusEtiqueta, STATUS_ETIQUETA, medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
 import { prazosDoProduto } from '../../utils/armazenamento';
 import { casaBusca } from '../../utils/busca';
@@ -48,6 +48,8 @@ export default function Impressas() {
   const buscaAdiada = useDeferredValue(busca);
 
   const hj = hoje();
+  // a etiqueta de prazo em horas vence na hora dela (ver statusEtiqueta)
+  const agora = fmtHora();
 
   // Mais recentes primeiro, agrupadas por dia. `impressoEm` é só a data (sem
   // hora), então o dia é o agrupamento natural — e é como a cozinha procura:
@@ -94,6 +96,12 @@ export default function Impressas() {
       armazenamento: e.armazenamento || null,
       // Hora do papel original, não a de agora — ver o porquê em EtiquetaPrint.
       horaOriginal: e.hora || '',
+      // Lote 11: o estado (Pista fria...), a hora da validade quando o prazo
+      // era em horas e se o papel saiu sem hora — para sair igual de novo
+      estado: e.estado || '',
+      estadoNome: e.estadoNome || '',
+      validadeHora: e.validadeHora || '',
+      semHora: !!e.semHora,
       prazos: p ? prazosDoProduto(p) : {},
       medida: e.medida || (p ? medidaDoProduto(p) : ''),
       responsavel: e.responsavel || '',
@@ -220,7 +228,7 @@ export default function Impressas() {
 
               <ul className="space-y-2">
                 {lista.map(e => {
-                  const st = statusEtiqueta(e, hj);
+                  const st = statusEtiqueta(e, hj, agora);
                   const info = STATUS_ETIQUETA[st] || STATUS_ETIQUETA.valida;
                   return (
                     <li key={e.id} className="bg-white border border-gray-200 rounded-xl p-3">
@@ -238,7 +246,8 @@ export default function Impressas() {
                               inventar um horário. */}
                           <p className="text-xs text-gray-600 mt-0.5">
                             {e.impressoEmHora ? `${e.impressoEmHora} · ` : ''}
-                            {e.validade ? `Validade ${fmtData(e.validade)}` : 'sem validade'}
+                            {e.validade ? `Validade ${fmtData(e.validade)}${e.validadeHora ? ` ${e.validadeHora}` : ''}` : 'sem validade'}
+                            {e.estadoNome ? ` · ${e.estadoNome}` : ''}
                             {e.responsavel ? ` · ${e.responsavel}` : ''}
                             {(e.copias || 1) > 1 ? ` · ${e.copias} cópias` : ''}
                           </p>
