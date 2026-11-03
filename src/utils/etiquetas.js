@@ -132,6 +132,12 @@ export function montarCamposEtiqueta({
   // MAIOR que a do fabricante. Grave e invisível — ninguém confere de cabeça.
   // Comparação de strings ISO (AAAA-MM-DD), que é o formato dos dois lados.
   const passaDoFornecedor = !!(valOriginal && validadeCalc && validadeCalc > valOriginal);
+  // ⚠️ E A ETIQUETA SAI COM A DATA DO FABRICANTE (decisão do dono, 03/11/2026).
+  // A validade não se muda mais na hora de imprimir, então o antigo "reduza os
+  // dias" ficou impossível. Vale a menor das duas — e sem hora: o fabricante
+  // dá o dia, e inventar uma hora seria pior que não pôr.
+  const validadeFinal = passaDoFornecedor ? valOriginal : validadeCalc;
+  const horaFinal = passaDoFornecedor ? '' : horaDaValidade;
   const comHora = (dataFmt, h = hora) => dataFmt && h && exibirHora ? `${dataFmt} - ${h}` : dataFmt;
 
   return {
@@ -140,9 +146,9 @@ export function montarCamposEtiqueta({
     rotuloData: tipoData === 'abertura' ? 'ABERTURA' : 'MANIPULAÇÃO',
     dataFabricacao: dataFabricacao || null,
     dataFabricacaoFmt: dataFabricacao ? comHora(fmtData(dataFabricacao)) : '',
-    validade: validadeCalc,
-    validadeFmt: validadeCalc ? comHora(fmtData(validadeCalc), horaDaValidade) : '',
-    validadeHora: validadeCalc && exibirHora ? (horaDaValidade || '') : '',
+    validade: validadeFinal,
+    validadeFmt: validadeFinal ? comHora(fmtData(validadeFinal), horaFinal) : '',
+    validadeHora: validadeFinal && exibirHora ? (horaFinal || '') : '',
     mostrarHora: exibirHora,
     valOriginal: valOriginal || null,
     valOriginalFmt: valOriginal ? fmtData(valOriginal) : '',

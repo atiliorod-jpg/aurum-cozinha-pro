@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { continuarImprimindo } from './apoio';
 
 // =====================================================================
 //  O robô entra na DEMONSTRAÇÃO (nada vai ao banco) e abre cada tela dos dois
@@ -95,7 +96,7 @@ test('plano Etiquetas: imprimir pelo computador e ver na aba Impressas', async (
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   // o computador pergunta se saiu no papel; "Sim" conta e fecha
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await continuarImprimindo(page);
   await abrirTela(page, '/impressas');
   await expect(page.getByText('Frango desfiado').first()).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
@@ -132,7 +133,7 @@ test('plano Pro: imprimir, buscar sem acento e ver na aba Impressas, como no Eti
   const janela = page.getByRole('dialog');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await continuarImprimindo(page);
   await abrirTela(page, '/impressas');
   await expect(page.getByText('Molho de Tomate da Casa').first()).toBeVisible();
   await abrirTela(page, '/validades');
@@ -156,13 +157,16 @@ test('plano Pro, Estoque Seco: etiqueta de abertura, ambiente como padrão, e va
   await entrarComo(page);
   await page.getByRole('button', { name: 'Imprimir etiqueta de Extrato de tomate (340g)' }).click();
   const janela = page.getByRole('dialog');
-  await expect(janela.getByText('Data de abertura').first()).toBeVisible();
+  // a data não se escolhe mais na impressão (03/11/2026): sai a de agora,
+  // e a etiqueta diz que é de ABERTURA
+  await expect(janela.getByText('Data de abertura')).toHaveCount(0);
+  await expect(janela.locator('.etiqueta-label').first()).toContainText('ABERTURA');
   // "a:" = armazenamento sem método (Lote 11): o "congelado" do seco é o
   // prazo da embalagem fechada, e o pote aberto sai em ambiente
   await expect(janela.getByRole('combobox').filter({ hasText: /ambiente/i }).first()).toHaveValue('a:ambiente');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await continuarImprimindo(page);
   await abrirTela(page, '/impressas');
   await expect(page.getByText('Extrato de tomate (340g)').first()).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);

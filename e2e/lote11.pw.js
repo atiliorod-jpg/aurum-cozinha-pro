@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { entrarNaDemo, abrir, entrarComo } from './apoio';
+import { entrarNaDemo, abrir, entrarComo, continuarImprimindo } from './apoio';
 
 // =====================================================================
 //  LOTE 11, PARTE 1 (02/11/2026) — métodos de conservação, vistos no Suflex.
@@ -54,15 +54,22 @@ test('Etiquetas: vários métodos por item, prazo em horas e horário por métod
   // abre no principal: 3 dias, sem hora
   await expect(metodo).toHaveValue('m:refrigerado');
   await expect(janela.getByText(/Vencimento na etiqueta:/)).toContainText(/05\/11\/2026$/);
+  // ⚠️ 03/11/2026: só os métodos cadastrados no item, com prazo — nada de
+  // "Outro armazenamento" — e a data e os dias não se mudam na impressão
+  await expect(metodo.locator('option')).toHaveCount(3);
+  await expect(metodo.locator('optgroup')).toHaveCount(0);
+  await expect(janela.getByLabel('Dias', { exact: true })).toHaveCount(0);
+  await expect(janela.getByLabel('Horas', { exact: true })).toHaveCount(0);
+  await expect(janela.getByLabel(/^Data de manipulação/)).toHaveCount(0);
   // troca para a pista quente: 4 h, com a hora certa
   await metodo.selectOption('m:m3');
-  await expect(janela.getByLabel('Horas', { exact: true })).toHaveValue('4');
-  await expect(janela.getByLabel('Dias', { exact: true })).toHaveValue('');
+  await expect(metodo.locator('option:checked')).toContainText('Pista quente');
+  await expect(metodo.locator('option:checked')).toContainText('4 h');
   await expect(janela.getByText(/Vencimento na etiqueta:/)).toContainText(/02\/11\/2026 - 18:3\d/);
   await expect(janela.locator('.etiqueta-label').first()).toContainText('REFRIGERADO · PISTA QUENTE');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await continuarImprimindo(page);
 
   // na lista de impressas, com a hora da validade e o estado
   await abrir(page, '/impressas');
@@ -103,9 +110,13 @@ test('Estoque Seco: salvar a ficha não troca o pote aberto para congelado', asy
   await page.getByRole('button', { name: 'Imprimir etiqueta de Extrato de tomate (340g)' }).click();
   const janela = page.getByRole('dialog');
   await expect(janela.locator('.etiqueta-label').first()).toContainText('TEMPERATURA AMBIENTE');
-  // sem prazo depois de aberto: a sugestão de 3 dias, explicada
-  await expect(janela.getByLabel('Dias', { exact: true })).toHaveValue('3');
-  await expect(janela.getByText(/Sugerimos/)).toBeVisible();
+  // sem prazo depois de aberto: a sugestão de 3 dias, explicada — e fixa
+  // (depois de salvar a ficha o ambiente virou método: m:<id>, sem prazo)
+  const metodo = janela.getByLabel(/^Método de conservação/);
+  await expect(metodo.locator('option:checked')).toContainText(/ambiente/i);
+  await expect(metodo.locator('option:checked')).toContainText('3 dias (sugestão)');
+  await expect(janela.getByText(/Sem prazo cadastrado para depois de aberto/)).toBeVisible();
+  await expect(janela.getByLabel('Dias', { exact: true })).toHaveCount(0);
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
@@ -163,5 +174,23 @@ test('Etiquetas: a casa cria o grupo, põe o item em dois grupos e filtra na hor
   }
   await janela.getByRole('button', { name: 'Pronto' }).click();
   await expect(page.locator('main')).toContainText('também em ALMOÇO DA EQUIPE');
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+// ── 03/11/2026: na impressão só se preenche quantidade, medida e lote ──
+test('Etiquetas: item com um método só mostra o método escrito, sem lista para escolher', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page, 'Maria');
+  // o queijo só tem refrigerado cadastrado: não aparece congelado nem ambiente
+  await page.getByRole('button', { name: 'Imprimir etiqueta de Queijo mussarela' }).click();
+  const janela = page.getByRole('dialog');
+  await expect(janela.getByRole('combobox')).toHaveCount(0);
+  await expect(janela.getByText(/^Método de conservação/)).toBeVisible();
+  await expect(janela).toContainText(/Refrigerado.* · 3 dias/);
+  // o que se preenche: quantidade, medida e lote
+  await expect(janela.getByLabel(/^Medida/)).toBeVisible();
+  await expect(janela.getByLabel('Lote do fabricante')).toBeVisible();
+  await expect(janela.getByLabel('Dias', { exact: true })).toHaveCount(0);
+  await expect(janela.getByLabel(/^Data de/)).toHaveCount(0);
   expect(erros, erros.join('\n')).toEqual([]);
 });

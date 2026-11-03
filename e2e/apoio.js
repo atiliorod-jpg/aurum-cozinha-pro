@@ -61,6 +61,15 @@ export async function entrarComo(page, nome = 'Maria') {
   if (await botao.isVisible()) await botao.click();
 }
 
+// ⚠️ DEPOIS DE IMPRIMIR PELA TELA IMPRIMIR (03/11/2026): "Continuar imprimindo,
+// Maria?", com 5 s para responder. O robô continua, como quem segue no serviço.
+export async function continuarImprimindo(page) {
+  const pergunta = page.getByRole('dialog', { name: /^Continuar imprimindo/ });
+  await expect(pergunta).toBeVisible();
+  await pergunta.getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+}
+
 // fecha a janela de imprimir que algumas telas abrem depois de registrar
 // (pelo Esc: o botão de baixo muda de nome conforme o aparelho — "Agora não"
 // ou "Fechar" — e o × de cima também se chama "Fechar")

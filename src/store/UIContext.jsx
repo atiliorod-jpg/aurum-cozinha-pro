@@ -13,6 +13,10 @@ export function UIProvider({ children }) {
   // Centralizado aqui — igual ao confirm() — para poder ser aberto de qualquer
   // página (Entradas, Produção, Histórico, Etiquetas) sem prop-drilling.
   const [etiquetaState, setEtiquetaState] = useState(null); // [{ produtoId, nome, tipoData, dataFabricacao, armazenamento, diasValidade, validade, quantidade }] | null
+  // De onde a janela abriu e o que fazer quando a etiqueta SAIR (03/11/2026):
+  // { daTelaImprimir, aoTerminar } — só a tela Imprimir manda. É o que faz a
+  // janela fechar sozinha no minuto sem uso e perguntar "Continuar imprimindo?".
+  const [etiquetaOpcoes, setEtiquetaOpcoes] = useState(null);
   const resolverRef = useRef(null);
 
   // opts.acao = { label, onClick } — toast com botão (ex.: Desfazer) dura mais
@@ -47,11 +51,12 @@ export function UIProvider({ children }) {
     }
   }, []);
 
-  const abrirEtiquetas = useCallback((itens) => {
+  const abrirEtiquetas = useCallback((itens, opcoes = null) => {
     if (!Array.isArray(itens) || !itens.length) return;
+    setEtiquetaOpcoes(opcoes);
     setEtiquetaState(itens);
   }, []);
-  const fecharEtiquetas = useCallback(() => setEtiquetaState(null), []);
+  const fecharEtiquetas = useCallback(() => { setEtiquetaState(null); setEtiquetaOpcoes(null); }, []);
 
   // ⚠️ ABRIR A AJUDA DE OUTRA TELA. O botão de Ajuda mora no Layout e guardava
   // o estado dele sozinho, então nada no app conseguia dizer "abre aí, na aba
@@ -133,7 +138,7 @@ export function UIProvider({ children }) {
   }, [toast]);
 
   return (
-    <UIContext.Provider value={{ toast, confirm, etiquetaState, abrirEtiquetas, fecharEtiquetas, ajudaPedida, abrirAjuda, fecharAjuda, temDialogoAberto: !!confirmState || !!etiquetaState }}>
+    <UIContext.Provider value={{ toast, confirm, etiquetaState, etiquetaOpcoes, abrirEtiquetas, fecharEtiquetas, ajudaPedida, abrirAjuda, fecharAjuda, temDialogoAberto: !!confirmState || !!etiquetaState }}>
       {children}
 
       {/* Toasts */}

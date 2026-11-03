@@ -206,13 +206,33 @@ etiquetas). O **token de acesso continua inválido** — a M61 segue parada
 - Robô: `semInternet.pw.js` corta também o teste de internet nos cenários
   "sem internet" e ganhou 2 cenários de "servidor fora com internet boa".
 
-**Pedidos novos do dono (vistos no Suflex), AINDA NÃO APLICADOS — mostrar a
-ideia final e esperar o ok:**
-1. Sem ninguém mexer por um tempo, o app VOLTA para "Quem vai imprimir?"
-   (hoje só esquece o operador em 5 min; a tela fica onde está).
-2. Na janela de impressão a validade NÃO se muda: vale a do cadastro. O
-   método só lista os cadastrados COM prazo (sem "Outro armazenamento" e sem
-   os "sem prazo"). Ao imprimir continuam lote e medida, como hoje.
+- **Ramo principal do GitHub trocado de `gh-pages` (parado desde 15/06, o
+  site já publica pelo deploy do `main`) para `main`** — com o ok do dono —,
+  senão a tarefa agendada nunca rodava. Disparada uma vez: "Resposta do
+  banco: false". Commit 9d44a78.
+
+**Mais duas ideias da Suflex, aprovadas e APLICADAS (03/11, tarde):**
+1. **Janela de impressão: só quantidade, medida e lote.** Saíram a data de
+   manipulação (sai a da impressão; reimpressão, Entradas e Produção trazem
+   as delas) e os campos Dias/Horas/Minutos (os `diasOverride`… continuam no
+   estado, semeados pelo método, só não há campo). O método lista SÓ os
+   cadastrados com prazo + aquele em que a janela abriu (`opcoesDeConservacao`;
+   o Seco abre em ambiente sem prazo, "3 dias (sugestão)"); uma opção só, ou
+   reimpressão, vira texto sem lista. "Val. original" fica só se ligado no
+   modelo; se vier antes do prazo da casa, **a etiqueta sai com a data do
+   fabricante, sem hora** (`montarCamposEtiqueta`: `validadeFinal`).
+2. **1 minuto sem uso** (era 5; `OCIOSO_MS`, conferido de 5 em 5 s) e o
+   OperadorContext conta `expiracoes` à parte do "Trocar". Na tela Imprimir a
+   expiração recomeça a tela (nomes, sem busca/filtro, aba Etiquetar) e FECHA
+   a janela aberta por ela (`abrirEtiquetas(itens, { daTelaImprimir,
+   aoTerminar })`), nunca no meio do Bluetooth nem com "Saiu no papel?".
+   Depois de a etiqueta sair: **"Continuar imprimindo, Maria?"** com 5 s
+   (`ContinuarImprimindo` em QuemImprime.jsx); sem resposta ou "Trocar
+   pessoa" → nomes. Aberta por Entradas/Produção, a janela fica e pede o
+   nome, como antes.
+- Robô: ajudante `continuarImprimindo(page)` em e2e/apoio.js — TODA
+  impressão pela tela Imprimir com equipe agora termina nessa pergunta.
+  1015 testes, 60 cenários.
 
 ## Onde paramos (03/11/2026) — LOTE 11 INTEIRO: MÉTODOS DE CONSERVAÇÃO + GRUPOS DA CASA (sem migração)
 

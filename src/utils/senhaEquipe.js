@@ -32,8 +32,9 @@ export const ITERACOES_MAX = 1_000_000;
 // 5 erros seguidos → o aparelho espera 1 minuto antes de aceitar de novo
 export const ERROS_ATE_ESPERAR = 5;
 export const ESPERA_MS = 60_000;
-// 5 minutos sem tocar em nada → volta para os nomes (decisão do dono)
-export const OCIOSO_MS = 5 * 60_000;
+// 1 minuto sem tocar em nada → volta para os nomes. Eram 5; o dono pediu 1
+// em 03/11/2026, como na Suflex: o aparelho da cozinha passa de mão em mão.
+export const OCIOSO_MS = 60_000;
 // ⚠️ FORA do prefixo pe::<rid>:: de propósito: a trava SOBREVIVE a sair e
 // entrar de novo na conta. Senão bastava sair e entrar para zerar os erros.
 export const CHAVE_TRAVAS = 'pe::travaSenhaEquipe';
@@ -158,7 +159,7 @@ export function aposErro(trava, agora) {
   return erros >= ERROS_ATE_ESPERAR ? { erros: 0, ate: agora + ESPERA_MS } : { erros, ate: 0 };
 }
 
-// ── 5 minutos sem uso ───────────────────────────────────────────────────
+// ── 1 minuto sem uso ────────────────────────────────────────────────────
 // Relógio que voltou para trás também expira: na dúvida, volta aos nomes.
 export function expirou(ultimoUso, agora, limite = OCIOSO_MS) {
   if (!ultimoUso) return true;

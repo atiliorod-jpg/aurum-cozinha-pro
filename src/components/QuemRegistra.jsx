@@ -10,7 +10,7 @@ import { useOperador } from '../store/OperadorContext';
 //  tinham um seletor "Responsável" LIVRE — qualquer um registrava no nome de
 //  qualquer outro, e o "quem fez" do histórico não valia nada. Agora vale a
 //  MESMA pessoa nos dois: quem entrou pelo nome assina a etiqueta e os
-//  lançamentos, até "Trocar" ou 5 minutos sem uso (ver OperadorContext).
+//  lançamentos, até "Trocar" ou 1 minuto sem uso (ver OperadorContext).
 //
 //  O nome é pedido NA HORA de registrar (decisão do dono), não ao abrir o app:
 //  se ninguém entrou, o próprio formulário mostra a grade de nomes, e o botão

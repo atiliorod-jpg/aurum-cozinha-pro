@@ -10,7 +10,7 @@ import {
 //  QUEM ESTÁ IMPRIMINDO AGORA ("Quem vai imprimir?", 13/10/2026)
 //
 //  A pessoa entra pelo nome (e a senha, se tiver) e as etiquetas saem
-//  assinadas por ela até: 5 minutos sem tocar em nada, "Trocar", reabrir o
+//  assinadas por ela até: 1 minuto sem tocar em nada, "Trocar", reabrir o
 //  app ou sair da conta.
 //
 //  ⚠️ SÓ NA MEMÓRIA. Nunca em `prefs` nem em `_prefs_device`: guardado no
@@ -62,15 +62,23 @@ export function OperadorProvider({ children }) {
   operadorRef.current = operador; // eslint-disable-line react-hooks/refs
 
   const sair = useCallback(() => setEstado({ dono: '', nome: '' }), []);
+  // ⚠️ QUANTAS VEZES O NOME EXPIROU POR FALTA DE USO (03/11/2026). "Trocar"
+  // também zera o operador, mas só a expiração faz a tela Imprimir voltar
+  // para os nomes e fechar a janela de impressão — quem toca em "Trocar"
+  // dentro da janela quer escolher outro nome ali mesmo, não perder o que
+  // digitou. Um contador, e não um sim/não, para cada expiração ser vista.
+  const [expiracoes, setExpiracoes] = useState(0);
 
-  // ── 5 minutos sem uso ──────────────────────────────────────────────
-  // ⚠️ Confere a expiração ANTES de renovar: um toque depois de 6 minutos
+  // ── 1 minuto sem uso ───────────────────────────────────────────────
+  // ⚠️ Confere a expiração ANTES de renovar: um toque depois de 2 minutos
   // parado não pode "salvar" o nome — ele volta para a lista.
   useEffect(() => {
     if (!operador) return undefined;
     ultimoUsoRef.current = Date.now();
     const conferir = () => {
-      if (operadorRef.current && expirou(ultimoUsoRef.current, Date.now())) { sair(); return true; }
+      if (operadorRef.current && expirou(ultimoUsoRef.current, Date.now())) {
+        sair(); setExpiracoes(n => n + 1); return true;
+      }
       return false;
     };
     const aoUsar = () => { if (!conferir()) ultimoUsoRef.current = Date.now(); };
@@ -79,7 +87,9 @@ export function OperadorProvider({ children }) {
     window.addEventListener('pointerdown', aoUsar, true);
     window.addEventListener('keydown', aoUsar, true);
     document.addEventListener('visibilitychange', aoVoltar);
-    const relogio = setInterval(conferir, 15_000);
+    // de 5 em 5 s: com 1 minuto de limite, conferir a cada 15 s deixaria o
+    // nome valendo até 75 s
+    const relogio = setInterval(conferir, 5_000);
     return () => {
       window.removeEventListener('pointerdown', aoUsar, true);
       window.removeEventListener('keydown', aoUsar, true);
@@ -124,8 +134,8 @@ export function OperadorProvider({ children }) {
   }, [dono, pessoas, senhasEquipe, chaveTrava]);
 
   const valor = useMemo(() => ({
-    operador, comEquipe, temSenha, entrar, tentarSenha, trocar: sair, travaDe,
-  }), [operador, comEquipe, temSenha, entrar, tentarSenha, sair, travaDe]);
+    operador, comEquipe, temSenha, entrar, tentarSenha, trocar: sair, travaDe, expiracoes,
+  }), [operador, comEquipe, temSenha, entrar, tentarSenha, sair, travaDe, expiracoes]);
 
   return <OperadorContext.Provider value={valor}>{children}</OperadorContext.Provider>;
 }

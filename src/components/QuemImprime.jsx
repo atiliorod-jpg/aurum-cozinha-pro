@@ -6,6 +6,7 @@ import { DIGITOS } from '../utils/senhaEquipe';
 import { DEMO_COM_SENHA } from '../data/demo';
 import Aviso from './Aviso';
 import Icon from './Icons';
+import Dialogo from './Dialogo';
 
 // =====================================================================
 //  "QUEM VAI IMPRIMIR?" (13/10/2026, pedido do dono, no jeito da Suflex)
@@ -184,5 +185,41 @@ export function FaixaOperador() {
         Trocar
       </button>
     </div>
+  );
+}
+
+// ── "Continuar imprimindo?" (pedido do dono, 03/11/2026, visto na Suflex) ──
+// A etiqueta saiu pela tela Imprimir: 5 segundos para dizer que continua.
+// Sem resposta, o aparelho volta para os nomes — quem pega o celular depois
+// não imprime no nome de quem acabou de sair.
+// ⚠️ O "×" e o Esc contam como continuar: quem fechou está ali.
+export const SEGUNDOS_PARA_CONTINUAR = 5;
+
+export function ContinuarImprimindo({ nome, aoContinuar, aoTrocar }) {
+  const [restam, setRestam] = useState(SEGUNDOS_PARA_CONTINUAR);
+  useEffect(() => {
+    if (restam <= 0) { aoTrocar(); return undefined; }
+    const t = setTimeout(() => setRestam(r => r - 1), 1000);
+    return () => clearTimeout(t);
+  }, [restam, aoTrocar]);
+  return (
+    <Dialogo aoFechar={aoContinuar} titulo={`Continuar imprimindo, ${nome}?`}
+      forma="caixa" largura="sm" camada={110} classeCaixa="space-y-3">
+      <p className="text-sm text-gray-700">Volta para os nomes em {restam} s.</p>
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden" aria-hidden="true">
+        <div className="h-full bg-polo-gold transition-[width] duration-1000 ease-linear"
+          style={{ width: `${(Math.max(0, restam - 1) / SEGUNDOS_PARA_CONTINUAR) * 100}%` }} />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={aoContinuar} autoFocus
+          className="min-h-11 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm">
+          Continuar
+        </button>
+        <button type="button" onClick={aoTrocar}
+          className="min-h-11 rounded-xl border border-polo-navy/30 bg-white text-polo-navy font-bold text-sm">
+          Trocar pessoa
+        </button>
+      </div>
+    </Dialogo>
   );
 }

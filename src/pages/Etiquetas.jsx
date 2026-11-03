@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Abas from '../components/ui/Abas';
 import Filtros from '../components/ui/Filtros';
@@ -22,7 +22,7 @@ import { pode } from '../utils/permissoes';
 import Esqueleto from '../components/Esqueleto';
 import { linkSuporte } from '../utils/suporte';
 import Icon from '../components/Icons';
-import QuemImprime, { FaixaOperador } from '../components/QuemImprime';
+import QuemImprime, { FaixaOperador, ContinuarImprimindo } from '../components/QuemImprime';
 import { useOperador } from '../store/OperadorContext';
 import { faltasDoPrimeiroUso } from '../utils/primeiroUso';
 
@@ -155,7 +155,7 @@ export default function Etiquetas() {
   // na Suflex): com a equipe cadastrada, a busca só aparece depois que a
   // pessoa toca no nome (e digita a senha, se tiver). A etiqueta sai com o
   // nome dela. Equipe vazia: tudo como era antes.
-  const { operador, comEquipe } = useOperador();
+  const { operador, comEquipe, trocar, expiracoes } = useOperador();
   const precisaEscolher = comEquipe && !operador;
 
   const { sessao, impersonando, temPermissao } = useAuth();
@@ -184,6 +184,22 @@ export default function Etiquetas() {
   const [tab, setTab] = useState(abaDaUrl === 'impressora' ? 'impressora' : 'catalogo'); // 'catalogo' | 'impressora'
   const [busca, setBusca] = useState('');
   const [catAtiva, setCatAtiva] = useState('');
+
+  // ── De volta para os nomes (pedido do dono, 03/11/2026, visto na Suflex) ──
+  // 1 minuto sem ninguém mexer, ou "Continuar imprimindo?" sem resposta: a
+  // tela recomeça do zero — nomes, sem busca, sem filtro, na aba Etiquetar. A
+  // janela de impressão aberta daqui fecha sozinha (ver EtiquetaPrint).
+  const [perguntarSeContinua, setPerguntarSeContinua] = useState(false);
+  const recomecar = useCallback(() => {
+    setBusca(''); setCatAtiva(''); setTab('catalogo'); setPerguntarSeContinua(false);
+  }, [setPerguntarSeContinua]);
+  const expiracoesVistas = useRef(expiracoes);
+  useEffect(() => {
+    if (expiracoes === expiracoesVistas.current) return;
+    expiracoesVistas.current = expiracoes;
+    recomecar();
+  }, [expiracoes, recomecar]);
+  const trocarPessoa = useCallback(() => { trocar(); recomecar(); }, [trocar, recomecar]);
 
   // ── Aba Catálogo ─────────────────────────────────────────────
   const produtosAtivos = produtos.filter(p => p.ativo);
@@ -275,7 +291,11 @@ export default function Etiquetas() {
     // com equipe, quem entrou pelo nome; sem equipe, o último lembrado
     responsavel: (comEquipe ? operador : prefs.responsavel) || '',
     quantidade: 1,
-  }]);
+  }], {
+    // fecha sozinha no minuto sem uso, e ao sair a etiqueta pergunta se continua
+    daTelaImprimir: true,
+    aoTerminar: () => setPerguntarSeContinua(true),
+  });
   };
 
   return (
@@ -434,6 +454,9 @@ export default function Etiquetas() {
           </div>
           </>)}
         </div>
+      )}
+      {perguntarSeContinua && comEquipe && operador && (
+        <ContinuarImprimindo nome={operador} aoContinuar={() => setPerguntarSeContinua(false)} aoTrocar={trocarPessoa} />
       )}
     </Layout>
   );

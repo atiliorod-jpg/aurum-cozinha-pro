@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { continuarImprimindo } from './apoio';
 
 // =====================================================================
 //  "QUEM VAI IMPRIMIR?" (13/10/2026) — na demonstração (nada vai ao banco):
 //  Maria entra só tocando no nome; João tem a senha 1234. A etiqueta sai
 //  assinada por quem entrou; reimprimir mantém quem assinou o original; 5
 //  erros fazem esperar; outros caminhos de impressão perguntam o nome; o
-//  dono cria a senha em Administração; 5 minutos parado volta aos nomes.
+//  dono cria a senha em Administração; 1 minuto parado volta aos nomes.
 // =====================================================================
 
 const ruidoDeRede = /Failed to load resource|net::ERR_|ERR_INTERNET_DISCONNECTED|supabase/i;
@@ -56,7 +57,7 @@ test('Etiquetas: Maria entra sem senha, João só com a senha certa, e a reimpre
   await expect(janela.locator('.etiqueta-label').first()).toContainText('Maria');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await continuarImprimindo(page);
 
   // Trocar → João tem senha: errada avisa quantas restam; 1234 entra
   await page.getByRole('button', { name: 'Trocar', exact: true }).click();
@@ -140,7 +141,8 @@ test('Cozinha Pro: se o nome expira com a janela de imprimir aberta, ela pergunt
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
   const janela = page.getByRole('dialog');
   await expect(janela.getByText('Assina: Maria')).toBeVisible();
-  await page.clock.fastForward('05:30');
+  await page.clock.fastForward('01:10');
+  // aberta por Entradas, a janela fica e pede o nome (só a da tela Imprimir fecha)
   await expect(janela.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible();
   await expect(janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ })).toBeDisabled();
   expect(erros, erros.join('\n')).toEqual([]);
@@ -167,14 +169,64 @@ test('Etiquetas: o dono cria a senha da Maria em Administração', async ({ page
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
-test('Etiquetas: 5 minutos sem uso volta para os nomes', async ({ page }) => {
+// eram 5 minutos; o dono pediu 1 em 03/11/2026, como na Suflex
+test('Etiquetas: 1 minuto sem uso volta para os nomes', async ({ page }) => {
   await page.clock.install();
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
   await page.getByRole('button', { name: 'Maria', exact: true }).click();
   await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
-  await page.clock.fastForward('04:00');
+  await page.clock.fastForward('00:40');
   await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
-  await page.clock.fastForward('01:30');
+  await page.clock.fastForward('00:30');
+  await expect(nomes(page)).toBeVisible();
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('Etiquetas: 1 minuto parado com a janela aberta, ela fecha e a tela recomeça nos nomes', async ({ page }) => {
+  await page.clock.install();
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await page.getByLabel('Buscar produto').fill('frango');
+  await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.clock.fastForward('01:10');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(nomes(page)).toBeVisible();
+  // a próxima pessoa começa do zero: sem a busca de quem saiu
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await expect(page.getByLabel('Buscar produto')).toHaveValue('');
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('Etiquetas: depois de imprimir pergunta se continua; sem resposta em 5 s volta para os nomes', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
+  let janela = page.getByRole('dialog');
+  await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
+  await janela.getByRole('button', { name: 'Sim', exact: true }).click();
+  const pergunta = page.getByRole('dialog', { name: 'Continuar imprimindo, Maria?' });
+  await expect(pergunta).toBeVisible();
+  await expect(pergunta).toContainText(/Volta para os nomes em \d s/);
+  // ninguém responde: em 5 s, os nomes de novo
+  await expect(nomes(page)).toBeVisible({ timeout: 10_000 });
+  await expect(pergunta).toHaveCount(0);
+
+  // "Continuar" segue como a mesma pessoa
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
+  janela = page.getByRole('dialog');
+  await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
+  await janela.getByRole('button', { name: 'Sim', exact: true }).click();
+  await continuarImprimindo(page);
+  await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
+  // e "Trocar pessoa" volta para os nomes na hora
+  await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
+  janela = page.getByRole('dialog');
+  await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
+  await janela.getByRole('button', { name: 'Sim', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Continuar imprimindo, Maria?' })
+    .getByRole('button', { name: 'Trocar pessoa' }).click();
   await expect(nomes(page)).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });

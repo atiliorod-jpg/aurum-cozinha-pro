@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { continuarImprimindo } from './apoio';
 
 // =====================================================================
 //  BAIXA PELA ETIQUETA (M59, 30/09/2026) — o caminho inteiro, na
@@ -67,7 +68,7 @@ test('Cozinha Pro: etiqueta com QR, saída pelo código, desfazer e sem baixa du
   await expect(janela.locator('.etiqueta-label').first()).toContainText(/[A-Z0-9]{4}-[A-Z0-9]{4}/);
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await continuarImprimindo(page);
 
   const antes = await codigosNaValidade(page);
   expect(antes.length).toBeGreaterThanOrEqual(2);

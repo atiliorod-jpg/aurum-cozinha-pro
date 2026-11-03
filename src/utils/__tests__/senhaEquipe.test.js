@@ -3,7 +3,7 @@
 //
 //  A pessoa toca no nome, digita a senha de 4 números (se tiver) e a
 //  etiqueta sai assinada por ela. Aqui: a codificação, a trava de erros, os
-//  5 minutos sem uso, quem assina cada janela e as travas no código (a
+//  1 minuto sem uso, quem assina cada janela e as travas no código (a
 //  senha não sai na cópia de segurança, o operador não fica no aparelho).
 // =====================================================================
 
@@ -129,9 +129,10 @@ describe('5 erros → espera 1 minuto (por aparelho)', () => {
   });
 });
 
-describe('5 minutos sem uso → volta para os nomes', () => {
-  it('expira em 5 minutos, e relógio que voltou também expira', () => {
-    expect(OCIOSO_MS).toBe(5 * 60_000);
+describe('1 minuto sem uso → volta para os nomes', () => {
+  // eram 5 minutos; o dono pediu 1 em 03/11/2026, como na Suflex
+  it('expira em 1 minuto, e relógio que voltou também expira', () => {
+    expect(OCIOSO_MS).toBe(60_000);
     expect(expirou(1000, 1000 + OCIOSO_MS - 1)).toBe(false);
     expect(expirou(1000, 1000 + OCIOSO_MS)).toBe(true);
     expect(expirou(5000, 1000)).toBe(true);

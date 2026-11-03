@@ -428,8 +428,21 @@ describe('validade que passa da do fornecedor', () => {
 
   it('avisa quando o prazo da casa ultrapassa a validade do fornecedor', () => {
     const c = monta('2026-10-01', 180);        // 29/08 + 180d = muito depois
-    expect(c.validade > '2026-10-01').toBe(true);
     expect(c.passaDoFornecedor).toBe(true);
+  });
+
+  // ⚠️ 03/11/2026: a validade não se muda mais na impressão — a etiqueta sai
+  // com a data do fabricante, a menor, e sem hora (o fabricante dá o dia).
+  it('e a etiqueta sai com a data do fabricante, sem hora', () => {
+    const c = montarCamposEtiqueta({
+      nome: 'Frango', dataFabricacao: '2026-08-29', hora: '14:30', armazenamento: 'congelado',
+      diasValidade: 180, valOriginal: '2026-10-01',
+    });
+    expect(c.validade).toBe('2026-10-01');
+    expect(c.validadeFmt).toBe('01/10/2026');
+    expect(c.validadeHora).toBe('');
+    // e a data de manipulação continua com a hora
+    expect(c.dataFabricacaoFmt).toBe('29/08/2026 - 14:30');
   });
 
   it('não avisa quando cabe dentro da validade do fornecedor', () => {
