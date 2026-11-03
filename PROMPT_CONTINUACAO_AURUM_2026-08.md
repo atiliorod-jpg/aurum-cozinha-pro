@@ -181,6 +181,39 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (03/11/2026, tarde) — O BANCO PAUSOU; MENSAGEM CERTA E TAREFA QUE O MANTÉM ACORDADO
+
+**O que aconteceu:** o dono não entrava ("Sem conexão com a internet"). A
+internet estava boa: o projeto do Supabase (plano FREE) foi **pausado por
+falta de uso** e o endereço `lifiyldinefisedmkayz.supabase.co` sumiu do DNS
+(NXDOMAIN no 8.8.8.8 e no 1.1.1.1). O dono restaurou no painel às 13h14; os
+dados ficaram (contagem: 4 contas, 2 restaurantes, 42 documentos, 15
+etiquetas). O **token de acesso continua inválido** — a M61 segue parada
+(dá para aplicar pelo editor de SQL do painel, se o dono quiser).
+
+**O que mudou (aprovado por ele):**
+- `utils/conexao.js`: falha de rede pergunta ao PRÓPRIO endereço do app
+  (`favicon.svg?conexao=<agora>`, HEAD, `no-store`, 5 s). Respondeu = "a
+  internet deste aparelho está funcionando, mas o servidor do Aurum não
+  respondeu"; não respondeu = "este aparelho está sem internet".
+  `AuthRetryableFetchError` (502/503/504, projeto acordando) também conta.
+  Usado no Login (entrar, esqueci, cadastro), NovaSenha, ConecteInternet
+  ("Tentar de novo"), DuasEtapas, criar conta da equipe e Admin.
+- `.github/workflows/manter-acordado.yml`: dia sim, dia não (08h17 Recife)
+  chama `rpc/convite_valido` com a chave PÚBLICA — só lê, responde `false`.
+  Falha de propósito se o banco não responder (o GitHub manda e-mail).
+  ⚠️ Só MANTÉM acordado; projeto já pausado tem de ser restaurado no painel.
+- Robô: `semInternet.pw.js` corta também o teste de internet nos cenários
+  "sem internet" e ganhou 2 cenários de "servidor fora com internet boa".
+
+**Pedidos novos do dono (vistos no Suflex), AINDA NÃO APLICADOS — mostrar a
+ideia final e esperar o ok:**
+1. Sem ninguém mexer por um tempo, o app VOLTA para "Quem vai imprimir?"
+   (hoje só esquece o operador em 5 min; a tela fica onde está).
+2. Na janela de impressão a validade NÃO se muda: vale a do cadastro. O
+   método só lista os cadastrados COM prazo (sem "Outro armazenamento" e sem
+   os "sem prazo"). Ao imprimir continuam lote e medida, como hoje.
+
 ## Onde paramos (03/11/2026) — LOTE 11 INTEIRO: MÉTODOS DE CONSERVAÇÃO + GRUPOS DA CASA (sem migração)
 
 Ideia das fotos do Suflex que o dono mandou. Aprovado por ele: prazo em dias,

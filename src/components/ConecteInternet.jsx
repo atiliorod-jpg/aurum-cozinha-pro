@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { textoDoBloqueio } from '../utils/semInternet';
+import { textoDaFalhaDeRede } from '../utils/conexao';
 
 /**
  * "Conecte à internet para continuar" — o limite do uso sem internet
@@ -14,14 +15,16 @@ import { textoDoBloqueio } from '../utils/semInternet';
  */
 export default function ConecteInternet({ motivo, aoTentar, aoSair }) {
   const [tentando, setTentando] = useState(false);
-  const [falhou, setFalhou] = useState(false);
+  const [falhou, setFalhou] = useState('');
 
+  // ⚠️ Não falhou sempre pela internet: com o servidor fora do ar (03/11/2026)
+  // a frase mandava conferir o Wi-Fi, que estava bom. Agora o app confere.
   const tentar = async () => {
-    setTentando(true); setFalhou(false);
+    setTentando(true); setFalhou('');
     let ok;
     try { ok = !!(await aoTentar?.()); } catch { ok = false; }
+    if (!ok) setFalhou(await textoDaFalhaDeRede());
     setTentando(false);
-    if (!ok) setFalhou(true);
   };
 
   return (
@@ -34,7 +37,7 @@ export default function ConecteInternet({ motivo, aoTentar, aoSair }) {
       </button>
       {falhou && (
         <p className="text-white/80 text-xs max-w-xs" role="status">
-          Ainda sem conexão com o servidor. Confira o Wi-Fi ou os dados móveis e toque de novo.
+          {falhou}
         </p>
       )}
       <button onClick={aoSair} className="text-white/70 text-xs underline underline-offset-2 min-h-11 px-3">

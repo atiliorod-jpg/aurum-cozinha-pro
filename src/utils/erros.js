@@ -69,8 +69,10 @@ export function traduzErroAuth(msg) {
   }
 
   // — rede —
+  // ⚠️ Neutra de propósito: pode ser a internet OU o servidor fora do ar. As
+  // telas de entrada usam explicarErroAuth (utils/conexao.js), que confere qual.
   if (m.includes('network') || m.includes('fetch') || m.includes('load failed')) {
-    return 'Sem conexão com a internet.';
+    return 'Sem conexão com o servidor.';
   }
 
   // Conta com verificação em duas etapas (M51): trocar a senha exige ter

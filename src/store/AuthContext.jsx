@@ -6,6 +6,12 @@ import { desvioDoRelogio, horaConfiavel } from '../utils/semInternet';
 import { unidadeFixaDe } from '../utils/unidades';
 import { enviarPendentes, definirUsuarioDosErros } from '../lib/relatarErro';
 import { statusAssinatura } from '../utils/assinatura';
+import { FALHA_DE_REDE, textoDaFalhaDeRede } from '../utils/conexao';
+
+// ⚠️ SERVIDOR FORA DO AR (03/11/2026): com o projeto pausado ou acordando
+// (502/503/504) o Supabase devolve a mensagem "{}". Vira falha de rede, e a
+// tela pergunta se é a internet ou o servidor (utils/conexao.js).
+const mensagemDoErroAuth = (error) => (error?.name === 'AuthRetryableFetchError' ? FALHA_DE_REDE : error?.message);
 
 // ⚠️ ESTES TRÊS SÃO NÍVEIS DE SEGURANÇA, não rótulos. Estão numa trava da
 // tabela `perfis` e em mais de cem verificações das regras de acesso do banco
@@ -683,6 +689,7 @@ export function AuthProvider({ children }) {
     const email = emailDeLogin(bruto);
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
     if (!error) return null;
+    if (error.name === 'AuthRetryableFetchError') return FALHA_DE_REDE;
     // ⚠️ A mensagem crua do Supabase é "Invalid login credentials". Para quem
     // digitou um usuário, ela não diz nada — e o erro mais provável é ter
     // esquecido a segunda metade ("maria" em vez de "maria.polobeer").
@@ -766,8 +773,8 @@ export function AuthProvider({ children }) {
     } catch {
       // ⚠️ Sem internet a mensagem tem que dizer isso. "Falha ao criar conta"
       // manda o dono procurar erro no nome, na senha, no cargo — e o problema
-      // era o wi-fi da cozinha.
-      return { erro: 'Sem conexão. Tente de novo quando a internet voltar.' };
+      // era o wi-fi da cozinha. E se a internet está boa, é o servidor.
+      return { erro: await textoDaFalhaDeRede() };
     }
   }, []);
 
@@ -862,7 +869,7 @@ export function AuthProvider({ children }) {
     }
     const redirectTo = `${window.location.origin}${import.meta.env.BASE_URL}`;
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-    return error?.message || null;
+    return error ? mensagemDoErroAuth(error) : null;
   }, []);
 
   // ── Primeiro acesso: cria restaurante + conta diretoria ───────
@@ -1060,7 +1067,7 @@ export function AuthProvider({ children }) {
   const atualizarSenha = useCallback(async (novaSenha) => {
     if (sessao?.demo) return 'Indisponível na demonstração.';
     const { error } = await supabase.auth.updateUser({ password: novaSenha });
-    if (error) return error.message;
+    if (error) return mensagemDoErroAuth(error);
     setRecuperando(false);
     // ⚠️ AVISA AS OUTRAS ABAS. O app é instalável, então o link do e-mail abre
     // em DOIS lugares no celular: a aba do navegador e a janela do app já

@@ -25,12 +25,15 @@ test.skip(!CHAVE_SESSAO, 'sem VITE_SUPABASE_URL: não dá para montar a sessão 
 
 const RID_ROBO = '00000000-0000-4000-8000-00000000robo'.slice(0, 36);
 
-async function abrirSemInternet(page, { horasDaCopia = null, assinaturaAte = null, guardado = {} } = {}) {
+async function abrirSemInternet(page, { horasDaCopia = null, assinaturaAte = null, guardado = {}, servidorFora = false } = {}) {
   const erros = [];
   page.on('pageerror', (e) => { if (!ruidoDeRede.test(e.message)) erros.push(`erro de JavaScript: ${e.message}`); });
   // sem internet: tudo que vai ao banco falha como falharia com o Wi-Fi fora
   await page.route(/supabase\.co/, (r) => r.abort('internetdisconnected'));
   await page.routeWebSocket(/supabase\.co/, (ws) => ws.close());
+  // ⚠️ o app confere se a internet chega ao próprio endereço (utils/conexao.js);
+  // sem internet de verdade, nem ele responde. `servidorFora`: só o banco caiu.
+  if (!servidorFora) await page.route(/favicon\.svg\?conexao=/, (r) => r.abort('internetdisconnected'));
   const agora = Date.now();
   await page.addInitScript(({ chave, copia, agora, guardado }) => {
     window.open = () => null; window.print = () => {};
@@ -72,9 +75,9 @@ test('sem internet e sem cópia guardada: pede internet (antes: login ou "Cadast
   await expect(page.getByText('Conecte à internet para continuar', { exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/primeira entrada precisa de internet/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Tentar de novo' })).toBeVisible();
-  // tentar de novo ainda sem internet: diz que segue sem conexão, não trava
+  // tentar de novo ainda sem internet: diz que segue sem internet, não trava
   await page.getByRole('button', { name: 'Tentar de novo' }).click();
-  await expect(page.getByText(/Ainda sem conexão/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Este aparelho está sem internet/)).toBeVisible({ timeout: 20_000 });
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
@@ -140,5 +143,33 @@ test('sem internet: a senha da equipe confere, e recarregar volta para os nomes'
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Imprimindo como Ana')).toHaveCount(0);
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+// ── 03/11/2026: o banco pausado (plano grátis) e a internet boa ──
+// O dono via "Sem conexão com a internet" e ia conferir o Wi-Fi. Agora a
+// tela diz que é o servidor, e só fala de Wi-Fi quando é mesmo a internet.
+test('servidor fora do ar com a internet boa: a entrada diz que é o servidor, não o Wi-Fi', async ({ page }) => {
+  const erros = [];
+  page.on('pageerror', (e) => { if (!ruidoDeRede.test(e.message)) erros.push(`erro de JavaScript: ${e.message}`); });
+  await page.route(/supabase\.co/, (r) => r.abort('namenotresolved'));
+  await page.goto('/');
+  await page.getByLabel('E-mail ou usuário').fill('dono@teste.invalid');
+  await page.getByLabel('Senha', { exact: true }).fill('senha-do-robo');
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page.getByText(/servidor do Aurum não respondeu/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/sem internet/i)).toHaveCount(0);
+  // sem internet nenhuma, aí sim a frase é a do Wi-Fi
+  await page.route(/favicon\.svg\?conexao=/, (r) => r.abort('internetdisconnected'));
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page.getByText(/Este aparelho está sem internet/)).toBeVisible({ timeout: 20_000 });
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('servidor fora do ar: "Tentar de novo" também diz que é o servidor', async ({ page }) => {
+  const erros = await abrirSemInternet(page, { servidorFora: true });
+  await expect(page.getByRole('button', { name: 'Tentar de novo' })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Tentar de novo' }).click();
+  await expect(page.getByText(/servidor do Aurum não respondeu/)).toBeVisible({ timeout: 20_000 });
   expect(erros, erros.join('\n')).toEqual([]);
 });

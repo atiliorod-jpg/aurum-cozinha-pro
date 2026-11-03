@@ -1,0 +1,43 @@
+# =====================================================================
+#  MANTER O BANCO ACORDADO (03/11/2026)
+#
+#  O Supabase do plano grátis PAUSA o projeto depois de uns 7 dias sem uso:
+#  o endereço some da rede e ninguém entra (o app dizia "sem internet").
+#  Foi o que aconteceu em 03/11. Esta tarefa faz, dia sim, dia não, uma
+#  consulta pequena ao banco: a mesma do link de convite, que só responde
+#  true/false e não grava nada.
+#
+#  ⚠️ A chave usada é a PÚBLICA (anon), a mesma que já vai dentro do app.
+#  ⚠️ Ela só MANTÉM acordado. Projeto já pausado não acorda com consulta:
+#  tem de ser restaurado no painel do Supabase ("Restore project").
+#  ⚠️ FALHA DE PROPÓSITO quando o banco não responde: o GitHub manda e-mail
+#  ao dono, que fica sabendo antes do cliente.
+#  ⚠️ O GitHub desliga tarefas agendadas de repositório sem commits há 60
+#  dias. Se o repositório ficar parado tanto tempo, reative em Actions.
+# =====================================================================
+name: Manter o banco acordado
+
+on:
+  schedule:
+    - cron: '17 11 */2 * *'   # dia sim, dia não, 08h17 em Recife
+  workflow_dispatch:           # botão "Run workflow", para testar na hora
+
+permissions: {}
+
+jobs:
+  consultar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consulta pequena ao banco
+        env:
+          URL: ${{ secrets.VITE_SUPABASE_URL }}
+          CHAVE: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          resposta=$(curl -sS --fail-with-body --retry 3 --retry-delay 20 --max-time 30 \
+            -X POST "$URL/rest/v1/rpc/convite_valido" \
+            -H "apikey: $CHAVE" -H "Authorization: Bearer $CHAVE" \
+            -H "Content-Type: application/json" \
+            -d '{"p_token":"manter-acordado"}')
+          echo "Resposta do banco: $resposta"
+          test "$resposta" = "false"

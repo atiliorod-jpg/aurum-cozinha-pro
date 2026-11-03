@@ -72,7 +72,8 @@ describe('duas etapas: "não deu para ler" não é "falta o código"', () => {
     const tela = ler('../../components/DuasEtapas.jsx');
     expect(tela).toMatch(/setTentativa\(n => n \+ 1\)/);
     expect(tela).toMatch(/\}, \[tentativa\]\);/);
-    expect(tela).toMatch(/Sem conexão com o servidor/);
+    // desde 03/11/2026 a frase diz se é a internet ou o servidor (utils/conexao.js)
+    expect(tela).toMatch(/ehFalhaDeRede\(e\)\s*\? `\$\{await textoDaFalhaDeRede\(\)\}/);
   });
 
   it('trocar a senha sem o código diz o motivo certo (não "mínimo 8 caracteres")', () => {

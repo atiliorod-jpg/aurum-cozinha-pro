@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../store/AuthContext';
 import { PRODUTOS, fmtPreco } from '../utils/assinatura';
 import { validarCNPJ, formatarCNPJ, validarTelefone, formatarTelefone, soDigitos, UFS } from '../utils/documentos';
-import { traduzErroAuth as traduz } from '../utils/erros';
+import { explicarErroAuth as traduz } from '../utils/conexao';
 import { TERMOS_VERSAO } from './Termos';
 import Icon from '../components/Icons';
 
@@ -96,8 +96,10 @@ export default function Login() {
     if (!email || !senha) { setErro('Preencha e-mail e senha.'); return; }
     setCarregando(true);
     const err = await login(email.trim(), senha);
+    // ⚠️ "Entrando…" fica até a frase sair: falha de rede ainda confere se é a
+    // internet ou o servidor (até 5 s, utils/conexao.js)
+    if (err) setErro(await traduz(err));
     setCarregando(false);
-    if (err) setErro(traduz(err));
   };
 
   const recuperar = async () => {
@@ -108,9 +110,9 @@ export default function Login() {
     if (cnpj.replace(/\D/g, '').length !== 14) { setErro('Digite o CNPJ do restaurante (14 dígitos).'); return; }
     setCarregando(true);
     const err = await esqueceuSenha(email.trim(), cnpj);
-    setCarregando(false);
-    if (err) setErro(traduz(err));
+    if (err) setErro(await traduz(err));
     else setInfo('Enviamos um link para o seu e-mail. Confira a caixa de entrada e também o spam.');
+    setCarregando(false);
   };
 
   // Passo 1 → 2. Barra aqui em vez de deixar descobrir no fim: quem digita
@@ -140,14 +142,15 @@ export default function Login() {
       cidade: cidade.trim(), uf,
       termosVersao: TERMOS_VERSAO,
     });
-    setCarregando(false);
     // ⚠️ Objeto (não string) = confirmação de e-mail ligada e o signUp não
     // devolveu sessão. NÃO é erro: a conta foi criada e falta só confirmar.
     if (err && typeof err === 'object' && err.confirmarEmail) {
+      setCarregando(false);
       setAguardandoEmail(email.trim());
       return;
     }
-    if (err) setErro(traduz(err));
+    if (err) setErro(await traduz(err));
+    setCarregando(false);
   };
 
   // Abre a demonstração e avisa o dono pelo WhatsApp, na mesma ação.

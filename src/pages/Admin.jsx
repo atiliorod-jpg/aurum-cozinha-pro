@@ -14,6 +14,7 @@ import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarCEP, formatarTelefone, UFS } from '../utils/documentos';
 import Icon from '../components/Icons';
 import { plural } from '../utils/formatters';
+import { textoDaFalhaDeRede } from '../utils/conexao';
 
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
@@ -954,7 +955,8 @@ A lista própria dela fica guardada: se você religar, ela volta como estava.`,
       if (!r.ok) return { erro: dados?.erro || 'Não consegui falar com o servidor.' };
       return dados;
     } catch {
-      return { erro: 'Sem conexão. Tente de novo quando a internet voltar.' };
+      // internet ou servidor fora do ar? o app confere (utils/conexao.js)
+      return { erro: await textoDaFalhaDeRede() };
     }
   };
 
@@ -1079,7 +1081,7 @@ O login e a recuperação de senha passam a usar o e-mail novo. A senha continua
       resp = await r.json().catch(() => ({}));
       if (!r.ok) resp = { erro: resp?.erro || 'Não consegui falar com o servidor.' };
     } catch {
-      resp = { erro: 'Sem conexão. Tente de novo quando a internet voltar.' };
+      resp = { erro: await textoDaFalhaDeRede() };
     }
     if (resp?.erro) { setCriandoConta(false); toast(resp.erro, 'erro'); return; }
 

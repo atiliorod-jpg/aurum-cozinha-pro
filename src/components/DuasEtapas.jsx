@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { ehFalhaDeRede, textoDaFalhaDeRede } from '../utils/conexao';
 
-// sem rede o Supabase devolve 'Failed to fetch' — a tela fala a língua de quem lê
-const textoDoErro = (e, padrao) => (/fetch|network|load failed/i.test(e?.message || '')
-  ? 'Sem conexão com o servidor. Confira a internet e toque em Tentar de novo.'
+// sem rede o Supabase devolve 'Failed to fetch' — a tela fala a língua de quem
+// lê, e diz se é a internet ou o servidor fora do ar (utils/conexao.js)
+const textoDoErro = async (e, padrao) => (ehFalhaDeRede(e)
+  ? `${await textoDaFalhaDeRede()} Depois, toque em Tentar de novo.`
   : (e?.message || padrao));
 
 /**
@@ -34,7 +36,11 @@ export default function DuasEtapas({ aoConcluir, aoSair }) {
     (async () => {
       const { data, error } = await supabase.auth.mfa.listFactors();
       if (!vivo) return;
-      if (error) { setErro(textoDoErro(error, 'Não deu para ler a verificação.')); setEtapa('erro'); return; }
+      if (error) {
+        const texto = await textoDoErro(error, 'Não deu para ler a verificação.');
+        if (vivo) { setErro(texto); setEtapa('erro'); }
+        return;
+      }
       const pronto = (data?.totp || []).find(f => f.status === 'verified');
       if (pronto) { setFator({ id: pronto.id }); setEtapa('codigo'); return; }
       // cadastro começado e não terminado atrapalha o novo: sai antes
@@ -43,7 +49,11 @@ export default function DuasEtapas({ aoConcluir, aoSair }) {
       }
       const { data: novo, error: e2 } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'Painel Aurum' });
       if (!vivo) return;
-      if (e2 || !novo) { setErro(textoDoErro(e2, 'Não deu para começar o cadastro.')); setEtapa('erro'); return; }
+      if (e2 || !novo) {
+        const texto = await textoDoErro(e2, 'Não deu para começar o cadastro.');
+        if (vivo) { setErro(texto); setEtapa('erro'); }
+        return;
+      }
       setFator({ id: novo.id, qr: novo.totp?.qr_code, secret: novo.totp?.secret });
       setEtapa('cadastrar');
     })();
@@ -56,13 +66,14 @@ export default function DuasEtapas({ aoConcluir, aoSair }) {
     if (c.length !== 6) { setErro('Digite os 6 números que aparecem no aplicativo.'); return; }
     setOcupado(true); setErro('');
     const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: fator.id, code: c });
-    setOcupado(false);
     if (error) {
       setErro(/invalid|expired|code/i.test(error.message || '')
         ? 'Código não confere. Confira se o relógio do celular está certo e digite o código que está na tela agora.'
-        : textoDoErro(error, 'Não deu certo.'));
+        : await textoDoErro(error, 'Não deu certo.'));
+      setOcupado(false);
       return;
     }
+    setOcupado(false);
     await aoConcluir?.();
   };
 
