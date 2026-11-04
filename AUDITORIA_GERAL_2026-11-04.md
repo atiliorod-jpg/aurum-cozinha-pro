@@ -34,7 +34,8 @@ Como foi feita:
   vem o **assistente de perguntas sobre o estoque**.
 - **Busca por voz: dá, sem custo nenhum**, no Chrome do Android e no Safari do
   iPhone. Precisa de internet, porque o áudio vira texto no serviço do
-  Google/Apple. É o passo mais barato e rápido desta lista.
+  Google/Apple. É o passo mais barato e rápido desta lista. **Feita e publicada
+  no mesmo dia (E1), a pedido do dono.**
 
 ---
 
@@ -67,9 +68,11 @@ Como foi feita:
 - **Vírgula nos números (Pro):** os campos de quantidade são numéricos. Em
   alguns teclados de Android, digitar "1,5" pode ser recusado ou virar "1".
   Teste rápido: lançar uma entrada de 1,5 kg pelo celular e ver se chegam 1,5.
-- **1 minuto sem uso também vale nos lançamentos do Pro** (é o mesmo nome que
-  assina). Quem pesa um item e demora mais de 1 minuto sem tocar na tela tem
-  de escolher o nome de novo ao registrar. Ver a decisão D6.
+- ~~1 minuto sem uso também nos lançamentos do Pro~~ → **resolvido no mesmo
+  dia (D6):** o minuto só vale na tela Imprimir. Nos lançamentos o nome não
+  expira. Quem chega na tela Imprimir depois de 1 minuto com o aparelho parado
+  em outra tela também volta para os nomes, para ninguém imprimir no nome de
+  quem saiu.
 
 ---
 
@@ -122,7 +125,7 @@ para ir junto na M62):
 
 | # | Melhoria | Para quê | Tamanho |
 |---|---|---|---|
-| E1 | **Busca por voz** na tela Imprimir (ver seção 8) | Achar o item falando, com a mão suja ou de luva | Pequeno |
+| E1 | **Busca por voz** na tela Imprimir (ver seção 8) — **FEITO 04/11** | Achar o item falando, com a mão suja ou de luva | Pequeno |
 | E2 | **"Vence hoje / amanhã"** no topo da tela Imprimir e como filtro em Impressas | O plano simples não tem a tela Validades do Pro; hoje ninguém vê de relance o que vence no dia | Médio |
 | E3 | **Imprimir vários itens de uma vez** (marcar 5 itens, quantidades, um envio só) | A abertura da cozinha imprime a mesma lista todo dia; hoje é um item por vez | Médio |
 | E4 | **Foto do rótulo preenche lote e validade original** (IA, ver seção 7) | Hoje são digitados à mão, e o lote é o que mais se erra | Médio |
@@ -294,16 +297,16 @@ Fontes da pesquisa (04/11/2026):
 | D1 | Ligar a verificação em duas etapas na conta do Supabase (só você pode) |
 | D2 | Quando passar o Supabase para o plano pago (cópia de segurança + proteção de senha vazada) |
 | D3 | Quando aplicar o Lote B (M61) |
-| D4 | Posso fazer a **busca por voz** (E1)? |
-| D5 | Quer o **piloto da IA** com a foto do rótulo? Qual o teto de gasto por mês? A IA entra no plano ou como adicional pago? |
-| D6 | O minuto sem uso vale também nos lançamentos do Pro, ou lá ficam 5 minutos? |
-| D7 | Quais das melhorias E2, E3, E6 e P3 entram |
+| D4 | ~~Busca por voz~~ → **sim, feita e publicada em 04/11** |
+| D5 | Piloto da IA com a foto do rótulo → **"agora não"** (04/11). Fica o plano da seção 7 |
+| D6 | ~~Minuto sem uso nos lançamentos~~ → **só na tela de impressão** (feito em 04/11) |
+| D7 | E2, E3, E6 e P3 → **sem escolha por enquanto** (04/11) |
 
 ## 10. Ordem sugerida
 
 1. **Feito hoje:** os 5 bugs da seção 2, com testes e robô.
 2. **Você:** verificação em duas etapas no Supabase (D1).
-3. **Busca por voz (E1)** — pequeno, sem custo, nos dois planos.
+3. ~~Busca por voz (E1)~~ — **feita em 04/11**.
 4. **Por dentro:** M62 (banco) + C2 (abrir mais leve) + C3 (dependências).
 5. **Lote B (M61)**, quando você liberar.
 6. **Piloto da IA** (foto do rótulo), depois da sua decisão sobre custo.
@@ -338,3 +341,13 @@ Fontes da pesquisa (04/11/2026):
 - **Voz:** `SpeechRecognition`/`webkitSpeechRecognition` com `lang='pt-BR'`,
   `interimResults` para mostrar o que está entendendo; erro `network` → avisar
   "a voz precisa de internet". Esconder o botão quando a API não existe.
+- **Voz (feita em 04/11):** `utils/voz.js` (`entenderFala`, `pontuarItem`,
+  `acharPorVoz`, `itemCerto`, `textoDoErroDeVoz`) + `components/BuscaPorVoz.jsx`
+  em volta da busca de `pages/Etiquetas.jsx`. A quantidade falada fica em
+  `qtdDaVoz` para o item tocado na lista. Robô: `e2e/buscaPorVoz.pw.js`, com o
+  reconhecimento de fala trocado por um de mentira (`window.__fala`).
+- **Minuto sem uso só na tela Imprimir (04/11):** `OperadorContext` conta as
+  telas abertas (`useTelaDeImprimir`, chamado em Etiquetas.jsx). Fora delas,
+  `conferir` não expira. `abrirTelaDeImprimir` compara o toque anterior
+  (`usoAnteriorRef`) com o que trouxe até a tela: 1 minuto ou mais parado →
+  expira na chegada.

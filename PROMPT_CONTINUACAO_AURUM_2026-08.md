@@ -200,9 +200,14 @@ decisões D1–D7). 1023 testes, 63 cenários do robô.
 ligar); token segue inválido; verificador de segurança 0 erros (101 avisos,
 99 de propósito); desempenho 0 erros. Ajustes de banco propostos como M62.
 
-**Esperando o dono (D1–D7):** MFA; plano pago do Supabase; Lote B; busca por
-voz (E1, pequeno, sem custo); piloto de IA da foto do rótulo (custo/modelo);
-1 min também nos lançamentos do Pro?; quais de E2, E3, E6, P3.
+**Respostas do dono (04/11):** busca por voz → SIM (feita e publicada:
+`utils/voz.js`, `components/BuscaPorVoz.jsx`, robô `e2e/buscaPorVoz.pw.js`
+com reconhecimento de mentira); piloto de IA → "agora não"; minuto sem uso →
+SÓ na tela de impressão (OperadorContext: `useTelaDeImprimir` + expira na
+chegada se o aparelho ficou 1 min parado em outra tela); E2/E3/E6/P3 → sem
+escolha por enquanto.
+
+**Ainda com o dono:** MFA da conta Supabase; plano pago; Lote B (M61).
 
 ## Onde paramos (03/11/2026, tarde) — O BANCO PAUSOU; MENSAGEM CERTA E TAREFA QUE O MANTÉM ACORDADO
 

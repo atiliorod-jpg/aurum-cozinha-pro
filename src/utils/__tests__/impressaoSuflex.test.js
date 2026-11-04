@@ -58,7 +58,12 @@ describe('de volta para os nomes', () => {
   });
   it('a expiração é contada à parte do "Trocar"', () => {
     const op = ler('../../store/OperadorContext.jsx');
-    expect(op).toMatch(/sair\(\); setExpiracoes\(n => n \+ 1\); return true;/);
+    expect(op).toMatch(/const expirar = useCallback\(\(\) => \{ sair\(\); setExpiracoes\(n => n \+ 1\); \}, \[sair\]\);/);
+    // ⚠️ 04/11/2026: só na tela Imprimir — nos lançamentos do Pro o nome não expira
+    expect(op).toMatch(/operadorRef\.current && telasDeImprimirRef\.current > 0 && expirou\(/);
+    // e quem CHEGA nela depois de 1 minuto parado em outra tela volta para os nomes
+    expect(op).toMatch(/usoAnteriorRef\.current\s+&& expirou\(usoAnteriorRef\.current, ultimoUsoRef\.current\)\) expirar\(\);/);
+    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/useTelaDeImprimir\(\);/);
     expect(op).toMatch(/setInterval\(conferir, 5_000\)/);
   });
   it('só a janela aberta pela tela Imprimir fecha, e nunca no meio de um envio', () => {

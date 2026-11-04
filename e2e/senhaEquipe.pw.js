@@ -132,7 +132,9 @@ test('Cozinha Pro: quem tem senha digita no próprio formulário', async ({ page
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
-test('Cozinha Pro: se o nome expira com a janela de imprimir aberta, ela pergunta de novo', async ({ page }) => {
+// ⚠️ 04/11/2026: o minuto sem uso só vale na tela Imprimir — aberta por
+// Entradas, a janela continua assinada por quem estava (decisão do dono)
+test('Cozinha Pro: aberta por Entradas, a janela de imprimir não perde o nome no minuto sem uso', async ({ page }) => {
   await page.clock.install();
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrir(page, '/entradas');
@@ -142,9 +144,8 @@ test('Cozinha Pro: se o nome expira com a janela de imprimir aberta, ela pergunt
   const janela = page.getByRole('dialog');
   await expect(janela.getByText('Assina: Maria')).toBeVisible();
   await page.clock.fastForward('01:10');
-  // aberta por Entradas, a janela fica e pede o nome (só a da tela Imprimir fecha)
-  await expect(janela.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible();
-  await expect(janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ })).toBeDisabled();
+  await expect(janela.getByText('Assina: Maria')).toBeVisible();
+  await expect(janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ })).toBeEnabled();
   expect(erros, erros.join('\n')).toEqual([]);
 });
 

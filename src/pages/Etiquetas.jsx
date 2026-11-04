@@ -23,7 +23,8 @@ import Esqueleto from '../components/Esqueleto';
 import { linkSuporte } from '../utils/suporte';
 import Icon from '../components/Icons';
 import QuemImprime, { FaixaOperador, ContinuarImprimindo } from '../components/QuemImprime';
-import { useOperador } from '../store/OperadorContext';
+import BuscaPorVoz from '../components/BuscaPorVoz';
+import { useOperador, useTelaDeImprimir } from '../store/OperadorContext';
 import { faltasDoPrimeiroUso } from '../utils/primeiroUso';
 
 // Guia da impressora — duas situações, passo a passo curto. Imprimível.
@@ -190,9 +191,15 @@ export default function Etiquetas() {
   // tela recomeça do zero — nomes, sem busca, sem filtro, na aba Etiquetar. A
   // janela de impressão aberta daqui fecha sozinha (ver EtiquetaPrint).
   const [perguntarSeContinua, setPerguntarSeContinua] = useState(false);
+  // a quantidade falada ("três etiquetas de filé") vale para o item que a
+  // pessoa tocar na lista filtrada pela voz; digitar na busca esquece
+  const [qtdDaVoz, setQtdDaVoz] = useState(null);
   const recomecar = useCallback(() => {
-    setBusca(''); setCatAtiva(''); setTab('catalogo'); setPerguntarSeContinua(false);
+    setBusca(''); setCatAtiva(''); setTab('catalogo'); setPerguntarSeContinua(false); setQtdDaVoz(null);
   }, [setPerguntarSeContinua]);
+  // ⚠️ O MINUTO SEM USO SÓ CONTA AQUI (decisão do dono, 04/11/2026): esta tela
+  // avisa o OperadorContext que está aberta. Ver useTelaDeImprimir.
+  useTelaDeImprimir();
   const expiracoesVistas = useRef(expiracoes);
   useEffect(() => {
     if (expiracoes === expiracoesVistas.current) return;
@@ -253,7 +260,9 @@ export default function Etiquetas() {
     return agruparPorCategoria(ordenados, ordemCategorias);
   }, [produtosVisiveis, ordemCategorias, catAtiva, buscando]);
 
-  const imprimirProduto = (original) => {
+  const imprimirProduto = (original, quantidade = null) => {
+    const qtd = quantidade || qtdDaVoz || 1;
+    setQtdDaVoz(null);
     // no Estoque Seco a etiqueta é de ABERTURA e o padrão é o ambiente (se a
     // casa ainda usa esse estado); nas outras cozinhas o item vai como está
     const ajustado = produtoParaEtiqueta(modulo, original);
@@ -296,7 +305,7 @@ export default function Etiquetas() {
     medida: medidaDoProduto(p),
     // com equipe, quem entrou pelo nome; sem equipe, o último lembrado
     responsavel: (comEquipe ? operador : prefs.responsavel) || '',
-    quantidade: 1,
+    quantidade: qtd,
   }], {
     // fecha sozinha no minuto sem uso, e ao sair a etiqueta pergunta se continua
     daTelaImprimir: true,
@@ -386,9 +395,15 @@ export default function Etiquetas() {
               </div>
             </section>
           )}
-          <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-            placeholder="Buscar produto..." aria-label="Buscar produto"
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+          {/* o microfone ao lado (busca por voz, 04/11/2026) — some sozinho
+              no navegador que não reconhece fala */}
+          <BuscaPorVoz produtos={produtosAtivos}
+            aoBuscar={(termo, qtd) => { setBusca(termo); setQtdDaVoz(qtd || null); }}
+            aoImprimir={(p, qtd) => imprimirProduto(p, qtd)}>
+            <input type="text" value={busca} onChange={e => { setBusca(e.target.value); setQtdDaVoz(null); }}
+              placeholder="Buscar produto..." aria-label="Buscar produto"
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+          </BuscaPorVoz>
           {/* ⚠️ SÓ AS CATEGORIAS QUE TÊM ITEM. A lista vinha inteira da
               biblioteca: numa conta nova a tela mostrava "você ainda não tem
               itens" e, logo acima, treze filtros que não levavam a lugar

@@ -10,8 +10,9 @@ import {
 //  QUEM ESTÁ IMPRIMINDO AGORA ("Quem vai imprimir?", 13/10/2026)
 //
 //  A pessoa entra pelo nome (e a senha, se tiver) e as etiquetas saem
-//  assinadas por ela até: 1 minuto sem tocar em nada, "Trocar", reabrir o
-//  app ou sair da conta.
+//  assinadas por ela até: 1 minuto sem tocar em nada NA TELA IMPRIMIR,
+//  "Trocar", reabrir o app ou sair da conta. Nos lançamentos do Pro o nome
+//  não expira (decisão do dono, 04/11/2026).
 //
 //  ⚠️ SÓ NA MEMÓRIA. Nunca em `prefs` nem em `_prefs_device`: guardado no
 //  aparelho, o nome sobreviveria a fechar o app e o próximo a pegar o
@@ -68,6 +69,14 @@ export function OperadorProvider({ children }) {
   // dentro da janela quer escolher outro nome ali mesmo, não perder o que
   // digitou. Um contador, e não um sim/não, para cada expiração ser vista.
   const [expiracoes, setExpiracoes] = useState(0);
+  const expirar = useCallback(() => { sair(); setExpiracoes(n => n + 1); }, [sair]);
+
+  // ⚠️ O MINUTO SEM USO SÓ CONTA NA TELA IMPRIMIR (decisão do dono,
+  // 04/11/2026): "nas telas de lançamento não precisa, só na de impressão".
+  // A tela avisa que está aberta (useTelaDeImprimir) e só então o relógio
+  // vale. O toque anterior fica guardado para a CHEGADA nela — ver abaixo.
+  const telasDeImprimirRef = useRef(0);
+  const usoAnteriorRef = useRef(0);
 
   // ── 1 minuto sem uso ───────────────────────────────────────────────
   // ⚠️ Confere a expiração ANTES de renovar: um toque depois de 2 minutos
@@ -75,13 +84,18 @@ export function OperadorProvider({ children }) {
   useEffect(() => {
     if (!operador) return undefined;
     ultimoUsoRef.current = Date.now();
+    usoAnteriorRef.current = 0;
     const conferir = () => {
-      if (operadorRef.current && expirou(ultimoUsoRef.current, Date.now())) {
-        sair(); setExpiracoes(n => n + 1); return true;
+      if (operadorRef.current && telasDeImprimirRef.current > 0 && expirou(ultimoUsoRef.current, Date.now())) {
+        expirar(); return true;
       }
       return false;
     };
-    const aoUsar = () => { if (!conferir()) ultimoUsoRef.current = Date.now(); };
+    const aoUsar = () => {
+      if (conferir()) return;
+      usoAnteriorRef.current = ultimoUsoRef.current;
+      ultimoUsoRef.current = Date.now();
+    };
     const aoVoltar = () => { if (document.visibilityState === 'visible') conferir(); };
     // fase de CAPTURA: um botão que para a propagação não esconde o toque
     window.addEventListener('pointerdown', aoUsar, true);
@@ -96,7 +110,18 @@ export function OperadorProvider({ children }) {
       document.removeEventListener('visibilitychange', aoVoltar);
       clearInterval(relogio);
     };
-  }, [operador, sair]);
+  }, [operador, expirar]);
+
+  // A tela Imprimir abriu. ⚠️ QUEM CHEGA NELA DEPOIS DE 1 MINUTO PARADO em
+  // outra tela também volta para os nomes: senão bastava o próximo tocar em
+  // Imprimir, vindo de Entradas, para imprimir no nome de quem saiu. O toque
+  // que trouxe até aqui já renovou o relógio, então vale a pausa ANTES dele.
+  const abrirTelaDeImprimir = useCallback(() => {
+    telasDeImprimirRef.current += 1;
+    if (operadorRef.current && usoAnteriorRef.current
+        && expirou(usoAnteriorRef.current, ultimoUsoRef.current)) expirar();
+    return () => { telasDeImprimirRef.current -= 1; };
+  }, [expirar]);
 
   const temSenha = useCallback((nome) => temSenhaNo(senhasEquipe, nome), [senhasEquipe]);
 
@@ -134,13 +159,19 @@ export function OperadorProvider({ children }) {
   }, [dono, pessoas, senhasEquipe, chaveTrava]);
 
   const valor = useMemo(() => ({
-    operador, comEquipe, temSenha, entrar, tentarSenha, trocar: sair, travaDe, expiracoes,
-  }), [operador, comEquipe, temSenha, entrar, tentarSenha, sair, travaDe, expiracoes]);
+    operador, comEquipe, temSenha, entrar, tentarSenha, trocar: sair, travaDe, expiracoes, abrirTelaDeImprimir,
+  }), [operador, comEquipe, temSenha, entrar, tentarSenha, sair, travaDe, expiracoes, abrirTelaDeImprimir]);
 
   return <OperadorContext.Provider value={valor}>{children}</OperadorContext.Provider>;
 }
 
 export const useOperador = () => useContext(OperadorContext);
+
+/** A tela Imprimir chama ao abrir: o minuto sem uso passa a valer enquanto ela estiver aberta. */
+export function useTelaDeImprimir() {
+  const abrir = useContext(OperadorContext)?.abrirTelaDeImprimir;
+  useEffect(() => abrir?.(), [abrir]);
+}
 
 // ── Lote 2 da auditoria (14/10/2026): a MESMA pessoa assina os lançamentos ──
 // O nome que vai no lançamento e se ainda falta escolher. `manual` é o valor
