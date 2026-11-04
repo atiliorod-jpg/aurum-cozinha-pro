@@ -200,6 +200,12 @@ export default function Etiquetas() {
     recomecar();
   }, [expiracoes, recomecar]);
   const trocarPessoa = useCallback(() => { trocar(); recomecar(); }, [trocar, recomecar]);
+  // ⚠️ "CONTINUAR IMPRIMINDO?" SÓ PARA QUEM AINDA ESTÁ (auditoria 04/11/2026).
+  // O nome pode expirar no meio de um envio longo pelo Bluetooth ou com "Saiu
+  // no papel?" esperando: a pergunta ficava guardada e aparecia para a PRÓXIMA
+  // pessoa, que era tirada em 5 s. Quando a etiqueta sai, confere quem está.
+  const operadorAgora = useRef(operador);
+  useEffect(() => { operadorAgora.current = operador; }, [operador]);
 
   // ── Aba Catálogo ─────────────────────────────────────────────
   const produtosAtivos = produtos.filter(p => p.ativo);
@@ -294,7 +300,7 @@ export default function Etiquetas() {
   }], {
     // fecha sozinha no minuto sem uso, e ao sair a etiqueta pergunta se continua
     daTelaImprimir: true,
-    aoTerminar: () => setPerguntarSeContinua(true),
+    aoTerminar: () => { if (operadorAgora.current) setPerguntarSeContinua(true); },
   });
   };
 

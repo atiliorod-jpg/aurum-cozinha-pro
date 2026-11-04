@@ -181,6 +181,29 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (04/11/2026) — AUDITORIA GERAL + 5 BUGS CORRIGIDOS
+
+Relatório completo: `AUDITORIA_GERAL_2026-11-04.md` (estado, bugs, melhorias
+separadas por plano — E = Etiquetas, P = Pro, C = por dentro —, IA e voz,
+decisões D1–D7). 1023 testes, 63 cenários do robô.
+
+**Bugs corrigidos e publicados (robô em `e2e/auditoria0411.pw.js`):**
+- B1 "Continuar imprimindo?" guardado aparecia para a PRÓXIMA pessoa quando o
+  nome expirava no meio da impressão → `operadorAgora` em Etiquetas.jsx;
+- B2 reimpressão sem o lote do fabricante → a etiqueta grava `lote`,
+  `valOriginal`, `marca`, `sif` no `dados` (sem migração); Impressas devolve;
+- B3 trocar de tela não voltava ao topo → `TopoAoTrocarDeTela` no App.jsx;
+- B4 datas `date` um dia antes no painel → `fmtDataDoBanco`;
+- B5 nome da cópia com a data UTC → `hoje()`.
+
+**Conferido hoje:** MFA da conta do Supabase DESLIGADO (o dono precisa
+ligar); token segue inválido; verificador de segurança 0 erros (101 avisos,
+99 de propósito); desempenho 0 erros. Ajustes de banco propostos como M62.
+
+**Esperando o dono (D1–D7):** MFA; plano pago do Supabase; Lote B; busca por
+voz (E1, pequeno, sem custo); piloto de IA da foto do rótulo (custo/modelo);
+1 min também nos lançamentos do Pro?; quais de E2, E3, E6, P3.
+
 ## Onde paramos (03/11/2026, tarde) — O BANCO PAUSOU; MENSAGEM CERTA E TAREFA QUE O MANTÉM ACORDADO
 
 **O que aconteceu:** o dono não entrava ("Sem conexão com a internet"). A

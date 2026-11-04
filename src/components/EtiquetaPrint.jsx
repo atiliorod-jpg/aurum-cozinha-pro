@@ -954,6 +954,14 @@ export default function EtiquetaPrint() {
           ...(item.metodoId && { metodoId: item.metodoId }),
           ...(c.validadeHora && c.validadeHora !== c.hora && { validadeHora: c.validadeHora }),
           ...(!c.mostrarHora && { semHora: true }),
+          // ⚠️ O QUE FOI DIGITADO NA HORA (auditoria 04/11/2026): o lote do
+          // fabricante e a validade original não estão no cadastro. Sem guardar,
+          // a reimpressão saía SEM o lote, que é o que liga o pote ao recall.
+          // Marca e SIF também, para a reposição sair igual ao papel original.
+          ...(c.lote && { lote: c.lote }),
+          ...(c.valOriginal && { valOriginal: c.valOriginal }),
+          ...(c.marca && { marca: c.marca }),
+          ...(c.sif && { sif: c.sif }),
           tipoData: c.tipoData || 'fabricacao',
           // ⚠️ DUAS HORAS DIFERENTES, e confundir as duas estraga as duas
           // telas. `hora` é a que está IMPRESSA no papel (na reimpressão, a da

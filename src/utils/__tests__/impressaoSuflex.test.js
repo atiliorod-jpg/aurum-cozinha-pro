@@ -65,7 +65,8 @@ describe('de volta para os nomes', () => {
     const janela = ler('../../components/EtiquetaPrint.jsx');
     expect(janela).toMatch(/if \(etiquetaState && etiquetaOpcoes\?\.daTelaImprimir && !congelaAgora\) fecharEtiquetas\(\);/);
     const tela = ler('../../pages/Etiquetas.jsx');
-    expect(tela).toMatch(/daTelaImprimir: true,\s+aoTerminar: \(\) => setPerguntarSeContinua\(true\),/);
+    // e só pergunta se a pessoa ainda está (auditoria 04/11/2026)
+    expect(tela).toMatch(/daTelaImprimir: true,\s+aoTerminar: \(\) => \{ if \(operadorAgora\.current\) setPerguntarSeContinua\(true\); \},/);
   });
   it('"Continuar imprimindo?" dá 5 segundos, e só aparece quando a etiqueta sai', () => {
     expect(ler('../../components/QuemImprime.jsx')).toMatch(/export const SEGUNDOS_PARA_CONTINUAR = 5;/);

@@ -11,6 +11,19 @@ export const fmtData = (iso) => {
   return `${d}/${m}/${y}`;
 };
 
+/**
+ * Data como o banco manda: só o dia ('AAAA-MM-DD', coluna `date`) ou o
+ * carimbo completo (`timestamptz`). Vazio vira '—'.
+ * ⚠️ O DIA SOZINHO NÃO PASSA POR new Date (auditoria 04/11/2026): ele vira
+ * meia-noite em UTC e, no Brasil (UTC-3), a tela mostrava o dia ANTERIOR — o
+ * pagamento do dia 04 aparecia como 03 no painel da Aurum.
+ */
+export const fmtDataDoBanco = (v) => {
+  if (!v) return '—';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return fmtData(String(v));
+  return new Date(v).toLocaleDateString('pt-BR');
+};
+
 // ⚠️ VÍRGULA, NÃO PONTO (auditoria de 14/10/2026). Era `toFixed`, que escreve
 // no padrão americano: o app inteiro mostrava "7.50 kg" e "3.80 unid/dia" —
 // 94 lugares. Agora "7,5 kg", sem zero sobrando.

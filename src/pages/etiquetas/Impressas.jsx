@@ -104,6 +104,12 @@ export default function Impressas() {
       semHora: !!e.semHora,
       prazos: p ? prazosDoProduto(p) : {},
       medida: e.medida || (p ? medidaDoProduto(p) : ''),
+      // o lote do fabricante e a validade original do papel que estragou
+      // (guardados desde 04/11/2026); marca e SIF, se o registro tem
+      lote: e.lote || '',
+      valOriginal: e.valOriginal || '',
+      ...(e.marca && { marca: e.marca }),
+      ...(e.sif && { sif: e.sif }),
       responsavel: e.responsavel || '',
       quantidade: 1,
       // ⚠️ Marca para o relatório (M43) contar à parte. Reimpressão demais é

@@ -13,12 +13,13 @@ import { filaDoPainel, numerosDoPainel, passaNoFiltro, situacaoPresenca, contasE
 import { temCaixaDeEntrada } from '../utils/contas';
 import { formatarCNPJ, formatarCEP, formatarTelefone, UFS } from '../utils/documentos';
 import Icon from '../components/Icons';
-import { plural } from '../utils/formatters';
+import { plural, fmtDataDoBanco, hoje } from '../utils/formatters';
 import { textoDaFalhaDeRede } from '../utils/conexao';
 
 const SUPER_ADMIN_EMAIL = 'atiliopinpolho@gmail.com';
 
-const dataBR = (v) => v ? new Date(v).toLocaleDateString('pt-BR') : '—';
+// dia sozinho (coluna `date`) sem voltar um dia no Brasil — ver fmtDataDoBanco
+const dataBR = fmtDataDoBanco;
 // com hora — usado no aviso de pagamento (o dono quer ver quando o cliente avisou)
 const dataBRHora = (v) => v ? new Date(v).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
 
@@ -1054,7 +1055,7 @@ O login e a recuperação de senha passam a usar o e-mail novo. A senha continua
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `aurum-copia-${normalizar(r.nome) || r.id}-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `aurum-copia-${normalizar(r.nome) || r.id}-${hoje()}.json`;
       a.click();
       URL.revokeObjectURL(url);
       return true;

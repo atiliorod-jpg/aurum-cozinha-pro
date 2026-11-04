@@ -568,9 +568,22 @@ function DeConfiguracoes() {
   return <Navigate to={destino || '/administracao'} replace />;
 }
 
+// ⚠️ TROCAR DE TELA ABRE NO TOPO (auditoria 04/11/2026). O app não voltava ao
+// topo: a tela nova herdava a rolagem da anterior e abria com o começo — abas,
+// filtros, a busca — escondido atrás do cabeçalho. Com âncora (#...), quem
+// rola é a própria tela (Pagamento).
+function TopoAoTrocarDeTela() {
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    if (!hash) window.scrollTo(0, 0);
+  }, [pathname, hash]);
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <TopoAoTrocarDeTela />
       <UIProvider>
         <AuthProvider>
           <AppProvider>

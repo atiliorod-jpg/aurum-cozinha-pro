@@ -2054,7 +2054,8 @@ export function AppProvider({ children }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `aurum-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    // o dia de cá: depois das 21h o UTC já é amanhã
+    a.download = `aurum-backup-${hoje()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, []);
