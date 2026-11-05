@@ -369,4 +369,11 @@ Fontes da pesquisa (04/11/2026):
   `SOBRAS` tira "por favor". A escuta é contínua e encerra com 1,2 s de
   silêncio (`SILENCIO_MS`), juntando as partes (`juntarAlternativas`). A tela
   mostra "Ouvi: …" para conferir o que chegou do celular.
+- **⚠️ Escuta contínua REVERTIDA (05/11):** no Chrome do Android ela devolve a
+  frase repetida e grudada ("bolinho de costelabolinho de costela…") e nada
+  casava — visto pelo dono. Voltou `continuous = false` (uma frase por
+  fôlego) + `semRepeticao` (a frase que é só a mesma coisa repetida volta a
+  ser uma; pedaços de 4+ letras) dentro de `juntarAlternativas`. A ordem
+  livre (quantidade e método em qualquer lugar) continua. NÃO religar o modo
+  contínuo sem testar num Android de verdade.
 

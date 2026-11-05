@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   entenderFala, pontuarItem, acharPorVoz, itemCerto, textoDoErroDeVoz, vocabularioDeMetodos, escolherMetodoFalado,
-  juntarAlternativas,
+  juntarAlternativas, semRepeticao,
 } from '../voz';
 import { ARMAZENAMENTOS_PADRAO } from '../armazenamento';
 import { ESTADOS_PADRAO } from '../metodos';
@@ -237,5 +237,35 @@ describe('a frase com pausa no meio', () => {
     const r = acharPorVoz(juntarAlternativas([parte('três etiquetas de frango desfiado'), parte('congelado')]), ITENS, VOC);
     expect(r).toMatchObject({ quantidade: 3, armazenamento: 'congelado' });
     expect(itemCerto(r.achados)?.id).toBe('f');
+  });
+});
+
+// =====================================================================
+//  O CHROME DO ANDROID REPETE A FRASE (05/11/2026, no celular do dono):
+//  "bolinho de costelabolinho de costelabolinho de costela…" — e nada casava.
+// =====================================================================
+
+describe('a frase repetida pelo celular', () => {
+  it('volta a ser uma, grudada ou com espaço, e em maiúscula ou não', () => {
+    expect(semRepeticao('bolinho de costelabolinho de costelabolinho de costela')).toBe('bolinho de costela');
+    expect(semRepeticao('frango desfiado frango desfiado')).toBe('frango desfiado');
+    expect(semRepeticao('Bolinho de costelaBolinho de costela')).toBe('Bolinho de costela');
+  });
+  it('não mexe no que não é repetição, nem em palavra curta', () => {
+    expect(semRepeticao('molho de tomate da casa')).toBe('molho de tomate da casa');
+    expect(semRepeticao('papa')).toBe('papa');
+    expect(semRepeticao('salsa salsinha')).toBe('salsa salsinha');
+  });
+  it('a lista do navegador sai limpa, e o item é achado', () => {
+    const repetida = [Object.assign([{ transcript: 'frango desfiadofrango desfiadofrango desfiado' }], { isFinal: true })];
+    expect(juntarAlternativas(repetida)).toEqual(['frango desfiado']);
+    // a mesma parte duas vezes seguidas também vira uma
+    const dobrada = [[{ transcript: 'três etiquetas de queijo' }], [{ transcript: 'três etiquetas de queijo' }]];
+    expect(juntarAlternativas(dobrada)).toEqual(['três etiquetas de queijo']);
+    const r = acharPorVoz(juntarAlternativas(repetida), ITENS, VOC);
+    expect(itemCerto(r.achados)?.id).toBe('f');
+  });
+  it('a escuta é de uma frase só: o modo contínuo é o que repete no Android', () => {
+    expect(ler('../../components/BuscaPorVoz.jsx')).toMatch(/rec\.continuous = false;/);
   });
 });

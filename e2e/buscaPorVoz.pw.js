@@ -162,3 +162,16 @@ test('Etiquetas: quantidade e método em qualquer ordem, mesmo com pausa no meio
   await expect(page.getByRole('status').filter({ hasText: 'Ouvi: "frango desfiado, três etiquetas congelado"' })).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
+
+test('Etiquetas: a frase repetida pelo Chrome do Android ainda acha o item', async ({ page }) => {
+  await comVozDeMentira(page);
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page, 'Maria');
+  await falar(page, { textos: ['frango desfiadofrango desfiadofrango desfiado'] });
+  await page.getByRole('button', { name: 'Buscar falando' }).click();
+  await expect(page.getByRole('dialog').locator('.etiqueta-label').first()).toContainText('Frango desfiado');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('status').filter({ hasText: 'Ouvi: "frango desfiado".' })).toBeVisible();
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+

@@ -257,15 +257,44 @@ export function entenderFala(texto, produtos = [], vocabulario = []) {
 }
 
 /**
- * A frase inteira, quando a pessoa fez pausa: as partes que o navegador já
- * fechou, cada uma pela melhor versão, e a última em todas as versões que ele
- * mandou. `resultados` é a lista do evento do navegador (SpeechRecognition).
+ * ⚠️ O CHROME DO ANDROID REPETE A FRASE ("bolinho de costelabolinho de
+ * costelabolinho de costela…", visto pelo dono em 05/11/2026, com a escuta
+ * contínua). A frase que é só a mesma coisa repetida volta a ser uma. Só
+ * pedaços de 4 letras ou mais: "papa" não vira "pa".
+ */
+export function semRepeticao(texto) {
+  const s = String(texto ?? '').trim();
+  const t = s.replace(/\s+/g, '').toLowerCase();
+  for (let p = 4; p <= t.length / 2; p++) {
+    if (t.length % p || t.slice(0, p).repeat(t.length / p) !== t) continue;
+    // corta o texto original depois das `p` primeiras letras (sem contar espaços)
+    let letras = 0;
+    for (let i = 0; i < s.length; i++) {
+      if (!/\s/.test(s[i])) letras += 1;
+      if (letras === p) return s.slice(0, i + 1).trim();
+    }
+  }
+  return s;
+}
+
+/**
+ * A frase inteira a partir da lista do navegador (SpeechRecognition): as
+ * partes já fechadas, cada uma pela melhor versão, e a última em todas as
+ * versões que ele mandou — sem repetição (ver semRepeticao) e sem a mesma
+ * parte duas vezes seguidas.
  */
 export function juntarAlternativas(resultados) {
   const partes = Array.from(resultados || []).filter(r => r && r.length);
   if (!partes.length) return [];
-  const comeco = partes.slice(0, -1).map(r => r[0]?.transcript || '').join(' ');
-  return Array.from(partes[partes.length - 1], a => `${comeco} ${a?.transcript || ''}`.trim()).filter(Boolean);
+  const comeco = [];
+  for (const r of partes.slice(0, -1)) {
+    const t = semRepeticao(r[0]?.transcript || '');
+    if (t && t !== comeco[comeco.length - 1]) comeco.push(t);
+  }
+  const versoes = Array.from(partes[partes.length - 1], a => semRepeticao(a?.transcript || ''))
+    .map(t => (t === comeco[comeco.length - 1] ? comeco.join(' ') : [...comeco, t].join(' ')).trim())
+    .filter(Boolean);
+  return [...new Set(versoes)];
 }
 
 /**

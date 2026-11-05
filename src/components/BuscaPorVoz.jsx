@@ -2,17 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import Icon from './Icons';
 import { vozDisponivel, acharPorVoz, itemCerto, textoDoErroDeVoz, juntarAlternativas } from '../utils/voz';
 
-// Quanto silêncio, depois de uma frase, encerra a escuta. Curto demais corta
-// quem respira no meio ("três etiquetas de frango… congelado"); longo demais
-// deixa a pessoa esperando a janela abrir.
-const SILENCIO_MS = 1200;
-
 /**
  * O MICROFONE DA BUSCA (pedido do dono, 04/11/2026) — ver utils/voz.js.
  *
  * Envolve o campo de busca (`children`) e põe o microfone ao lado. A pessoa
- * toca e fala; a escuta termina sozinha depois de um instante de silêncio (ou
- * num toque no microfone).
+ * toca e fala UMA frase; o navegador para sozinho quando ela termina (ou num
+ * toque no microfone).
  *  • um item só combinou → a impressão já abre, com a quantidade e o método
  *    falados ("três etiquetas de frango desfiado congelado");
  *  • vários → a lista filtra, e o que foi falado vale para o item que ela tocar;
@@ -80,27 +75,22 @@ export default function BuscaPorVoz({ produtos, vocabulario, aviso, aoAvisar, ao
     rec.lang = 'pt-BR';
     rec.interimResults = true;
     rec.maxAlternatives = 3;
-    // ⚠️ CONTÍNUO, E QUEM ENCERRA É O APP (05/11/2026, no celular do dono). No
-    // modo de uma frase só, o navegador parava na primeira pausa: "três
-    // etiquetas de frango desfiado… congelado" chegava sem o "congelado". Agora
-    // as partes se juntam e a escuta acaba depois de um instante de silêncio.
-    rec.continuous = true;
+    // ⚠️ UMA FRASE SÓ, NÃO CONTÍNUO (05/11/2026, no celular do dono). A
+    // escuta contínua foi tentada para aguentar pausas, mas o Chrome do
+    // Android devolve nela a frase repetida e grudada ("bolinho de
+    // costelabolinho de costela…") e nada mais casava. A frase vai num
+    // fôlego; a ordem das palavras é livre (ver utils/voz.js).
+    rec.continuous = false;
     let resultados = [];
-    let silencio = null;
-    const encerrar = () => { clearTimeout(silencio); try { rec.stop(); } catch { /* já parou */ } };
     rec.onresult = (ev) => {
       resultados = Array.from(ev.results || []);
-      setParcial(resultados.map(r => r[0]?.transcript || '').join(' ').trim());
-      clearTimeout(silencio);
-      // a frase fechou: espera um instante — a pessoa pode completar
-      if (resultados.length && resultados.every(r => r.isFinal)) silencio = setTimeout(encerrar, SILENCIO_MS);
+      setParcial(juntarAlternativas(resultados)[0] || '');
     };
     rec.onerror = (ev) => {
       const texto = textoDoErroDeVoz(ev?.error);
       if (texto) aoAvisar({ texto });
     };
     rec.onend = () => {
-      clearTimeout(silencio);
       setOuvindo(false);
       setParcial('');
       reconhecimento.current = null;
