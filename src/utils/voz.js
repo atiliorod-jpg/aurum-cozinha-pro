@@ -5,6 +5,7 @@
 //  digitar. Quem transforma a fala em texto é o NAVEGADOR (Chrome no Android,
 //  Safari no iPhone), de graça. Aqui o app só entende o texto:
 //   • a quantidade, se veio junto: "três etiquetas de frango desfiado";
+//   • o método, se veio junto: "frango desfiado congelado" (05/11/2026);
 //   • o item, tolerando o pouco que o reconhecimento erra ("frango desfiada").
 //
 //  ⚠️ O reconhecimento passa pelo serviço de voz do Google ou da Apple e
@@ -13,6 +14,7 @@
 // =====================================================================
 
 import { normalizarBusca, casaBusca } from './busca';
+import { temPrazo } from './metodos';
 
 /** O navegador reconhece fala? (Firefox e o navegador do WhatsApp, não.) */
 export const vozDisponivel = () =>
@@ -32,6 +34,18 @@ const ETIQUETA = /^etiquetas?$/;
 const VERBOS = new Set(['imprimir', 'imprime', 'imprima', 'quero', 'faz', 'faca', 'fazer', 'me', 've', 'manda', 'mais']);
 // palavras que não ajudam a achar o item ("filé DE frango")
 const VAZIAS = new Set(['de', 'do', 'da', 'dos', 'das', 'e', 'com', 'sem', 'a', 'o', 'as', 'os', 'em', 'no', 'na']);
+// o que sobra entre o item e o método: "frango NA geladeira", "EM temperatura ambiente"
+const LIGACOES_DO_METODO = new Set(['em', 'no', 'na', 'de', 'do', 'da', 'a', 'o']);
+
+// ⚠️ REFRIGERADO E RESFRIADO SÃO MÉTODOS DIFERENTES no app (0 a 6 °C e 6 a
+// 10 °C) — a voz não junta os dois. Além destas palavras, vale o nome que a
+// casa deu a cada armazenamento e a cada estado (pista quente...).
+const PALAVRAS_DO_ARMAZENAMENTO = {
+  congelado: ['congelado', 'congelada', 'congelados', 'congeladas', 'freezer', 'frizer'],
+  refrigerado: ['refrigerado', 'refrigerada', 'refrigerados', 'refrigeradas', 'geladeira'],
+  resfriado: ['resfriado', 'resfriada', 'resfriados', 'resfriadas'],
+  ambiente: ['ambiente', 'temperatura ambiente'],
+};
 
 const palavras = (s) => normalizarBusca(s).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
 // cada palavra falada como veio ("filé", para mostrar) e como compara ("file")
@@ -96,22 +110,90 @@ export function pontuarItem(termo, nome) {
 }
 
 /**
- * Separa a quantidade do item: "três etiquetas de frango desfiado" →
- * { quantidade: 3, termo: 'frango desfiado', falado: 'frango desfiado' }.
- * Sem número, quantidade null. `termo` é o que compara (sem acento);
- * `falado`, o que a tela mostra ("filé", não "file").
+ * O que a casa pode falar de método: cada armazenamento ativo (pelo nome que
+ * ela deu e pelas palavras de sempre) e cada estado (pista quente...).
+ * Devolve [{ tipo: 'armazenamento' | 'estado', id, nome, frases }].
+ */
+export function vocabularioDeMetodos(armazenamentos = [], estados = []) {
+  const frase = (s) => palavras(s).join(' ');
+  return [
+    ...armazenamentos.filter(a => a?.id).map(a => ({
+      tipo: 'armazenamento', id: a.id, nome: a.nome || a.id,
+      frases: [...new Set([frase(a.nome), ...(PALAVRAS_DO_ARMAZENAMENTO[a.id] || [])])].filter(Boolean),
+    })),
+    ...estados.filter(e => e?.id).map(e => ({
+      tipo: 'estado', id: e.id, nome: e.nome || e.id, frases: [frase(e.nome)].filter(Boolean),
+    })),
+  ];
+}
+
+/**
+ * Tira do fim (e do começo) as palavras de método: "frango desfiado
+ * congelado" → item "frango desfiado" + congelado. Até um armazenamento e um
+ * estado: "molho refrigerado pista quente".
+ * ⚠️ O nome do item ganha: "polpa congelada" fica inteira quando existe um
+ * item que começa assim ("Polpa congelada de maracujá").
+ */
+function tirarMetodo(lista, vocabulario, produtos) {
+  const sem = { resto: lista, armazenamento: null, estado: null, metodoFalado: '' };
+  if (!vocabulario.length || lista.length < 2) return sem;
+  const inteiro = lista.map(p => p.norm).join(' ');
+  if (produtos.some(p => pontuarItem(inteiro, p.nome) >= 90)) return sem;
+  let resto = lista;
+  const achado = { armazenamento: null, estado: null };
+  const ditas = [];
+  const tentar = (doFim) => {
+    // frases de até 3 palavras ("temperatura ambiente" antes de "ambiente"),
+    // e sempre sobra pelo menos uma palavra para o item
+    for (const tam of [3, 2, 1]) {
+      if (resto.length <= tam) continue;
+      const pedaco = doFim ? resto.slice(-tam) : resto.slice(0, tam);
+      const frase = pedaco.map(p => p.norm).join(' ');
+      const v = vocabulario.find(x => !achado[x.tipo] && x.frases.includes(frase));
+      if (!v) continue;
+      achado[v.tipo] = v.id;
+      if (doFim) ditas.unshift(pedaco.map(p => p.orig).join(' '));
+      else ditas.push(pedaco.map(p => p.orig).join(' '));
+      resto = doFim ? resto.slice(0, -tam) : resto.slice(tam);
+      // "frango na geladeira": o "na" que ficou não é do item
+      while (resto.length > 1 && LIGACOES_DO_METODO.has((doFim ? resto[resto.length - 1] : resto[0]).norm)) {
+        resto = doFim ? resto.slice(0, -1) : resto.slice(1);
+      }
+      return true;
+    }
+    return false;
+  };
+  while (tentar(true)) { /* "refrigerado pista quente": os dois, do fim */ }
+  while (tentar(false)) { /* "congelado frango desfiado" */ }
+  if (!achado.armazenamento && !achado.estado) return sem;
+  return { resto, ...achado, metodoFalado: ditas.join(' ') };
+}
+
+/**
+ * Separa a quantidade e o método do item: "três etiquetas de frango desfiado
+ * congelado" → { quantidade: 3, termo: 'frango desfiado', falado: 'frango
+ * desfiado', armazenamento: 'congelado', estado: null, metodoFalado:
+ * 'congelado' }. Sem número, quantidade null; sem método, armazenamento e
+ * estado null. `termo` é o que compara (sem acento); `falado`, o que a tela
+ * mostra ("filé", não "file"). `vocabulario` vem de vocabularioDeMetodos.
  * ⚠️ O nome inteiro ganha da quantidade: "quatro queijos" é o item, quando
  * existe um item com esse nome — não "4 de queijos".
  */
-export function entenderFala(texto, produtos = []) {
+export function entenderFala(texto, produtos = [], vocabulario = []) {
   let ps = pedacos(texto);
   while (ps.length && VERBOS.has(ps[0].norm)) ps = ps.slice(1);
   const normais = (lista) => lista.map(p => p.norm);
-  const pedido = (lista, quantidade) => ({
-    termo: normais(lista).join(' '),
-    falado: lista.map(p => p.orig).join(' '),
-    quantidade,
-  });
+  const pedido = (lista, quantidade) => {
+    const m = tirarMetodo(lista, vocabulario, produtos);
+    return {
+      termo: normais(m.resto).join(' '),
+      falado: m.resto.map(p => p.orig).join(' '),
+      quantidade,
+      armazenamento: m.armazenamento,
+      estado: m.estado,
+      metodoFalado: m.metodoFalado,
+    };
+  };
   const inteiro = normais(ps).join(' ');
   if (produtos.some(p => pontuarItem(inteiro, p.nome) >= 90)) return pedido(ps, null);
 
@@ -140,12 +222,12 @@ export function entenderFala(texto, produtos = []) {
 /**
  * O navegador manda até 3 versões do que ouviu ("frango desfiado", "frango
  * desfiada"...). Fica a que achar o melhor item.
- * Devolve { termo, quantidade, achados: [{ produto, nota }] } — melhor primeiro.
+ * Devolve o pedido de entenderFala + achados: [{ produto, nota }], melhor primeiro.
  */
-export function acharPorVoz(alternativas, produtos) {
+export function acharPorVoz(alternativas, produtos, vocabulario = []) {
   let melhor = null;
   for (const texto of alternativas || []) {
-    const pedido = entenderFala(texto, produtos);
+    const pedido = entenderFala(texto, produtos, vocabulario);
     if (!pedido.termo) continue;
     const achados = (produtos || [])
       .map(produto => ({ produto, nota: pontuarItem(pedido.termo, produto.nome) }))
@@ -154,7 +236,39 @@ export function acharPorVoz(alternativas, produtos) {
     const r = { ...pedido, achados };
     if (!melhor || (achados[0]?.nota || 0) > (melhor.achados[0]?.nota || 0)) melhor = r;
   }
-  return melhor || { termo: '', falado: '', quantidade: null, achados: [] };
+  return melhor || {
+    termo: '', falado: '', quantidade: null, armazenamento: null, estado: null, metodoFalado: '', achados: [],
+  };
+}
+
+/**
+ * O método falado, entre os do item. `metodos` são os do item; `inicial`,
+ * onde a janela abriria sem voz ({ armazenamento, metodoId }); `ativos`, os
+ * armazenamentos que a casa usa. Devolve { metodoId, armazenamento }, ou null
+ * quando o item não tem esse método (a tela mostra os que ele tem).
+ * • falou só o armazenamento e há vários dele: vale o sem estado ("o"
+ *   refrigerado), senão o de sempre; sem como decidir, a pessoa escolhe;
+ * • ⚠️ sem método com prazo, vale onde a janela abriria se for o mesmo
+ *   armazenamento: o Seco abre em ambiente com a sugestão de 3 dias, e
+ *   "temperatura ambiente" não pode cair no congelado de 540 dias da
+ *   embalagem fechada.
+ */
+export function escolherMetodoFalado({ armazenamento, estado } = {}, { metodos = [], inicial = null, ativos = null } = {}) {
+  if (!armazenamento && !estado) return null;
+  const candidatos = metodos.filter(m => (!ativos || ativos.includes(m.armazenamento)) && temPrazo(m)
+    && (!armazenamento || m.armazenamento === armazenamento) && (!estado || m.estado === estado));
+  const escolha = (m) => ({ metodoId: m.id, armazenamento: m.armazenamento });
+  if (candidatos.length === 1) return escolha(candidatos[0]);
+  if (candidatos.length > 1) {
+    const semEstado = !estado && candidatos.find(m => !m.estado);
+    if (semEstado) return escolha(semEstado);
+    const deSempre = candidatos.find(m => m.id === inicial?.metodoId);
+    return deSempre ? escolha(deSempre) : null;
+  }
+  if (!estado && inicial && inicial.armazenamento === armazenamento) {
+    return { metodoId: inicial.metodoId || null, armazenamento };
+  }
+  return null;
 }
 
 /**

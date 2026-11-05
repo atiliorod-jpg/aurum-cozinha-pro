@@ -351,3 +351,12 @@ Fontes da pesquisa (04/11/2026):
   `conferir` não expira. `abrirTelaDeImprimir` compara o toque anterior
   (`usoAnteriorRef`) com o que trouxe até a tela: 1 minuto ou mais parado →
   expira na chegada.
+- **Método pela voz (05/11, pedido do dono):** "frango desfiado congelado" abre
+  já em Congelado. `vocabularioDeMetodos` (armazenamentos e estados da casa +
+  palavras de sempre — ⚠️ refrigerado e resfriado são DIFERENTES), o
+  `tirarMetodo` dentro de `entenderFala` (o nome do item ganha: "polpa
+  congelada") e `escolherMetodoFalado` (só método com prazo; "refrigerado" =
+  o sem estado; o Seco cai na abertura de sempre). O item sem o método falado
+  NÃO abre: `mostrarMetodosDoItem` em Etiquetas.jsx põe os métodos dele como
+  botões no aviso da voz (estado da tela: `avisoDaVoz`). Medida pela voz: o
+  dono disse não por enquanto.

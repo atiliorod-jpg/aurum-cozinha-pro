@@ -207,6 +207,11 @@ SÓ na tela de impressão (OperadorContext: `useTelaDeImprimir` + expira na
 chegada se o aparelho ficou 1 min parado em outra tela); E2/E3/E6/P3 → sem
 escolha por enquanto.
 
+**05/11: método pela voz** ("frango desfiado congelado" abre em Congelado;
+item sem o método falado não abre e mostra os dele como botões). Medida pela
+voz: dono disse não. 1050 testes, 71 cenários. Detalhes no apêndice da
+auditoria.
+
 **Ainda com o dono:** MFA da conta Supabase; plano pago; Lote B (M61).
 
 ## Onde paramos (03/11/2026, tarde) — O BANCO PAUSOU; MENSAGEM CERTA E TAREFA QUE O MANTÉM ACORDADO

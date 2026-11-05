@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { entenderFala, pontuarItem, acharPorVoz, itemCerto, textoDoErroDeVoz } from '../voz';
+import {
+  entenderFala, pontuarItem, acharPorVoz, itemCerto, textoDoErroDeVoz, vocabularioDeMetodos, escolherMetodoFalado,
+} from '../voz';
+import { ARMAZENAMENTOS_PADRAO } from '../armazenamento';
+import { ESTADOS_PADRAO } from '../metodos';
 
 const ler = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -95,9 +99,100 @@ describe('na tela Imprimir', () => {
   it('o microfone fica junto da busca, e a quantidade falada vale para o item escolhido na lista', () => {
     const tela = ler('../../pages/Etiquetas.jsx');
     expect(tela).toMatch(/<BuscaPorVoz /);
-    expect(tela).toMatch(/const qtd = quantidade \|\| qtdDaVoz \|\| 1;/);
+    expect(tela).toMatch(/const voz = pedido \|\| pedidoDaVoz \|\| \{\};/);
+    // o método falado que o item não tem: a janela não abre, a tela mostra os dele
+    expect(tela).toMatch(/if \(!m\) \{ mostrarMetodosDoItem\(original, p, conservacao, voz\); return undefined; \}/);
   });
   it('sem reconhecimento de fala no navegador, o botão nem aparece', () => {
     expect(ler('../../components/BuscaPorVoz.jsx')).toMatch(/if \(!vozDisponivel\(\)\) return children;/);
+  });
+});
+
+// =====================================================================
+//  O MÉTODO PELA VOZ (05/11/2026): "frango desfiado congelado" abre já em
+//  Congelado; o item sem esse método não abre (a tela mostra os dele).
+// =====================================================================
+
+const VOC = vocabularioDeMetodos(ARMAZENAMENTOS_PADRAO, ESTADOS_PADRAO);
+
+describe('o método que veio junto', () => {
+  it('no fim, depois da quantidade e do item', () => {
+    expect(entenderFala('três etiquetas de frango desfiado congelado', ITENS, VOC))
+      .toMatchObject({ termo: 'frango desfiado', quantidade: 3, armazenamento: 'congelado', estado: null });
+    expect(entenderFala('frango desfiado congelado três etiquetas', ITENS, VOC))
+      .toMatchObject({ termo: 'frango desfiado', quantidade: 3, armazenamento: 'congelado' });
+  });
+  it('as palavras de cada um, no feminino e no plural', () => {
+    expect(entenderFala('picanha congelada', ITENS, VOC).armazenamento).toBe('congelado');
+    expect(entenderFala('queijo temperatura ambiente', ITENS, VOC)).toMatchObject({ termo: 'queijo', armazenamento: 'ambiente' });
+    expect(entenderFala('frango na geladeira', ITENS, VOC)).toMatchObject({ termo: 'frango', armazenamento: 'refrigerado' });
+    expect(entenderFala('picanha no freezer', ITENS, VOC)).toMatchObject({ termo: 'picanha', armazenamento: 'congelado' });
+  });
+  it('⚠️ refrigerado e resfriado são métodos diferentes', () => {
+    expect(entenderFala('picanha resfriada', ITENS, VOC).armazenamento).toBe('resfriado');
+    expect(entenderFala('picanha refrigerada', ITENS, VOC).armazenamento).toBe('refrigerado');
+  });
+  it('o estado da casa, sozinho ou junto do armazenamento', () => {
+    expect(entenderFala('molho de tomate da casa pista quente', ITENS, VOC))
+      .toMatchObject({ termo: 'molho de tomate da casa', estado: 'pista_quente', armazenamento: null });
+    expect(entenderFala('molho de tomate da casa refrigerado pista quente', ITENS, VOC))
+      .toMatchObject({ termo: 'molho de tomate da casa', armazenamento: 'refrigerado', estado: 'pista_quente', metodoFalado: 'refrigerado pista quente' });
+  });
+  it('⚠️ o nome do item ganha: "polpa congelada" é o item quando ele existe', () => {
+    const itens = [...ITENS, { id: 'pc', nome: 'Polpa congelada de maracujá' }];
+    expect(entenderFala('polpa congelada', itens, VOC)).toMatchObject({ termo: 'polpa congelada', armazenamento: null });
+    // e sem um item assim, "congelada" é o método
+    expect(entenderFala('polpa congelada', ITENS, VOC)).toMatchObject({ termo: 'polpa', armazenamento: 'congelado' });
+  });
+  it('o nome que a casa deu ao armazenamento também vale', () => {
+    const voc = vocabularioDeMetodos([{ id: 'camara', nome: 'Câmara fria' }], []);
+    expect(entenderFala('picanha câmara fria', ITENS, voc)).toMatchObject({ termo: 'picanha', armazenamento: 'camara' });
+  });
+  it('sem método falado, nada muda', () => {
+    expect(entenderFala('frango desfiado', ITENS, VOC)).toMatchObject({ armazenamento: null, estado: null, metodoFalado: '' });
+  });
+  it('a busca leva o método junto do item achado', () => {
+    const r = acharPorVoz(['duas etiquetas de queijo mussarela congelado'], ITENS, VOC);
+    expect(r).toMatchObject({ quantidade: 2, armazenamento: 'congelado' });
+    expect(itemCerto(r.achados)?.id).toBe('q');
+  });
+});
+
+describe('o método falado entre os do item', () => {
+  const ativos = ['congelado', 'refrigerado', 'resfriado', 'ambiente'];
+  const frango = [
+    { id: 'refrigerado', armazenamento: 'refrigerado', estado: '', dias: 3 },
+    { id: 'congelado', armazenamento: 'congelado', estado: '', dias: 90 },
+    { id: 'm3', armazenamento: 'refrigerado', estado: 'pista_quente', dias: 0, horas: 4 },
+  ];
+  const inicial = { armazenamento: 'refrigerado', metodoId: 'refrigerado' };
+  it('acha o método do armazenamento falado', () => {
+    expect(escolherMetodoFalado({ armazenamento: 'congelado' }, { metodos: frango, inicial, ativos }))
+      .toEqual({ metodoId: 'congelado', armazenamento: 'congelado' });
+  });
+  it('"refrigerado" é o refrigerado sem estado; "pista quente" é o dela', () => {
+    expect(escolherMetodoFalado({ armazenamento: 'refrigerado' }, { metodos: frango, inicial, ativos })?.metodoId).toBe('refrigerado');
+    expect(escolherMetodoFalado({ estado: 'pista_quente' }, { metodos: frango, inicial, ativos })?.metodoId).toBe('m3');
+  });
+  it('o item não tem o método falado: null (a tela mostra os dele)', () => {
+    expect(escolherMetodoFalado({ armazenamento: 'ambiente' }, { metodos: frango, inicial, ativos })).toBeNull();
+    // método sem prazo não conta
+    expect(escolherMetodoFalado({ armazenamento: 'resfriado' }, {
+      metodos: [...frango, { id: 'r', armazenamento: 'resfriado', estado: '', dias: 0 }], inicial, ativos,
+    })).toBeNull();
+  });
+  it('⚠️ o Seco abre em ambiente sem método: "temperatura ambiente" vai para lá, não para o congelado de 540', () => {
+    const seco = [{ id: 'congelado', armazenamento: 'congelado', estado: '', dias: 540 }];
+    expect(escolherMetodoFalado({ armazenamento: 'ambiente' }, { metodos: seco, inicial: { armazenamento: 'ambiente', metodoId: null }, ativos }))
+      .toEqual({ metodoId: null, armazenamento: 'ambiente' });
+  });
+  it('dois do mesmo armazenamento, sem um sem estado: a pessoa escolhe', () => {
+    const doisEstados = [
+      { id: 'a', armazenamento: 'refrigerado', estado: 'pista_fria', dias: 1 },
+      { id: 'b', armazenamento: 'refrigerado', estado: 'pista_quente', horas: 4 },
+    ];
+    expect(escolherMetodoFalado({ armazenamento: 'refrigerado' }, { metodos: doisEstados, inicial: null, ativos })).toBeNull();
+    // o de sempre desempata
+    expect(escolherMetodoFalado({ armazenamento: 'refrigerado' }, { metodos: doisEstados, inicial: { metodoId: 'b' }, ativos })?.metodoId).toBe('b');
   });
 });

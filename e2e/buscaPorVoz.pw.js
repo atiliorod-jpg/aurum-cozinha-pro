@@ -112,3 +112,34 @@ test('Pro: quem está mexendo nos lançamentos chega na tela Imprimir com o pró
   await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
+
+// ── o método pela voz (05/11/2026) ──
+test('Etiquetas: "frango desfiado congelado" abre a impressão já em Congelado', async ({ page }) => {
+  await comVozDeMentira(page);
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page, 'Maria');
+  await falar(page, { textos: ['frango desfiado congelado'] });
+  await page.getByRole('button', { name: 'Buscar falando' }).click();
+  const janela = page.getByRole('dialog');
+  await expect(janela.getByLabel(/^Método de conservação/)).toHaveValue('m:congelado');
+  await expect(janela.locator('.etiqueta-label').first()).toContainText('CONGELADO');
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('Etiquetas: método que o item não tem não abre a janela, e a tela mostra os dele', async ({ page }) => {
+  await comVozDeMentira(page);
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page, 'Maria');
+  // o queijo só tem refrigerado
+  await falar(page, { textos: ['duas etiquetas de queijo mussarela congelado'] });
+  await page.getByRole('button', { name: 'Buscar falando' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Queijo mussarela não tem Congelado cadastrado' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Refrigerado · 3 dias' }).click();
+  const janela = page.getByRole('dialog');
+  await expect(janela.locator('.etiqueta-label').first()).toContainText('Queijo mussarela');
+  await expect(janela.locator('.etiqueta-label').first()).toContainText('REFRIGERADO');
+  // a quantidade falada vai junto
+  await expect(janela.getByLabel('Quantidade de etiquetas de Queijo mussarela')).toHaveValue('2');
+  expect(erros, erros.join('\n')).toEqual([]);
+});

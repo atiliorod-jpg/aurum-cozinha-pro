@@ -12,7 +12,8 @@ import { hoje } from '../utils/formatters';
 import { etiquetaComArmazenamento, produtoParaEtiqueta } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
 import { armazenamentoInicial } from '../utils/etiquetas';
-import { metodosDoProduto, metodoInicial, rotuloDoMetodo, prazoCurto, temPrazo, listarEstados } from '../utils/metodos';
+import { metodosDoProduto, metodoInicial, rotuloDoMetodo, prazoCurto, temPrazo, listarEstados, textoDoPrazo } from '../utils/metodos';
+import { vocabularioDeMetodos, escolherMetodoFalado } from '../utils/voz';
 import { gruposDoProduto, estaNoGrupo, ordemDosGrupos } from '../utils/grupos';
 import { medidaDoProduto, maisUsados } from '../utils/etiquetas';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
@@ -191,11 +192,15 @@ export default function Etiquetas() {
   // tela recomeça do zero — nomes, sem busca, sem filtro, na aba Etiquetar. A
   // janela de impressão aberta daqui fecha sozinha (ver EtiquetaPrint).
   const [perguntarSeContinua, setPerguntarSeContinua] = useState(false);
-  // a quantidade falada ("três etiquetas de filé") vale para o item que a
-  // pessoa tocar na lista filtrada pela voz; digitar na busca esquece
-  const [qtdDaVoz, setQtdDaVoz] = useState(null);
+  // o que foi falado ("três etiquetas de filé congelado") vale para o item que
+  // a pessoa tocar na lista filtrada pela voz — quantidade e método; digitar
+  // na busca esquece
+  const [pedidoDaVoz, setPedidoDaVoz] = useState(null);
+  // o que a voz tem a dizer abaixo da busca (ver BuscaPorVoz)
+  const [avisoDaVoz, setAvisoDaVoz] = useState(null);
   const recomecar = useCallback(() => {
-    setBusca(''); setCatAtiva(''); setTab('catalogo'); setPerguntarSeContinua(false); setQtdDaVoz(null);
+    setBusca(''); setCatAtiva(''); setTab('catalogo'); setPerguntarSeContinua(false);
+    setPedidoDaVoz(null); setAvisoDaVoz(null);
   }, [setPerguntarSeContinua]);
   // ⚠️ O MINUTO SEM USO SÓ CONTA AQUI (decisão do dono, 04/11/2026): esta tela
   // avisa o OperadorContext que está aberta. Ver useTelaDeImprimir.
@@ -260,15 +265,60 @@ export default function Etiquetas() {
     return agruparPorCategoria(ordenados, ordemCategorias);
   }, [produtosVisiveis, ordemCategorias, catAtiva, buscando]);
 
-  const imprimirProduto = (original, quantidade = null) => {
-    const qtd = quantidade || qtdDaVoz || 1;
-    setQtdDaVoz(null);
+  // as palavras de método que a voz entende: os armazenamentos e os estados da casa
+  const vocabulario = vocabularioDeMetodos(armazenamentos, estados);
+
+  // Onde a janela abre sem voz — ver os ⚠️ em imprimirProduto.
+  const conservacaoDe = (p) => {
+    if (!etiquetaComArmazenamento(modulo)) return { armazenamento: null, metodoId: null };
+    const metodos = metodosDoProduto(p);
+    const m = metodoInicial(p, prefs.ultimoArmazenamento, armazenamentos, metodos);
+    return m
+      ? { armazenamento: m.armazenamento, metodoId: m.id, metodos }
+      : { armazenamento: armazenamentoInicial(p, prefs.ultimoArmazenamento, armazenamentos, prazosDoProduto(p)), metodoId: null, metodos };
+  };
+
+  // O item não tem o método falado: a janela NÃO abre (decisão do dono,
+  // 05/11/2026) — a tela diz e mostra os métodos que ele tem, como botões.
+  const mostrarMetodosDoItem = (original, p, conservacao, voz) => {
+    const usaveis = conservacao.metodos.filter(m => temPrazo(m) && armazenamentos.some(a => a.id === m.armazenamento));
+    const opcoes = usaveis.map(m => ({
+      rotulo: `${rotuloDoMetodo(m, armazenamentos, estados)} · ${textoDoPrazo(m)}`,
+      escolha: { metodoId: m.id, armazenamento: m.armazenamento },
+    }));
+    // a abertura de sempre, quando não é um dos métodos com prazo (o Seco em ambiente)
+    if (!usaveis.some(m => m.id === conservacao.metodoId) && conservacao.armazenamento) {
+      const a = armazenamentos.find(x => x.id === conservacao.armazenamento);
+      opcoes.unshift({ rotulo: a?.nome || conservacao.armazenamento, escolha: { metodoId: conservacao.metodoId, armazenamento: conservacao.armazenamento } });
+    }
+    const falado = [armazenamentos.find(a => a.id === voz.armazenamento)?.nome, estados.find(e => e.id === voz.estado)?.nome]
+      .filter(Boolean).join(' · ') || voz.metodoFalado;
+    setAvisoDaVoz({
+      texto: `${p.nome} não tem ${falado} cadastrado. Escolha um dos métodos dele:`,
+      opcoes: opcoes.map(o => ({ rotulo: o.rotulo, acao: () => imprimirProduto(original, { quantidade: voz.quantidade, escolha: o.escolha }) })),
+    });
+  };
+
+  const imprimirProduto = (original, pedido = null) => {
+    const voz = pedido || pedidoDaVoz || {};
+    setPedidoDaVoz(null);
+    const qtd = voz.quantidade || 1;
     // no Estoque Seco a etiqueta é de ABERTURA e o padrão é o ambiente (se a
     // casa ainda usa esse estado); nas outras cozinhas o item vai como está
     const ajustado = produtoParaEtiqueta(modulo, original);
     const p = ajustado.armazenamentoPadrao && !armazenamentos.some(a => (a?.id ?? a) === ajustado.armazenamentoPadrao)
       ? { ...ajustado, armazenamentoPadrao: original.armazenamentoPadrao }
       : ajustado;
+    // ⚠️ O MÉTODO FALADO (05/11/2026): "frango desfiado congelado" abre já em
+    // Congelado. Sem o método no item, a janela não abre (mostrarMetodosDoItem).
+    // Na despensa, sem armazenamento, o que foi falado de método não muda nada.
+    let conservacao = conservacaoDe(p);
+    if (voz.escolha) conservacao = { ...conservacao, ...voz.escolha };
+    else if ((voz.armazenamento || voz.estado) && conservacao.metodos) {
+      const m = escolherMetodoFalado(voz, { metodos: conservacao.metodos, inicial: conservacao, ativos: armazenamentos.map(a => a.id) });
+      if (!m) { mostrarMetodosDoItem(original, p, conservacao, voz); return undefined; }
+      conservacao = { ...conservacao, ...m };
+    }
     return abrirEtiquetas([{
     produtoId: p.id,
     nome: p.nome,
@@ -289,14 +339,7 @@ export default function Etiquetas() {
     // tem prazo; senão cai no cadastro, como sempre foi.
     // ⚠️ COM MÉTODOS (Lote 11), quem abre é o método — e o armazenamento é o
     // dele. A mesma memória do aparelho, agora com o id do método.
-    ...(() => {
-      if (!etiquetaComArmazenamento(modulo)) return { armazenamento: null, metodoId: null };
-      const metodos = metodosDoProduto(p);
-      const m = metodoInicial(p, prefs.ultimoArmazenamento, armazenamentos, metodos);
-      return m
-        ? { armazenamento: m.armazenamento, metodoId: m.id, metodos }
-        : { armazenamento: armazenamentoInicial(p, prefs.ultimoArmazenamento, armazenamentos, prazosDoProduto(p)), metodoId: null, metodos };
-    })(),
+    ...conservacao,
     // Prazo por estado, no formato novo. Os dois campos antigos seguem indo
     // junto porque o produto pode ainda não ter sido salvo no formato novo —
     // prazosDoProduto resolve os dois.
@@ -397,10 +440,11 @@ export default function Etiquetas() {
           )}
           {/* o microfone ao lado (busca por voz, 04/11/2026) — some sozinho
               no navegador que não reconhece fala */}
-          <BuscaPorVoz produtos={produtosAtivos}
-            aoBuscar={(termo, qtd) => { setBusca(termo); setQtdDaVoz(qtd || null); }}
-            aoImprimir={(p, qtd) => imprimirProduto(p, qtd)}>
-            <input type="text" value={busca} onChange={e => { setBusca(e.target.value); setQtdDaVoz(null); }}
+          <BuscaPorVoz produtos={produtosAtivos} vocabulario={vocabulario}
+            aviso={avisoDaVoz} aoAvisar={setAvisoDaVoz}
+            aoBuscar={(termo, pedido) => { setBusca(termo); setPedidoDaVoz(pedido); }}
+            aoImprimir={(p, pedido) => imprimirProduto(p, pedido)}>
+            <input type="text" value={busca} onChange={e => { setBusca(e.target.value); setPedidoDaVoz(null); }}
               placeholder="Buscar produto..." aria-label="Buscar produto"
               className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
           </BuscaPorVoz>
