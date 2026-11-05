@@ -360,3 +360,13 @@ Fontes da pesquisa (04/11/2026):
   NÃO abre: `mostrarMetodosDoItem` em Etiquetas.jsx põe os métodos dele como
   botões no aviso da voz (estado da tela: `avisoDaVoz`). Medida pela voz: o
   dono disse não por enquanto.
+- **Voz em qualquer ordem (05/11, testado no celular pelo dono):** quantidade e
+  método juntos falhavam. Causas: (1) só o começo e o fim da frase valiam
+  ("frango desfiado, três etiquetas, congelado" se perdia); (2) o navegador
+  parava na primeira pausa. Agora `acharQuantidade` acha o número grudado em
+  "etiquetas"/"quantidade" em qualquer lugar (sozinho, só nas pontas),
+  `tirarMetodo` tira o método de qualquer lugar, `aparar` limpa as pontas,
+  `SOBRAS` tira "por favor". A escuta é contínua e encerra com 1,2 s de
+  silêncio (`SILENCIO_MS`), juntando as partes (`juntarAlternativas`). A tela
+  mostra "Ouvi: …" para conferir o que chegou do celular.
+

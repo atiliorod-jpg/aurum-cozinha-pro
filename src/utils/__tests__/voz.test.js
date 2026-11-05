@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   entenderFala, pontuarItem, acharPorVoz, itemCerto, textoDoErroDeVoz, vocabularioDeMetodos, escolherMetodoFalado,
+  juntarAlternativas,
 } from '../voz';
 import { ARMAZENAMENTOS_PADRAO } from '../armazenamento';
 import { ESTADOS_PADRAO } from '../metodos';
@@ -194,5 +195,47 @@ describe('o método falado entre os do item', () => {
     expect(escolherMetodoFalado({ armazenamento: 'refrigerado' }, { metodos: doisEstados, inicial: null, ativos })).toBeNull();
     // o de sempre desempata
     expect(escolherMetodoFalado({ armazenamento: 'refrigerado' }, { metodos: doisEstados, inicial: { metodoId: 'b' }, ativos })?.metodoId).toBe('b');
+  });
+});
+
+// =====================================================================
+//  EM QUALQUER ORDEM (05/11/2026): no celular do dono, quantidade e método
+//  juntos não eram entendidos. Só o começo e o fim da frase valiam, e o
+//  navegador parava na primeira pausa.
+// =====================================================================
+
+describe('quantidade e método juntos, em qualquer ordem', () => {
+  const esperado = { termo: 'frango desfiado', quantidade: 3, armazenamento: 'congelado' };
+  it.each([
+    'três etiquetas de frango desfiado congelado',
+    'frango desfiado, três etiquetas, congelado',
+    'congelado, 3 etiquetas de frango desfiado',
+    'frango desfiado congelado com 3 etiquetas',
+    'frango desfiado congelado, quantidade três',
+    'três etiquetas congeladas de frango desfiado',
+    'Imprimir 3 etiquetas de frango desfiado congelado, por favor.',
+    'frango desfiado congelado 3',
+    'três frango desfiado congelado',
+  ])('"%s"', (fala) => {
+    expect(entenderFala(fala, ITENS, VOC)).toMatchObject(esperado);
+  });
+  it('número no meio, sem "etiquetas", é do nome do item, não quantidade', () => {
+    const itens = [{ id: 'c', nome: 'Coca 2 litros' }];
+    expect(entenderFala('três etiquetas de coca 2 litros', itens, VOC)).toMatchObject({ termo: 'coca 2 litros', quantidade: 3 });
+  });
+});
+
+describe('a frase com pausa no meio', () => {
+  const parte = (...versoes) => versoes.map(t => ({ transcript: t }));
+  it('junta as partes que o navegador fechou, e a última em todas as versões', () => {
+    expect(juntarAlternativas([parte('três etiquetas de frango desfiado'), parte('congelado', 'congelada')]))
+      .toEqual(['três etiquetas de frango desfiado congelado', 'três etiquetas de frango desfiado congelada']);
+    expect(juntarAlternativas([parte('frango desfiado')])).toEqual(['frango desfiado']);
+    expect(juntarAlternativas([])).toEqual([]);
+  });
+  it('e a frase juntada é entendida inteira', () => {
+    const r = acharPorVoz(juntarAlternativas([parte('três etiquetas de frango desfiado'), parte('congelado')]), ITENS, VOC);
+    expect(r).toMatchObject({ quantidade: 3, armazenamento: 'congelado' });
+    expect(itemCerto(r.achados)?.id).toBe('f');
   });
 });

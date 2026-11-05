@@ -36,6 +36,14 @@ const VERBOS = new Set(['imprimir', 'imprime', 'imprima', 'quero', 'faz', 'faca'
 const VAZIAS = new Set(['de', 'do', 'da', 'dos', 'das', 'e', 'com', 'sem', 'a', 'o', 'as', 'os', 'em', 'no', 'na']);
 // o que sobra entre o item e o método: "frango NA geladeira", "EM temperatura ambiente"
 const LIGACOES_DO_METODO = new Set(['em', 'no', 'na', 'de', 'do', 'da', 'a', 'o']);
+// "3 etiquetas", "três unidades", "2 cópias": a palavra que gruda no número
+const DEPOIS_DO_NUMERO = /^(etiquetas?|unidades?|copias?|vez|vezes)$/;
+// "quantidade três", "quantidade de três"
+const ANTES_DO_NUMERO = new Set(['quantidade', 'qtd', 'qtde']);
+// o que se fala e não é item, quantidade nem método ("…, por favor")
+const SOBRAS = new Set(['por', 'favor', 'obrigado', 'obrigada', 'entao', 'ai', 'agora', 'tambem', 'ok']);
+// o que fica solto nas pontas depois de tirar a quantidade e o método
+const PONTAS = new Set([...LIGACOES, 'e', 'com', 'em', 'no', 'na', 'a', 'o', ...ANTES_DO_NUMERO]);
 
 // ⚠️ REFRIGERADO E RESFRIADO SÃO MÉTODOS DIFERENTES no app (0 a 6 °C e 6 a
 // 10 °C) — a voz não junta os dois. Além destas palavras, vale o nome que a
@@ -127,46 +135,93 @@ export function vocabularioDeMetodos(armazenamentos = [], estados = []) {
   ];
 }
 
+/** A melhor nota de um pedaço da fala entre os itens. */
+const melhorNota = (lista, produtos) => {
+  const t = lista.map(p => p.norm).join(' ');
+  let melhor = 0;
+  for (const p of produtos || []) melhor = Math.max(melhor, pontuarItem(t, p.nome));
+  return melhor;
+};
+
+/** Tira das pontas o que sobrou solto: "etiqueta de", "com", "na". */
+function aparar(lista) {
+  const solta = (p) => p && (ETIQUETA.test(p.norm) || PONTAS.has(p.norm));
+  let r = lista;
+  while (r.length && solta(r[0])) r = r.slice(1);
+  while (r.length && solta(r[r.length - 1])) r = r.slice(0, -1);
+  return r;
+}
+
 /**
- * Tira do fim (e do começo) as palavras de método: "frango desfiado
- * congelado" → item "frango desfiado" + congelado. Até um armazenamento e um
- * estado: "molho refrigerado pista quente".
+ * A quantidade, em qualquer lugar da frase. O número grudado em "etiquetas"
+ * (ou logo depois de "quantidade") vale onde estiver; um número sozinho, só no
+ * começo ou no fim — no meio ele costuma ser do nome do item.
+ * Devolve { valor, de, ate } (o pedaço a tirar da frase) ou null.
+ */
+function acharQuantidade(ps) {
+  const ns = ps.map(p => p.norm);
+  const achados = [];
+  for (let i = 0; i < ns.length; i++) {
+    const n = lerNumero(ns, i);
+    if (!n) continue;
+    let de = i;
+    let ate = i + n.usados;
+    let colado = false;
+    if (DEPOIS_DO_NUMERO.test(ns[ate] || '')) {
+      ate += 1;
+      colado = true;
+      if (LIGACOES.has(ns[ate])) ate += 1; // "3 etiquetas DE frango"
+    }
+    if (ANTES_DO_NUMERO.has(ns[de - 1])) { de -= 1; colado = true; }
+    else if (ns[de - 1] === 'de' && ANTES_DO_NUMERO.has(ns[de - 2])) { de -= 2; colado = true; }
+    if (colado || de === 0 || ate === ns.length) achados.push({ valor: n.valor, de, ate, colado });
+    i = ate - 1;
+  }
+  return achados.find(a => a.colado) || achados[0] || null;
+}
+
+/**
+ * Tira as palavras de método de QUALQUER lugar da frase: "frango desfiado
+ * congelado", "congelado, frango desfiado", "frango na geladeira". Até um
+ * armazenamento e um estado: "molho refrigerado pista quente".
  * ⚠️ O nome do item ganha: "polpa congelada" fica inteira quando existe um
  * item que começa assim ("Polpa congelada de maracujá").
  */
 function tirarMetodo(lista, vocabulario, produtos) {
   const sem = { resto: lista, armazenamento: null, estado: null, metodoFalado: '' };
   if (!vocabulario.length || lista.length < 2) return sem;
-  const inteiro = lista.map(p => p.norm).join(' ');
-  if (produtos.some(p => pontuarItem(inteiro, p.nome) >= 90)) return sem;
+  if (melhorNota(lista, produtos) >= 90) return sem;
   let resto = lista;
   const achado = { armazenamento: null, estado: null };
   const ditas = [];
-  const tentar = (doFim) => {
+  const tirarUma = () => {
     // frases de até 3 palavras ("temperatura ambiente" antes de "ambiente"),
     // e sempre sobra pelo menos uma palavra para o item
     for (const tam of [3, 2, 1]) {
-      if (resto.length <= tam) continue;
-      const pedaco = doFim ? resto.slice(-tam) : resto.slice(0, tam);
-      const frase = pedaco.map(p => p.norm).join(' ');
-      const v = vocabulario.find(x => !achado[x.tipo] && x.frases.includes(frase));
-      if (!v) continue;
-      achado[v.tipo] = v.id;
-      if (doFim) ditas.unshift(pedaco.map(p => p.orig).join(' '));
-      else ditas.push(pedaco.map(p => p.orig).join(' '));
-      resto = doFim ? resto.slice(0, -tam) : resto.slice(tam);
-      // "frango na geladeira": o "na" que ficou não é do item
-      while (resto.length > 1 && LIGACOES_DO_METODO.has((doFim ? resto[resto.length - 1] : resto[0]).norm)) {
-        resto = doFim ? resto.slice(0, -1) : resto.slice(1);
+      if (resto.length - tam < 1) continue;
+      for (let i = 0; i + tam <= resto.length; i++) {
+        const pedaco = resto.slice(i, i + tam);
+        const v = vocabulario.find(x => !achado[x.tipo] && x.frases.includes(pedaco.map(p => p.norm).join(' ')));
+        if (!v) continue;
+        achado[v.tipo] = v.id;
+        ditas.push({ onde: lista.indexOf(pedaco[0]), texto: pedaco.map(p => p.orig).join(' ') });
+        // "frango NA geladeira": a ligação logo antes também sai
+        let de = i;
+        if (de > 0 && LIGACOES_DO_METODO.has(resto[de - 1].norm) && resto.length - tam - 1 >= 1) de -= 1;
+        resto = [...resto.slice(0, de), ...resto.slice(i + tam)];
+        return true;
       }
-      return true;
     }
     return false;
   };
-  while (tentar(true)) { /* "refrigerado pista quente": os dois, do fim */ }
-  while (tentar(false)) { /* "congelado frango desfiado" */ }
+  while (tirarUma()) { /* até um armazenamento e um estado */ }
   if (!achado.armazenamento && !achado.estado) return sem;
-  return { resto, ...achado, metodoFalado: ditas.join(' ') };
+  return {
+    resto,
+    ...achado,
+    // na ordem em que foi falado: "refrigerado pista quente"
+    metodoFalado: ditas.sort((x, y) => x.onde - y.onde).map(d => d.texto).join(' '),
+  };
 }
 
 /**
@@ -176,47 +231,41 @@ function tirarMetodo(lista, vocabulario, produtos) {
  * 'congelado' }. Sem número, quantidade null; sem método, armazenamento e
  * estado null. `termo` é o que compara (sem acento); `falado`, o que a tela
  * mostra ("filé", não "file"). `vocabulario` vem de vocabularioDeMetodos.
- * ⚠️ O nome inteiro ganha da quantidade: "quatro queijos" é o item, quando
- * existe um item com esse nome — não "4 de queijos".
+ * ⚠️ EM QUALQUER ORDEM (05/11/2026, testado no celular pelo dono): só o
+ * começo e o fim valiam, e "frango desfiado, três etiquetas, congelado" ou
+ * "congelado, três etiquetas de frango" se perdiam. Agora a quantidade e o
+ * método saem de onde estiverem, e o que sobra é o item.
+ * ⚠️ O nome inteiro ganha de tudo: "molho quatro queijos" é o item, quando
+ * existe — não "4 de queijos".
  */
 export function entenderFala(texto, produtos = [], vocabulario = []) {
-  let ps = pedacos(texto);
+  let ps = pedacos(texto).filter(p => !SOBRAS.has(p.norm));
   while (ps.length && VERBOS.has(ps[0].norm)) ps = ps.slice(1);
-  const normais = (lista) => lista.map(p => p.norm);
-  const pedido = (lista, quantidade) => {
-    const m = tirarMetodo(lista, vocabulario, produtos);
-    return {
-      termo: normais(m.resto).join(' '),
-      falado: m.resto.map(p => p.orig).join(' '),
-      quantidade,
-      armazenamento: m.armazenamento,
-      estado: m.estado,
-      metodoFalado: m.metodoFalado,
-    };
-  };
-  const inteiro = normais(ps).join(' ');
-  if (produtos.some(p => pontuarItem(inteiro, p.nome) >= 90)) return pedido(ps, null);
+  const montar = (lista, quantidade, m = {}) => ({
+    termo: lista.map(p => p.norm).join(' '),
+    falado: lista.map(p => p.orig).join(' '),
+    quantidade,
+    armazenamento: m.armazenamento || null,
+    estado: m.estado || null,
+    metodoFalado: m.metodoFalado || '',
+  });
+  if (melhorNota(ps, produtos) >= 90) return montar(ps, null);
+  const q = acharQuantidade(ps);
+  const semQuantidade = q ? [...ps.slice(0, q.de), ...ps.slice(q.ate)] : ps;
+  const m = tirarMetodo(aparar(semQuantidade), vocabulario, produtos);
+  return montar(aparar(m.resto), q ? q.valor : null, m);
+}
 
-  // quantidade no começo: "3 etiquetas de frango", "duas picanhas"
-  const inicio = lerNumero(normais(ps), 0);
-  if (inicio && ps.length > inicio.usados) {
-    let resto = ps.slice(inicio.usados);
-    if (ETIQUETA.test(resto[0]?.norm)) resto = resto.slice(1);
-    if (LIGACOES.has(resto[0]?.norm)) resto = resto.slice(1);
-    if (resto.length) return pedido(resto, inicio.valor);
-  }
-  // quantidade no fim: "frango desfiado, três etiquetas" / "frango desfiado três"
-  let fim = ps;
-  if (ETIQUETA.test(fim[fim.length - 1]?.norm)) fim = fim.slice(0, -1);
-  for (const usados of [3, 1]) {
-    const i = fim.length - usados;
-    if (i < 1) continue;
-    const n = lerNumero(normais(fim), i);
-    if (n && n.usados === usados) return pedido(fim.slice(0, i), n.valor);
-  }
-  // sem número: tira o "etiqueta(s) de" da frente, se veio
-  if (ETIQUETA.test(ps[0]?.norm)) ps = ps.slice(LIGACOES.has(ps[1]?.norm) ? 2 : 1);
-  return pedido(ps, null);
+/**
+ * A frase inteira, quando a pessoa fez pausa: as partes que o navegador já
+ * fechou, cada uma pela melhor versão, e a última em todas as versões que ele
+ * mandou. `resultados` é a lista do evento do navegador (SpeechRecognition).
+ */
+export function juntarAlternativas(resultados) {
+  const partes = Array.from(resultados || []).filter(r => r && r.length);
+  if (!partes.length) return [];
+  const comeco = partes.slice(0, -1).map(r => r[0]?.transcript || '').join(' ');
+  return Array.from(partes[partes.length - 1], a => `${comeco} ${a?.transcript || ''}`.trim()).filter(Boolean);
 }
 
 /**

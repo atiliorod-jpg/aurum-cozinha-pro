@@ -16,8 +16,10 @@ async function comVozDeMentira(page) {
         const fala = window.__fala || {};
         setTimeout(() => {
           if (fala.erro) { this.onerror?.({ error: fala.erro }); this.onend?.(); return; }
-          const resultado = Object.assign((fala.textos || []).map(t => ({ transcript: t })), { isFinal: true });
-          this.onresult?.({ results: [resultado] });
+          // `partes`: a frase com pausa — o navegador fecha cada parte à parte
+          const partes = fala.partes || [fala.textos || []];
+          const results = partes.map(versoes => Object.assign(versoes.map(t => ({ transcript: t })), { isFinal: true }));
+          this.onresult?.({ results });
           this.onend?.();
         }, 30);
       }
@@ -141,5 +143,22 @@ test('Etiquetas: método que o item não tem não abre a janela, e a tela mostra
   await expect(janela.locator('.etiqueta-label').first()).toContainText('REFRIGERADO');
   // a quantidade falada vai junto
   await expect(janela.getByLabel('Quantidade de etiquetas de Queijo mussarela')).toHaveValue('2');
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+// ── 05/11/2026, no celular do dono: quantidade e método juntos ──
+test('Etiquetas: quantidade e método em qualquer ordem, mesmo com pausa no meio', async ({ page }) => {
+  await comVozDeMentira(page);
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await entrarComo(page, 'Maria');
+  // "frango desfiado, três etiquetas… congelado" — a pausa fecha a primeira parte
+  await falar(page, { partes: [['frango desfiado, três etiquetas'], ['congelado']] });
+  await page.getByRole('button', { name: 'Buscar falando' }).click();
+  const janela = page.getByRole('dialog');
+  await expect(janela.getByLabel(/^Método de conservação/)).toHaveValue('m:congelado');
+  await expect(janela.getByLabel('Quantidade de etiquetas de Frango desfiado')).toHaveValue('3');
+  // ao fechar, fica escrito o que foi ouvido
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('status').filter({ hasText: 'Ouvi: "frango desfiado, três etiquetas congelado"' })).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
