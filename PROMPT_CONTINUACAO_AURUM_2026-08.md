@@ -181,6 +181,17 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (18/11/2026) — 2ª AUDITORIA; BANCO PAUSADO DE NOVO
+
+Relatório: `AUDITORIA_GERAL_2026-11-18.md`. **O Supabase pausou o projeto em
+14/11** (a tarefa de 1 consulta a cada 2 dias não bastou). Tarefa reforçada:
+4 rodadas/dia × 3 consultas; só a das 08h17 falha/avisa. O DONO precisa
+restaurar (Resume project, conta atiliopinpolho — o Chrome está noutra conta
+do Supabase). Voz: nomes com hífen nunca casavam → corrigido (38339a8),
+teste contra os 261 itens da biblioteca. Vírgula no Android: conferida, ok.
+Propostas M1–M6 (Node 22 no deploy, CSP, dependências, M62). 1069 testes,
+73 cenários.
+
 ## Onde paramos (04/11/2026) — AUDITORIA GERAL + 5 BUGS CORRIGIDOS
 
 Relatório completo: `AUDITORIA_GERAL_2026-11-04.md` (estado, bugs, melhorias
