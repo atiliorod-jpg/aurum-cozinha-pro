@@ -13,7 +13,7 @@
 //  navegadores (nov/2026) — não dá para contar com ele.
 // =====================================================================
 
-import { normalizarBusca, casaBusca } from './busca';
+import { normalizarBusca } from './busca';
 import { temPrazo } from './metodos';
 
 /** O navegador reconhece fala? (Firefox e o navegador do WhatsApp, não.) */
@@ -57,9 +57,28 @@ const PALAVRAS_DO_ARMAZENAMENTO = {
 
 const palavras = (s) => normalizarBusca(s).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
 // cada palavra falada como veio ("filé", para mostrar) e como compara ("file")
-const pedacos = (s) => String(s ?? '').split(/\s+/)
-  .map(orig => ({ orig: orig.replace(/[^\p{L}\p{N}]/gu, ''), norm: normalizarBusca(orig).replace(/[^a-z0-9]/g, '') }))
+// ⚠️ O HÍFEN SEPARA (auditoria 15/11/2026): "couve-flor" virava "couveflor" e
+// nunca casava com o item — os seis itens com hífen da biblioteca (Couve-flor,
+// Grão-de-bico, Pimenta-do-reino...) não eram achados pela voz.
+const pedacos = (s) => String(s ?? '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/)
+  .map(orig => ({ orig, norm: normalizarBusca(orig) }))
   .filter(p => p.norm);
+
+// O nome de cada item, já pronto para comparar. A fala é conferida contra a
+// lista inteira várias vezes (quantidade, método, cada versão do que foi
+// ouvido): refazer a conta do nome a cada vez pesava no celular fraco.
+const nomesProntos = new Map();
+function nomePronto(nome) {
+  const chave = String(nome ?? '');
+  let pronto = nomesProntos.get(chave);
+  if (!pronto) {
+    const ps = palavras(chave);
+    pronto = { texto: ps.join(' '), semVazias: ps.filter(p => !VAZIAS.has(p)) };
+    if (nomesProntos.size > 5000) nomesProntos.clear();
+    nomesProntos.set(chave, pronto);
+  }
+  return pronto;
+}
 
 /** Lê um número a partir da posição i: "3", "tres", "vinte e cinco". */
 function lerNumero(ps, i) {
@@ -105,14 +124,15 @@ function parecida(falada, doNome) {
  * sempre) · 70 parecidas (o reconhecimento errou pouco) · 0 nada.
  */
 export function pontuarItem(termo, nome) {
-  const t = palavras(termo).join(' ');
-  const n = palavras(nome).join(' ');
+  const ts = palavras(termo);
+  const t = ts.join(' ');
+  const { texto: n, semVazias: doNome } = nomePronto(nome);
   if (!t || !n) return 0;
   if (n === t) return 100;
   if (n.startsWith(`${t} `)) return 90;
-  if (casaBusca(t, nome)) return 80;
-  const faladas = palavras(t).filter(p => !VAZIAS.has(p));
-  const doNome = palavras(n).filter(p => !VAZIAS.has(p));
+  // todas as palavras faladas aparecem no nome (a busca de sempre)
+  if (ts.every(p => n.includes(p))) return 80;
+  const faladas = ts.filter(p => !VAZIAS.has(p));
   if (faladas.length && faladas.every(f => doNome.some(d => parecida(f, d)))) return 70;
   return 0;
 }
@@ -199,7 +219,9 @@ function tirarMetodo(lista, vocabulario, produtos) {
     // e sempre sobra pelo menos uma palavra para o item
     for (const tam of [3, 2, 1]) {
       if (resto.length - tam < 1) continue;
-      for (let i = 0; i + tam <= resto.length; i++) {
+      // do fim para o começo: o método costuma vir depois do item, e em
+      // "batata palito congelada, congelado" o que sai é o último
+      for (let i = resto.length - tam; i >= 0; i--) {
         const pedaco = resto.slice(i, i + tam);
         const v = vocabulario.find(x => !achado[x.tipo] && x.frases.includes(pedaco.map(p => p.norm).join(' ')));
         if (!v) continue;

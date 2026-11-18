@@ -6,6 +6,7 @@ import {
 } from '../voz';
 import { ARMAZENAMENTOS_PADRAO } from '../armazenamento';
 import { ESTADOS_PADRAO } from '../metodos';
+import { BIBLIOTECA_ETIQUETAS } from '../../data/bibliotecaEtiquetas';
 
 const ler = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 
@@ -267,5 +268,35 @@ describe('a frase repetida pelo celular', () => {
   });
   it('a escuta é de uma frase só: o modo contínuo é o que repete no Android', () => {
     expect(ler('../../components/BuscaPorVoz.jsx')).toMatch(/rec\.continuous = false;/);
+  });
+});
+
+// =====================================================================
+//  AUDITORIA DE 15/11/2026 — a voz contra TODOS os itens da biblioteca.
+//  Achou os seis nomes com hífen (Couve-flor, Grão-de-bico...), que nunca
+//  casavam: "couve-flor" virava "couveflor".
+// =====================================================================
+
+describe('a biblioteca inteira pela voz', () => {
+  const biblioteca = BIBLIOTECA_ETIQUETAS.map((p, i) => ({ id: `b${i}`, nome: p.nome }));
+  // como a pessoa fala: sem parênteses nem pontuação
+  const falar = (nome) => nome.replace(/[()/,.]/g, ' ').replace(/\s+/g, ' ').trim();
+  it('todo item é achado pelo nome, sem inventar quantidade nem método', { timeout: 60_000 }, () => {
+    const falhas = biblioteca.filter(p => {
+      const r = acharPorVoz([falar(p.nome)], biblioteca, VOC);
+      return r.achados[0]?.produto.nome !== p.nome || r.quantidade != null || r.armazenamento;
+    }).map(p => p.nome);
+    expect(falhas).toEqual([]);
+  });
+  it('e com a quantidade e o método juntos', { timeout: 60_000 }, () => {
+    const falhas = biblioteca.filter(p => {
+      const r = acharPorVoz([`${falar(p.nome)} três etiquetas congelado`], biblioteca, VOC);
+      return r.quantidade !== 3 || r.armazenamento !== 'congelado' || !r.achados.some(a => a.produto.nome === p.nome);
+    }).map(p => p.nome);
+    expect(falhas).toEqual([]);
+  });
+  it('o hífen separa as palavras', () => {
+    expect(entenderFala('duas etiquetas de couve-flor', biblioteca, VOC)).toMatchObject({ termo: 'couve flor', quantidade: 2 });
+    expect(pontuarItem('grão de bico', 'Grão-de-bico')).toBe(100);
   });
 });

@@ -1,17 +1,24 @@
 # =====================================================================
-#  MANTER O BANCO ACORDADO (03/11/2026)
+#  MANTER O BANCO ACORDADO (03/11/2026, refeito em 15/11/2026)
 #
-#  O Supabase do plano grátis PAUSA o projeto depois de uns 7 dias sem uso:
-#  o endereço some da rede e ninguém entra (o app dizia "sem internet").
-#  Foi o que aconteceu em 03/11. Esta tarefa faz, dia sim, dia não, uma
-#  consulta pequena ao banco: a mesma do link de convite, que só responde
-#  true/false e não grava nada.
+#  O Supabase do plano grátis PAUSA o projeto que não tem "atividade
+#  suficiente" em 7 dias: o endereço some da rede e ninguém entra.
 #
-#  ⚠️ A chave usada é a PÚBLICA (anon), a mesma que já vai dentro do app.
-#  ⚠️ Ela só MANTÉM acordado. Projeto já pausado não acorda com consulta:
-#  tem de ser restaurado no painel do Supabase ("Restore project").
-#  ⚠️ FALHA DE PROPÓSITO quando o banco não responde: o GitHub manda e-mail
-#  ao dono, que fica sabendo antes do cliente.
+#  ⚠️ UMA CONSULTA A CADA DOIS DIAS NÃO BASTOU. A primeira versão desta
+#  tarefa fazia isso, rodou sempre com sucesso, e o projeto foi pausado do
+#  mesmo jeito em 14/11/2026. A documentação do Supabase diz que o que
+#  costuma bastar são "algumas consultas ao banco por dia". Agora são 4
+#  rodadas por dia, com 3 consultas cada (12 por dia).
+#  ⚠️ MESMO ASSIM NÃO É GARANTIA: o Supabase não publica o número exato.
+#  Garantia só no plano pago, que não pausa nunca.
+#
+#  A consulta é a mesma do link de convite: só responde true/false e não
+#  grava nada. A chave usada é a PÚBLICA (anon), a mesma que vai no app.
+#  ⚠️ Projeto já pausado não acorda com consulta: tem de ser restaurado no
+#  painel do Supabase ("Resume project").
+#  ⚠️ SÓ A RODADA DAS 08h17 (Recife) FALHA quando o banco não responde — o
+#  GitHub manda UM e-mail por dia ao dono, e não quatro. As outras avisam
+#  no registro e seguem.
 #  ⚠️ O GitHub desliga tarefas agendadas de repositório sem commits há 60
 #  dias. Se o repositório ficar parado tanto tempo, reative em Actions.
 # =====================================================================
@@ -19,8 +26,9 @@ name: Manter o banco acordado
 
 on:
   schedule:
-    - cron: '17 11 */2 * *'   # dia sim, dia não, 08h17 em Recife
-  workflow_dispatch:           # botão "Run workflow", para testar na hora
+    - cron: '17 11 * * *'          # 08h17 em Recife: a que avisa se falhar
+    - cron: '47 2,17,22 * * *'     # 23h47, 14h47 e 19h47 em Recife
+  workflow_dispatch:               # botão "Run workflow", para testar na hora
 
 permissions: {}
 
@@ -29,15 +37,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Consulta pequena ao banco
+      - name: Três consultas pequenas ao banco
         env:
           URL: ${{ secrets.VITE_SUPABASE_URL }}
           CHAVE: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          AVISAR: ${{ github.event_name == 'workflow_dispatch' || github.event.schedule == '17 11 * * *' }}
         run: |
-          resposta=$(curl -sS --fail-with-body --retry 3 --retry-delay 20 --max-time 30 \
-            -X POST "$URL/rest/v1/rpc/convite_valido" \
-            -H "apikey: $CHAVE" -H "Authorization: Bearer $CHAVE" \
-            -H "Content-Type: application/json" \
-            -d '{"p_token":"manter-acordado"}')
-          echo "Resposta do banco: $resposta"
-          test "$resposta" = "false"
+          certas=0
+          for n in 1 2 3; do
+            resposta=$(curl -sS --retry 2 --retry-delay 10 --max-time 30 \
+              -X POST "$URL/rest/v1/rpc/convite_valido" \
+              -H "apikey: $CHAVE" -H "Authorization: Bearer $CHAVE" \
+              -H "Content-Type: application/json" \
+              -d "{\"p_token\":\"manter-acordado-$n\"}" || true)
+            echo "Consulta $n: $resposta"
+            if [ "$resposta" = "false" ]; then certas=$((certas + 1)); fi
+            sleep 5
+          done
+          echo "Consultas respondidas: $certas de 3"
+          if [ "$certas" -eq 3 ]; then exit 0; fi
+          if [ "$AVISAR" = "true" ]; then
+            echo "::error::O banco não respondeu. Se o projeto foi pausado, restaure no painel do Supabase."
+            exit 1
+          fi
+          echo "::warning::O banco não respondeu nesta rodada. A rodada das 08h17 avisa por e-mail."
