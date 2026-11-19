@@ -93,6 +93,7 @@ mais.
 
 | # | O quê | Por quê | Tamanho |
 |---|---|---|---|
+| M0 | **Avisos médios nas ferramentas de teste** (vitest 4.1.11, fast-uri, glob, minimatch, postcss-selector-parser) | Em 18/11, de madrugada, o verificador marcou 19 pacotes como falha GRAVE e travou dois deploys. Horas depois a base de vulnerabilidades deixou de apontar a falha grave, e o deploy passou na segunda tentativa. Restam 10 avisos médios e 1 baixo, todos em ferramentas que não vão para o app publicado. Atualizar o vitest para 4.1.12 resolve os dois avisos dele | Pequeno |
 | M1 | **Subir o Node do deploy de 20 para 22** | O Node 20 deixou de receber correções de segurança em abril/2026. O deploy ainda funciona, mas roda numa versão sem suporte | Pequeno |
 | M2 | Atualizar dependências menores (Supabase 2.119, React 19.3, Playwright 1.65) | Correções acumuladas; nenhuma é de segurança | Pequeno |
 | M3 | Vite: investigar a tela Entradas antes de subir para 8.3 | Continua parado em 8.1.6 de propósito (ver 04/11) | Pequeno a médio |
