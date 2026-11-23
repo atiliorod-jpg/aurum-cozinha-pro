@@ -269,7 +269,7 @@ export default function Itens() {
       <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
         placeholder={aba === 'meus' ? 'Buscar nos meus itens…' : 'Buscar item pronto (ex.: picanha, sal, alface)…'}
         aria-label="Buscar item"
-        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm mb-4" />
+        className="busca-grande mb-4" />
 
       {aba === 'meus' ? (
         <>
@@ -289,7 +289,7 @@ export default function Itens() {
           </div>
           {/* os grupos da casa: criar, renomear, ordenar e apagar (Lote 11) */}
           <button type="button" onClick={() => setOrganizando(true)}
-            className="w-full min-h-11 mb-4 rounded-xl border border-polo-navy/30 bg-white text-sm font-bold text-polo-navy">
+            className="w-full min-h-12 mb-4 rounded-xl border-2 border-polo-navy/20 bg-white text-sm font-bold text-polo-navy">
             Organizar grupos
           </button>
 
@@ -308,13 +308,13 @@ export default function Itens() {
             <div className="space-y-4">
               {gruposMeus.map(([cat, itens]) => (
                 <div key={cat}>
-                  <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-1.5 px-1">{cat}</p>
-                  <div className="bg-white rounded-xl divide-y divide-gray-100">
+                  <p className="titulo-secao mb-1.5 px-1">{cat}</p>
+                  <div className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100 overflow-hidden">
                     {itens.map(p => (
                       <button key={p.id} onClick={() => abrirItem(p)}
                         className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50">
                         <span className="min-w-0 flex-1">
-                          <span className="block font-semibold text-sm text-gray-900 truncate">{p.nome}</span>
+                          <span className="block font-bold text-base text-polo-navy truncate">{p.nome}</span>
                           <span className="block text-xs text-gray-600">
                             {p.unidade}
                             {medidaDoProduto(p) && ` · ${medidaDoProduto(p)}`}
@@ -359,7 +359,7 @@ export default function Itens() {
                   <li key={p.id} className="flex items-center gap-3 px-4 py-1">
                     <span className="flex-1 min-w-0 text-sm text-gray-700 truncate">{p.nome}</span>
                     <button type="button" onClick={() => devolver(p)} aria-label={`Devolver ${p.nome} para a lista`}
-                      className="min-h-11 px-3 text-sm font-bold text-polo-navy">
+                      className="min-h-12 px-3 text-sm font-bold text-polo-navy">
                       Devolver
                     </button>
                   </li>
@@ -381,15 +381,15 @@ export default function Itens() {
             </p>
           ) : gruposBiblioteca.map(([cat, itens]) => (
             <div key={cat}>
-              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-1.5 px-1">{cat}</p>
-              <div className="bg-white rounded-xl divide-y divide-gray-100">
+              <p className="titulo-secao mb-1.5 px-1">{cat}</p>
+              <div className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100 overflow-hidden">
                 {itens.map(item => {
                   const tem = jaTenho.has(item.nome.toLowerCase());
                   return (
                     <button key={item.id} onClick={() => abrirDaBiblioteca(item)} disabled={tem}
                       className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50 disabled:opacity-50">
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-sm text-gray-900 truncate">{item.nome}</span>
+                        <span className="block font-bold text-base text-polo-navy truncate">{item.nome}</span>
                         <span className="block text-xs text-gray-600">
                           {item.unidade}
                           {item.tipoData === 'abertura' && ' · data de abertura'}
@@ -514,7 +514,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
     setForm(p => ({ ...p, metodos: p.metodos.filter((_, j) => j !== i) }));
     setPrevia(null);
   };
-  const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
+  const inputCls = 'campo';
   const daBiblioteca = !!inicial.origemBiblioteca;
   const controla = form.controlaEstoque ?? controlaPorPadrao(form.tipoData, abertoPorPadrao);
   const porUnidade = normalizarUnidade(form.unidade) === 'unid';
@@ -561,7 +561,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
         )}
 
         <div>
-          <label htmlFor="mi-nome" className="block text-xs font-semibold text-gray-600 mb-1">Nome</label>
+          <label htmlFor="mi-nome" className="rotulo">Nome</label>
           <input id="mi-nome" type="text" value={form.nome} autoFocus={!daBiblioteca}
             onChange={e => set('nome', e.target.value)}
             placeholder="Ex.: Molho de tomate da casa" className={inputCls} />
@@ -583,7 +583,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
               <span className="block text-sm font-bold text-polo-navy truncate">{form.grupos.join(' · ')}</span>
             </p>
             <button type="button" onClick={() => setVendoGrupos(v => !v)} aria-expanded={vendoGrupos}
-              className="min-h-11 text-sm font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 flex-shrink-0">
+              className="min-h-12 text-sm font-bold text-polo-navy border-2 border-polo-navy/20 rounded-xl px-3 flex-shrink-0">
               {vendoGrupos ? 'Fechar' : 'Escolher grupos'}
             </button>
           </div>
@@ -594,7 +594,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                   const marcado = form.grupos.includes(g);
                   return (
                     <button key={g} type="button" aria-pressed={marcado} onClick={() => alternarGrupo(g)}
-                      className={`min-h-11 px-3 rounded-full border-2 text-xs font-bold flex items-center gap-1
+                      className={`min-h-12 px-3 rounded-full border-2 text-sm font-bold flex items-center gap-1
                         ${marcado ? 'border-polo-navy bg-polo-beige text-polo-navy' : 'border-gray-200 text-gray-700'}`}>
                       {marcado && <span aria-hidden="true"><Icon name="check" size={14} /></span>}
                       {g}
@@ -610,19 +610,19 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                     aria-label="Nome do novo grupo" className={inputCls} />
                   <Botao onClick={confirmarCat} tamanho="sm" largura="auto">OK</Botao>
                   <button onClick={() => { setCriandoCat(false); setNovaCat(''); }}
-                    className="min-h-11 text-sm text-gray-600 px-2">Cancelar</button>
+                    className="min-h-12 text-sm text-gray-600 px-2">Cancelar</button>
                 </div>
               ) : (
                 <button type="button" onClick={() => setCriandoCat(true)}
-                  className="min-h-11 text-sm font-bold text-polo-navy underline">
+                  className="min-h-12 text-sm font-bold text-polo-navy underline">
                   + Novo grupo
                 </button>
               )}
               {form.grupos.length > 1 ? (
                 <div>
-                  <label htmlFor="mi-principal" className="block text-xs font-semibold text-gray-600 mb-1">Grupo principal</label>
+                  <label htmlFor="mi-principal" className="rotulo">Grupo principal</label>
                   <select id="mi-principal" value={form.grupos[0]} onChange={e => tornarPrincipal(e.target.value)}
-                    className={`${inputCls} bg-white min-h-11`}>
+                    className={`${inputCls} bg-white min-h-12`}>
                     {form.grupos.map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                   <p className="text-xs text-gray-600 mt-1">
@@ -641,7 +641,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
             {/* ⚠️ Texto livre com sugestões, e a grafia é acertada ao salvar
                 ("Kg", "un" → kg, unid): o estoque compara a unidade como
                 texto, e "un" não convertia peso para a lista de compras. */}
-            <label htmlFor="mi-unid" className="block text-xs font-semibold text-gray-600 mb-1">Unidade</label>
+            <label htmlFor="mi-unid" className="rotulo">Unidade</label>
             <input id="mi-unid" type="text" value={form.unidade} list={`${id}-unidades`}
               onChange={e => set('unidade', e.target.value)} placeholder="kg, L, unid" className={inputCls} />
             <datalist id={`${id}-unidades`}>
@@ -657,7 +657,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                 impressão (que aceita "1 kg") mostrava algo que o cadastro nao
                 conseguia gerar. Dois campos para a mesma coisa, com regras
                 diferentes, é onde o usuário conclui que o sistema está errado. */}
-            <label htmlFor="mi-medida" className="block text-xs font-semibold text-gray-600 mb-1">Medida padrão</label>
+            <label htmlFor="mi-medida" className="rotulo">Medida padrão</label>
             <input id="mi-medida" type="text" value={form.medidaPadrao}
               onChange={e => set('medidaPadrao', e.target.value)}
               placeholder="ex.: 150 g, 1 kg, 500 mL" className={inputCls} />
@@ -708,12 +708,12 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="mi-marca" className="block text-xs font-semibold text-gray-600 mb-1">Marca / fornecedor</label>
+            <label htmlFor="mi-marca" className="rotulo">Marca / fornecedor</label>
             <input id="mi-marca" type="text" value={form.marca}
               onChange={e => set('marca', e.target.value)} placeholder="opcional" className={inputCls} />
           </div>
           <div>
-            <label htmlFor="mi-sif" className="block text-xs font-semibold text-gray-600 mb-1">SIF</label>
+            <label htmlFor="mi-sif" className="rotulo">SIF</label>
             <input id="mi-sif" type="text" value={form.sif}
               onChange={e => set('sif', e.target.value)} placeholder="opcional" className={inputCls} />
           </div>
@@ -765,7 +765,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                     {form.metodos.length > 1 && (
                       <button type="button" onClick={() => removerMetodo(i)}
                         aria-label={`Remover ${titulo.toLowerCase()}`}
-                        className="min-h-11 px-2 text-sm font-bold text-red-700">
+                        className="min-h-12 px-2 text-sm font-bold text-red-700">
                         Remover
                       </button>
                     )}
@@ -775,7 +775,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                       <label htmlFor={`${base}-arm`} className="block text-xs text-gray-600 mb-1">Armazenamento</label>
                       <select id={`${base}-arm`} value={m.armazenamento}
                         onChange={e => mudarMetodo(i, { armazenamento: e.target.value })}
-                        className={`${inputCls} bg-white min-h-11`}>
+                        className={`${inputCls} bg-white min-h-12`}>
                         {/* só o nome: em meia largura, com a faixa, o celular
                             cortava no meio ("Refrigerado · 0°C..."). A faixa
                             aparece na prévia, que é o papel. */}
@@ -786,7 +786,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                       <label htmlFor={`${base}-est`} className="block text-xs text-gray-600 mb-1">Estado (opcional)</label>
                       <select id={`${base}-est`} value={m.estado || ''}
                         onChange={e => mudarMetodo(i, { estado: e.target.value })}
-                        className={`${inputCls} bg-white min-h-11`}>
+                        className={`${inputCls} bg-white min-h-12`}>
                         <option value="">Nenhum</option>
                         {opcoesEst.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
                       </select>
@@ -824,7 +824,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                   )}
                   <button type="button" onClick={() => setPrevia(previa === m.id ? null : m.id)}
                     aria-expanded={previa === m.id}
-                    className="min-h-11 text-sm font-bold text-polo-navy underline">
+                    className="min-h-12 text-sm font-bold text-polo-navy underline">
                     {previa === m.id ? 'Esconder etiqueta' : 'Ver etiqueta'}
                   </button>
                   {previa === m.id && <PreviaEtiquetaItem item={form} metodo={m} />}
@@ -832,7 +832,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
               );
             })}
             <button type="button" onClick={adicionarMetodo}
-              className="w-full min-h-11 rounded-xl border-2 border-dashed border-polo-navy/40 text-sm font-bold text-polo-navy">
+              className="w-full min-h-12 rounded-xl border-2 border-dashed border-polo-navy/40 text-sm font-bold text-polo-navy">
               + Adicionar método
             </button>
           </div>
@@ -911,7 +911,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                         <strong>mínimo {fmtNum(sugestao.min)} · máximo {fmtNum(sugestao.max)}</strong>
                       </p>
                       <button type="button" onClick={() => setForm(prev => ({ ...prev, min: String(sugestao.min), max: String(sugestao.max) }))}
-                        className="min-h-11 text-sm font-bold text-polo-navy px-2 flex-shrink-0">
+                        className="min-h-12 text-sm font-bold text-polo-navy px-2 flex-shrink-0">
                         Aplicar
                       </button>
                     </div>
@@ -993,7 +993,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
           </Botao>
         </div>
         {onRemover && (
-          <button onClick={onRemover} className="w-full min-h-11 text-red-700 text-sm font-bold">
+          <button onClick={onRemover} className="w-full min-h-12 text-red-700 text-sm font-bold">
             Remover item
           </button>
         )}

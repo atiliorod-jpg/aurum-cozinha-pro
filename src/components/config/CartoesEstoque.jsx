@@ -64,7 +64,7 @@ function CartaoCatalogoChips({ titulo, descricao, placeholder, valor, onValor, o
           placeholder={placeholder} aria-label={placeholder}
           className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
         <button onClick={onAdd}
-          className="bg-polo-navy text-polo-gold font-bold px-4 min-h-11 rounded-lg text-sm">Adicionar</button>
+          className="bg-polo-navy text-polo-gold font-bold px-4 min-h-12 rounded-xl text-sm">Adicionar</button>
       </div>
       <div className="flex flex-wrap gap-2">
         {itens.length === 0 && <span className="text-xs text-gray-600">{textoVazio}</span>}
@@ -75,7 +75,7 @@ function CartaoCatalogoChips({ titulo, descricao, placeholder, valor, onValor, o
             {item.fixo
               ? <span className="text-gray-600 text-xs">(fixo)</span>
               : <button onClick={() => remover(item)} aria-label={`Remover ${item.nomeParaConfirmar}`}
-                  className="text-red-700 font-bold text-base leading-none min-w-11 min-h-11 -my-2.5 -mr-2 flex items-center justify-center">×</button>}
+                  className="text-red-700 font-bold text-base leading-none min-w-11 min-h-12 -my-2.5 -mr-2 flex items-center justify-center">×</button>}
           </span>
         ))}
       </div>
@@ -175,7 +175,7 @@ export function CartaoMinMaxAuto() {
   useEffect(() => { setDiasMaxStr(String(prefs.diasMax || 6)); }, [prefs.diasMax]);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <h2 id="mm-auto" className="text-sm font-bold text-polo-navy">Mínimo e máximo automáticos</h2>
@@ -217,7 +217,7 @@ export function CartaoMinMaxAuto() {
                   setDiasMinStr(String(v));
                   setPref('diasMin', v);
                 }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
               <span className="text-xs text-gray-600 whitespace-nowrap">dias</span>
             </div>
           </div>
@@ -232,7 +232,7 @@ export function CartaoMinMaxAuto() {
                   setDiasMaxStr(String(v));
                   setPref('diasMax', v);
                 }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
               <span className="text-xs text-gray-600 whitespace-nowrap">dias</span>
             </div>
           </div>
@@ -269,7 +269,7 @@ export function CartaoMinMaxAuto() {
 export function CartaoGuiaTurno() {
   const { prefs, setPref } = useApp();
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+    <div className="cartao">
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <h2 id="guia-turno" className="text-sm font-bold text-polo-navy">Guia de fluxo do turno</h2>
@@ -323,14 +323,14 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
       forma="ficha" largura="lg" camada={70} fecharNoFundo={false} classeCaixa="space-y-4">
       <>
         <div>
-          <label htmlFor="rec-nome" className="block text-xs font-semibold text-gray-600 mb-1">Nome da receita</label>
+          <label htmlFor="rec-nome" className="rotulo">Nome da receita</label>
           <input id="rec-nome" type="text" value={form.nome} onChange={e => set('nome', e.target.value)}
-            placeholder="Ex.: Molho da casa" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            placeholder="Ex.: Molho da casa" className="campo" />
         </div>
         <div>
-          <label htmlFor="rec-final" className="block text-xs font-semibold text-gray-600 mb-1">Produto que será produzido</label>
+          <label htmlFor="rec-final" className="rotulo">Produto que será produzido</label>
           <select id="rec-final" value={form.produtoFinalId} onChange={e => set('produtoFinalId', e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+            className="campo">
             <option value="">Selecione…</option>
             {ativos.map(p => <option key={p.id} value={p.id}>{p.nome} ({p.unidade})</option>)}
           </select>
@@ -338,14 +338,14 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="rec-rende" className="block text-xs font-semibold text-gray-600 mb-1">Rende quanto? ({unid(form.produtoFinalId)})</label>
+            <label htmlFor="rec-rende" className="rotulo">Rende quanto? ({unid(form.produtoFinalId)})</label>
             <input id="rec-rende" type="number" inputMode="decimal" min="0" step="0.5" value={form.rendimentoBase} onChange={e => set('rendimentoBase', e.target.value)}
-              placeholder="Ex.: 10" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+              placeholder="Ex.: 10" className="campo" />
           </div>
           <div>
-            <label htmlFor="rec-armaz" className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento</label>
+            <label htmlFor="rec-armaz" className="rotulo">Armazenamento</label>
             <select id="rec-armaz" value={form.armazenamento} onChange={e => set('armazenamento', e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+              className="campo">
               <option value="ambos">Ambos (decide na hora)</option>
               <option value="congelado">Congelado</option>
               <option value="resfriado">Resfriado</option>
@@ -355,7 +355,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
         <div>
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-semibold text-gray-600">Ingredientes (para o rendimento acima)</p>
-            <button onClick={addIng} className="min-h-11 text-sm font-bold text-polo-navy bg-gray-100 px-3 rounded-lg">+ Ingrediente</button>
+            <button onClick={addIng} className="min-h-12 text-sm font-bold text-polo-navy bg-gray-100 px-3 rounded-xl">+ Ingrediente</button>
           </div>
           <p className="text-xs text-gray-600 mb-2">
             Por padrão, ingredientes são <strong>monitorados</strong> (só registra uso, sem baixa no estoque). Marque se o item é controlado no estoque.
@@ -383,7 +383,7 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                     // a unidade (um seletor livre aqui era ignorado no save e podia
                     // baixar 500 g como 500 kg).
                     <span title="Usa a unidade do produto controlado"
-                      className="border border-gray-200 rounded-lg px-2 min-h-11 text-xs bg-gray-100 text-gray-600 flex items-center min-w-9 justify-center">
+                      className="border-2 border-polo-navy/15 rounded-xl px-2 min-h-12 text-sm bg-gray-100 text-gray-600 flex items-center min-w-9 justify-center">
                       {unid(ing.produtoId) || '—'}
                     </span>
                   ) : (
@@ -396,9 +396,9 @@ function ModalProducao({ receita, produtos, onSalvar, onFechar }) {
                     </select>
                   )}
                   <button onClick={() => removeIng(i)} aria-label={`Remover o ingrediente ${i + 1}`}
-                    className="text-red-700 font-bold text-lg min-w-11 min-h-11 flex-shrink-0 flex items-center justify-center">×</button>
+                    className="text-red-700 font-bold text-lg min-w-11 min-h-12 flex-shrink-0 flex items-center justify-center">×</button>
                 </div>
-                <label className="flex items-center gap-2 min-h-11 cursor-pointer">
+                <label className="flex items-center gap-2 min-h-12 cursor-pointer">
                   <input type="checkbox" checked={ing.abate || false} onChange={e => setIng(i, 'abate', e.target.checked)}
                     className="w-6 h-6 cursor-pointer flex-shrink-0" />
                   <span className="text-xs text-gray-700">Controlado no estoque (dá baixa ao produzir)</span>
@@ -433,7 +433,7 @@ export function CartaoReceitas() {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Receitas de produção</h2>
         <p className="text-xs text-gray-600 mt-0.5">
@@ -456,9 +456,9 @@ export function CartaoReceitas() {
                   </p>
                 </div>
                 <button onClick={() => setEditando(r)} aria-label={`Editar receita ${r.nome}`}
-                  className="text-sm text-polo-navy font-semibold px-3 min-h-11 rounded-lg">Editar</button>
+                  className="text-sm text-polo-navy font-semibold px-3 min-h-12 rounded-xl">Editar</button>
                 <button onClick={() => excluir(r)} aria-label={`Excluir receita ${r.nome}`}
-                  className="text-base text-red-700 font-bold min-w-11 min-h-11 flex items-center justify-center rounded-lg">×</button>
+                  className="text-base text-red-700 font-bold min-w-11 min-h-12 flex items-center justify-center rounded-xl">×</button>
               </li>
             );
           })}
@@ -621,16 +621,16 @@ export function CartaoRendimento() {
                         className="border border-polo-gold/60 rounded-lg px-2 py-1 text-sm font-semibold text-polo-navy flex-1 min-w-0"
                       />
                       <button onClick={() => renomearProduto(produto, nomeEdit.nome)}
-                        aria-label="Confirmar" className="min-w-11 min-h-11 flex items-center justify-center text-polo-gold bg-polo-navy rounded-lg flex-shrink-0"><Icon name="check" size={16} /></button>
+                        aria-label="Confirmar" className="min-w-11 min-h-12 flex items-center justify-center text-polo-gold bg-polo-navy rounded-xl flex-shrink-0"><Icon name="check" size={16} /></button>
                       <button onClick={() => setNomeEdit(null)}
-                        aria-label="Cancelar" className="min-w-11 min-h-11 flex items-center justify-center text-gray-600 flex-shrink-0"><Icon name="fechar" size={16} /></button>
+                        aria-label="Cancelar" className="min-w-11 min-h-12 flex items-center justify-center text-gray-600 flex-shrink-0"><Icon name="fechar" size={16} /></button>
                     </div>
                   ) : (
                     <div className="flex items-center gap-1 mb-0.5">
                       <p className="font-semibold text-sm text-polo-navy">{produto.nome}</p>
                       <button
                         onClick={() => { setFcEdit(null); setNomeEdit({ id: produto.id, nome: produto.nome }); }}
-                        className="min-w-11 min-h-11 flex items-center justify-center text-gray-600 hover:text-polo-navy transition-colors flex-shrink-0"
+                        className="min-w-11 min-h-12 flex items-center justify-center text-gray-600 hover:text-polo-navy transition-colors flex-shrink-0"
                         aria-label={`Renomear ${produto.nome}`}
                         title="Renomear ingrediente"
                       ><Icon name="editar" size={16} /></button>
@@ -651,7 +651,7 @@ export function CartaoRendimento() {
                 {!editando && nomeEdit?.id !== produto.id && (
                   <button onClick={() => { setNomeEdit(null); setFcEdit({ id: produto.id, pct: produto.fcManual ? String(Math.round((produto.fcMedio || 0) * 100)) : '' }); }}
                     aria-label={`Fator de correção de ${produto.nome}`}
-                    className="min-h-11 px-3 text-sm font-semibold text-polo-navy bg-gray-100 rounded-lg flex-shrink-0">FC</button>
+                    className="min-h-12 px-3 text-sm font-semibold text-polo-navy bg-gray-100 rounded-xl flex-shrink-0">FC</button>
                 )}
               </div>
 
@@ -664,12 +664,12 @@ export function CartaoRendimento() {
                       placeholder="Ex.: 12"
                       className="w-24 border border-gray-200 rounded-lg px-2 py-1.5 text-sm" />
                     <button onClick={() => salvarFcManual(produto, fcEdit.pct)}
-                      className="min-h-11 text-sm font-bold text-polo-gold bg-polo-navy px-3 rounded-lg">Fixar</button>
+                      className="min-h-12 text-sm font-bold text-polo-gold bg-polo-navy px-3 rounded-xl">Fixar</button>
                     {produto.fcManual && (
                       <button onClick={() => voltarAutomatico(produto)}
-                        className="min-h-11 px-2 text-sm font-semibold text-gray-700 underline">voltar ao automático</button>
+                        className="min-h-12 px-2 text-sm font-semibold text-gray-700 underline">voltar ao automático</button>
                     )}
-                    <button onClick={() => setFcEdit(null)} className="min-h-11 px-2 text-sm text-gray-600 ml-auto">cancelar</button>
+                    <button onClick={() => setFcEdit(null)} className="min-h-12 px-2 text-sm text-gray-600 ml-auto">cancelar</button>
                   </div>
                 </div>
               )}
@@ -677,7 +677,7 @@ export function CartaoRendimento() {
               {/* Matéria-prima de compra — unifica itens na lista de compras */}
               {nomeEdit?.id !== produto.id && (
                 <div className="mt-2 bg-polo-beige/40 rounded-lg px-2.5 py-2">
-                  <label htmlFor={`mp-in-${produto.id}`} className="block text-xs font-semibold text-gray-600 mb-1">
+                  <label htmlFor={`mp-in-${produto.id}`} className="rotulo">
                     Comprado como
                   </label>
                   <input id={`mp-in-${produto.id}`}

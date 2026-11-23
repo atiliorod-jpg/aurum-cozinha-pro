@@ -178,7 +178,7 @@ export default function RelatorioEtiquetas() {
         <div className="flex flex-wrap gap-2 print:hidden" role="group" aria-label="Período do relatório">
           {PERIODOS.map(p => (
             <button key={p.id} type="button" onClick={() => setTipo(p.id)} aria-pressed={tipo === p.id}
-              className={`min-h-11 px-3 rounded-full text-xs font-bold border
+              className={`min-h-12 px-3 rounded-full text-sm font-bold border
                 ${tipo === p.id ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-polo-navy border-gray-200'}`}>
               {p.rotulo}
             </button>
@@ -210,7 +210,7 @@ export default function RelatorioEtiquetas() {
               ...opcoesDeUnidade(unidades, nomeCasa).map(u => ({ chave: u.id, nome: u.nome }))].map(o => (
               <button key={o.chave ?? 'principal'} type="button" onClick={() => setFiltroUnidade(o.chave)}
                 aria-pressed={filtroUnidade === o.chave}
-                className={`min-h-11 px-3 rounded-full text-xs font-bold border
+                className={`min-h-12 px-3 rounded-full text-sm font-bold border
                   ${filtroUnidade === o.chave ? 'bg-polo-gold text-polo-navy border-polo-gold' : 'bg-white text-polo-navy border-gray-200'}`}>
                 {o.nome}
               </button>

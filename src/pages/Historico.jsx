@@ -147,7 +147,7 @@ export default function Historico() {
     <Layout title="Histórico">
       <input aria-label="Buscar por item ou responsável" type="text" value={busca} onChange={e => setBusca(e.target.value)}
         placeholder="Buscar por item ou responsável..."
-        className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm mb-3" />
+        className="busca-grande mb-3" />
 
       <Filtros rotulo="Tipo de lançamento" todos={null} opcoes={CHIPS} valor={filtroAtivo} aoTrocar={setFiltro} className="mb-3" />
 
@@ -170,11 +170,11 @@ export default function Historico() {
             <div className="flex items-center gap-2 flex-shrink-0">
               {(ev.grupo === 'entradas' || ev.grupo === 'producao') && (ev.r.itens || []).length > 0 && (
                 <button onClick={() => reimprimirEtiquetas(ev)} aria-label="Reimprimir etiquetas deste registro"
-                  className="w-11 h-11 flex items-center justify-center rounded-xl bg-polo-beige text-polo-navy flex-shrink-0"><Icon name="etiqueta" size={20} /></button>
+                  className="w-12 h-12 flex items-center justify-center rounded-xl bg-polo-beige text-polo-navy flex-shrink-0"><Icon name="etiqueta" size={20} /></button>
               )}
               {podeRemover && ev.remover && (
                 <button onClick={() => handleRemover(ev)}
-                  className="min-h-11 px-3 rounded-xl text-sm font-semibold text-red-700 bg-red-50 border border-red-200 flex-shrink-0">Remover</button>
+                  className="min-h-12 px-3 rounded-xl text-sm font-semibold text-red-700 bg-red-50 border border-red-200 flex-shrink-0">Remover</button>
               )}
             </div>
           </div>

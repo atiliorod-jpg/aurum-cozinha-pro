@@ -178,7 +178,7 @@ export default function Impressas() {
           ainda, continua precisando chegar no relatório dos outros. */}
       {verRelatorio && (
         <Link to="/relatorio-etiquetas"
-          className="mb-4 flex items-center justify-between gap-2 bg-polo-navy text-polo-gold rounded-xl px-4 min-h-11 text-sm font-bold">
+          className="mb-4 flex items-center justify-between gap-2 bg-polo-navy text-polo-gold rounded-xl px-4 min-h-12 text-sm font-bold">
           <span>Relatório por dia, semana e mês</span>
           <span aria-hidden="true">→</span>
         </Link>
@@ -240,7 +240,7 @@ export default function Impressas() {
                     <li key={e.id} className="bg-white border border-gray-200 rounded-xl p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="font-semibold text-sm text-gray-800 truncate">
+                          <p className="font-bold text-base text-polo-navy truncate">
                             {e.nome}{e.medida ? ` · ${e.medida}` : ''}
                           </p>
                           {/* ⚠️ A HORA AQUI É A DA IMPRESSÃO, não a que está
@@ -268,14 +268,14 @@ export default function Impressas() {
                           <button
                             onClick={() => reimprimir(e)}
                             aria-label={`Reimprimir etiqueta de ${e.nome}`}
-                            className="min-h-11 px-3 rounded-xl bg-polo-navy text-polo-gold text-xs font-bold">
+                            className="min-h-12 px-3 rounded-xl bg-polo-navy text-polo-gold text-sm font-bold">
                             Reimprimir
                           </button>
                           {podeApagar && (
                             <button
                               onClick={() => apagar(e)} disabled={apagando === e.id}
                               aria-label={`Apagar etiqueta de ${e.nome}`}
-                              className="min-h-11 px-3 rounded-xl border border-red-200 text-red-700 text-xs font-bold disabled:opacity-50">
+                              className="min-h-12 px-3 rounded-xl border border-red-200 text-red-700 text-sm font-bold disabled:opacity-50">
                               {apagando === e.id ? 'Apagando…' : 'Apagar'}
                             </button>
                           )}
@@ -290,7 +290,7 @@ export default function Impressas() {
 
           {dias.length > diasVisiveis && (
             <button onClick={() => setDiasVisiveis(n => n + 14)}
-              className="w-full min-h-11 rounded-xl border-2 border-polo-navy text-polo-navy text-sm font-bold">
+              className="w-full min-h-12 rounded-xl border-2 border-polo-navy text-polo-navy text-sm font-bold">
               Ver dias anteriores ({dias.length - diasVisiveis} {dias.length - diasVisiveis === 1 ? 'dia' : 'dias'})
             </button>
           )}

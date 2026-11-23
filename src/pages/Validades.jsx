@@ -121,7 +121,7 @@ export default function Validades() {
           botões. Só aparece onde há etiqueta (não no Estoque Seco sem ela). */}
       {temRecurso(modulo, 'etiquetas') && (
         <button type="button" onClick={() => navigate('/ler')}
-          className="w-full mb-4 min-h-11 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm flex items-center justify-center gap-2">
+          className="w-full mb-4 min-h-12 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm flex items-center justify-center gap-2">
           <Icon name="camera" size={18} />Ler etiquetas (dar baixa pelo QR)
         </button>
       )}
@@ -130,13 +130,13 @@ export default function Validades() {
           <div className="flex flex-wrap gap-1.5">
             {FILTROS.map(([v, l]) => (
               <button key={v} onClick={() => setFiltro(v)} aria-pressed={filtro === v}
-                className={`min-h-11 px-4 rounded-lg text-xs font-semibold transition-colors
+                className={`min-h-12 px-4 rounded-xl text-sm font-semibold transition-colors
                   ${filtro === v ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-700'}`}>
                 {l}
               </button>
             ))}
             <button onClick={() => setFiltro('custom')} aria-pressed={filtro === 'custom'}
-              className={`min-h-11 px-4 rounded-lg text-xs font-semibold transition-colors
+              className={`min-h-12 px-4 rounded-xl text-sm font-semibold transition-colors
                 ${filtro === 'custom' ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-700'}`}>
               Escolher data
             </button>
@@ -145,7 +145,7 @@ export default function Validades() {
             <div className="mt-2">
               <label className="block text-xs text-gray-500 mb-1">Vencendo até</label>
               <input aria-label="Vencendo até" type="date" value={ate} min={hj} onChange={e => setAte(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
             </div>
           )}
           <p className="text-xs text-gray-600 mt-1.5">
@@ -167,11 +167,11 @@ export default function Validades() {
               <p className="text-sm text-gray-500">Nada {soVencidos ? 'vencido' : 'vencendo neste período'}.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl divide-y divide-gray-100">
+            <div className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100 overflow-hidden">
               {linhasLotes.map((l, i) => (
                 <div key={`${l.produto.id}_${i}`} className="px-4 py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-semibold text-sm text-gray-800 truncate">{l.produto.nome}</p>
+                    <p className="font-bold text-base text-polo-navy truncate">{l.produto.nome}</p>
                     <p className="text-xs text-gray-500">
                       {fmtNum(l.lote.restante)} {l.produto.unidade}
                       {l.lote.dataEntrada && ` · entrou ${fmtData(l.lote.dataEntrada)}`}
@@ -188,7 +188,7 @@ export default function Validades() {
           {semData.length > 0 && (
             <div className="bg-white rounded-xl px-4 py-3">
               <button type="button" onClick={() => setVerSemData(v => !v)} aria-expanded={verSemData}
-                className="w-full min-h-11 flex items-center justify-between gap-2 text-left text-sm text-gray-700">
+                className="w-full min-h-12 flex items-center justify-between gap-2 text-left text-sm text-gray-700">
                 <span>
                   <strong className="text-polo-navy">{semData.length} {semData.length === 1 ? 'item tem' : 'itens têm'}</strong> parte do estoque sem validade conhecida
                 </span>
@@ -220,7 +220,7 @@ export default function Validades() {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-xl divide-y divide-gray-100">
+            <div className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100 overflow-hidden">
               {linhasEtiquetas.map(e => {
                 const d = diasAte(e.validade, hj);
                 const st = STATUS_ETIQUETA[e.st];
@@ -228,7 +228,7 @@ export default function Validades() {
                   <div key={e.id} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-sm text-gray-800 truncate">{e.nome}</p>
+                        <p className="font-bold text-base text-polo-navy truncate">{e.nome}</p>
                         {/* ⚠️ `copias` diz quantos potes ESTA linha representa. Ele
                             nasceu quando o registro parou de inventar um código por
                             cópia: no envio direto a impressora repete a MESMA
@@ -256,7 +256,7 @@ export default function Validades() {
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                       <span className={`text-xs font-bold rounded-full px-2 py-0.5 ${st.cor}`}>{st.label}</span>
                       <button onClick={() => setBaixando({ ...e, cozinha: modulo })}
-                        className="min-h-11 px-4 rounded-lg text-sm font-semibold text-polo-navy bg-gray-100 active:bg-gray-200 ml-auto">
+                        className="min-h-12 px-4 rounded-xl text-sm font-semibold text-polo-navy bg-gray-100 active:bg-gray-200 ml-auto">
                         Dar baixa
                       </button>
                     </div>

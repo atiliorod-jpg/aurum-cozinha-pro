@@ -142,7 +142,7 @@ export default function LerEtiquetas() {
       <div role="radiogroup" aria-label="O que fazer a cada leitura" className="flex gap-1.5 overflow-x-auto pb-1 mb-2">
         {MODOS.filter(([v]) => v === 'perguntar' || acoesAqui.includes(v)).map(([v, l]) => (
           <button key={v} type="button" role="radio" aria-checked={modo === v} onClick={() => setModo(v)}
-            className={`whitespace-nowrap min-h-11 px-3 rounded-full text-sm font-bold border flex-shrink-0
+            className={`whitespace-nowrap min-h-12 px-3 rounded-full text-sm font-bold border flex-shrink-0
               ${modo === v ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-gray-600 border-gray-200'}`}>
             {l}
           </button>
@@ -152,7 +152,7 @@ export default function LerEtiquetas() {
         <div className="flex gap-1.5 overflow-x-auto pb-1 mb-2" aria-label="Destino da saída">
           {locais.map(l => (
             <button key={l.id} type="button" onClick={() => setDestinoRapido(l.id)} aria-pressed={destinoRapido === l.id}
-              className={`whitespace-nowrap min-h-11 px-3 rounded-lg text-sm font-semibold border flex-shrink-0
+              className={`whitespace-nowrap min-h-12 px-3 rounded-xl text-sm font-semibold border flex-shrink-0
                 ${destinoRapido === l.id ? 'bg-polo-beige text-polo-navy border-polo-gold' : 'bg-white text-gray-600 border-gray-200'}`}>
               → {l.nome}
             </button>
@@ -183,17 +183,17 @@ export default function LerEtiquetas() {
       <form onSubmit={buscarDigitado} className="flex gap-2 mb-5">
         <input type="text" value={digitado} onChange={e => setDigitado(e.target.value.toUpperCase())} maxLength={12}
           aria-label="Código da etiqueta" placeholder="Código (ex.: K3F9-X2AB)" autoCapitalize="characters"
-          className="flex-1 min-w-0 min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-base font-mono tracking-wider" />
+          className="flex-1 min-w-0 min-h-12 border-2 border-polo-navy/15 rounded-xl px-3 py-2 text-base font-mono tracking-wider" />
         <button type="submit" disabled={!digitado.trim() || procurando}
-          className="min-h-11 px-4 rounded-lg bg-polo-navy text-polo-gold font-bold text-sm disabled:opacity-50">
+          className="min-h-12 px-4 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm disabled:opacity-50">
           {procurando ? 'Buscando…' : 'Buscar'}
         </button>
       </form>
 
       {feitas.length > 0 && (
         <section aria-label="Baixas desta leitura">
-          <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2">Agora há pouco</p>
-          <ul className="bg-white rounded-xl divide-y divide-gray-100">
+          <p className="titulo-secao mb-2">Agora há pouco</p>
+          <ul className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100 overflow-hidden">
             {feitas.map((f, i) => (
               <li key={`${f.b.baixaId}-${i}`} className="px-3 py-2 flex items-center justify-between gap-2">
                 <span className="min-w-0 text-sm text-gray-800">
@@ -203,7 +203,7 @@ export default function LerEtiquetas() {
                 </span>
                 {podeDesfazer(f.b.quando) && (
                   <button type="button" onClick={() => desfazer(f)}
-                    className="min-h-11 px-3 text-sm font-semibold text-polo-navy underline underline-offset-2 flex-shrink-0">
+                    className="min-h-12 px-3 text-sm font-semibold text-polo-navy underline underline-offset-2 flex-shrink-0">
                     Desfazer
                   </button>
                 )}
@@ -214,7 +214,7 @@ export default function LerEtiquetas() {
       )}
 
       <button type="button" onClick={() => navigate('/validades')}
-        className="mt-5 min-h-11 text-sm font-semibold text-polo-navy underline underline-offset-2">
+        className="mt-5 min-h-12 text-sm font-semibold text-polo-navy underline underline-offset-2">
         Ver a lista de validades
       </button>
 

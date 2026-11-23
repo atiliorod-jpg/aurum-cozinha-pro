@@ -122,7 +122,7 @@ export default function Estoques() {
     toast('Pronto. A etiqueta sai com o nome da conta.', 'sucesso');
   };
 
-  const campo = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
+  const campo = 'campo';
 
   return (
     <Layout title="Unidades e cozinhas" area="admin">
@@ -194,7 +194,7 @@ export default function Estoques() {
                           </div>
                           {!g.arquivada && (
                             <button onClick={() => { setEditando(e.id); setRascunho(e.raiz ? '' : e.nome); }}
-                              className="text-xs font-semibold text-polo-navy px-3 min-h-11 rounded-lg hover:bg-polo-beige flex-shrink-0">Renomear</button>
+                              className="text-sm font-semibold text-polo-navy px-3 min-h-12 rounded-xl hover:bg-polo-beige flex-shrink-0">Renomear</button>
                           )}
                           {!fixa && !g.arquivada && (e.arquivado
                             ? <button onClick={() => desarquivar(e)}
@@ -243,7 +243,7 @@ export default function Estoques() {
                 </div>
               ) : (
                 <button onClick={() => { setCriando({ unidade: g.id, tipo: MODULOS[0].id }); setNomeNovo(''); }}
-                  className="w-full min-h-11 text-xs font-bold text-polo-navy border border-dashed border-polo-navy/30 rounded-xl py-2.5">
+                  className="w-full min-h-12 text-sm font-bold text-polo-navy border border-dashed border-polo-navy/30 rounded-xl py-2.5">
                   + Nova cozinha em {g.nome}
                 </button>
               ))}

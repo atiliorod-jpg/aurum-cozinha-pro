@@ -43,7 +43,7 @@ export default function Auditoria() {
       <div className="space-y-2 mb-4">
         <input aria-label="Buscar ação ou item" type="text" value={busca} onChange={e => setBusca(e.target.value)}
           placeholder="Buscar ação ou item..."
-          className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+          className="busca-grande" />
         <Filtros rotulo="Período" todos={null} valor={periodo} aoTrocar={setPeriodo}
           opcoes={[['7', 'Últimos 7d'], ['30', 'Últimos 30d'], ['90', 'Últimos 90d'], ['todos', 'Tudo']]} />
         <Filtros rotulo="Quem mexeu" todos={null} ativo="dourado" valor={filtroUsuario} aoTrocar={setFiltroUsuario}

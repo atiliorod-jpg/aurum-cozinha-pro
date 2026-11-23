@@ -98,7 +98,7 @@ export default function Estoque() {
 
   const contador = (chave, n, rotulo, cor) => (
     <button type="button" onClick={() => setSituacao(situacao === chave ? '' : chave)} aria-pressed={situacao === chave}
-      className={`${cor} text-white rounded-xl p-3 text-center min-h-11 transition-transform active:scale-[0.98]
+      className={`${cor} text-white rounded-xl p-3 text-center min-h-12 transition-transform active:scale-[0.98]
         ${situacao === chave ? 'ring-4 ring-polo-gold' : situacao ? 'opacity-60' : ''}`}>
       <span className="block text-2xl font-bold">{n}</span>
       <span className="block text-xs">{rotulo}</span>
@@ -117,7 +117,7 @@ export default function Estoque() {
           </div>
           {situacao && (
             <button type="button" onClick={() => setSituacao('')}
-              className="min-h-11 text-sm font-semibold text-polo-navy underline underline-offset-2 mb-2">
+              className="min-h-12 text-sm font-semibold text-polo-navy underline underline-offset-2 mb-2">
               Mostrar todos os itens
             </button>
           )}
@@ -132,11 +132,11 @@ export default function Estoque() {
               <strong>{plural(divergentes.length, 'item', 'itens')}</strong> com mínimo e máximo fora do consumo real (média dos últimos {sugestoes[divergentes[0].id]?.dias} dias).
             </p>
             <button onClick={() => setVerSugestoes(v => !v)}
-              className="min-h-11 px-2 text-sm font-bold text-polo-navy underline flex-shrink-0">
+              className="min-h-12 px-2 text-sm font-bold text-polo-navy underline flex-shrink-0">
               {verSugestoes ? 'Ocultar' : 'Ver'}
             </button>
             <button onClick={() => aplicarSugestao(divergentes.map(p => p.id))}
-              className="min-h-11 bg-polo-navy text-polo-gold text-sm font-bold px-3 rounded-lg flex-shrink-0">
+              className="min-h-12 bg-polo-navy text-polo-gold text-sm font-bold px-3 rounded-xl flex-shrink-0">
               Aplicar todos
             </button>
           </div>
@@ -153,7 +153,7 @@ export default function Estoque() {
                       </span>
                     </div>
                     <button onClick={() => aplicarSugestao([p.id])} aria-label={`Aplicar a sugestão em ${p.nome}`}
-                      className="min-h-11 text-sm font-bold text-polo-navy px-3 rounded-lg flex-shrink-0">
+                      className="min-h-12 text-sm font-bold text-polo-navy px-3 rounded-xl flex-shrink-0">
                       Aplicar
                     </button>
                   </div>
@@ -190,7 +190,7 @@ export default function Estoque() {
           if (!prods.length) return null;
           return (
             <div key={cat}>
-              <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wider mb-1 mt-3">{cat}</h2>
+              <h2 className="titulo-secao mb-1 mt-3">{cat}</h2>
               {prods.map(p => {
                 const atual = estoque[p.id] ?? 0;
                 const status = comMetas ? statusDe(p) : 'sem-meta';
@@ -290,7 +290,7 @@ export default function Estoque() {
 
       {semSaldo.length > 0 && (
         <button type="button" onClick={() => setVerZerados(v => !v)}
-          className="w-full min-h-11 mt-2 rounded-xl border border-gray-300 bg-white text-sm font-semibold text-polo-navy">
+          className="w-full min-h-12 mt-2 rounded-xl border-2 border-polo-navy/15 bg-white text-sm font-semibold text-polo-navy">
           {verZerados ? 'Esconder os itens sem saldo' : `Mostrar também ${plural(semSaldo.length, 'item sem saldo', 'itens sem saldo')}`}
         </button>
       )}
@@ -308,7 +308,7 @@ export default function Estoque() {
                 : semSaldo.length && !verZerados ? 'Nada com saldo aqui agora.' : 'Nenhum produto nesta categoria.'}</p>
           {produtosAtivos.length === 0 && pode(sessao, permissoes, 'gerenciarProdutos') && (
             <Link to="/itens"
-              className="inline-block min-h-11 px-5 py-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm
+              className="inline-block min-h-12 px-5 py-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm
                          active:scale-95 transition-transform">
               {temSoEtiqueta ? 'Abrir Meus itens' : 'Cadastrar o primeiro produto'}
             </Link>

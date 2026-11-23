@@ -148,18 +148,18 @@ export default function Entradas() {
       {tab === 'novo' ? (
         <div className="space-y-4">
           {/* Cabeçalho */}
-          <div className="bg-white rounded-xl p-4 space-y-3">
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
+              <label className="rotulo">Data</label>
               <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
             </div>
             <QuemRegistra manual={responsavel} aoManual={setResponsavel} />
             {/* Câmara fria só existe onde há congelado/resfriado. Na despensa
                 (estoque seco) o item é de prateleira e tem um prazo só. */}
             {temArmazenamento ? (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento</label>
+                <label className="rotulo">Armazenamento</label>
                 {/* Os dois botões fixos viraram a lista configurável
                     (Config → Sistema → Armazenamento). grid-cols-2 continua:
                     com 3+ estados eles quebram em linhas, que é o certo num
@@ -167,7 +167,7 @@ export default function Entradas() {
                 <div className="grid grid-cols-2 gap-2">
                   {armazenamentos.map(a => (
                     <button key={a.id} type="button" onClick={() => setArmazenamento(a.id)}
-                      className={`min-h-11 py-2.5 rounded-lg text-xs font-semibold border-2 transition-colors
+                      className={`min-h-12 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors
                         ${armazenamento === a.id ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
                       {a.nome}
                     </button>
@@ -185,7 +185,7 @@ export default function Entradas() {
           {/* Busca */}
           <input aria-label="Buscar produto" type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto..."
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+            className="busca-grande" />
 
           {/* Categorias */}
           {!buscando && (
@@ -223,11 +223,11 @@ export default function Entradas() {
           </div>
 
           {/* Obs + Salvar */}
-          <div className="bg-white rounded-xl p-4">
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Observação (opcional)</label>
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
+            <label className="rotulo">Observação (opcional)</label>
             <textarea aria-label="Observação (opcional)" value={obs} onChange={e => setObs(e.target.value)} rows={2}
               placeholder="Alguma observação sobre esta entrada..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
+              className="campo resize-none" />
           </div>
 
           <RodapeLancamento resumo={resumo} rotulo="Registrar Entrada" aoTocar={handleSalvar}
@@ -238,12 +238,12 @@ export default function Entradas() {
         <div className="space-y-3">
           <input aria-label="Buscar por produto ou responsável" type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
             placeholder="Buscar por produto ou responsável..."
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+            className="busca-grande" />
           {entradasOrdenadas.length === 0 && (
             <Vazio texto="Nenhuma entrada registrada ainda." />
           )}
           {entradasOrdenadas.map(e => (
-            <div key={e.id} className="bg-white rounded-xl p-4">
+            <div key={e.id} className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="font-semibold text-sm">{fmtData(e.data)} {e.hora && `• ${e.hora}`}</div>

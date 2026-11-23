@@ -17,8 +17,8 @@ import { BarrasEmpilhadas, Donut, LinhaDias, BarraRendimento } from '../componen
 // Cartão de seção do relatório (escopo de módulo: componente definido dentro
 // do render é recriado a cada render e perde estado — react-hooks/static-components)
 const Card = ({ titulo, children }) => (
-  <div className="bg-white rounded-xl p-4 mb-4">
-    <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-3">{titulo}</h2>
+  <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 mb-4">
+    <h2 className="titulo-secao mb-3">{titulo}</h2>
     {children}
   </div>
 );
@@ -173,7 +173,7 @@ export default function Relatorio() {
           <SeletorVisao valor={vendo} aoTrocar={setVendo} comTodos />
         </div>
         <button onClick={() => window.print()}
-          className="bg-polo-gold text-polo-navy text-xs font-bold px-3 min-h-11 rounded-xl flex-shrink-0">
+          className="bg-polo-gold text-polo-navy text-sm font-bold px-3 min-h-12 rounded-xl flex-shrink-0">
           Salvar PDF
         </button>
       </div>
@@ -192,7 +192,7 @@ export default function Relatorio() {
         <div className="flex flex-wrap gap-1.5 mb-1">
           {[['hoje', 'Hoje'], ['7d', '7 dias'], ['quinzena', 'Quinzena'], ['mes', 'Mês'], ['custom', 'Personalizado']].map(([v, l]) => (
             <button key={v} onClick={() => setPeriodo(v)}
-              className={`min-h-11 px-3 rounded-lg text-xs font-semibold transition-colors
+              className={`min-h-12 px-3 rounded-xl text-sm font-semibold transition-colors
                 ${periodo === v ? 'bg-polo-navy text-polo-gold' : 'bg-gray-100 text-gray-700'}`}>
               {l}
             </button>
@@ -203,12 +203,12 @@ export default function Relatorio() {
             <div>
               <label className="block text-xs text-gray-500 mb-1">De</label>
               <input aria-label="De" type="date" value={inicio} max={fim || hj} onChange={e => setInicio(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Até</label>
               <input aria-label="Até" type="date" value={fim} min={inicio} max={hj} onChange={e => setFim(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
             </div>
             {/* Data inicial depois da final zerava TODOS os relatórios sem dizer
                 por quê — parecia que o sistema tinha perdido os registros. */}
@@ -224,7 +224,7 @@ export default function Relatorio() {
       </div>
 
       {comparando && (
-        <div className="bg-white rounded-xl p-4 mb-4">
+        <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 mb-4">
           <p className="text-sm font-bold text-polo-navy mb-1">Desperdício por cozinha, dia a dia</p>
           <p className="text-xs text-gray-600 mb-3">
             Cada coluna é uma cozinha. Quantidades separadas por unidade — kg e unid não somam.
@@ -310,7 +310,7 @@ export default function Relatorio() {
 
       {/* Rendimento por item — chegou → aparas/perdas → % (o controle do período) */}
       {temApara && (
-      <div className="bg-white rounded-xl p-4 mb-4">
+      <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Rendimento por item</p>
         <p className="text-xs text-gray-500 mb-3">Quanto de cada matéria-prima chegou e quanto virou apara/perda. Rendimento = o que sobrou aproveitável.</p>
         {rendItens.length === 0 ? (
@@ -358,7 +358,7 @@ export default function Relatorio() {
 
       {/* Produção por item — quanto se produziu de cada semiacabado */}
       {temProducao && (
-      <div className="bg-white rounded-xl p-4 mb-4">
+      <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Produção por item</p>
         <p className="text-xs text-gray-500 mb-3">Quanto de cada item produzido saiu da cozinha no período.</p>
         {prodItens.length === 0 ? (
@@ -498,7 +498,7 @@ export default function Relatorio() {
       </div>
 
       {/* Saídas por destino (por dia) — sem misturar destinos */}
-      <div className="bg-white rounded-xl p-4 mb-4">
+      <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Saídas por destino (por dia)</p>
         <p className="text-xs text-gray-500 mb-3">O que foi enviado para cada unidade, dia a dia. Cada destino é separado.</p>
         {porDestinoDia.length === 0 ? (
@@ -530,7 +530,7 @@ export default function Relatorio() {
       {/* Desperdício e apara DIA A DIA — o controle diário que faltava. Antes
           apara e perda só existiam como total do período em dois donuts, e não
           havia como responder "quanto se perdeu na terça". */}
-      <div className="bg-white rounded-xl p-4 mb-4">
+      <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Desperdício e aparas, dia a dia</p>
         <p className="text-xs text-gray-600 mb-3">O que foi descartado em cada data, e de qual compra veio.</p>
         {porDiaDesperdicio.length === 0 ? (
@@ -578,7 +578,7 @@ export default function Relatorio() {
       </div>
 
       {/* Chegadas por dia (controle diário do que entrou) */}
-      <div className="bg-white rounded-xl p-4 mb-4">
+      <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 mb-4">
         <p className="text-sm font-bold text-polo-navy mb-1">Chegadas por dia</p>
         <p className="text-xs text-gray-500 mb-3">O que chegou em cada data, com o peso total do dia (itens em kg).</p>
         {chegadas.length === 0 ? (

@@ -134,13 +134,13 @@ export default function CartaoEquipe({ titulo = 'Equipe', descricao = '' }) {
                   {ehDono && com && (
                     <button type="button" onClick={() => zerar(p)} disabled={zerando === p}
                       aria-label={`Zerar senha de ${p}`}
-                      className="min-h-11 px-3 rounded-lg border border-polo-navy/30 text-polo-navy text-sm font-bold
+                      className="min-h-12 px-3 rounded-xl border-2 border-polo-navy/20 text-polo-navy text-sm font-bold
                                  inline-flex items-center gap-1.5 disabled:opacity-50">
                       <Icon name="cadeado" size={14} />{zerando === p ? 'Zerando…' : 'Zerar senha'}
                     </button>
                   )}
                   <button type="button" onClick={() => remover(p)} aria-label={`Remover ${p}`}
-                    className="min-h-11 px-3 rounded-lg text-red-700 text-sm font-semibold">
+                    className="min-h-12 px-3 rounded-xl text-red-700 text-sm font-semibold">
                     Remover
                   </button>
                 </div>
@@ -154,7 +154,7 @@ export default function CartaoEquipe({ titulo = 'Equipe', descricao = '' }) {
         <input aria-label="Nome da pessoa" type="text" value={novaPessoa} onChange={e => setNovaPessoa(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') adicionar(); }}
           placeholder="Nome da pessoa"
-          className="flex-1 min-w-0 min-h-11 border border-gray-200 rounded-lg px-3 text-base" />
+          className="flex-1 min-w-0 min-h-12 border-2 border-polo-navy/15 rounded-xl px-3 text-base" />
         <Botao onClick={adicionar} tamanho="sm" largura="auto">Adicionar</Botao>
       </div>
       {!ehDono && pessoas.some(p => temSenha(senhasEquipe, p)) && (

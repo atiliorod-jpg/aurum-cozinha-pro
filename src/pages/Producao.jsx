@@ -15,6 +15,7 @@ import { armazenamentosAtivos, prazoDe, prazosDoProduto } from '../utils/armazen
 import Icon from '../components/Icons';
 import CalculadoraProducao from '../components/CalculadoraProducao';
 import RodapeLancamento from '../components/lancamento/RodapeLancamento';
+import { CampoNumerico } from '../components/ui/TecladoNumerico';
 
 export default function Producao() {
   const { producoes, produtos, addEntrada, addSaida, estoque, listaManual, setListaManual, prefs, setPref, permissoes, modulo, rid } = useApp();
@@ -165,44 +166,45 @@ export default function Producao() {
           </div>
         ) : (
           <div className="space-y-4">
-            <div className="bg-white rounded-xl p-4 space-y-3">
+            <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">O que você produziu?</label>
+                <label className="rotulo">O que você produziu?</label>
                 <select aria-label="O que você produziu?" value={produtoId} onChange={e => { setProdutoId(e.target.value); const r = producoes.find(x => x.produtoFinalId === e.target.value); if (r?.armazenamento && r.armazenamento !== 'ambos') setArmazenamento(r.armazenamento); }}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                  className="campo">
                   <option value="">Escolha um produto…</option>
                   {produtosComReceita.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
+                  <label className="rotulo">Data</label>
                   <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                    className="campo" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                  <label className="rotulo">
                     Quantidade ({prodUnid(produtoId)})
                   </label>
-                  <input aria-label="Quantidade" type="number" inputMode="decimal" min="0" step={produto?.unidade === 'unid' ? '1' : '0.5'} value={quantidade} onChange={e => setQuantidade(e.target.value)}
-                    placeholder={receita ? `ex: ${fmtNum(receita.rendimentoBase)}` : '0'}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  <CampoNumerico rotulo="Quantidade" titulo={`Quantidade de ${prodNome(produtoId)}`}
+                    step={produto?.unidade === 'unid' ? '1' : '0.5'} valor={quantidade} aoMudar={setQuantidade}
+                    unidade={prodUnid(produtoId)} decimal={produto?.unidade !== 'unid'}
+                    placeholder={receita ? `ex: ${fmtNum(receita.rendimentoBase)}` : '0'} />
                   {receita && !quantidade && (
                     <button type="button" onClick={() => setQuantidade(String(receita.rendimentoBase))}
-                      className="min-h-11 text-xs text-polo-navy font-semibold underline underline-offset-2">
+                      className="min-h-12 text-sm text-polo-navy font-semibold underline underline-offset-2">
                       Usar rendimento da ficha ({fmtNum(receita.rendimentoBase)})
                     </button>
                   )}
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Armazenamento do item produzido</label>
+                <label className="rotulo">Armazenamento do item produzido</label>
                 {/* 2 por linha, como na Entrada (U12): numa linha só,
                     "Temperatura ambiente" quebrava espremido */}
                 <div className="grid grid-cols-2 gap-2">
                   {armazenamentos.map(({ id: v, nome: l }) => (
                     <button key={v} type="button" onClick={() => setArmazenamento(v)}
-                      className={`min-h-11 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors
+                      className={`min-h-12 py-2.5 rounded-xl text-sm font-semibold border-2 transition-colors
                         ${armazenamento === v ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
                       {l}
                     </button>
@@ -254,7 +256,7 @@ export default function Producao() {
               <div className="bg-white rounded-xl overflow-hidden">
                 <button
                   onClick={() => setMostraIngredientes(!mostraIngredientes)}
-                  className="w-full min-h-11 flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
+                  className="w-full min-h-12 flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors">
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                     Ingredientes {mostraIngredientes ? '▼' : '▶'}
                   </p>
@@ -286,11 +288,11 @@ export default function Producao() {
               </div>
             )}
 
-            <div className="bg-white rounded-xl p-4">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Observação (opcional)</label>
+            <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
+              <label className="rotulo">Observação (opcional)</label>
               <textarea aria-label="Observação (opcional)" value={obs} onChange={e => setObs(e.target.value)} rows={2}
                 placeholder="Alguma observação..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
+                className="campo resize-none" />
             </div>
 
             {receita && plano.itens.length > 0 && (

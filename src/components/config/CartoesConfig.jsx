@@ -46,7 +46,7 @@ export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+    <div className="cartao">
       {/* ⚠️ <h2>, NÃO <p> em negrito. A Administração tem quatro telas de
           rolagem; para quem enxerga tanto faz, mas quem usa leitor de tela
           navega justamente pulando de título em título — e sem títulos de
@@ -69,11 +69,11 @@ export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button onClick={() => autorizar('ver')}
-              className="bg-polo-navy text-polo-gold font-bold px-3 min-h-11 rounded-lg text-xs">
+              className="bg-polo-navy text-polo-gold font-bold px-3 min-h-12 rounded-xl text-sm">
               Só visualizar (24h)
             </button>
             <button onClick={() => autorizar('mexer')}
-              className="border-2 border-polo-navy text-polo-navy font-bold px-3 min-h-11 rounded-lg text-xs">
+              className="border-2 border-polo-navy text-polo-navy font-bold px-3 min-h-12 rounded-xl text-sm">
               Ver e editar (24h)
             </button>
           </div>
@@ -117,7 +117,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Armazenamento</h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -149,7 +149,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
                 <span className="text-xs text-gray-700 bg-gray-100 rounded-full px-2 py-1 flex-shrink-0">fixo</span>
               ) : (
                 <button onClick={() => remover(a)} aria-label={`Remover ${a.nome}`}
-                  className="text-red-700 text-xs font-bold px-3 min-h-11 flex-shrink-0">Remover</button>
+                  className="text-red-700 text-sm font-bold px-3 min-h-12 flex-shrink-0">Remover</button>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ export function CartaoEstados({ prefs, setPref, toast, confirm }) {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Estados de conservação</h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -249,7 +249,7 @@ export function CartaoEstados({ prefs, setPref, toast, confirm }) {
               aria-label={`Nome do estado ${e.nome}`}
               className="flex-1 min-w-0 border border-gray-200 rounded-lg px-2.5 py-2 text-sm font-semibold" />
             <button onClick={() => remover(e)} aria-label={`Remover ${e.nome}`}
-              className="text-red-700 text-xs font-bold px-3 min-h-11 flex-shrink-0">Remover</button>
+              className="text-red-700 text-sm font-bold px-3 min-h-12 flex-shrink-0">Remover</button>
           </div>
         ))}
       </div>
@@ -266,7 +266,7 @@ export function CartaoEstados({ prefs, setPref, toast, confirm }) {
       </div>
       {JSON.stringify(lista) !== JSON.stringify(ESTADOS_PADRAO) && (
         <button onClick={() => { salvar(ESTADOS_PADRAO.map(e => ({ ...e }))); toast('Estados voltaram ao padrão.', 'sucesso'); }}
-          className="text-xs text-gray-600 underline underline-offset-2 min-h-11">
+          className="text-sm text-gray-600 underline underline-offset-2 min-h-12">
           Voltar ao padrão
         </button>
       )}
@@ -303,7 +303,7 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
   const { pessoas } = useApp();
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Etiquetas</h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -336,12 +336,12 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
         {/* ⚠️ AS CAIXINHAS TINHAM 16px, abaixo do mínimo de 24 da WCAG 2.5.8 —
             e são justamente os controles que decidem o que sai IMPRESSO no
             pote, tocados com o dedo numa bancada de cozinha. Passaram para 24,
-            e a linha inteira virou alvo de 44px (`min-h-11`): o <label> já
+            e a linha inteira virou alvo de 44px (`min-h-12`): o <label> já
             envolve o input, então tocar no texto marca a caixa. */}
         <p className="text-xs font-semibold text-gray-600 mb-2">Campos que aparecem na etiqueta</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
           {CAMPOS.map(([k, label]) => (
-            <label key={k} className="flex items-center gap-2 text-xs text-gray-700 min-h-11 cursor-pointer">
+            <label key={k} className="flex items-center gap-2 text-sm text-gray-700 min-h-12 cursor-pointer">
               <input type="checkbox" checked={cfg.campos[k] !== false} onChange={() => toggleCampo(k)}
                 className="w-6 h-6 accent-[#1B2A41] flex-shrink-0" />
               {label}
@@ -389,7 +389,7 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
 export function CartaoEstabelecimento({ prefs, setPref, toast, nomeRestaurante = '', cnpjDaConta = '' }) {
   const { unidadeAtual } = useApp();
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Dados do estabelecimento</h2>
         <p className="text-xs text-gray-600 mt-0.5">
@@ -518,7 +518,7 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
       )}
       {podeEditar ? (
         <button onClick={salvar} disabled={salvando}
-          className="w-full min-h-11 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-lg text-xs disabled:opacity-60">
+          className="w-full min-h-12 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
           {salvando ? 'Salvando…' : 'Salvar dados do estabelecimento'}
         </button>
       ) : (
@@ -547,7 +547,7 @@ export function CartaoUnidades() {
   if (!temUnidadesExtras(unidades)) return null;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Unidades</h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -572,7 +572,7 @@ export function CartaoUnidades() {
         ))}
       </ul>
       {!sessao?.eSuperAdmin && (
-        <Link to="/pagamento#unidades" className="block text-xs font-semibold text-polo-navy underline underline-offset-2 min-h-11 pt-2">
+        <Link to="/pagamento#unidades" className="block text-sm font-semibold text-polo-navy underline underline-offset-2 min-h-12 pt-2">
           Mais uma unidade? Veja em Planos e pagamento
         </Link>
       )}
@@ -614,7 +614,7 @@ export function CartaoContas({
   const max = sessao?.maxUsuarios || 3;
   const vagas = Math.max(0, max - ativos.length);
   const casa = sessao?.apelido || '';
-  const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
+  const inputCls = 'campo';
   const registrar = (acao, detalhe) => { if (logAudit) logAudit(acao, detalhe); };
   // Nomes como a casa chama os cargos (o dono pode renomear "Cozinha")
   const daCasa = cargosDaCasa(permissoes);
@@ -741,10 +741,10 @@ export function CartaoContas({
     toast(`Cargo de ${u.usuario || u.nome} alterado para ${nomeDoCargo(novo)}.`, 'sucesso');
   };
 
-  const botao = 'min-h-11 px-3 rounded-lg text-sm font-semibold border';
+  const botao = 'min-h-12 px-3 rounded-lg text-sm font-semibold border';
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Contas da equipe</h2>
         <p className="text-xs text-gray-600 mt-0.5">
@@ -784,7 +784,7 @@ export function CartaoContas({
                 {mexe && alterarCargo && cargosAtribuiveis.some(c => c.id === u.cargo) && (
                   <select value={u.cargo} onChange={e => mudarCargo(u, e.target.value)}
                     aria-label={`Cargo de ${quem}`}
-                    className="min-h-11 text-sm font-semibold text-polo-navy bg-polo-beige border border-polo-gold/40 rounded-lg px-2 flex-shrink-0 max-w-[45%]">
+                    className="min-h-12 text-sm font-semibold text-polo-navy bg-polo-beige border border-polo-gold/40 rounded-xl px-2 flex-shrink-0 max-w-[45%]">
                     {cargosAtribuiveis.map(c => <option key={c.id} value={c.id}>{nomeDoCargo(c.id)}</option>)}
                   </select>
                 )}
@@ -808,7 +808,7 @@ export function CartaoContas({
                     placeholder="Nova senha (mín. 8)" aria-label={`Nova senha de ${quem}`}
                     className={`${inputCls} flex-1 min-w-0`} />
                   <Botao onClick={() => trocar(u)} tamanho="sm" largura="auto" disabled={ocupado}>Trocar</Botao>
-                  <button onClick={() => setNovaSenha(null)} className="min-h-11 text-sm text-gray-600 px-2">Cancelar</button>
+                  <button onClick={() => setNovaSenha(null)} className="min-h-12 text-sm text-gray-600 px-2">Cancelar</button>
                 </div>
               )}
             </li>
@@ -823,7 +823,7 @@ export function CartaoContas({
           </Botao>
           {/* sem vagas não é beco sem saída: o pedido (sem custo) mora em Planos e pagamento */}
           {vagas <= 0 && !sessao?.eSuperAdmin && (
-            <Link to="/pagamento#contas" className="block text-xs font-semibold text-polo-navy underline underline-offset-2 min-h-11 pt-2">
+            <Link to="/pagamento#contas" className="block text-sm font-semibold text-polo-navy underline underline-offset-2 min-h-12 pt-2">
               Precisa de mais contas? Peça em Planos e pagamento
             </Link>
           )}
@@ -856,7 +856,7 @@ export function CartaoContas({
               <Botao onClick={criar} disabled={ocupado || !form.usuario.trim()} className="flex-1">
                 {ocupado ? 'Criando…' : 'Criar conta'}
               </Botao>
-              <button onClick={() => setCriando(false)} className="min-h-11 text-sm text-gray-600 px-3">Cancelar</button>
+              <button onClick={() => setCriando(false)} className="min-h-12 text-sm text-gray-600 px-3">Cancelar</button>
             </div>
           </div>
         )}
@@ -896,7 +896,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
   const m = permissoes || {};
   const cargos = cargosDaCasa(m);
   const equipe = (usuarios || []).filter(u => u.cargo !== 'diretoria');
-  const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
+  const inputCls = 'campo';
 
   // Valor que vale hoje para um cargo, seguindo a mesma ordem do app.
   const valorDoCargo = (cargo, cap) => {
@@ -986,7 +986,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
   // (a chave da matriz era uma cópia local de 40×20 px; agora é a peça padrão)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Cargos e acessos</h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -1007,7 +1007,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
                 </span>
               )}
               <button onClick={() => setAbrindo(abrindo === cargo.id ? '' : cargo.id)}
-                className="text-xs font-bold text-polo-navy border border-gray-300 rounded-lg px-3 min-h-11 flex-shrink-0">
+                className="text-sm font-bold text-polo-navy border-2 border-polo-navy/15 rounded-xl px-3 min-h-12 flex-shrink-0">
                 {abrindo === cargo.id ? 'fechar' : 'acessos'}
               </button>
               {!cargo.fixo && (
@@ -1072,7 +1072,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
             const excecoes = Object.keys((m.porConta || {})[u.id] || {}).length;
             return (
               <details key={u.id} className="border border-gray-200 rounded-lg">
-                <summary className="cursor-pointer px-3 min-h-11 flex items-center text-xs font-semibold text-gray-800">
+                <summary className="cursor-pointer px-3 min-h-12 flex items-center text-sm font-semibold text-gray-800">
                   {quem}
                   {excecoes > 0 && <span className="ml-1 font-normal text-gray-500">· com exceções</span>}
                 </summary>
@@ -1085,7 +1085,7 @@ export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas 
                     </div>
                   ))}
                   <button onClick={() => limparConta(u)}
-                    className="text-xs font-semibold text-gray-700 border border-gray-200 rounded-lg px-3 min-h-11 mt-1">
+                    className="text-sm font-semibold text-gray-700 border-2 border-polo-navy/15 rounded-xl px-3 min-h-12 mt-1">
                     Voltar a seguir o cargo
                   </button>
                 </div>
@@ -1136,7 +1136,7 @@ export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Meus dados</h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -1145,7 +1145,7 @@ export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm
       </div>
 
       <button onClick={() => { exportarBackup(); toast('Cópia baixada.', 'sucesso'); }}
-        className="w-full border border-polo-navy/30 text-polo-navy font-bold text-sm py-2.5 rounded-xl min-h-11">
+        className="w-full border-2 border-polo-navy/20 text-polo-navy font-bold text-sm py-2.5 rounded-xl min-h-12">
         ↓ Baixar uma cópia
       </button>
 
@@ -1155,7 +1155,7 @@ export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm
       <label className="block">
         <span className="sr-only">Restaurar uma cópia</span>
         <input type="file" accept="application/json,.json" onChange={aoEscolherArquivo} className="hidden" />
-        <span className="block w-full text-center border border-gray-200 text-gray-600 font-semibold text-sm py-2.5 rounded-xl min-h-11 cursor-pointer leading-6">
+        <span className="block w-full text-center border-2 border-polo-navy/15 text-gray-600 font-semibold text-sm py-2.5 rounded-xl min-h-12 cursor-pointer leading-6">
           ↑ Restaurar uma cópia
         </span>
       </label>
@@ -1206,7 +1206,7 @@ export function CartaoEquipeDasUnidades() {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Equipe por unidade</h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -1228,7 +1228,7 @@ export function CartaoEquipeDasUnidades() {
                 <select value={valorDe(u)} disabled={!podeMudar || salvando === u.id}
                   onChange={e => mudar(u, e.target.value)}
                   aria-label={`Unidade de ${u.nome || u.usuario}`}
-                  className="min-h-11 border border-gray-200 rounded-lg px-2 text-xs bg-white max-w-[55%] disabled:opacity-60">
+                  className="min-h-12 border-2 border-polo-navy/15 rounded-xl px-2 text-sm bg-white max-w-[55%] disabled:opacity-60">
                   <option value="todas">Todas as unidades</option>
                   {opcoes.map(o => (
                     <option key={o.id || 'principal'} value={o.id || 'principal'}>Só {o.nome}</option>

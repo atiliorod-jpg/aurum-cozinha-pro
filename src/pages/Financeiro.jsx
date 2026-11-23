@@ -87,8 +87,8 @@ export default function Financeiro() {
         <div className="flex gap-1.5">
           {[7, 30, 90].map(d => (
             <button key={d} onClick={() => setDias(d)}
-              className={`flex-1 min-h-11 rounded-lg text-xs font-semibold transition-colors
-                ${dias === d ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border border-gray-200'}`}>
+              className={`flex-1 min-h-12 rounded-xl text-sm font-semibold transition-colors
+                ${dias === d ? 'bg-polo-navy text-polo-gold' : 'bg-white text-gray-600 border-2 border-polo-navy/15'}`}>
               {d} dias
             </button>
           ))}
@@ -134,13 +134,13 @@ export default function Financeiro() {
 
         <div>
           <div className="mb-2 px-1">
-            <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Onde está o dinheiro</p>
+            <p className="titulo-secao">Onde está o dinheiro</p>
             <p className="text-xs text-gray-600">
               Classe A concentra os primeiros 80% do valor — é onde vale contar com mais frequência
             </p>
           </div>
           {abc.length === 0 ? (
-            <p className="bg-white rounded-xl p-4 text-xs text-gray-500 border border-gray-100">
+            <p className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 text-xs text-gray-500 border border-gray-100">
               Nenhum item com custo cadastrado ainda. Registre uma compra com o valor pago
               para o cálculo começar.
             </p>
@@ -167,7 +167,7 @@ export default function Financeiro() {
 
         {Object.keys(est.porCategoria).length > 0 && (
           <div>
-            <p className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2 px-1">Por categoria</p>
+            <p className="titulo-secao mb-2 px-1">Por categoria</p>
             <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
               {Object.entries(est.porCategoria).sort((a, b) => b[1] - a[1]).map(([cat, v]) => (
                 <div key={cat} className="px-3 py-2 flex justify-between items-center">

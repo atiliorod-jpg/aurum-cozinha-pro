@@ -47,7 +47,7 @@ export default function AdministracaoGrupo() {
 
 function LinkCartao({ to, titulo, desc, icone }) {
   return (
-    <Link to={to} className="bg-white border border-gray-200 rounded-xl p-4 mb-4 flex items-center gap-3 active:scale-[0.99] transition-transform">
+    <Link to={to} className="cartao flex items-center gap-3 active:scale-[0.99] transition-transform">
       {icone && (
         <span className="w-10 h-10 rounded-lg bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
           <Icon name={icone} size={20} />

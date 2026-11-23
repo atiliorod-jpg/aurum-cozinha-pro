@@ -126,7 +126,7 @@ export default function Registrar() {
         {secoes.map(s => (
           <div key={s.label}>
             <div className="mb-2 px-1">
-              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">{s.label}</p>
+              <p className="titulo-secao">{s.label}</p>
               <p className="text-xs text-gray-600">{s.desc}</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

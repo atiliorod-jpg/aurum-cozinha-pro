@@ -41,12 +41,12 @@ export function CartaoFilaComErro() {
       </ul>
       <div className="flex gap-2 mt-2">
         <button onClick={() => { retentarMortos(); toast('Tentando sincronizar de novo…', 'sucesso'); }}
-          className="bg-polo-navy text-polo-gold font-bold px-3 min-h-11 rounded-lg text-sm">Tentar de novo</button>
+          className="bg-polo-navy text-polo-gold font-bold px-3 min-h-12 rounded-xl text-sm">Tentar de novo</button>
         <button onClick={async () => {
             const ok = await confirm({ titulo: 'Descartar itens', mensagem: `Descartar ${plural(mortos.length, 'lançamento que não sincroniza', 'lançamentos que não sincronizam')}? Eles somem deste aparelho e não sobem para a nuvem.`, perigo: true, confirmar: 'Descartar' });
             if (ok) { descartarMortos(); toast('Itens descartados.', 'sucesso'); }
           }}
-          className="text-red-700 font-semibold px-3 min-h-11 rounded-lg text-sm border border-red-200 bg-white">Descartar</button>
+          className="text-red-700 font-semibold px-3 min-h-12 rounded-xl text-sm border border-red-200 bg-white">Descartar</button>
       </div>
     </div>
   );
@@ -56,7 +56,7 @@ export function CartaoFilaComErro() {
 export function CartaoInstalarApp() {
   const { podeInstalar, instalado, ios, instalar } = usePwaInstall();
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+    <div className="cartao">
       <div className="flex items-start gap-3">
         <div className="flex-1">
           <h2 className="text-sm font-bold text-polo-navy">Instalar o app neste aparelho</h2>
@@ -77,7 +77,7 @@ export function CartaoInstalarApp() {
         </div>
         {!instalado && !ios && podeInstalar && (
           <button onClick={instalar}
-            className="bg-polo-navy text-polo-gold font-bold px-4 min-h-11 rounded-lg text-sm whitespace-nowrap">Instalar</button>
+            className="bg-polo-navy text-polo-gold font-bold px-4 min-h-12 rounded-xl text-sm whitespace-nowrap">Instalar</button>
         )}
       </div>
     </div>
@@ -88,7 +88,7 @@ export function CartaoInstalarApp() {
 export function CartaoNovidades() {
   return (
     <Link to="/novidades"
-      className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
+      className="flex items-center justify-between cartao active:scale-[0.99] transition-transform">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Novidades do app</h2>
         <p className="text-xs text-gray-600 mt-0.5">Veja o que mudou nas últimas atualizações.</p>
@@ -117,7 +117,7 @@ export function CartaoZonaPerigo() {
         const ok = await confirm({ titulo: 'Apagar todos os registros', mensagem: 'ATENÇÃO: isso apaga entradas, saídas, aparas, desperdício e contagens. Esta ação não pode ser desfeita.\n\nDica: baixe uma cópia de segurança antes.', perigo: true, confirmar: 'Apagar tudo' });
         if (ok) { limparTudo(); toast('Todos os registros foram apagados.', 'sucesso'); }
       }}
-        className="w-full min-h-11 bg-red-700 text-white font-bold py-2.5 rounded-xl text-sm">
+        className="w-full min-h-12 bg-red-700 text-white font-bold py-2.5 rounded-xl text-sm">
         Apagar todos os registros
       </button>
     </div>

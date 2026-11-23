@@ -29,12 +29,13 @@ const teclaBase = 'h-16 rounded-2xl text-3xl font-black active:scale-95 transiti
  * @param {string} [props.livreInicial]    texto livre que já existe ("1 pote")
  * @param {boolean} [props.permitirLivre]  mostra "Outra medida" (texto livre)
  * @param {string} [props.rotuloVazio]     botão que deixa SEM valor (ex.: "Sem medida")
+ * @param {boolean} [props.aceitaZero]     o zero vale (contagem: "contei zero")
  * @param {Function} props.aoConfirmar     ({ numero, unidade, livre }) — numero '' = vazio
  * @param {Function} props.aoFechar
  */
 export function TecladoNumerico({
   titulo, numeroInicial = '', unidades = null, unidadeInicial = '', decimal = true,
-  livreInicial = '', permitirLivre = false, rotuloVazio = '', aoConfirmar, aoFechar,
+  livreInicial = '', permitirLivre = false, rotuloVazio = '', aceitaZero = false, aoConfirmar, aoFechar,
 }) {
   const [numero, setNumero] = useState(numeroInicial);
   // o 1º toque substitui o sugerido
@@ -44,7 +45,8 @@ export function TecladoNumerico({
   const [modoLivre, setModoLivre] = useState(permitirLivre && !!livreInicial);
   const idUnidades = useId();
 
-  const valido = modoLivre ? livre.trim().length > 0 : textoDaMedida(numero, '') !== '';
+  const valido = modoLivre ? livre.trim().length > 0
+    : aceitaZero ? /^\d/.test(numero) : textoDaMedida(numero, '') !== '';
   const tocar = (t) => { setNumero(n => teclar(novo ? '' : n, t, { decimal })); setNovo(false); };
   const apagar = () => { setNumero(n => (novo ? '' : n.slice(0, -1))); setNovo(false); };
   const confirmar = () => {
@@ -150,6 +152,41 @@ export function TecladoNumerico({
         </button>
       </div>
     </Dialogo>
+  );
+}
+
+// ── O CAMPO DE NÚMERO dos lançamentos (23/11/2026) ─────────────────────
+// ⚠️ NO COMPUTADOR É UM CAMPO COMUM: digita direto, Tab, colar — e o robô de
+// teste usa assim. COM O DEDO (tela de toque), tocar abre o teclado grande,
+// sem o teclado pequeno do sistema por cima da tela. Grava o número com
+// PONTO ("1.5"), como o campo sempre gravou.
+const tocaComDedo = () => {
+  try { return !!window.matchMedia?.('(pointer: coarse)').matches; } catch { return false; }
+};
+const SEM_SETAS = '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
+export function CampoNumerico({
+  valor, aoMudar, rotulo, titulo = '', unidade = '', decimal = true, placeholder = '0', className = 'campo', ...resto
+}) {
+  const [comDedo] = useState(tocaComDedo);
+  const [aberto, setAberto] = useState(false);
+  const texto = valor === null || valor === undefined ? '' : String(valor);
+  return (
+    <>
+      <input type="number" min="0" step="any" {...resto}
+        inputMode={comDedo ? 'none' : (decimal ? 'decimal' : 'numeric')}
+        readOnly={comDedo} value={texto} placeholder={placeholder} aria-label={rotulo}
+        onChange={e => aoMudar(e.target.value)}
+        onClick={comDedo ? () => setAberto(true) : undefined}
+        onKeyDown={comDedo ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAberto(true); } } : undefined}
+        className={`${className} ${SEM_SETAS}`} />
+      {aberto && (
+        <TecladoNumerico titulo={titulo || rotulo} numeroInicial={texto.replace('.', ',')}
+          unidadeInicial={unidade} decimal={decimal} aceitaZero rotuloVazio="Limpar"
+          aoFechar={() => setAberto(false)}
+          aoConfirmar={({ numero }) => { aoMudar(numero.replace(',', '.').replace(/\.$/, '')); setAberto(false); }} />
+      )}
+    </>
   );
 }
 

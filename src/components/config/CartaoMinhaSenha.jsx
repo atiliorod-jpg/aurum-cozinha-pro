@@ -44,10 +44,10 @@ export default function CartaoMinhaSenha({ toast }) {
     toast('Senha trocada. Use a nova no próximo acesso.', 'sucesso', { duracao: 7000 });
   };
 
-  const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm';
+  const inputCls = 'campo';
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Trocar minha senha</h2>
         <p className="text-xs text-gray-500 mt-0.5">
@@ -66,7 +66,7 @@ export default function CartaoMinhaSenha({ toast }) {
           <input type={ver ? 'text' : 'password'} autoComplete="new-password" value={repetir}
             onChange={e => setRepetir(e.target.value)} placeholder="Repita a nova senha"
             aria-label="Repita a nova senha" className={inputCls} />
-          <label className="flex items-center gap-2 text-xs text-gray-600 min-h-11">
+          <label className="flex items-center gap-2 text-sm text-gray-600 min-h-12">
             <input type="checkbox" checked={ver} onChange={e => setVer(e.target.checked)} />
             Mostrar o que estou digitando
           </label>

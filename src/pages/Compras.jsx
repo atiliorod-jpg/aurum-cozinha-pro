@@ -17,6 +17,7 @@ import { listaDeCompras, agruparListaPorMateriaPrima, fcEfetivo, preparacoesDoIt
 import { casaBusca } from '../utils/busca';
 import Icon from '../components/Icons';
 import RodapeLancamento from '../components/lancamento/RodapeLancamento';
+import { CampoNumerico } from '../components/ui/TecladoNumerico';
 
 // Faixas de boas práticas no recebimento. Não bloqueia nada — só avisa, porque
 // a decisão de aceitar ou recusar a carga é de quem está na doca.
@@ -288,7 +289,7 @@ export default function Compras() {
               {listaAgrupada.length > 0 && (
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
-                    <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">Abaixo do mínimo</p>
+                    <p className="titulo-secao">Abaixo do mínimo</p>
                     <span className="text-xs text-gray-600">{listaAgrupada.length} {listaAgrupada.length === 1 ? 'linha' : 'linhas'} • mais crítico primeiro</span>
                   </div>
                   {listaAgrupada.map((entrada) => {
@@ -443,7 +444,7 @@ export default function Compras() {
                   {manualFiltrada.map((m, i, arr) => (
                     <div key={m.id} className={`flex items-center justify-between px-4 py-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                       <div className="min-w-0">
-                        <div className="font-medium text-sm text-gray-800 truncate">{m.nome}</div>
+                        <div className="font-bold text-base text-polo-navy truncate">{m.nome}</div>
                         {m.origem && <div className="text-xs text-amber-700">{m.origem}</div>}
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2">
@@ -515,15 +516,15 @@ export default function Compras() {
               : 'Registre o que chegou cru. O estoque só muda quando a porção for produzida.'}
           </div>
 
-          <div className="bg-white rounded-xl p-4 space-y-3">
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
+                <label className="rotulo">Data</label>
                 <input aria-label="Data" type="date" value={form.data} max={hoje()} onChange={e => set('data', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  className="campo" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="rotulo">
                   Fornecedor (opcional)
                   {fornecedorAuto && form.fornecedor && (
                     <span className="ml-1 text-xs font-bold text-polo-gold bg-polo-navy px-1.5 py-0.5 rounded">auto</span>
@@ -534,7 +535,7 @@ export default function Compras() {
                   onChange={v => { setFornecedorAuto(false); set('fornecedor', v); }}
                   sugestoes={fornecedoresSugeridos}
                   placeholder="Nome do fornecedor"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  className="campo"
                 />
               </div>
             </div>
@@ -544,13 +545,13 @@ export default function Compras() {
             <QuemRegistra manual={form.responsavel} aoManual={v => set('responsavel', v)} />
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Item comprado</label>
+              <label className="rotulo">Item comprado</label>
               <AutocompleteInput
                 value={form.item}
                 onChange={onItemChange}
                 sugestoes={itensSugeridos}
                 placeholder="Ex: Filé Mignon, Frango Filé, Picanha..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                className="campo"
               />
               <p className="text-xs text-gray-500 mt-1">Digite e escolha da lista — o fornecedor do último recebimento deste item entra sozinho.</p>
 
@@ -563,7 +564,7 @@ export default function Compras() {
                   </p>
                   {vinculo.parecido ? (
                     <button type="button" onClick={() => onItemChange(vinculo.parecido.nome)}
-                      className="mt-1.5 min-h-11 px-3 rounded-lg bg-polo-navy text-polo-gold font-bold text-xs">
+                      className="mt-1.5 min-h-12 px-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm">
                       Usar “{vinculo.parecido.nome}”
                     </button>
                   ) : (
@@ -612,13 +613,13 @@ export default function Compras() {
                 O recurso `armazenamento` é exatamente o que separa os dois. */}
             {temRecurso(modulo, 'armazenamento') && (
             <div>
-              <label htmlFor="cmp-temp" className="block text-xs font-semibold text-gray-600 mb-1">
+              <label htmlFor="cmp-temp" className="rotulo">
                 Temperatura no recebimento (°C) — opcional
               </label>
               <input id="cmp-temp" type="number" inputMode="decimal" step="0.1" value={form.temperatura}
                 onChange={e => set('temperatura', e.target.value)}
                 placeholder="Ex.: -18 congelado, 4 resfriado"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
               {form.temperatura !== '' && !isNaN(parseFloat(form.temperatura)) && (
                 <p className={`text-xs mt-1 ${avisoTemp(form.temperatura) ? 'text-orange-700 bg-orange-50 rounded-lg px-2 py-1' : 'text-green-700'}`}>
                   {avisoTemp(form.temperatura) || 'Dentro da faixa esperada.'}
@@ -631,17 +632,15 @@ export default function Compras() {
               <div>
                 {/* "bruta" só faz sentido onde existe limpeza/porcionamento
                     depois. No Seco o pacote chega e é o item do estoque. */}
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="rotulo">
                   {temRecurso(modulo, 'aparas') ? 'Quantidade bruta' : 'Quantidade'}
                 </label>
-                <input aria-label="Quantidade" type="number" inputMode="decimal" min="0" step="0.1" value={form.quantidade} onChange={e => set('quantidade', e.target.value)}
-                  placeholder="0"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                <CampoNumerico rotulo="Quantidade" step="0.1" valor={form.quantidade} aoMudar={v => set('quantidade', v)} />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Unidade</label>
+                <label className="rotulo">Unidade</label>
                 <select aria-label="Unidade" value={form.unidade} onChange={e => set('unidade', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                  className="campo">
                   <option value="kg">kg</option>
                   <option value="unid">unid</option>
                   <option value="cx">caixa</option>
@@ -658,12 +657,12 @@ export default function Compras() {
                 vencimento, e essa é uma escolha legítima de quem lança. */}
             {temRecurso(modulo, 'validadeDoProdutor') && (
               <div>
-                <label htmlFor="cmp-val" className="block text-xs font-semibold text-gray-600 mb-1">
+                <label htmlFor="cmp-val" className="rotulo">
                   Validade impressa na embalagem (opcional)
                 </label>
                 <input id="cmp-val" type="date" value={form.validade}
                   onChange={e => set('validade', e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                  className="campo" />
                 <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                   Vale para tudo o que veio nesta entrega. Sem ela o item entra no estoque
                   normalmente, só não aparece nos alertas de vencimento.
@@ -673,7 +672,7 @@ export default function Compras() {
 
             {podeCusto && (
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                <label className="rotulo">
                   Valor pago (opcional)
                 </label>
                 <div className="flex items-center gap-2">

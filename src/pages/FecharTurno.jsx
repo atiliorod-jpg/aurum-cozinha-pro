@@ -108,19 +108,19 @@ export default function FecharTurno() {
           </p>
         </div>
 
-        <div className="bg-white rounded-xl p-4 space-y-3">
+        <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
+              <label className="rotulo">Data</label>
               <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Turno</label>
+              <label className="rotulo">Turno</label>
               <div className="grid grid-cols-2 gap-1.5">
                 {TURNOS.map(t => (
                   <button key={t} type="button" onClick={() => setTurno(t)}
-                    className={`min-h-11 py-2 rounded-lg text-xs font-semibold border-2 transition-colors
+                    className={`min-h-12 py-2 rounded-xl text-sm font-semibold border-2 transition-colors
                       ${turno === t ? 'border-polo-gold bg-polo-navy text-polo-gold' : 'border-gray-200 bg-gray-50 text-gray-600'}`}>
                     {t}
                   </button>
@@ -145,7 +145,7 @@ export default function FecharTurno() {
             </p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl p-4">
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
             <p className="text-sm font-bold text-polo-navy mb-1">Contagem da bancada</p>
             <p className="text-xs text-gray-500 mb-3">Deixe em branco o que zerou — em branco vale como sobra 0.</p>
             <div className="space-y-2">
@@ -188,7 +188,7 @@ export default function FecharTurno() {
         )}
 
         {fechados.length > 0 && (
-          <div className="bg-white rounded-xl p-4">
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
             <p className="text-sm font-bold text-polo-navy mb-2">Últimos turnos fechados</p>
             <ul className="space-y-1.5">
               {fechados.map(f => (

@@ -45,7 +45,7 @@ export default function Balanco() {
         ...opcoesDeUnidade(unidades, nomeConta).map(u => ({ chave: u.id, nome: u.nome }))].map(o => (
         <button key={o.chave ?? 'principal'} type="button" onClick={() => setFiltro(o.chave)}
           aria-pressed={filtro === o.chave}
-          className={`min-h-11 px-3 rounded-full text-xs font-bold border
+          className={`min-h-12 px-3 rounded-full text-sm font-bold border
             ${filtro === o.chave ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-polo-navy border-gray-200'}`}>
           {o.nome}
         </button>
@@ -64,7 +64,7 @@ export default function Balanco() {
             O balanço soma estoques do mesmo tipo — por exemplo, dois Estoques Secos de
             unidades diferentes. Com um de cada, ele repetiria a tela de cada um.
           </p>
-          <Link to="/estoques" className="inline-flex items-center min-h-11 mt-3 text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3">
+          <Link to="/estoques" className="inline-flex items-center min-h-12 mt-3 text-sm font-bold text-polo-navy border-2 border-polo-navy/20 rounded-xl px-3">
             Criar outro estoque
           </Link>
         </div>
@@ -83,7 +83,7 @@ export default function Balanco() {
         {familias.map(f => (
           <div key={f.tipo}>
             <div className="mb-2 px-1">
-              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide">
+              <p className="titulo-secao">
                 {moduloPorId(f.tipo).icone} {moduloPorId(f.tipo).label}
               </p>
               <p className="text-xs text-gray-600">
@@ -92,7 +92,7 @@ export default function Balanco() {
             </div>
 
             {f.itens.length === 0 ? (
-              <p className="bg-white rounded-xl p-4 text-xs text-gray-500 border border-gray-100">
+              <p className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 text-xs text-gray-500 border border-gray-100">
                 Nenhum item com saldo nestes estoques ainda.
               </p>
             ) : (

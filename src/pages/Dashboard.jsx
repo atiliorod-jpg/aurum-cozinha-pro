@@ -136,7 +136,7 @@ export default function Dashboard() {
 
       {descarteHoje.houve && (
         <button onClick={() => navigate('/aparas')}
-          className="w-full text-left mb-4 min-h-11 px-3 py-2 rounded-xl bg-white border border-gray-200
+          className="w-full text-left mb-4 min-h-12 px-3 py-2 rounded-xl bg-white border-2 border-polo-navy/15
                      flex items-center justify-between gap-2 active:scale-[0.99] transition-transform">
           <span className="text-xs font-semibold text-gray-700">Descartado hoje</span>
           <span className="text-xs text-right">
@@ -172,7 +172,7 @@ export default function Dashboard() {
       {/* Produzir hoje — receitas com produto final abaixo do mínimo */}
       {temRecurso(modulo, 'producao') && produzirHoje.length > 0 && (
         <div className="mb-4">
-          <h2 className="text-xs font-bold text-polo-navy uppercase tracking-wide mb-2">Produzir hoje</h2>
+          <h2 className="titulo-secao mb-2">Produzir hoje</h2>
           <div className="space-y-2">
             {produzirHoje.map(({ receita, produto, atual }) => (
               <button key={receita.id}
@@ -205,7 +205,7 @@ export default function Dashboard() {
             {' '}Remova no Histórico e registre de novo.
           </p>
           <button onClick={() => navigate('/historico')}
-            className="min-h-11 text-sm font-bold text-white bg-red-700 rounded-lg px-3">
+            className="min-h-12 text-sm font-bold text-white bg-red-700 rounded-xl px-3">
             Abrir Histórico →
           </button>
         </div>
@@ -272,7 +272,7 @@ export default function Dashboard() {
       {/* Etiquetas que saíram hoje — o "últimas etiquetas" do plano */}
       {etiquetasHoje != null && (
         <Link to="/impressas"
-          className="flex items-center justify-between gap-2 bg-white border border-gray-200 rounded-xl px-4 min-h-11 py-3 mb-4 active:scale-[0.99] transition-transform">
+          className="flex items-center justify-between gap-2 bg-white border-2 border-polo-navy/15 rounded-xl px-4 min-h-12 py-3 mb-4 active:scale-[0.99] transition-transform">
           <span className="text-sm font-semibold text-gray-800">Etiquetas impressas hoje</span>
           <span className="text-sm font-bold text-polo-navy">{etiquetasHoje} <span aria-hidden="true">›</span></span>
         </Link>
@@ -281,7 +281,7 @@ export default function Dashboard() {
       {/* O estoque completo é outra tela (com filtros e lotes); aqui, o resumo */}
       {produtosAtivos.length > 0 ? (
         <Link to="/estoque"
-          className="block bg-white border border-gray-200 rounded-xl p-4 mb-4 active:scale-[0.99] transition-transform">
+          className="block cartao active:scale-[0.99] transition-transform">
           <span className="flex items-center justify-between gap-2">
             <span className="text-sm font-bold text-polo-navy">
               {comMetas ? 'Estoque completo' : 'Estoque da bancada'}
@@ -310,7 +310,7 @@ export default function Dashboard() {
             : 'Este estoque ainda não tem nenhum produto cadastrado.'}</p>
           {pode(sessao, permissoes, 'gerenciarProdutos') && (
             <Link to="/itens"
-              className="inline-block min-h-11 px-5 py-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm
+              className="inline-block min-h-12 px-5 py-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm
                          active:scale-95 transition-transform">
               {temSoEtiqueta ? 'Abrir Meus itens' : 'Cadastrar o primeiro produto'}
             </Link>

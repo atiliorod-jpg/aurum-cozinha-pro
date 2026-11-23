@@ -157,14 +157,14 @@ export default function Saidas() {
       <Abas opcoes={[['novo', '+ Nova saída'], ['historico', 'Histórico']]} valor={tab} aoTrocar={setTab} className="mb-4" />
       {tab === 'novo' ? (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl p-4 space-y-3">
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
+              <label className="rotulo">Data</label>
               <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Destino</label>
+              <label className="rotulo">Destino</label>
               {destinosDeSaida.length === 0 ? (
                 <p className="text-xs text-amber-800">Nenhum destino cadastrado. Crie em Administração → Estoque.</p>
               ) : (
@@ -186,7 +186,7 @@ export default function Saidas() {
 
           <input aria-label="Buscar produto" type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar produto..."
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+            className="busca-grande" />
 
           {!buscando && (
             <Filtros rotulo="Categoria" valor={catAtiva} aoTrocar={setCatAtiva}
@@ -231,11 +231,11 @@ export default function Saidas() {
             ))}
           </div>
 
-          <div className="bg-white rounded-xl p-4">
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Observação (opcional)</label>
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
+            <label className="rotulo">Observação (opcional)</label>
             <textarea aria-label="Observação (opcional)" value={obs} onChange={e => setObs(e.target.value)} rows={2}
               placeholder="Alguma observação..."
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none" />
+              className="campo resize-none" />
           </div>
 
           {/* ⚠️ Para a Finalização, a validade que vai junto (2ª etapa): fica
@@ -263,13 +263,13 @@ export default function Saidas() {
         <div className="space-y-3">
           <input aria-label="Buscar por produto ou responsável" type="text" value={buscaHist} onChange={e => setBuscaHist(e.target.value)}
             placeholder="Buscar por produto ou responsável..."
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+            className="busca-grande" />
           {saidasOrdenadas.length === 0 && (
             <Vazio texto="Nenhuma saída registrada ainda." />
           )}
           {saidasOrdenadas.map(s => {
             return (
-              <div key={s.id} className="bg-white rounded-xl p-4">
+              <div key={s.id} className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <div className="font-semibold text-sm">{fmtData(s.data)} {s.hora && `• ${s.hora}`}</div>

@@ -61,6 +61,25 @@ select {
   min-height: 2.75rem;
 }
 
+/* ── AS PEÇAS DO JEITO DO MAGURŌ (23/11/2026, pedido do dono) ────────────
+   Um campo, um cartão, um rótulo, um título de seção e uma busca iguais em
+   todas as telas — antes cada tela escrevia os seus, com 14 px de letra e
+   moldura de 1 px. Campo com 48 px e letra de 16 px (o iPhone não dá zoom
+   ao tocar), moldura de 2 px; títulos em Montserrat maiúsculo. */
+@layer components {
+  .campo {
+    @apply w-full min-h-12 border-2 border-polo-navy/15 rounded-xl px-3 py-2 text-base text-gray-900 bg-white transition-colors;
+  }
+  .campo:focus { @apply border-polo-navy; }
+  .cartao { @apply bg-white border-2 border-polo-navy/10 rounded-2xl p-4 mb-4 shadow-sm; }
+  .rotulo { @apply block text-sm font-semibold text-gray-700 mb-1; }
+  .titulo-secao { @apply font-titulo font-extrabold text-sm uppercase tracking-wide text-polo-navy; }
+  .busca-grande {
+    @apply w-full h-14 bg-white border-[3px] border-polo-navy/15 rounded-2xl px-4 text-lg text-polo-navy transition-colors;
+  }
+  .busca-grande:focus { @apply border-polo-navy; }
+}
+
 /* cartões com sombra suave e elevação ao toque */
 main .bg-white.rounded-xl {
   box-shadow: 0 1px 3px rgba(27, 42, 65, 0.07), 0 1px 2px rgba(27, 42, 65, 0.04);

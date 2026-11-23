@@ -161,17 +161,17 @@ export default function Inventario() {
             Conte o que existe na prateleira. O valor digitado substitui o saldo do sistema.
           </div>
 
-          <div className="bg-white rounded-xl p-4 space-y-3">
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4 space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Data</label>
+              <label className="rotulo">Data</label>
               <input aria-label="Data" type="date" value={data} max={hoje()} onChange={e => setData(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+                className="campo" />
             </div>
             <QuemRegistra manual={responsavel} aoManual={setResponsavel} />
           </div>
 
           {/* Contagem por câmera: cada etiqueta lida soma 1 ao produto dela */}
-          <div className="bg-white rounded-xl p-4">
+          <div className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-bold text-polo-navy">Contar escaneando</p>
@@ -180,7 +180,7 @@ export default function Inventario() {
                 </p>
               </div>
               <button onClick={() => setLendo(v => !v)}
-                className={`text-xs font-bold px-3 min-h-11 rounded-lg flex-shrink-0 ${lendo ? 'bg-gray-100 text-gray-600' : 'bg-polo-navy text-polo-gold'}`}>
+                className={`text-sm font-bold px-3 min-h-12 rounded-xl flex-shrink-0 ${lendo ? 'bg-gray-100 text-gray-600' : 'bg-polo-navy text-polo-gold'}`}>
                 {lendo ? 'Parar' : 'Escanear'}
               </button>
             </div>
@@ -205,7 +205,7 @@ export default function Inventario() {
 
           <input type="search" value={buscaCont} onChange={e => setBuscaCont(e.target.value)}
             placeholder="Buscar item" aria-label="Buscar item para contar"
-            className="w-full min-h-11 bg-white border border-gray-200 rounded-xl px-4 text-base" />
+            className="w-full min-h-12 bg-white border-2 border-polo-navy/15 rounded-xl px-4 text-base" />
           <Filtros rotulo="Categoria" valor={catAtiva} aoTrocar={setCatAtiva}
             opcoes={categorias.filter(c => produtosAtivos.some(p => p.categoria === c))} />
 
@@ -248,7 +248,7 @@ export default function Inventario() {
             <Vazio texto="Nenhuma contagem registrada ainda." />
           )}
           {sessoesInventario.map(sessao => (
-            <div key={sessao.inventarioId} className="bg-white rounded-xl p-4">
+            <div key={sessao.inventarioId} className="bg-white rounded-2xl border-2 border-polo-navy/10 p-4">
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <div className="font-semibold text-sm text-polo-navy">
@@ -266,7 +266,7 @@ export default function Inventario() {
                     toast('Contagem removida.', 'sucesso');
                   }
                 }} aria-label="Remover esta contagem"
-                  className="text-red-500 text-lg font-semibold ml-2 min-w-11 min-h-11 flex items-center justify-center flex-shrink-0">×</button>
+                  className="text-red-500 text-lg font-semibold ml-2 min-w-11 min-h-12 flex items-center justify-center flex-shrink-0">×</button>
                 )}
               </div>
               {sessao.itens.map(aj => {
