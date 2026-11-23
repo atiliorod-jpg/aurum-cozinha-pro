@@ -181,6 +181,57 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (23/11/2026) — JEITO DO MAGURŌ, PARTE 1: SENHA E TELA DE NOMES
+
+Pedido do dono: trazer do app **Magurō Estoque** (`Downloads/Code/maguro-estoque`,
+controle de desperdício) o design de botões grandes e a ideia de senha, nos
+DOIS planos. Decisões dele (AskUserQuestion): "Jeito do Magurō, cores da
+Aurum"; senha de **2 números**, cada pessoa cria a sua no 1º acesso (digita 2
+vezes), o dono só ZERA; **obrigatória para todos**; extras: letras/busca com
+mais de 12 nomes, **nome parado 60 dias sai**, **atualizar sozinho parado**,
+teclado grande nos números. Plano em 4 partes, cada uma testada e publicada:
+1. **senha + tela de nomes** — FEITA (e7841ff + ajuste seguinte);
+2. peças visuais (botão grande, janela com faixa navy, abas, chips, fontes
+   Montserrat/Inter, TecladoNumerico/CampoNumero) + tela Imprimir e janela de
+   imprimir;
+3. Meus itens, Impressas, Administração;
+4. telas do Pro (lançamentos, Estoque, Validades) com o teclado grande.
+
+**O que a parte 1 mudou (sem migração):**
+- `utils/senhaEquipe.js`: DIGITOS = 2 (registro com `d: 2`); sem `d` = senha
+  antiga de 4 (`digitosDe`), continua valendo. `gerarRegistroDeSenha` só cria 2.
+- `utils/usoEquipe.js` (NOVO): documento `usoEquipe` = `{ dias: [60 dias com
+  uso], nomes: { nome: 'AAAA-MM-DD' } }`. Sai quem tem os 60 dias guardados
+  TODOS depois do último uso — conta DIAS DE USO da cozinha, não calendário
+  (férias não apagam ninguém; relógio errado vale no máximo 1 dia).
+- `AppContext`: `salvarMesclando(chave, setRaw, mudar)` — grava com a versão do
+  servidor e, no conflito, aplica de novo por cima do que voltou (até 3×);
+  confere a internet antes (`temInternet`) e dá 15 s ao servidor; SEM fila
+  offline (a fila sobe com versão -1 e apagaria senha criada noutro aparelho).
+  `criarSenhaDaPessoa`, `zerarSenhaDaPessoa`, `marcarUsoDaPessoa`; a poda dos
+  parados roda com a nuvem carregada (não na demo nem no modo suporte), a cada
+  6 h, e grava em `logAudit`. `definirSenhaDaPessoa` NÃO existe mais.
+- `OperadorContext`: `entrar` (sem senha) SAIU; `criarSenha(nome, pin)` só entra
+  depois do servidor; `digitosDaSenha(nome)`; o uso é marcado ao entrar.
+- `QuemImprime.jsx` reescrito: `TecladoSenha` genérico (teclas h-16),
+  `SenhaDoNome` (senha / criar1 / criar2, modo DERIVADO: zerada por fora vira
+  criar, criada por fora vira digitar), `CartaoNome` (aria-label = só o nome;
+  "1º acesso"/cadeado via aria-describedby; status EMBAIXO do nome — no Magurō
+  o nome quebrava letra por letra a 375 px), busca + letras com > 12 nomes.
+- `CartaoEquipe.jsx`: só "Zerar senha" (dono) + último uso + "sai em N dias".
+- `utils/atualizarApp.js` (NOVO) + `PwaUpdatePrompt`: procura versão nova a cada
+  30 min e ao voltar para a frente; na tela dos nomes, recarrega após 30 s
+  parado (nunca na demo, nunca com janela aberta).
+- Demo: João tem a senha **12** (hash refeito); Maria é "1º acesso".
+- Robô: `apoio.js` ganhou `passarPelaSenha`/`digitarNumeros`/`SENHA_DO_ROBO`
+  ('24'), e `trocarDeTela`, que espera `<html data-trocas-de-tela>` mudar
+  (⚠️ a troca de tela do React Router é TRANSIÇÃO: a tela velha fica visível e
+  aceita toques enquanto a nova carrega — o robô tocava no nome da velha).
+- 1100 testes de unidade, 74 cenários do robô.
+
+**Banco:** voltou ao ar (a tarefa manter-acordado responde 3/3 desde 22/11).
+A lista de Novidades (`data/novidades.js`) está parada em 18/07 — não mexi.
+
 ## Onde paramos (18/11/2026) — 2ª AUDITORIA; BANCO PAUSADO DE NOVO
 
 Relatório: `AUDITORIA_GERAL_2026-11-18.md`. **O Supabase pausou o projeto em

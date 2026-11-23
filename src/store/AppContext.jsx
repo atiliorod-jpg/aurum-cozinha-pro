@@ -596,6 +596,9 @@ export function AppProvider({ children }) {
       // trocou de conta no meio do caminho: a resposta é da anterior
       if (ridRef.current !== r) return { ok: false, erro: 'A conta foi trocada.' };
       if (error) {
+        // dois aparelhos criando o documento ao mesmo tempo: o segundo bate na
+        // chave única — tenta de novo, e aí cai no conflito de versão normal
+        if (/duplicate key|unique/i.test(error.message || '')) continue;
         return ehFalhaDeRede(error) ? { ok: false, semRede: true } : { ok: false, erro: error.message || 'Não foi possível salvar.' };
       }
       if (data?.ok) {
