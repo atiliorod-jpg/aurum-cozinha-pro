@@ -101,7 +101,7 @@ export function TecladoSenha({
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className={`${compacto ? 'text-lg' : 'text-xl sm:text-2xl'} font-black text-polo-navy leading-tight break-words`}>{titulo}</h3>
+          <h3 className={`${compacto ? 'text-base' : 'text-lg sm:text-xl'} font-titulo font-black uppercase tracking-wide text-polo-navy leading-tight break-words`}>{titulo}</h3>
           {subtitulo && <p className="text-sm text-gray-600 mt-1">{subtitulo}</p>}
         </div>
         <button type="button" onClick={aoVoltar}
@@ -313,7 +313,7 @@ export default function QuemImprime({ dentroDaJanela = false, titulo = 'Quem vai
     <section aria-labelledby={idTitulo}
       className={dentroDaJanela ? 'border-2 border-polo-navy/20 rounded-2xl p-3 space-y-3' : 'space-y-4'}>
       <div className={dentroDaJanela ? '' : 'px-1'}>
-        <h2 id={idTitulo} className={`${dentroDaJanela ? 'text-base' : 'text-xl sm:text-2xl'} font-black text-polo-navy`}>{titulo}</h2>
+        <h2 id={idTitulo} className={`${dentroDaJanela ? 'text-base' : 'text-xl sm:text-2xl'} font-titulo font-black uppercase tracking-wide text-polo-navy`}>{titulo}</h2>
         <p className={`${dentroDaJanela ? 'text-xs' : 'text-sm'} text-gray-600 mt-0.5`}>
           {texto || (dentroDaJanela
             ? 'Toque no seu nome para assinar estas etiquetas.'

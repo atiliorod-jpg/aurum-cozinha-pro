@@ -6,14 +6,17 @@
 //
 //  opcoes: ['A', 'B'] ou [[valor, texto], ...]. `todos` (texto) põe a
 //  primeira pílula, de valor '' — passe null para não ter.
+//
+//  ⚠️ JEITO DO MAGURŌ DESDE 23/11/2026: 48 px, moldura de 3 px, letra em
+//  negrito — o dedo acerta sem mirar.
 // =====================================================================
 export default function Filtros({ opcoes, valor, aoTrocar, rotulo, todos = 'Todos', ativo = 'navy', className = '' }) {
   const lista = (opcoes || []).map(o => (Array.isArray(o) ? o : [o, o]));
-  const corAtiva = ativo === 'dourado' ? 'bg-polo-gold text-polo-navy' : 'bg-polo-navy text-polo-gold';
+  const corAtiva = ativo === 'dourado' ? 'bg-polo-gold text-polo-navy border-polo-gold' : 'bg-polo-navy text-polo-gold border-polo-navy';
   const pilula = (v, texto) => (
     <button key={v === '' ? '__todos' : v} type="button" onClick={() => aoTrocar(v)} aria-pressed={valor === v}
-      className={`whitespace-nowrap min-h-11 px-4 rounded-full text-xs font-semibold flex-shrink-0 transition-colors
-        ${valor === v ? corAtiva : 'bg-white text-gray-700 border border-gray-200'}`}>
+      className={`whitespace-nowrap min-h-12 px-4 rounded-xl text-sm font-bold flex-shrink-0 transition-colors border-[3px]
+        ${valor === v ? corAtiva : 'bg-white text-polo-navy border-polo-navy/15'}`}>
       {texto}
     </button>
   );

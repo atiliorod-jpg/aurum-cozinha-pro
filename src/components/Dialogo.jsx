@@ -1,4 +1,5 @@
 import { useEffect, useRef, useId } from 'react';
+import Icon from './Icons';
 
 // =====================================================================
 //  Dialogo — a casca única de TODO modal do app
@@ -23,6 +24,11 @@ import { useEffect, useRef, useId } from 'react';
 //   • ao fechar, o foco VOLTA para quem abriu — antes ele caía no topo da
 //     página e a pessoa recomeçava a navegação do zero
 //   • o × tem 44px de alvo, igual em todos (três tamanhos diferentes antes)
+//
+//  ⚠️ JEITO DO MAGURŌ DESDE 23/11/2026: o título mora numa FAIXA NAVY de
+//  ponta a ponta, em Montserrat maiúsculo, com o × de 48 px — a pessoa vê
+//  de longe que janela está aberta. A confirmação (cabecalho={false})
+//  continua sem faixa: lá o título muda de cor quando a ação destrói algo.
 // =====================================================================
 
 // ⚠️ Classes INTEIRAS num mapa, nunca montadas por interpolação: o Tailwind
@@ -48,32 +54,38 @@ const LARGURA = {
   lg: 'max-w-lg',
 };
 
-// As quatro formas que os modais de hoje já tinham. Mantidas iguais de
-// propósito: esta mudança é de acessibilidade, não de visual.
+// As quatro formas que os modais de hoje já tinham. Desde 23/11/2026, com o
+// fundo navy e os cantos mais redondos do Magurō.
 const FORMA = {
   // ficha de cadastro: rola a página inteira, cartão centrado
   ficha: {
-    fundo: 'fixed inset-0 bg-black/50 overflow-y-auto overscroll-contain p-4 flex print:hidden',
-    caixa: 'bg-white w-full m-auto rounded-2xl',
+    fundo: 'fixed inset-0 bg-polo-navy/60 overflow-y-auto overscroll-contain p-4 flex print:hidden',
+    caixa: 'bg-white w-full m-auto rounded-3xl shadow-2xl',
   },
   // folha que sobe pela borda de baixo no celular e centra no tablet
   folha: {
-    fundo: 'fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center p-3 print:hidden',
-    caixa: 'bg-white text-gray-900 rounded-2xl w-full max-h-[90vh] overflow-y-auto',
+    fundo: 'fixed inset-0 bg-polo-navy/50 flex items-end sm:items-center justify-center p-3 print:hidden',
+    caixa: 'bg-white text-gray-900 rounded-3xl shadow-2xl w-full max-h-[90vh] overflow-y-auto',
   },
   // caixa curta, sempre no meio da tela
   caixa: {
-    fundo: 'fixed inset-0 bg-black/50 flex items-center justify-center p-4 print:hidden',
-    caixa: 'bg-white rounded-2xl w-full',
+    fundo: 'fixed inset-0 bg-polo-navy/60 flex items-center justify-center p-4 print:hidden',
+    caixa: 'bg-white rounded-3xl shadow-2xl w-full',
   },
   // lista comprida (etiquetas): cartão no topo, com folga em cima e embaixo
   rolo: {
-    fundo: 'fixed inset-0 bg-black/50 overflow-y-auto p-4 print:hidden',
-    caixa: 'bg-white rounded-2xl w-full mx-auto my-8',
+    fundo: 'fixed inset-0 bg-polo-navy/60 overflow-y-auto p-4 print:hidden',
+    caixa: 'bg-white rounded-3xl shadow-2xl w-full mx-auto my-8',
   },
 };
 
 const RESPIRO = { p5: 'p-5', p6: 'p-6' };
+// A faixa do título vai de ponta a ponta: desfaz o respiro do cartão. A
+// margem de baixo se junta (não soma) com o espaço do `space-y` de quem usa.
+const FAIXA = {
+  p5: '-mx-5 -mt-5 mb-4 px-5',
+  p6: '-mx-6 -mt-6 mb-5 px-6',
+};
 
 // Só o que a pessoa consegue alcançar com Tab. `offsetParent` de fora derruba
 // o que está com display:none — um <details> fechado, por exemplo, cujo
@@ -203,14 +215,16 @@ export default function Dialogo({
         tabIndex={-1}
         className={`${f.caixa} ${LARGURA[largura]} ${RESPIRO[respiro]} focus:outline-none ${classeCaixa}`}>
         {cabecalho && (
-          <div className="flex items-start justify-between gap-3">
-            <h2 id={tituloId} className="font-bold text-polo-navy text-lg">{titulo}</h2>
-            {/* ⚠️ 44px de alvo, igual em todos. Os oito modais tinham três
+          <div className={`${FAIXA[respiro] || FAIXA.p6} py-3.5 bg-polo-navy text-white rounded-t-3xl flex items-center justify-between gap-3`}>
+            <h2 id={tituloId} className="font-titulo font-extrabold text-lg sm:text-xl uppercase tracking-wide leading-tight break-words min-w-0">
+              {titulo}
+            </h2>
+            {/* ⚠️ 48px de alvo, igual em todos. Os oito modais tinham três
                 tamanhos diferentes de ×, e o da tela de impressão — a mais
                 usada de todas — era o menor deles. */}
             <button type="button" onClick={aoFechar} aria-label="Fechar"
-              className="text-gray-600 text-2xl leading-none -mt-1 -mr-1 min-w-11 min-h-11 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0">
-              ×
+              className="w-12 h-12 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center flex-shrink-0 transition-colors">
+              <Icon name="fechar" size={24} />
             </button>
           </div>
         )}

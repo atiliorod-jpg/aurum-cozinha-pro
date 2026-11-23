@@ -105,8 +105,9 @@ describe('toque e leitura', () => {
     }
   });
 
-  it('campos com 44 px por regra global, e o Imprimir da lista com 44 px', () => {
+  // desde 23/11/2026 (jeito do Magurō) o Imprimir da lista tem 48 px
+  it('campos com 44 px por regra global, e o Imprimir da lista com 48 px', () => {
     expect(ler('../../index.css')).toMatch(/select \{\s*min-height: 2\.75rem;/);
-    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/font-bold text-sm px-4 min-h-11 rounded-xl flex-shrink-0 active:scale-95 transition-transform">\s*Imprimir/);
+    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/font-bold text-base pl-3 pr-4 min-h-12 rounded-xl flex-shrink-0[\s\S]{0,260}Imprimir\s*<\/button>/);
   });
 });

@@ -110,6 +110,21 @@ export async function entrarComo(page, nome = 'Maria') {
   await passarPelaSenha(page, nome);
 }
 
+// ⚠️ A MEDIDA PELO TECLADO GRANDE (23/11/2026, jeito do Magurō): o robô toca
+// no campo da medida, digita o número e escolhe a unidade — como a pessoa faz.
+// `numero` com vírgula ("1,5"); `unidade` como no botão ("kg", "un").
+export async function porMedida(page, numero, unidade) {
+  await page.getByRole('dialog').getByRole('button', { name: /^Medida de / }).first().click();
+  const teclado = page.getByRole('dialog', { name: /^Medida — / });
+  await expect(teclado).toBeVisible();
+  for (const d of numero) {
+    await teclado.getByRole('button', { name: d === ',' ? 'Vírgula' : d, exact: true }).click();
+  }
+  if (unidade) await teclado.getByRole('button', { name: unidade, exact: true }).click();
+  await teclado.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(teclado).toHaveCount(0);
+}
+
 // ⚠️ DEPOIS DE IMPRIMIR PELA TELA IMPRIMIR (03/11/2026): "Continuar imprimindo,
 // Maria?", com 5 s para responder. O robô continua, como quem segue no serviço.
 export async function continuarImprimindo(page) {

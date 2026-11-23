@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo, entrarComo, trocarDeTela } from './apoio';
+import { continuarImprimindo, entrarComo, trocarDeTela, porMedida } from './apoio';
 
 // =====================================================================
 //  2ª ETAPA, LOTE A (01/10/2026) — na demonstração do Cozinha Pro:
@@ -54,7 +54,7 @@ test('Cozinha Pro: imprimir dá entrada e a validade chega à Finalização', as
   await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: `Imprimir etiqueta de ${FRANGO}` }).click();
   const janela = page.getByRole('dialog');
-  await janela.getByLabel(/Medida/).first().fill('4 un');
+  await porMedida(page, '4', 'un');
   await expect(janela.getByText('Dar entrada no estoque')).toBeVisible();
   await expect(janela).toContainText('4 unid');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();

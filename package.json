@@ -14,6 +14,8 @@
     "fotos:base": "playwright test -c playwright.fotos.config.js --update-snapshots"
   },
   "dependencies": {
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/montserrat": "5.3.0",
     "@supabase/supabase-js": "^2.108.1",
     "jsqr": "^1.4.0",
     "qrcode": "^1.5.4",

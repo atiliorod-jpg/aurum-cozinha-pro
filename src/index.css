@@ -6,7 +6,8 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  /* Inter, guardada no app (main.jsx). A etiqueta tem a letra dela. */
+  font-family: Inter, system-ui, -apple-system, sans-serif;
   background-color: #F3EFE6;
   overscroll-behavior: none;
 }

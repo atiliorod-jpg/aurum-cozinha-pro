@@ -312,6 +312,26 @@ const PATHS = {
       <path d="m6 6 12 12" />
     </>
   ),
+  // a tecla de apagar do teclado numérico grande (23/11/2026)
+  apagar: (
+    <>
+      <path d="M21 5H9l-6 7 6 7h12z" />
+      <path d="m17 9-6 6" />
+      <path d="m11 9 6 6" />
+    </>
+  ),
+  // o "−" e o "+" grandes da quantidade de etiquetas
+  menos: (
+    <>
+      <path d="M5 12h14" />
+    </>
+  ),
+  mais: (
+    <>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </>
+  ),
   relogio: (
     <>
       <circle cx="12" cy="12" r="10" />

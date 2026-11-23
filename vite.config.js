@@ -64,7 +64,9 @@ export default defineConfig({
         screenshots: [],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,json}'],
+        // woff2: as letras do app (Inter e Montserrat, 23/11/2026) — sem elas
+        // guardadas, o app aberto sem internet cairia na letra do sistema
+        globPatterns: ['**/*.{js,css,html,png,svg,json,woff2}'],
         // ⚠️ O APP INSTALADO NÃO BAIXA O QUE A COZINHA NÃO USA (28/09/2026): a
         // planilha (xlsx, ~500 KB) e o painel da Aurum ficam de fora da
         // instalação e são guardados na primeira vez que alguém abrir (ver

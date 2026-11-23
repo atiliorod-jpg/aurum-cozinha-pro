@@ -13,6 +13,8 @@ import { useOperador } from '../store/OperadorContext';
 import { assinaturaDaJanela } from '../utils/senhaEquipe';
 import Botao from './Botao';
 import Dialogo from './Dialogo';
+import Icon from './Icons';
+import { CampoMedida } from './ui/TecladoNumerico';
 import Aviso from './Aviso';
 import { linkSuporte } from '../utils/suporte';
 import { montarCamposEtiqueta, montarPayloadQR, configEtiqueta, gerarLoteId,
@@ -839,7 +841,9 @@ export default function EtiquetaPrint() {
     return false;
   });
 
-  const inputCls = 'w-full min-h-11 border border-gray-200 rounded-lg px-3 py-2 text-base';
+  // jeito do Magurō (23/11/2026): campo de 56 px, moldura de 3 px, letra grande
+  const inputCls = 'w-full min-h-14 border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-2xl px-3 text-lg text-polo-navy bg-white';
+  const rotuloCls = 'text-xs font-bold uppercase tracking-wide text-gray-600';
 
   // Ao imprimir, cada cópia vira uma ETIQUETA FÍSICA registrada: é o que
   // permite depois contar por leitura de QR e saber o que ainda está na
@@ -1263,11 +1267,11 @@ export default function EtiquetaPrint() {
               Entradas, Produção e "Mais usados" — sem isto, esses caminhos
               seriam o atalho para imprimir sem passar pelos nomes. */}
           {assinatura.regra === 'operador' && (faltaQuemImprime ? <QuemImprime dentroDaJanela /> : (
-            <div className="flex items-center justify-between gap-2 bg-polo-beige rounded-lg pl-3 pr-1 py-1">
-              <p className="text-xs text-gray-700 min-w-0 truncate">Assina: <strong className="text-polo-navy">{responsavel}</strong></p>
+            <div className="flex items-center justify-between gap-2 bg-polo-beige rounded-2xl pl-4 pr-1.5 py-1.5">
+              <p className="text-sm text-gray-700 min-w-0 truncate">Assina: <strong className="text-polo-navy text-base">{responsavel}</strong></p>
               {!congelaAgora && (
                 <button type="button" onClick={trocarOperador}
-                  className="min-h-11 px-3 rounded-lg text-xs font-bold text-polo-navy flex-shrink-0">
+                  className="min-h-12 px-4 rounded-xl bg-white text-sm font-bold text-polo-navy flex-shrink-0">
                   Trocar
                 </button>
               )}
@@ -1282,20 +1286,29 @@ export default function EtiquetaPrint() {
             {itens.map((item, idx) => {
               const campos = camposDe(item);
               return (
-                <div key={idx} className="border border-gray-200 rounded-xl p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold text-sm text-gray-800 truncate">{item.nome}</p>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <button aria-label={`Menos etiquetas de ${item.nome}`}
+                <div key={idx} className="border-[3px] border-polo-navy/10 rounded-2xl p-3 space-y-3">
+                  {/* ⚠️ JEITO DO MAGURŌ (23/11/2026): o nome numa linha só dele
+                      (antes era cortado com "…" para caber a quantidade ao
+                      lado) e a quantidade embaixo, com − e + de 48 px. */}
+                  <p className="font-bold text-lg text-polo-navy leading-tight break-words">{item.nome}</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className={rotuloCls}>Etiquetas</span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button type="button" aria-label={`Menos etiquetas de ${item.nome}`}
                         onClick={() => mudarQtd(idx, -1)}
-                        className="w-11 h-11 rounded-full bg-gray-100 text-gray-700 font-bold text-lg flex items-center justify-center">−</button>
+                        className="w-12 h-12 rounded-xl bg-gray-100 text-polo-navy flex items-center justify-center active:scale-95 transition-transform">
+                        <Icon name="menos" size={24} strokeWidth={2.5} />
+                      </button>
                       <input type="number" min="0" max={MAX_COPIAS} inputMode="numeric" value={item.quantidade}
                         onChange={e => setItem(idx, { quantidade: e.target.value === '' ? '' : limitarCopias(e.target.value) })}
                         aria-label={`Quantidade de etiquetas de ${item.nome}`}
-                        className="w-12 text-center border border-gray-200 rounded-lg py-1.5 text-sm font-semibold" />
-                      <button aria-label={`Mais etiquetas de ${item.nome}`}
+                        className="w-16 h-12 text-center border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-xl text-2xl font-black text-polo-navy
+                                   [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                      <button type="button" aria-label={`Mais etiquetas de ${item.nome}`}
                         onClick={() => mudarQtd(idx, +1)}
-                        className="w-11 h-11 rounded-full bg-polo-navy text-polo-gold font-bold text-lg flex items-center justify-center">+</button>
+                        className="w-12 h-12 rounded-xl bg-polo-navy text-polo-gold flex items-center justify-center active:scale-95 transition-transform">
+                        <Icon name="mais" size={24} strokeWidth={2.5} />
+                      </button>
                     </div>
                   </div>
                   {/* ⚠️ O ARMAZENAMENTO SAIU DO MEIO DA GRADE E VIROU o campo
@@ -1318,19 +1331,19 @@ export default function EtiquetaPrint() {
                     const rotulo = metodosLigados(item).length
                       ? 'Método de conservação — sai impresso na etiqueta'
                       : 'Armazenamento — sai impresso na etiqueta';
-                    const classeRotulo = 'block text-xs font-bold text-polo-navy uppercase tracking-wide mb-1';
+                    const classeRotulo = 'block text-xs font-bold text-polo-navy uppercase tracking-wide mb-1.5';
                     return (
-                      <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
+                      <div className="border-[3px] border-polo-navy rounded-2xl bg-polo-beige px-3 py-2.5">
                         {opcoes.length <= 1 || reimpressao(item) ? (<>
                           <p className={classeRotulo}>{rotulo}</p>
-                          <p className="text-base font-bold text-polo-navy">{textoDaOpcao(item, atual)}</p>
+                          <p className="text-xl font-black text-polo-navy">{textoDaOpcao(item, atual)}</p>
                         </>) : (<>
                           <label htmlFor={`ep-armaz-${idx}`} className={classeRotulo}>{rotulo}</label>
                           {/* ⚠️ Trocar RESEMEIA o prazo (ver escolherConservacao). */}
                           <select id={`ep-armaz-${idx}`} value={atual}
                             onChange={e => escolherConservacao(idx, item, e.target.value)}
-                            className="w-full bg-white border-2 border-polo-navy/40 rounded-lg px-3 py-2.5
-                                       text-base font-bold text-polo-navy min-h-11">
+                            className="w-full bg-white border-[3px] border-polo-navy/40 rounded-xl px-3
+                                       text-base sm:text-lg font-bold text-polo-navy min-h-14">
                             {opcoes.map(v => <option key={v} value={v}>{textoDaOpcao(item, v)}</option>)}
                           </select>
                         </>)}
@@ -1349,10 +1362,14 @@ export default function EtiquetaPrint() {
                       ⚠️ items-end: o "!" da dica deixa o rótulo do lote mais
                       alto que o da medida, e os campos ficavam desalinhados. */}
                   <div className="grid grid-cols-2 gap-2 items-end">
+                    {/* ⚠️ A MEDIDA PELO TECLADO GRANDE (23/11/2026, jeito do
+                        Magurō): número com o dedo e a unidade em botões, sem o
+                        teclado pequeno do celular. Grava o mesmo TEXTO de
+                        sempre ("1,5 kg") — ver utils/medida.js. */}
                     <div>
-                      <label htmlFor={`ep-medida-${idx}`} className="block text-xs font-semibold text-gray-500 mb-0.5">Medida (ex: 1 kg)</label>
-                      <input id={`ep-medida-${idx}`} type="text" value={item.medida} placeholder={item._unidade || 'ex: 1 kg'}
-                        onChange={e => setItem(idx, { medida: e.target.value })} className={inputCls} />
+                      <p className={`${rotuloCls} mb-1`}>Medida</p>
+                      <CampoMedida nome={item.nome} valor={item.medida} unidadeDoItem={item._unidade}
+                        aoMudar={(m) => setItem(idx, { medida: m })} />
                     </div>
                     {/* ⚠️ LOTE DO FABRICANTE, e ele mora AQUI e não no cadastro
                         do item: o número muda a cada caixa que chega do
@@ -1361,8 +1378,8 @@ export default function EtiquetaPrint() {
                         É o que responde "o lote X foi recolhido" depois que a
                         peça já virou dez porções. */}
                     {config.campos.lote !== false && <div>
-                      <div className="mb-0.5">
-                        <label htmlFor={`ep-lote-${idx}`} className="text-xs font-semibold text-gray-500">
+                      <div className="mb-1">
+                        <label htmlFor={`ep-lote-${idx}`} className={rotuloCls}>
                           Lote do fabricante
                         </label>
                         <Dica texto="O número do lote impresso na caixa ou no rótulo do fornecedor. Só isso liga este pote ao recall do frigorífico depois de porcionar." />
@@ -1373,8 +1390,8 @@ export default function EtiquetaPrint() {
                     </div>}
                     {/* Só quando a casa liga o campo no modelo da etiqueta */}
                     {config.campos.valOriginal !== false && <div>
-                      <div className="mb-0.5">
-                        <label htmlFor={`ep-valorig-${idx}`} className="text-xs font-semibold text-gray-500">
+                      <div className="mb-1">
+                        <label htmlFor={`ep-valorig-${idx}`} className={rotuloCls}>
                           Val. original
                         </label>
                         <Dica texto="A data impressa na embalagem do fabricante. Se ela vier antes do prazo da casa, a etiqueta sai com a data do fabricante." />
@@ -1422,9 +1439,9 @@ export default function EtiquetaPrint() {
                       </button>
                     </Aviso>
                   )}
-                  <p className="text-sm text-gray-700">
+                  <p className="text-base text-gray-700">
                     {campos.validadeFmt
-                      ? <>Vencimento na etiqueta: <strong className="text-base text-polo-navy">{campos.validadeFmt}</strong></>
+                      ? <>Vencimento na etiqueta: <strong className="text-xl font-black text-polo-navy">{campos.validadeFmt}</strong></>
                       : 'Sem validade: etiqueta só de identificação.'}
                     {(item.marca || item.sif || item.lote) && <> · {item.marca}{item.sif ? ` · SIF ${item.sif}` : ''}{item.lote ? ` · lote ${item.lote}` : ''}</>}
                   </p>
@@ -1568,7 +1585,7 @@ export default function EtiquetaPrint() {
           )}
           {mostrarDireto && (
             <div className="space-y-2">
-              <Botao onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel || !!bloqueioUnidade}>
+              <Botao tamanho="lg" onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel || !!bloqueioUnidade}>
                 {enviando
                   ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
                   : conectada ? 'Imprimir na impressora'
@@ -1576,7 +1593,7 @@ export default function EtiquetaPrint() {
               </Botao>
               {enviando && (
                 <button type="button" onClick={cancelarEnvio}
-                  className="w-full border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">
+                  className="w-full min-h-14 border-2 border-polo-navy/20 bg-white text-polo-navy font-bold text-lg rounded-2xl">
                   Cancelar
                 </button>
               )}
@@ -1597,16 +1614,16 @@ export default function EtiquetaPrint() {
             </Aviso>
           )}
           {perguntaPapel ? (
-            <div className="border-2 border-polo-navy rounded-xl bg-polo-beige p-3 space-y-2" aria-live="polite">
+            <div className="border-[3px] border-polo-navy rounded-2xl bg-polo-beige p-3 space-y-3" aria-live="polite">
               {/* Texto do dono (10/09): curto e direto, sem explicação embaixo. */}
-              <p className="text-sm font-bold text-polo-navy">Etiqueta foi impressa?</p>
+              <p className="font-titulo font-extrabold text-lg uppercase tracking-wide text-polo-navy">Etiqueta foi impressa?</p>
               <div className="flex gap-3">
                 <button onClick={() => responderPapel(false)}
-                  className="flex-1 border border-gray-300 bg-white text-gray-700 font-semibold py-3 rounded-xl">
+                  className="flex-1 min-h-14 border-2 border-polo-navy/20 bg-white text-polo-navy font-bold text-lg rounded-2xl">
                   Não
                 </button>
                 <button onClick={() => responderPapel(true)}
-                  className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl">
+                  className="flex-1 min-h-14 bg-polo-navy text-polo-gold font-black text-lg rounded-2xl">
                   Sim
                 </button>
               </div>
@@ -1614,12 +1631,12 @@ export default function EtiquetaPrint() {
           ) : (
           <div className="flex gap-3">
             <button onClick={fecharEtiquetas}
-              className={`${mostrarDialogo ? 'flex-1' : 'w-full'} border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl`}>
+              className={`${mostrarDialogo ? 'flex-1' : 'w-full'} min-h-14 border-2 border-polo-navy/20 bg-white text-polo-navy font-bold text-base sm:text-lg rounded-2xl leading-tight`}>
               {mostrarDialogo ? 'Agora não' : 'Fechar'}
             </button>
             {mostrarDialogo && (
               <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente || faltaResponsavel || !!bloqueioUnidade}
-                className="flex-1 bg-polo-navy text-polo-gold font-bold py-3 rounded-xl disabled:opacity-40">
+                className="flex-[1.4] min-h-14 px-2 bg-polo-navy text-polo-gold font-black text-base sm:text-lg rounded-2xl leading-tight disabled:opacity-40">
                 {qrPendente
                   ? 'Gerando QR…'
                   : mostrarDireto

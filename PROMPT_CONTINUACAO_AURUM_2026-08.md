@@ -229,6 +229,8 @@ teclado grande nos números. Plano em 4 partes, cada uma testada e publicada:
   aceita toques enquanto a nova carrega — o robô tocava no nome da velha).
 - 1100 testes de unidade, 74 cenários do robô.
 
+**Parte 2 FEITA (23/11):** fontes Inter/Montserrat guardadas no app (@fontsource, só latin, woff2 no precache; a ETIQUETA continua com a letra dela); Botao maior (md 56 px, sm 48, lg 64); Dialogo com faixa navy + × de 48 px; Abas e Filtros no jeito do Magurō; `ui/TecladoNumerico.jsx` (TecladoNumerico + CampoMedida, texto "1,5 kg" — `utils/medida.js`); tela Imprimir e janela de imprimir maiores. Robô: `porMedida(page, '1', 'kg')`. 1114 testes, 74 cenários. Faltam partes 3 (Meus itens, Impressas, Administração) e 4 (Pro).
+
 **Banco:** voltou ao ar (a tarefa manter-acordado responde 3/3 desde 22/11).
 A lista de Novidades (`data/novidades.js`) está parada em 18/07 — não mexi.
 

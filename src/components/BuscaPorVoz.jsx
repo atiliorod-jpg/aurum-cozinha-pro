@@ -113,15 +113,17 @@ export default function BuscaPorVoz({ produtos, vocabulario, aviso, aoAvisar, ao
     <div className="space-y-2">
       <div className="flex gap-2">
         <div className="flex-1 min-w-0">{children}</div>
+        {/* jeito do Magurō (23/11/2026): o microfone grande e dourado; vermelho
+            enquanto ouve */}
         <button type="button" onClick={ouvir}
           aria-label={ouvindo ? 'Parar de ouvir' : 'Buscar falando'} aria-pressed={ouvindo}
-          className={`min-w-11 min-h-11 px-3 rounded-xl border flex items-center justify-center flex-shrink-0
-            ${ouvindo ? 'bg-polo-navy text-polo-gold border-polo-navy animate-pulse' : 'bg-white text-polo-navy border-gray-200'}`}>
-          <Icon name="microfone" size={20} />
+          className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors
+            ${ouvindo ? 'bg-red-700 text-white animate-pulse' : 'bg-polo-gold text-polo-navy'}`}>
+          <Icon name="microfone" size={26} />
         </button>
       </div>
       {(ouvindo || aviso) && (
-        <div role="status" className="text-sm text-gray-700 bg-white border border-gray-200 rounded-xl px-3 py-2 space-y-2">
+        <div role="status" className="text-base text-gray-700 bg-white border-[3px] border-polo-navy/15 rounded-2xl px-4 py-3 space-y-2">
           {ouvindo
             ? <p>{parcial ? <>Ouvindo: <strong className="text-polo-navy">{parcial}</strong></> : 'Ouvindo… fale o item, quantas etiquetas e o método.'}</p>
             : <p>{aviso.texto}</p>}
@@ -129,7 +131,7 @@ export default function BuscaPorVoz({ produtos, vocabulario, aviso, aoAvisar, ao
             <div className="flex flex-wrap gap-2">
               {aviso.opcoes.map((o, i) => (
                 <button key={`${i}-${o.rotulo}`} type="button" onClick={() => { aoAvisar(null); o.acao(); }}
-                  className="min-h-11 px-3 rounded-lg bg-polo-navy text-polo-gold text-sm font-bold">
+                  className="min-h-12 px-4 rounded-xl bg-polo-navy text-polo-gold text-base font-bold">
                   {o.rotulo}
                 </button>
               ))}

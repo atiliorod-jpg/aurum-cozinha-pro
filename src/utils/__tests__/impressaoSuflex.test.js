@@ -18,8 +18,9 @@ describe('a janela de impressão não muda data nem prazo', () => {
   const janela = ler('../../components/EtiquetaPrint.jsx');
   it('sem campo de data, de dias, de horas nem de minutos', () => {
     for (const id of ['ep-data-', 'ep-dias-', 'ep-horas-', 'ep-min-']) expect(janela).not.toContain(id);
-    // o que fica: medida, lote e (se ligado no modelo) a val. original
-    expect(janela).toContain('ep-medida-');
+    // o que fica: medida (pelo teclado grande, desde 23/11/2026), lote e
+    // (se ligado no modelo) a val. original
+    expect(janela).toMatch(/<CampoMedida nome=\{item\.nome\} valor=\{item\.medida\}/);
     expect(janela).toContain('ep-lote-');
     expect(janela).toMatch(/config\.campos\.valOriginal !== false && <div>/);
   });

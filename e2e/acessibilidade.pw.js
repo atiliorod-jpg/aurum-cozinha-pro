@@ -52,6 +52,11 @@ test('plano Etiquetas: telas e janelas', async ({ page }) => {
   await abrir(page, '/');
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   r['janela de imprimir'] = await medirAcessibilidade(page, ['[role=dialog]']);
+  // o teclado grande da medida (23/11/2026), por cima da janela de imprimir
+  await page.getByRole('dialog').getByRole('button', { name: /^Medida de / }).click();
+  r['teclado da medida'] = await medirAcessibilidade(page, ['[role=dialog]']);
+  await page.getByRole('dialog', { name: /^Medida — / }).getByRole('button', { name: 'Outra medida' }).click();
+  r['teclado da medida, outra medida'] = await medirAcessibilidade(page, ['[role=dialog]']);
   conferir(r);
 });
 

@@ -389,13 +389,13 @@ export default function Etiquetas() {
             {/* ler a etiqueta não assina nada: não precisa do nome */}
             {!soEtiq && (
               <Link to="/ler"
-                className="min-h-11 rounded-xl border border-polo-navy/30 bg-white text-polo-navy font-bold text-sm flex items-center justify-center gap-2">
-                <Icon name="camera" size={18} />Ler etiqueta (dar baixa)
+                className="min-h-12 rounded-2xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-base flex items-center justify-center gap-2">
+                <Icon name="camera" size={20} />Ler etiqueta (dar baixa)
               </Link>
             )}
           </>) : (<>
           {comEquipe ? <FaixaOperador /> : !primeiroUsoNaTela && (
-            <p className="text-xs text-gray-600 px-1">
+            <p className="text-sm text-gray-600 px-1">
               Cadastre a equipe em Administração para cada pessoa imprimir no próprio nome.
             </p>
           )}
@@ -404,7 +404,7 @@ export default function Etiquetas() {
               do mínimo de 4,5 para texto normal. Dentro dos cartões brancos o
               gray-500 passa (4,83) e por isso continua lá; o que reprova é
               justamente ESTA, a única instrução da tela principal. */}
-          <p className="text-xs text-gray-600 px-1">
+          <p className="text-sm text-gray-600 px-1">
             Toque em Imprimir no item. A validade sai calculada pelo prazo que você cadastrou em Meus itens.
           </p>
           {/* ⚠️ BAIXA PELA ETIQUETA (M59): só no Pro, que imprime o QR. É a
@@ -412,8 +412,8 @@ export default function Etiquetas() {
               da lista. */}
           {!soEtiq && (
             <Link to="/ler"
-              className="min-h-11 rounded-xl border border-polo-navy/30 bg-white text-polo-navy font-bold text-sm flex items-center justify-center gap-2">
-              <Icon name="camera" size={18} />Ler etiqueta (dar baixa)
+              className="min-h-12 rounded-2xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-base flex items-center justify-center gap-2">
+              <Icon name="camera" size={20} />Ler etiqueta (dar baixa)
             </Link>
           )}
           {/* ⚠️ MAIS USADOS NO TOPO (pedido do dono, 23/09/2026): cada etiqueta
@@ -422,17 +422,17 @@ export default function Etiquetas() {
               busca ou filtra — aí ela já sabe o que procura. */}
           {!buscando && catAtiva === '' && atalhos.length > 0 && (
             <section aria-label="Mais usados">
-              <p className="text-xs font-bold text-polo-navy uppercase tracking-wide px-1 mb-1.5">
-                Mais usados <span className="font-normal normal-case text-gray-600">· últimos 14 dias</span>
-              </p>
+              <h2 className="font-titulo font-extrabold text-sm text-polo-navy uppercase tracking-wide px-1 mb-2">
+                Mais usados <span className="font-sans font-normal normal-case text-gray-600">· últimos 14 dias</span>
+              </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {atalhos.map(p => (
                   <button key={p.id} onClick={() => imprimirProduto(p)}
                     aria-label={`Imprimir etiqueta de ${p.nome}`}
-                    className="min-h-14 text-left bg-white border-2 border-polo-navy/15 rounded-xl px-3 py-2
-                               active:scale-95 transition-transform flex flex-col justify-center">
-                    <span className="text-sm font-bold text-polo-navy leading-tight line-clamp-2">{p.nome}</span>
-                    <span className="text-xs text-gray-600 truncate">{resumoDePrazos(p)}</span>
+                    className="min-h-[72px] text-left bg-white border-[3px] border-polo-navy/15 hover:border-polo-gold rounded-2xl px-3 py-2
+                               shadow-sm active:scale-[0.97] transition-transform flex flex-col justify-center">
+                    <span className="text-base font-bold text-polo-navy leading-tight line-clamp-2">{p.nome}</span>
+                    <span className="text-xs text-gray-600 truncate mt-0.5">{resumoDePrazos(p)}</span>
                   </button>
                 ))}
               </div>
@@ -444,9 +444,14 @@ export default function Etiquetas() {
             aviso={avisoDaVoz} aoAvisar={setAvisoDaVoz}
             aoBuscar={(termo, pedido) => { setBusca(termo); setPedidoDaVoz(pedido); }}
             aoImprimir={(p, pedido) => imprimirProduto(p, pedido)}>
-            <input type="text" value={busca} onChange={e => { setBusca(e.target.value); setPedidoDaVoz(null); }}
-              placeholder="Buscar produto..." aria-label="Buscar produto"
-              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm" />
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" aria-hidden="true">
+                <Icon name="busca" size={22} />
+              </span>
+              <input type="text" value={busca} onChange={e => { setBusca(e.target.value); setPedidoDaVoz(null); }}
+                placeholder="Buscar produto..." aria-label="Buscar produto"
+                className="w-full h-14 bg-white border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-2xl pl-12 pr-4 text-lg text-polo-navy" />
+            </div>
           </BuscaPorVoz>
           {/* ⚠️ SÓ AS CATEGORIAS QUE TÊM ITEM. A lista vinha inteira da
               biblioteca: numa conta nova a tela mostrava "você ainda não tem
@@ -457,7 +462,7 @@ export default function Etiquetas() {
             <Filtros rotulo="Grupo" valor={catAtiva} aoTrocar={setCatAtiva}
               opcoes={gruposEmUso} />
           )}
-          <div className="bg-white rounded-xl overflow-hidden">
+          <div className="bg-white rounded-2xl overflow-hidden border-2 border-polo-navy/10">
             {produtosVisiveis.length === 0 && !buscando && !nuvemCarregada && <Esqueleto rotulo="Carregando os itens" />}
             {produtosVisiveis.length === 0 && (buscando || nuvemCarregada) && (
               /* Beco sem saida se a lista esta vazia: no plano Etiquetas a
@@ -471,7 +476,7 @@ export default function Etiquetas() {
                 </p>
                 {/* nos dois planos (o Pro também tem Meus itens) — para quem pode cadastrar */}
                 {pode(sessao, permissoes, 'gerenciarProdutos') && (
-                  <Link to="/itens" className="inline-block mt-3 bg-polo-navy text-polo-gold font-bold px-5 py-2.5 rounded-xl text-sm">
+                  <Link to="/itens" className="inline-flex items-center mt-3 bg-polo-navy text-polo-gold font-bold px-5 min-h-12 rounded-2xl text-base">
                     Cadastrar itens
                   </Link>
                 )}
@@ -482,15 +487,15 @@ export default function Etiquetas() {
                 {/* ⚠️ `sticky`: numa categoria com 20 itens, o cabeçalho sai da
                     tela e a pessoa perde de vista em que ala está. Ele fica
                     colado no topo da lista enquanto aquele grupo passa. */}
-                <h2 className="sticky top-0 z-10 bg-polo-beige/95 backdrop-blur px-4 py-1.5
-                               text-xs font-bold text-polo-navy uppercase tracking-wide
+                <h2 className="sticky top-0 z-10 bg-polo-beige/95 backdrop-blur px-4 py-2
+                               font-titulo font-extrabold text-sm text-polo-navy uppercase tracking-wide
                                border-b border-gray-200">
                   {categoria}
                 </h2>
             {itensDaCategoria.map((p, i, arr) => (
-              <div key={p.id} className={`flex items-center px-4 py-3 gap-3 ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
+              <div key={p.id} className={`flex items-center px-4 py-3 gap-3 min-h-[72px] ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-gray-800 truncate">{p.nome}</div>
+                  <div className="font-bold text-base text-polo-navy leading-tight break-words">{p.nome}</div>
                   {/* ⚠️ Esta linha lia `valCongelado`/`valResfriado` com ícones
                       fixos de floco e gelo — os DOIS campos antigos, de quando
                       só existiam dois estados. Depois que o armazenamento virou
@@ -504,13 +509,14 @@ export default function Etiquetas() {
                       aberto virava "Congelado 3d · Refrigerado 3d · Resfriado
                       3d · Temperatura ambiente 3d" — quatro vezes o mesmo
                       número, e o olho tem que ler tudo para descobrir isso. */}
-                  <div className="text-xs text-gray-500">
+                  <div className="text-sm text-gray-600 mt-0.5">
                     {resumoDePrazos(p)}
                   </div>
                 </div>
                 <button onClick={() => imprimirProduto(p)} aria-label={`Imprimir etiqueta de ${p.nome}`}
-                  className="bg-polo-navy text-polo-gold font-bold text-sm px-4 min-h-11 rounded-xl flex-shrink-0 active:scale-95 transition-transform">
-                  Imprimir
+                  className="bg-polo-navy text-polo-gold font-bold text-base pl-3 pr-4 min-h-12 rounded-xl flex-shrink-0
+                             inline-flex items-center gap-2 active:scale-95 transition-transform">
+                  <Icon name="etiqueta" size={20} />Imprimir
                 </button>
               </div>
             ))}
