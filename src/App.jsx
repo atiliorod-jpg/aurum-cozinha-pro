@@ -576,6 +576,14 @@ function TopoAoTrocarDeTela() {
   const { pathname, hash } = useLocation();
   useEffect(() => {
     if (!hash) window.scrollTo(0, 0);
+    // ⚠️ A TELA QUE ESTÁ DE FATO ABERTA (23/11/2026). A troca de tela é uma
+    // transição: enquanto a nova carrega, a ANTERIOR continua visível e
+    // aceita toques. O robô (e2e/apoio.js, trocarDeTela) espera o contador
+    // mudar para não tocar na tela velha — um contador, e não só o endereço,
+    // porque um redirecionamento pode voltar ao endereço de antes.
+    const raiz = document.documentElement;
+    raiz.dataset.rota = pathname;
+    raiz.dataset.trocasDeTela = String((Number(raiz.dataset.trocasDeTela) || 0) + 1);
   }, [pathname, hash]);
   return null;
 }

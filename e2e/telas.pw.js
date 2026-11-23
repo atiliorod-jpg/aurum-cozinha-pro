@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo } from './apoio';
+import { continuarImprimindo, passarPelaSenha, trocarDeTela } from './apoio';
 
 // =====================================================================
 //  O robô entra na DEMONSTRAÇÃO (nada vai ao banco) e abre cada tela dos dois
@@ -55,20 +55,18 @@ async function entrarNaDemo(page, plano) {
 }
 
 // ⚠️ "QUEM VAI IMPRIMIR?" (13/10/2026): com a equipe cadastrada, a tela de
-// Etiquetas começa pelos nomes. Na demonstração, Maria entra sem senha.
+// Etiquetas começa pelos nomes. Desde 23/11/2026 todo nome pede senha: na
+// demonstração, Maria cria a dela no 1º acesso (ver passarPelaSenha).
 async function entrarComo(page, nome = 'Maria') {
   await expect(page.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible();
   await page.getByRole('button', { name: nome, exact: true }).click();
+  await passarPelaSenha(page, nome);
   await expect(page.getByText(`Imprimindo como ${nome}`)).toBeVisible();
 }
 
 async function abrirTela(page, rota) {
-  await page.evaluate((r) => {
-    window.history.pushState({}, '', r);
-    window.dispatchEvent(new PopStateEvent('popstate'));
-  }, rota);
-  // telas carregadas sob demanda: espera o conteúdo aparecer
-  await expect(page.locator('main')).not.toBeEmpty({ timeout: 15_000 });
+  // telas carregadas sob demanda: espera a tela nova de verdade (ver apoio.js)
+  await trocarDeTela(page, rota);
   await expect(page.getByText('Esta tela travou')).toHaveCount(0);
 }
 

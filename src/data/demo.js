@@ -305,19 +305,21 @@ export const PRODUTOS_DEMO_ETIQUETAS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────
-//  SENHA DA EQUIPE NA DEMONSTRAÇÃO (13/10/2026)
-//  Maria entra só tocando no nome; João tem senha, para o visitante ver o
-//  teclado. A tela da demo mostra a dica "1234" — só nela.
-//  ⚠️ O registro abaixo é PÚBLICO de propósito (é a senha 1234 de exemplo,
+//  SENHA DA EQUIPE NA DEMONSTRAÇÃO (13/10/2026; 2 números desde 23/11/2026)
+//  João já tem senha, para o visitante ver o teclado; Maria ainda não tem e
+//  aparece como "1º acesso": no toque, ela cria a dela. A tela da demo
+//  mostra a dica "12" — só nela.
+//  ⚠️ O registro abaixo é PÚBLICO de propósito (é a senha 12 de exemplo,
 //  com sal fixo). Se mudar o sal ou a senha, o teste em senhaEquipe.test.js
 //  recalcula e reprova — refaça o hash com derivarSenha.
 // ─────────────────────────────────────────────────────────────────────
-export const DEMO_COM_SENHA = { nome: 'João', senha: '1234' };
+export const DEMO_COM_SENHA = { nome: 'João', senha: '12' };
 export const SENHAS_EQUIPE_DEMO = {
   'João': {
     s: '5e1a7d0c2b9f4e3a8c6d1f0b7a2e9c4d',
-    h: 'e27a1cb151fb9b1f325be4d237a6cd3ded3ca13a148e082e3344b26b7b3904a3',
+    h: 'f332fca8fa4e66148700740ba6343d9c3ff723d25537b6f6288e354d23c99479',
     i: 100000,
+    d: 2,
   },
 };
 

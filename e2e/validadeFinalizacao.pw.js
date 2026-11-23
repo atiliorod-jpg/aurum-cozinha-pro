@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo } from './apoio';
+import { continuarImprimindo, entrarComo, trocarDeTela } from './apoio';
 
 // =====================================================================
 //  2ª ETAPA, LOTE A (01/10/2026) — na demonstração do Cozinha Pro:
@@ -31,8 +31,7 @@ async function entrarNoPro(page) {
 
 // a sessão da demonstração vive na memória: navega pelo histórico, sem recarregar
 async function abrir(page, rota) {
-  await page.evaluate((r) => { window.history.pushState({}, '', r); window.dispatchEvent(new PopStateEvent('popstate')); }, rota);
-  await expect(page.locator('main')).not.toBeEmpty({ timeout: 15_000 });
+  await trocarDeTela(page, rota);
 }
 
 const FRANGO = 'Filé de Frango (porção)';
@@ -51,8 +50,8 @@ test('Cozinha Pro: imprimir dá entrada e a validade chega à Finalização', as
 
   // 1) imprime UMA etiqueta de "4 un" pela tela Etiquetas: a janela oferece a entrada
   await abrir(page, '/etiquetas');
-  // a tela começa por "Quem vai imprimir?" (Maria entra sem senha na demo)
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  // a tela começa por "Quem vai imprimir?" (Maria cria a senha no 1º acesso)
+  await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: `Imprimir etiqueta de ${FRANGO}` }).click();
   const janela = page.getByRole('dialog');
   await janela.getByLabel(/Medida/).first().fill('4 un');

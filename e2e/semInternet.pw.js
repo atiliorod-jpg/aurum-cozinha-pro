@@ -120,12 +120,15 @@ test('sem internet: "Sair da conta" apaga a sessão do aparelho (antes: a conta 
 // ⚠️ A SENHA DA EQUIPE CONFERE SEM INTERNET (13/10/2026): ela vem da cópia
 // guardada no aparelho. E quem entrou pelo nome NÃO fica guardado —
 // recarregar o app volta para "Quem vai imprimir?".
+// ⚠️ 23/11/2026: a senha de Ana é ANTIGA (4 números, sem `d`), das que o dono
+// criava antes — tem de continuar entrando. E CRIAR senha sem internet não
+// dá: Bia (1º acesso) ouve que a senha não foi criada.
 test('sem internet: a senha da equipe confere, e recarregar volta para os nomes', async ({ page }) => {
   const erros = await abrirSemInternet(page, {
     horasDaCopia: 1,
     guardado: {
       [`pe::${RID_ROBO}::pessoas`]: ['Ana', 'Bia'],
-      // a mesma senha de exemplo da demonstração (1234), já codificada
+      // senha antiga de 4 números (1234), já codificada
       [`pe::${RID_ROBO}::senhasEquipe`]: { Ana: {
         s: '5e1a7d0c2b9f4e3a8c6d1f0b7a2e9c4d',
         h: 'e27a1cb151fb9b1f325be4d237a6cd3ded3ca13a148e082e3344b26b7b3904a3',
@@ -137,7 +140,14 @@ test('sem internet: a senha da equipe confere, e recarregar volta para os nomes'
   // a conta "nova" no aparelho mostra as novidades por cima
   const entendi = page.getByRole('button', { name: 'Entendi' });
   if (await entendi.isVisible({ timeout: 3_000 }).catch(() => false)) await entendi.click();
-  await page.getByRole('button', { name: /^Ana/ }).click();
+  // Bia: 1º acesso sem internet — não cria
+  await page.getByRole('button', { name: 'Bia', exact: true }).click();
+  for (const d of '2424') await page.getByRole('button', { name: d, exact: true }).click();
+  await expect(page.getByText(/A senha não foi criada\. Este aparelho está sem internet/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { name: 'Crie sua senha, Bia' })).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar aos nomes' }).click();
+  // Ana: a senha antiga, de 4 números, entra sem internet
+  await page.getByRole('button', { name: 'Ana', exact: true }).click();
   for (const d of '1234') await page.getByRole('button', { name: d, exact: true }).click();
   await expect(page.getByText('Imprimindo como Ana')).toBeVisible();
   await page.reload();

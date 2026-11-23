@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo } from './apoio';
+import { continuarImprimindo, entrarComo, digitarNumeros, trocarDeTela, SENHA_DO_ROBO } from './apoio';
 
 // =====================================================================
-//  "QUEM VAI IMPRIMIR?" (13/10/2026) — na demonstração (nada vai ao banco):
-//  Maria entra só tocando no nome; João tem a senha 1234. A etiqueta sai
-//  assinada por quem entrou; reimprimir mantém quem assinou o original; 5
-//  erros fazem esperar; outros caminhos de impressão perguntam o nome; o
-//  dono cria a senha em Administração; 1 minuto parado volta aos nomes.
+//  "QUEM VAI IMPRIMIR?" (13/10/2026; jeito do Magurō desde 23/11/2026) —
+//  na demonstração (nada vai ao banco): a senha é obrigatória e tem 2
+//  números. Maria é "1º acesso" e cria a dela; João já tem a 12. A etiqueta
+//  sai assinada por quem entrou; reimprimir mantém quem assinou o original;
+//  5 erros fazem esperar; outros caminhos de impressão perguntam o nome; o
+//  dono só ZERA a senha em Administração; 1 minuto parado volta aos nomes.
 // =====================================================================
 
 const ruidoDeRede = /Failed to load resource|net::ERR_|ERR_INTERNET_DISCONNECTED|supabase/i;
@@ -32,26 +33,33 @@ async function entrarNaDemo(page, plano) {
 }
 
 async function abrir(page, rota) {
-  await page.evaluate((r) => { window.history.pushState({}, '', r); window.dispatchEvent(new PopStateEvent('popstate')); }, rota);
-  await expect(page.locator('main')).not.toBeEmpty({ timeout: 15_000 });
+  await trocarDeTela(page, rota);
 }
 
 const nomes = (page) => page.getByRole('heading', { name: 'Quem vai imprimir?' });
+const cartao = (page, nome) => page.getByRole('button', { name: nome, exact: true });
 
-async function digitarSenha(page, numeros) {
-  for (const d of numeros) await page.getByRole('button', { name: d, exact: true }).click();
-}
-
-test('Etiquetas: Maria entra sem senha, João só com a senha certa, e a reimpressão mantém Maria', async ({ page }) => {
+test('Etiquetas: Maria cria a senha no 1º acesso, João só com a senha certa, e a reimpressão mantém Maria', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
 
   // a tela começa pelos nomes, e a busca não aparece antes
   await expect(nomes(page)).toBeVisible();
   await expect(page.getByLabel('Buscar produto')).toHaveCount(0);
+  await expect(cartao(page, 'Maria')).toHaveAccessibleDescription('1º acesso');
+  await expect(cartao(page, 'João')).toHaveAccessibleDescription('com senha');
 
-  // Maria: um toque e já busca; a etiqueta sai com RESP. Maria
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  // Maria: cria a senha (2 números, duas vezes); errar a repetição recomeça
+  await cartao(page, 'Maria').click();
+  await expect(page.getByRole('heading', { name: 'Crie sua senha, Maria' })).toBeVisible();
+  await digitarNumeros(page, '24');
+  await expect(page.getByRole('heading', { name: 'Repita a senha' })).toBeVisible();
+  await digitarNumeros(page, '25');
+  await expect(page.getByText('As duas não ficaram iguais. Crie de novo.')).toBeVisible();
+  await digitarNumeros(page, SENHA_DO_ROBO);
+  await digitarNumeros(page, SENHA_DO_ROBO);
   await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
+
+  // a etiqueta sai com RESP. Maria
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   let janela = page.getByRole('dialog');
   await expect(janela.locator('.etiqueta-label').first()).toContainText('Maria');
@@ -59,15 +67,16 @@ test('Etiquetas: Maria entra sem senha, João só com a senha certa, e a reimpre
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
   await continuarImprimindo(page);
 
-  // Trocar → João tem senha: errada avisa quantas restam; 1234 entra
+  // Trocar → Maria agora tem senha; João: errada avisa quantas restam; 12 entra
   await page.getByRole('button', { name: 'Trocar', exact: true }).click();
   await expect(nomes(page)).toBeVisible();
-  await page.getByRole('button', { name: /^João/ }).click();
-  await expect(page.getByText('Senha de João', { exact: true })).toBeVisible();
-  await expect(page.getByText(/a senha de João é 1234/)).toBeVisible(); // só na demonstração
-  await digitarSenha(page, '9999');
+  await expect(cartao(page, 'Maria')).toHaveAccessibleDescription('com senha');
+  await cartao(page, 'João').click();
+  await expect(page.getByRole('heading', { name: 'Senha de João' })).toBeVisible();
+  await expect(page.getByText(/a senha de João é 12\./)).toBeVisible(); // só na demonstração
+  await digitarNumeros(page, '99');
   await expect(page.getByText(/Restam 4 tentativas/)).toBeVisible();
-  await digitarSenha(page, '1234');
+  await digitarNumeros(page, '12');
   await expect(page.getByText('Imprimindo como João')).toBeVisible();
 
   // reimprimir a etiqueta da Maria, com João na vez: continua assinada por Maria
@@ -83,16 +92,16 @@ test('Etiquetas: Maria entra sem senha, João só com a senha certa, e a reimpre
 
 test('Etiquetas: 5 senhas erradas fazem o aparelho esperar 1 minuto', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
-  await page.getByRole('button', { name: /^João/ }).click();
-  for (let i = 0; i < 4; i++) await digitarSenha(page, '0000');
+  await cartao(page, 'João').click();
+  for (let i = 0; i < 4; i++) await digitarNumeros(page, '00');
   await expect(page.getByText(/Resta 1 tentativa/)).toBeVisible();
-  await digitarSenha(page, '0000');
+  await digitarNumeros(page, '00');
   await expect(page.getByText(/Espere \d+ segundos/)).toBeVisible();
   // durante a espera, nem a senha certa entra
   await expect(page.getByRole('button', { name: '1', exact: true })).toBeDisabled();
   // voltar aos nomes e tocar de novo não zera a espera
   await page.getByRole('button', { name: 'Voltar aos nomes' }).click();
-  await page.getByRole('button', { name: /^João/ }).click();
+  await cartao(page, 'João').click();
   await expect(page.getByText(/Espere \d+ segundos/)).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
@@ -107,8 +116,11 @@ test('Cozinha Pro: o lançamento pergunta quem está registrando, e a etiqueta s
   // ninguém escolhido: o formulário pergunta, e o botão espera
   await expect(page.getByRole('heading', { name: 'Quem está registrando?' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Registrar Entrada' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  // 1º acesso da Maria, dentro do próprio formulário
+  await entrarComo(page, 'Maria');
   await expect(page.getByText('Registrando como Maria')).toBeVisible();
+  // o que foi digitado antes da senha continua lá
+  await expect(page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' })).toHaveValue('2');
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
   const janela = page.getByRole('dialog');
   await expect(janela.getByText('Assina: Maria')).toBeVisible();
@@ -123,8 +135,8 @@ test('Cozinha Pro: o lançamento pergunta quem está registrando, e a etiqueta s
 test('Cozinha Pro: quem tem senha digita no próprio formulário', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrir(page, '/aparas');
-  await page.getByRole('button', { name: /^João/ }).click();
-  for (const d of '1234') await page.getByRole('button', { name: d, exact: true }).click();
+  await cartao(page, 'João').click();
+  await digitarNumeros(page, '12');
   await expect(page.getByText('Registrando como João')).toBeVisible();
   // e vale nas outras telas enquanto ele usa o aparelho
   await abrir(page, '/saidas');
@@ -139,7 +151,7 @@ test('Cozinha Pro: aberta por Entradas, a janela de imprimir não perde o nome n
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrir(page, '/entradas');
   await page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' }).fill('1');
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
   const janela = page.getByRole('dialog');
   await expect(janela.getByText('Assina: Maria')).toBeVisible();
@@ -149,24 +161,59 @@ test('Cozinha Pro: aberta por Entradas, a janela de imprimir não perde o nome n
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
-test('Etiquetas: o dono cria a senha da Maria em Administração', async ({ page }) => {
+// ⚠️ 23/11/2026: o dono não cria nem troca senha de ninguém — só ZERA, e a
+// pessoa cria outra no próximo toque no nome
+test('Etiquetas: o dono zera a senha do João, e ele cria outra no próximo toque', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
   await abrir(page, '/administracao/equipe');
-  await page.getByRole('button', { name: 'Criar senha de Maria' }).click();
-  await page.getByLabel('Nova senha de Maria').fill('0512');
-  await page.getByLabel('Repita a senha de Maria').fill('0513');
-  await page.getByRole('button', { name: 'Salvar senha' }).click();
-  await expect(page.getByText(/não são iguais/)).toBeVisible();
-  await page.getByLabel('Repita a senha de Maria').fill('0512');
-  await page.getByRole('button', { name: 'Salvar senha' }).click();
-  await expect(page.getByRole('button', { name: 'Trocar senha de Maria' })).toBeVisible();
+  // quem ainda não tem senha não tem o que zerar
+  await expect(page.getByRole('button', { name: 'Zerar senha de Maria' })).toHaveCount(0);
+  await expect(page.locator('input[type="password"]')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Zerar senha de João' }).click();
+  const pergunta = page.getByRole('dialog');
+  await expect(pergunta).toContainText('Zerar a senha de João?');
+  await pergunta.getByRole('button', { name: 'Zerar senha', exact: true }).click();
+  await expect(page.getByText(/Senha de João zerada/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Zerar senha de João' })).toHaveCount(0);
 
-  // agora Maria também pede senha
+  // na tela de nomes, João é "1º acesso" de novo e cria a dele
   await abrir(page, '/etiquetas');
-  await page.getByRole('button', { name: /^Maria/ }).click();
-  await expect(page.getByText('Senha de Maria', { exact: true })).toBeVisible();
-  await digitarSenha(page, '0512');
-  await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
+  await expect(cartao(page, 'João')).toHaveAccessibleDescription('1º acesso');
+  await cartao(page, 'João').click();
+  await expect(page.getByRole('heading', { name: 'Crie sua senha, João' })).toBeVisible();
+  await digitarNumeros(page, '3131');
+  await expect(page.getByText('Imprimindo como João')).toBeVisible();
+  // e a senha velha (12) não entra mais
+  await page.getByRole('button', { name: 'Trocar', exact: true }).click();
+  await cartao(page, 'João').click();
+  await digitarNumeros(page, '12');
+  await expect(page.getByText(/Senha errada/)).toBeVisible();
+  await digitarNumeros(page, '31');
+  await expect(page.getByText('Imprimindo como João')).toBeVisible();
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+// ⚠️ No Magurō, o nome quebrava letra por letra num celular de 375 px: o
+// "1º acesso" ficava AO LADO do nome e roubava a largura dele.
+test('Etiquetas: num celular, o nome cabe inteiro no cartão', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await abrir(page, '/administracao/equipe');
+  await page.getByLabel('Nome da pessoa').fill('Maximiliano Albuquerque');
+  await page.getByRole('button', { name: 'Adicionar', exact: true }).click();
+  await abrir(page, '/etiquetas');
+  await expect(nomes(page)).toBeVisible();
+  const larguras = await page.getByRole('region', { name: 'Quem vai imprimir?' }).locator('button[aria-describedby]').evaluateAll(bs => bs.map(b => {
+    const nome = b.querySelector('span.flex-1 > span');
+    return { nome: b.getAttribute('aria-label'), largura: nome.getBoundingClientRect().width, altura: b.getBoundingClientRect().height };
+  }));
+  expect(larguras.length).toBe(3);
+  for (const l of larguras) {
+    expect(l.largura, `${l.nome}: o nome tem ${Math.round(l.largura)} px`).toBeGreaterThan(70);
+    expect(l.altura, `${l.nome}: o cartão tem ${Math.round(l.altura)} px`).toBeGreaterThanOrEqual(76);
+  }
+  // nenhuma rolagem para o lado
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
@@ -174,7 +221,7 @@ test('Etiquetas: o dono cria a senha da Maria em Administração', async ({ page
 test('Etiquetas: 1 minuto sem uso volta para os nomes', async ({ page }) => {
   await page.clock.install();
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
   await page.clock.fastForward('00:40');
   await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
@@ -186,7 +233,7 @@ test('Etiquetas: 1 minuto sem uso volta para os nomes', async ({ page }) => {
 test('Etiquetas: 1 minuto parado com a janela aberta, ela fecha e a tela recomeça nos nomes', async ({ page }) => {
   await page.clock.install();
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await page.getByLabel('Buscar produto').fill('frango');
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -194,14 +241,14 @@ test('Etiquetas: 1 minuto parado com a janela aberta, ela fecha e a tela recome�
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(nomes(page)).toBeVisible();
   // a próxima pessoa começa do zero: sem a busca de quem saiu
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await expect(page.getByLabel('Buscar produto')).toHaveValue('');
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
 test('Etiquetas: depois de imprimir pergunta se continua; sem resposta em 5 s volta para os nomes', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   let janela = page.getByRole('dialog');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
@@ -214,7 +261,7 @@ test('Etiquetas: depois de imprimir pergunta se continua; sem resposta em 5 s vo
   await expect(pergunta).toHaveCount(0);
 
   // "Continuar" segue como a mesma pessoa
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
   janela = page.getByRole('dialog');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();

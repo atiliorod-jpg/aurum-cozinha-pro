@@ -41,24 +41,73 @@ export async function entrarNaDemo(page, plano, cozinha = /^Cozinha de Produçã
 // ⚠️ A sessão da demonstração vive SÓ NA MEMÓRIA — recarregar a página a
 // perderia. Por isso a navegação é pelo histórico (o que um toque num link
 // faz), nunca por `page.goto` depois de entrar.
-export async function abrir(page, rota) {
-  await page.evaluate((r) => {
+// ⚠️ ESPERA A TELA NOVA DE VERDADE (23/11/2026): a troca de tela é uma
+// transição, e enquanto a nova carrega a ANTERIOR continua na tela, aceitando
+// toques. Com a senha obrigatória, o robô tocava no nome da tela velha, e o
+// teclado sumia quando a nova chegava. O app marca a tela aberta em
+// <html data-trocas-de-tela> (TopoAoTrocarDeTela, em App.jsx): um contador,
+// porque um redirecionamento pode voltar ao endereço de antes.
+export async function trocarDeTela(page, rota) {
+  const { trocas, mesma } = await page.evaluate((r) => {
+    const antes = {
+      trocas: document.documentElement.dataset.trocasDeTela || '',
+      mesma: window.location.pathname === r.split(/[?#]/)[0],
+    };
     window.history.pushState({}, '', r);
     window.dispatchEvent(new PopStateEvent('popstate'));
+    return antes;
   }, rota);
+  // para a mesma tela não há troca a esperar
+  if (trocas && !mesma) {
+    await expect(page.locator('html')).not.toHaveAttribute('data-trocas-de-tela', trocas, { timeout: 15_000 });
+  }
   await expect(page.locator('main')).not.toBeEmpty({ timeout: 15_000 });
+}
+
+export async function abrir(page, rota) {
+  await trocarDeTela(page, rota);
   await expect(page.getByText('Esta tela travou')).toHaveCount(0);
 }
 
-// "Quem vai imprimir?" / "Quem está registrando?" — toca no nome se a tela
-// pedir (da segunda vez no mesmo teste a pessoa já está escolhida: vale por 5
-// minutos). Espera a tela mostrar UM dos dois — a grade ou o nome já escolhido —
-// antes de decidir, para não passar direto por uma tela que ainda está abrindo.
+// ⚠️ SENHA OBRIGATÓRIA DESDE 23/11/2026 (jeito do Magurō): todo nome pede
+// senha. Na demonstração, João já tem a 12; os outros nomes são "1º acesso", e
+// o robô cria para eles a SENHA_DO_ROBO (digitada duas vezes). Da segunda vez
+// no mesmo teste, o nome já tem senha e o robô só digita.
+export const SENHA_DO_ROBO = '24';
+export const senhaDe = (nome) => (nome === 'João' ? '12' : SENHA_DO_ROBO);
+
+export async function digitarNumeros(page, numeros) {
+  for (const d of numeros) await page.getByRole('button', { name: d, exact: true }).click();
+}
+
+// Depois do toque no nome: cria a senha (1º acesso) ou digita a que existe.
+export async function passarPelaSenha(page, nome) {
+  const criar = page.getByRole('heading', { name: `Crie sua senha, ${nome}` });
+  const digitar = page.getByRole('heading', { name: `Senha de ${nome}` });
+  const repetir = page.getByRole('heading', { name: 'Repita a senha' });
+  await expect(criar.or(digitar).first()).toBeVisible();
+  if (await criar.isVisible()) {
+    await digitarNumeros(page, SENHA_DO_ROBO);
+    await expect(repetir).toBeVisible();
+    await digitarNumeros(page, SENHA_DO_ROBO);
+  } else {
+    await digitarNumeros(page, senhaDe(nome));
+  }
+  await expect(criar.or(digitar).or(repetir)).toHaveCount(0);
+}
+
+// "Quem vai imprimir?" / "Quem está registrando?" — toca no nome e passa pela
+// senha, se a tela pedir (da segunda vez no mesmo teste a pessoa pode já estar
+// escolhida). Espera a tela mostrar UM dos dois — a grade ou o nome já
+// escolhido — antes de decidir, para não passar direto por uma tela que ainda
+// está abrindo.
 export async function entrarComo(page, nome = 'Maria') {
   const botao = page.getByRole('button', { name: nome, exact: true });
   const jaEscolhido = page.getByText(new RegExp(`(Registrando|Imprimindo) como ${nome}|Assina: ${nome}`));
   await expect(botao.or(jaEscolhido).first()).toBeVisible({ timeout: 10_000 });
-  if (await botao.isVisible()) await botao.click();
+  if (!(await botao.isVisible())) return;
+  await botao.click();
+  await passarPelaSenha(page, nome);
 }
 
 // ⚠️ DEPOIS DE IMPRIMIR PELA TELA IMPRIMIR (03/11/2026): "Continuar imprimindo,

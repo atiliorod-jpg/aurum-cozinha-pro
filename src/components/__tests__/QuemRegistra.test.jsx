@@ -23,18 +23,23 @@ import QuemRegistra from '../QuemRegistra';
 beforeEach(() => {
   estado.pessoas = ['Maria', 'João'];
   estado.op = {
-    operador: '', comEquipe: true, trocar: vi.fn(), entrar: vi.fn(() => true),
-    temSenha: (n) => n === 'João', tentarSenha: vi.fn(), travaDe: () => ({ travado: false, restam: 5 }),
+    operador: '', comEquipe: true, trocar: vi.fn(), criarSenha: vi.fn(async () => ({ ok: true })),
+    temSenha: (n) => n === 'João', digitosDaSenha: () => 2, tentarSenha: vi.fn(),
+    travaDe: () => ({ travado: false, restam: 5 }),
   };
 });
 afterEach(cleanup);
 
 describe('QuemRegistra', () => {
-  it('ninguém escolhido: pergunta "Quem está registrando?" e entra com um toque', async () => {
+  // ⚠️ desde 23/11/2026 a senha é obrigatória: no 1º acesso a pessoa cria a dela
+  it('ninguém escolhido: pergunta "Quem está registrando?", e no 1º acesso a pessoa cria a senha', async () => {
+    const u = userEvent.setup();
     render(<QuemRegistra />);
     expect(screen.getByRole('heading', { name: 'Quem está registrando?' })).toBeTruthy();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Maria' }));
-    expect(estado.op.entrar).toHaveBeenCalledWith('Maria');
+    await u.click(screen.getByRole('button', { name: 'Maria' }));
+    expect(screen.getByRole('heading', { name: 'Crie sua senha, Maria' })).toBeTruthy();
+    for (const d of '3131') await u.click(screen.getByRole('button', { name: d }));
+    expect(estado.op.criarSenha).toHaveBeenCalledWith('Maria', '31');
   });
 
   it('com alguém escolhido: mostra quem é e deixa trocar', async () => {

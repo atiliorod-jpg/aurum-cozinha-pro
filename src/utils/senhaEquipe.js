@@ -2,24 +2,34 @@
 //  SENHA DA EQUIPE PARA IMPRIMIR ("Quem vai imprimir?", 13/10/2026)
 //
 //  Pedido do dono, no jeito da Suflex: a tela de etiquetas começa pela
-//  PESSOA. Ela toca no próprio nome, digita a senha de 4 números (se tiver)
-//  e só então busca o item. A etiqueta sai com o nome dela no RESP.
+//  PESSOA. Ela toca no próprio nome, digita a senha e só então busca o
+//  item. A etiqueta sai com o nome dela no RESP.
+//
+//  ⚠️ DESDE 23/11/2026, NO JEITO DO MAGURŌ (pedido do dono): a senha tem 2
+//  números, é OBRIGATÓRIA e cada pessoa CRIA A SUA no primeiro toque no
+//  nome (digita duas vezes). O dono não cria nem vê senha: só ZERA quando a
+//  pessoa esquece, e ela cria outra no próximo toque.
+//  As senhas de 4 números criadas pelo dono antes disso continuam valendo
+//  (o registro sem o campo `d` é de 4 números — ver digitosDe).
 //
 //  ⚠️ OS NOMES SÃO OS DA LISTA "pessoas", NÃO AS CONTAS DE ACESSO. A conta
 //  pode ser de um posto ("Produção", "Noite") e o dono cadastra na lista
-//  todo mundo que imprime. A senha é de cada NOME, e só o dono cria, troca
-//  ou tira (em Administração). Ele repassa a senha para a pessoa.
+//  todo mundo que imprime.
 //
 //  ⚠️ LIMITE HONESTO: a senha fica no documento da conta (`senhasEquipe`),
 //  codificada com sal, e todo aparelho da conta a lê — é o que deixa
 //  conferir sem internet. Isso barra o uso do nome do outro no dia a dia,
-//  mas 4 números não são senha de banco: quem entende de computador e tem
-//  acesso à conta descobriria. Não usar para nada além de "quem imprimiu".
+//  mas 2 números (100 combinações) não são senha de banco: quem entende de
+//  computador e tem acesso à conta descobriria. Não usar para nada além de
+//  "quem imprimiu".
 //
 //  Tudo aqui é puro (sem React), com teste em __tests__/senhaEquipe.test.js.
 // =====================================================================
 
-export const DIGITOS = 4;
+// Senha NOVA: 2 números. Registro com `d: 2`.
+export const DIGITOS = 2;
+// Senha ANTIGA (o dono criava até 23/11/2026): 4 números, registro sem `d`.
+export const DIGITOS_ANTIGOS = 4;
 // PBKDF2 com 100 mil voltas: ~50-150 ms num celular de cozinha, que é o
 // atraso que a pessoa nem percebe ao digitar o 4º número.
 export const ITERACOES_PADRAO = 100_000;
@@ -42,13 +52,22 @@ export const CHAVE_TRAVAS = 'pe::travaSenhaEquipe';
 const HEX_SAL = /^[0-9a-f]{32}$/;
 const HEX_HASH = /^[0-9a-f]{64}$/;
 
-export const senhaNoFormato = (pin) => typeof pin === 'string' && new RegExp(`^\\d{${DIGITOS}}$`).test(pin);
+const SO_2_NUMEROS = /^\d{2}$/;
+const SO_4_NUMEROS = /^\d{4}$/;
+export const senhaNoFormato = (pin, digitos = DIGITOS) => typeof pin === 'string'
+  && ((digitos === DIGITOS && SO_2_NUMEROS.test(pin)) || (digitos === DIGITOS_ANTIGOS && SO_4_NUMEROS.test(pin)));
+
+// Quantos números a senha DESTE registro tem. ⚠️ Sem `d` = senha antiga, de
+// 4 números: era assim que o dono criava até 23/11/2026. Registro ausente ou
+// estragado também cai em 4 — tanto faz, a conferência recusa.
+export const digitosDe = (reg) => (reg && typeof reg === 'object' && reg.d === DIGITOS ? DIGITOS : DIGITOS_ANTIGOS);
 
 export function registroValido(reg) {
   return !!reg && typeof reg === 'object' && !Array.isArray(reg)
     && typeof reg.s === 'string' && HEX_SAL.test(reg.s)
     && typeof reg.h === 'string' && HEX_HASH.test(reg.h)
-    && Number.isInteger(reg.i) && reg.i >= ITERACOES_MIN && reg.i <= ITERACOES_MAX;
+    && Number.isInteger(reg.i) && reg.i >= ITERACOES_MIN && reg.i <= ITERACOES_MAX
+    && (reg.d === undefined || reg.d === DIGITOS || reg.d === DIGITOS_ANTIGOS);
 }
 
 // ⚠️ hasOwnProperty, nunca `senhas[nome]` direto: um nome cadastrado como
@@ -90,18 +109,19 @@ export async function derivarSenha(pin, salHex, iteracoes = ITERACOES_PADRAO) {
   return paraHex(bits);
 }
 
+// Só cria senha NOVA (2 números); as de 4 só são conferidas.
 export async function gerarRegistroDeSenha(pin) {
   if (!senhaNoFormato(pin)) throw new Error(`A senha precisa ter ${DIGITOS} números.`);
   if (!criptoDisponivel()) throw new Error('Este aparelho não consegue guardar senha. Abra o app pelo endereço com https.');
   const s = novoSal();
-  return { s, h: await derivarSenha(pin, s, ITERACOES_PADRAO), i: ITERACOES_PADRAO };
+  return { s, h: await derivarSenha(pin, s, ITERACOES_PADRAO), i: ITERACOES_PADRAO, d: DIGITOS };
 }
 
 // ⚠️ FALHA FECHADA: formato errado, registro estragado, navegador sem
 // cripto ou qualquer exceção = senha errada. Nunca "deixa passar".
 export async function conferirSenha(pin, reg) {
   try {
-    if (!senhaNoFormato(pin) || !registroValido(reg) || !criptoDisponivel()) return false;
+    if (!registroValido(reg) || !senhaNoFormato(pin, digitosDe(reg)) || !criptoDisponivel()) return false;
     const h = await derivarSenha(pin, reg.s, reg.i);
     // comparação sem atalho: o tempo não denuncia quantos dígitos bateram
     let dif = h.length ^ reg.h.length;
@@ -112,7 +132,7 @@ export async function conferirSenha(pin, reg) {
   }
 }
 
-// ── O documento `senhasEquipe` = { [nome]: { s, h, i } } ────────────────
+// ── O documento `senhasEquipe` = { [nome]: { s, h, i, d? } } ─────────────
 // Sempre um objeto NOVO: o estado do React e a gravação na nuvem precisam
 // ver a mudança.
 export function comSenha(senhas, nome, registro) {

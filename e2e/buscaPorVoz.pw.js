@@ -91,7 +91,7 @@ test('Pro: o nome não expira nos lançamentos; tocar em Imprimir depois de 1 mi
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrir(page, '/entradas');
   await page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' }).fill('1');
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await expect(page.getByText('Registrando como Maria')).toBeVisible();
   await page.clock.fastForward('02:00');
   await expect(page.getByText('Registrando como Maria')).toBeVisible();
@@ -106,7 +106,7 @@ test('Pro: quem está mexendo nos lançamentos chega na tela Imprimir com o pró
   const erros = await entrarNaDemo(page, 'Aurum Cozinha Pro');
   await abrir(page, '/entradas');
   await page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' }).fill('1');
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await page.clock.fastForward('00:40');
   await page.getByLabel('Buscar produto').click();
   await page.clock.fastForward('00:40');

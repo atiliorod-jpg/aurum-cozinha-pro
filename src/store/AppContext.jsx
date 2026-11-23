@@ -4,6 +4,8 @@ import { FICHAS_BASE } from '../data/fichas';
 import { iniciarPresenca } from '../lib/presenca';
 import { gerarDemoSeed, PRODUTOS_DEMO_ETIQUETAS, PREFS_DEMO_ETIQUETAS, SENHAS_EQUIPE_DEMO, PRECOS_DEMO } from '../data/demo';
 import { comSenha, semOrfas, temSenha } from '../utils/senhaEquipe';
+import { marcarUso, completarUso, nomesParados, semUso, podarUso, DIAS_SEM_USO } from '../utils/usoEquipe';
+import { ehFalhaDeRede, temInternet } from '../utils/conexao';
 import { calcSugestoesMinMax, DIAS_MIN, DIAS_MAX } from '../utils/sugestoes';
 import { consumoComoSaidas } from '../utils/turno';
 import { conciliarAuditoria } from '../utils/auditoria';
@@ -82,6 +84,10 @@ const CAT = {
   // e da conta. NÃO é semeada: documento ausente = ninguém tem senha. Ver o
   // limite honesto em utils/senhaEquipe.js.
   senhasEquipe: {},
+  // Último uso de cada nome da equipe e os dias em que a cozinha usou o app
+  // (23/11/2026): quem fica 60 dias de uso sem entrar sai da lista. Da
+  // conta, como as senhas, e também NÃO é semeado. Ver utils/usoEquipe.js.
+  usoEquipe: {},
   prefs:      { responsavel: '', turno: 'Manhã', destino: '', guia: true },
 };
 
@@ -154,6 +160,17 @@ const MOTIVO_BAIXA_DESFEITA = {
 // cache local do navegador (apagado ao sair). Retorna o rid quando é de nuvem.
 const nuvemDe = (r) => (r && r !== 'demo' ? r : null);
 
+// Prazo para o servidor responder quando a pessoa está esperando na tela
+// (criar e zerar senha da equipe — ver salvarMesclando).
+const PRAZO_DO_SERVIDOR_MS = 15_000;
+function comPrazo(promessa, ms) {
+  let relogio;
+  return Promise.race([
+    Promise.resolve(promessa).finally(() => clearTimeout(relogio)),
+    new Promise((pronto) => { relogio = setTimeout(() => pronto(null), ms); }),
+  ]);
+}
+
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
@@ -185,6 +202,7 @@ export function AppProvider({ children }) {
   const [precos,      setPrecosRaw]      = useState(CAT.precos);
   const [estoquesDoc, setEstoquesDocRaw] = useState(CAT.estoques);
   const [senhasEquipe, setSenhasEquipeRaw] = useState(CAT.senhasEquipe);
+  const [usoEquipe, setUsoEquipeRaw] = useState(CAT.usoEquipe);
   // Unidades EXTRAS da conta (M46) — a principal é a própria conta e não entra
   // aqui. Vêm da tabela `unidades` (só a Aurum escreve), com cache para a
   // etiqueta sair certa também sem internet.
@@ -344,7 +362,7 @@ export function AppProvider({ children }) {
   // devolvia sempre { catalogo: <lista com mín/máx dentro>, metas: null }, e o
   // documento `metas` nunca era gravado — o mín/máx de um restaurante ia para a
   // chave compartilhada por tipo e sobrescrevia o do outro, em silêncio.
-  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, senhasEquipe, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria, unidades };
+  dadosRef.current = { produtos, produtosCat, metas, categorias, pessoas, senhasEquipe, usoEquipe, destinos, fichas, producoes, locais, listaManual, etiquetasAvulsas, prefs, compras, entradas, saidas, aparas, desperdicio, ajustes, auditoria, unidades };
   /* eslint-enable react-hooks/refs */
 
   // Só lê refs (estáveis) — identidade fixa para entrar nos deps dos callbacks.
@@ -514,8 +532,8 @@ export function AppProvider({ children }) {
     //    conseguia reescrever a matriz por ali.
     //  • COMPARTILHADOS → chave do módulo de CATÁLOGO (finalização lê o da produção)
     //  • resto → chave do próprio módulo
-    // `senhasEquipe` é da conta: o nome vale em todas as cozinhas.
-    const GLOBAIS = ['pessoas', 'permissoes', 'precos', 'estoques', 'senhasEquipe'];
+    // `senhasEquipe` e `usoEquipe` são da conta: o nome vale em todas as cozinhas.
+    const GLOBAIS = ['pessoas', 'permissoes', 'precos', 'estoques', 'senhasEquipe', 'usoEquipe'];
     const COMPARTILHADOS = ['produtos', 'categorias', 'fichas'];
     const chaveDe = () => (GLOBAIS.includes(chaveBase) ? chaveBase
       : COMPARTILHADOS.includes(chaveBase) ? kc(chaveBase)
@@ -531,6 +549,67 @@ export function AppProvider({ children }) {
       if (ridRef.current === r && chaveDe() === chave) setRaw(dadosSrv);
     });
   }, [salvarDocNuvem, k, kc]);
+
+  // ── Gravar MESCLANDO, com a versão do servidor (23/11/2026) ───────────
+  // Para os documentos da equipe que a cozinha inteira grava: a senha que a
+  // pessoa cria, o uso de cada nome e a saída de quem ficou parado.
+  // `mudar(doc)` devolve o documento novo, ou o MESMO se não há o que mudar.
+  // ⚠️ CONFLITO NÃO VIRA AVISO NEM SOBRESCREVE: outro aparelho gravou antes →
+  // pega o que está no servidor e aplica a mudança de novo, por cima (até 3
+  // vezes). O caminho de sempre (persistCatalogo) mostraria "Refaça sua
+  // alteração" à cozinha toda vez que dois aparelhos gravassem juntos.
+  // ⚠️ SEM INTERNET, NÃO GRAVA NADA (nem no aparelho): a fila offline sobe o
+  // documento inteiro POR CIMA do servidor (versão -1) e apagaria a senha
+  // que alguém criou no outro aparelho enquanto este estava fora.
+  // ⚠️ A base é o CACHE, não o estado: ele muda na mesma hora (aqui e no
+  // tempo real), e o estado só depois do próximo desenho da tela.
+  // ⚠️ RESPOSTA EM SEGUNDOS, NÃO EM MEIO MINUTO: com o login vencido e sem
+  // internet, o Supabase tenta renovar o login por até 30 s antes de
+  // desistir, e a pessoa ficaria olhando "Guardando a senha…". Por isso a
+  // internet é conferida antes (no próprio endereço do app), e o servidor tem
+  // PRAZO_DO_SERVIDOR_MS para responder.
+  // Devolve { ok, doc } ou { ok: false, semRede | soLeitura | erro }.
+  const salvarMesclando = useCallback(async (chave, setRaw, mudar) => {
+    if (!['pessoas', 'senhasEquipe', 'usoEquipe'].includes(chave)) {
+      throw new Error(`salvarMesclando: "${chave}" não é documento da conta`);
+    }
+    if (soLeituraRef.current) return { ok: false, soLeitura: true };
+    const r = ridRef.current;
+    if (!r) return { ok: false, erro: 'Nenhuma conta aberta.' };
+    let base = cacheGet(r, chave, dadosRef.current[chave]);
+    if (!nuvemDe(r)) { // demonstração: só no aparelho
+      const novo = mudar(base);
+      if (novo !== base) { setRaw(novo); cacheSet(r, chave, novo); }
+      return { ok: true, doc: novo };
+    }
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return { ok: false, semRede: true };
+    if (mudar(base) === base) return { ok: true, doc: base };
+    if (!(await temInternet())) return { ok: false, semRede: true };
+    for (let vez = 0; vez < 3; vez++) {
+      const novo = mudar(base);
+      if (novo === base) return { ok: true, doc: base };
+      const resposta = await comPrazo(supabase.rpc('salvar_documento', {
+        p_restaurante: r, p_chave: chave, p_dados: novo, p_versao: versoesRef.current[chave] ?? 0,
+      }), PRAZO_DO_SERVIDOR_MS);
+      if (!resposta) return { ok: false, semRede: true }; // o servidor não respondeu a tempo
+      const { data, error } = resposta;
+      // trocou de conta no meio do caminho: a resposta é da anterior
+      if (ridRef.current !== r) return { ok: false, erro: 'A conta foi trocada.' };
+      if (error) {
+        return ehFalhaDeRede(error) ? { ok: false, semRede: true } : { ok: false, erro: error.message || 'Não foi possível salvar.' };
+      }
+      if (data?.ok) {
+        versoesRef.current[chave] = data.versao;
+        setRaw(novo); cacheSet(r, chave, novo);
+        return { ok: true, doc: novo };
+      }
+      if (!data?.conflito) return { ok: false, erro: 'O servidor respondeu de um jeito inesperado.' };
+      versoesRef.current[chave] = data.versao;
+      base = data.dados;
+      setRaw(base); cacheSet(r, chave, base);
+    }
+    return { ok: false, erro: 'Outros aparelhos gravaram ao mesmo tempo. Tente de novo.' };
+  }, []);
 
   const setMetas = useCallback((v) => persistCatalogo('metas', setMetasRaw, v), [persistCatalogo]);
 
@@ -707,7 +786,9 @@ export function AppProvider({ children }) {
     if (temSenha(dadosRef.current.senhasEquipe, n)) {
       persistCatalogo('senhasEquipe', setSenhasEquipeRaw, comSenha(dadosRef.current.senhasEquipe, n, null));
     }
-  }, [persistCatalogo]);
+    // o prazo de 60 dias de uso começa no cadastro
+    salvarMesclando('usoEquipe', setUsoEquipeRaw, (doc) => marcarUso(doc, n, hoje())).catch(() => {});
+  }, [persistCatalogo, salvarMesclando]);
 
   const removePessoa = useCallback((nome) => {
     persistCatalogo('pessoas', setPessoasRaw, dadosRef.current.pessoas.filter(p => p !== nome));
@@ -715,15 +796,85 @@ export function AppProvider({ children }) {
     if (temSenha(dadosRef.current.senhasEquipe, nome)) {
       persistCatalogo('senhasEquipe', setSenhasEquipeRaw, comSenha(dadosRef.current.senhasEquipe, nome, null));
     }
-  }, [persistCatalogo]);
+    salvarMesclando('usoEquipe', setUsoEquipeRaw, (doc) => semUso(doc, nome)).catch(() => {});
+  }, [persistCatalogo, salvarMesclando]);
 
-  // Cria, troca (registro) ou tira (null) a senha de um nome da equipe. O
-  // registro já chega codificado (gerarRegistroDeSenha): a senha em si nunca
-  // passa por aqui nem vai para a nuvem.
-  const definirSenhaDaPessoa = useCallback((nome, registro) => {
-    if (!dadosRef.current.pessoas.includes(nome)) return;
-    persistCatalogo('senhasEquipe', setSenhasEquipeRaw, comSenha(dadosRef.current.senhasEquipe, nome, registro || null));
-  }, [persistCatalogo]);
+  // ── A senha de cada nome (no jeito do Magurō, 23/11/2026) ─────────────
+  // A PRÓPRIA PESSOA cria a senha, no primeiro toque no nome. O registro já
+  // chega codificado (gerarRegistroDeSenha): a senha em si nunca passa por
+  // aqui nem vai para a nuvem.
+  // ⚠️ PRECISA DE INTERNET (salvarMesclando): a senha só vale depois que o
+  // servidor guardou. E se outro aparelho criou a senha deste nome primeiro,
+  // fica a dele — a pessoa digita a que já existe.
+  // Devolve { ok } ou { ok: false, temSenha | semRede | soLeitura | erro }.
+  const criarSenhaDaPessoa = useCallback(async (nome, registro) => {
+    if (!registro || !dadosRef.current.pessoas.includes(nome)) return { ok: false, erro: 'Este nome não está mais na equipe.' };
+    let jaTinha = false;
+    const r = await salvarMesclando('senhasEquipe', setSenhasEquipeRaw, (doc) => {
+      jaTinha = temSenha(doc, nome);
+      return jaTinha ? doc : comSenha(doc, nome, registro);
+    });
+    return r.ok && jaTinha ? { ok: false, temSenha: true } : r;
+  }, [salvarMesclando]);
+
+  // Esqueceu a senha: quem administra ZERA, e a pessoa cria outra no próximo
+  // toque no nome. Ninguém vê nem escolhe a senha do outro.
+  const zerarSenhaDaPessoa = useCallback(async (nome) => {
+    const r = await salvarMesclando('senhasEquipe', setSenhasEquipeRaw,
+      (doc) => (temSenha(doc, nome) ? comSenha(doc, nome, null) : doc));
+    if (r.ok) logAudit('zerou a senha da equipe', nome);
+    return r;
+  }, [salvarMesclando, logAudit]);
+
+  // A pessoa entrou (senha certa, ou senha criada): guarda o dia, uma vez por
+  // dia. Sem internet, não grava — tenta de novo na próxima entrada.
+  const marcarUsoDaPessoa = useCallback((nome) => {
+    const dia = hoje();
+    const atual = cacheGet(ridRef.current, 'usoEquipe', dadosRef.current.usoEquipe);
+    if (marcarUso(atual, nome, dia) === atual) return;
+    salvarMesclando('usoEquipe', setUsoEquipeRaw, (doc) => marcarUso(doc, nome, dia)).catch(() => {});
+  }, [salvarMesclando]);
+
+  // ── Nome parado 60 dias de uso sai da equipe (23/11/2026) ─────────────
+  // Roda depois que a nuvem respondeu, e de novo a cada 6 horas (o tablet
+  // fica aberto dias). Nunca na demonstração nem no modo suporte. Cada passo
+  // grava mesclando com o servidor, então dois aparelhos fazendo isso juntos
+  // chegam ao mesmo resultado. A regra está em utils/usoEquipe.js.
+  const podaDaEquipeRef = useRef({ rid: '', em: 0 });
+  useEffect(() => {
+    if (!nuvemCarregada || !nuvemDe(rid) || soLeitura) return undefined;
+    let vivo = true;
+    const SEIS_HORAS = 6 * 60 * 60 * 1000;
+    const podar = async () => {
+      const agora = Date.now();
+      if (podaDaEquipeRef.current.rid === rid && agora - podaDaEquipeRef.current.em < SEIS_HORAS) return;
+      podaDaEquipeRef.current = { rid, em: agora };
+      const pessoas = dadosRef.current.pessoas || [];
+      if (!pessoas.length) return;
+      // 1) quem ainda não tem data ganha a de hoje: o prazo começa agora
+      const r1 = await salvarMesclando('usoEquipe', setUsoEquipeRaw, (doc) => completarUso(doc, pessoas, hoje()));
+      if (!vivo || !r1.ok) return;
+      const parados = new Set(nomesParados(r1.doc, pessoas));
+      if (!parados.size) return;
+      // 2) sai da equipe; 3) a senha e a data saem junto
+      const r2 = await salvarMesclando('pessoas', setPessoasRaw, (lista) => {
+        const atual = Array.isArray(lista) ? lista : [];
+        const ficam = atual.filter(n => !parados.has(n));
+        return ficam.length === atual.length ? lista : ficam;
+      });
+      if (!vivo || !r2.ok) return;
+      const ficam = Array.isArray(r2.doc) ? r2.doc : [];
+      await salvarMesclando('senhasEquipe', setSenhasEquipeRaw,
+        (doc) => (doc && typeof doc === 'object' ? semOrfas(doc, ficam) : doc));
+      await salvarMesclando('usoEquipe', setUsoEquipeRaw, (doc) => podarUso(doc, ficam));
+      for (const nome of parados) {
+        if (!ficam.includes(nome)) logAudit(`tirou da equipe (${DIAS_SEM_USO} dias de uso sem entrar)`, nome);
+      }
+    };
+    podar().catch(() => {});
+    const t = setInterval(() => { podar().catch(() => {}); }, 30 * 60 * 1000);
+    return () => { vivo = false; clearInterval(t); };
+  }, [nuvemCarregada, rid, soLeitura, salvarMesclando, logAudit]);
 
   // ── Registros operacionais (tabela 'registros') ────────────
   // ⚠️ A CÓPIA BRUTA ACOMPANHA (28/09/2026, achado da análise): Relatório,
@@ -1252,6 +1403,7 @@ export function AppProvider({ children }) {
       setPessoasRaw(CAT.pessoas); setDestinosRaw(CAT.destinos);
       setFichasRaw(CAT.fichas); setProducoesRaw(CAT.producoes); setLocaisRaw(CAT.locais); setListaManualRaw(CAT.listaManual); setEtiquetasAvulsasRaw(CAT.etiquetasAvulsas); setEtiquetasImpressasRaw(CAT.etiquetasImpressas); setPrefsRaw(CAT.prefs);
       setSenhasEquipeRaw(CAT.senhasEquipe);
+      setUsoEquipeRaw(CAT.usoEquipe);
       setComprasRaw([]); setEntradasRaw([]); setSaidasRaw([]);
       setAparasRaw([]); setDesperdicioRaw([]); setAjustesRaw([]); setAuditoriaRaw([]); setRecebimentosRaw([]);
       return;
@@ -1292,8 +1444,9 @@ export function AppProvider({ children }) {
       setMetasRaw(cacheGet(rid, k('metas'), {}));   // mín/máx desta instância
       setCategoriasRaw(cacheGet(rid, kc('categorias'), c.categorias));
       setPessoasRaw(cacheGet(rid, 'pessoas', c.pessoas)); // equipe é da conta
-      // Maria sem senha, João com 1234 (ver SENHAS_EQUIPE_DEMO)
+      // João com a senha 12; Maria cria a dela no 1º toque (ver SENHAS_EQUIPE_DEMO)
       setSenhasEquipeRaw(cacheGet(rid, 'senhasEquipe', SENHAS_EQUIPE_DEMO));
+      setUsoEquipeRaw(cacheGet(rid, 'usoEquipe', {}));
       setDestinosRaw(cacheGet(rid, k('destinos'), c.destinos));
       setFichasRaw(cacheGet(rid, kc('fichas'), c.fichas));
       setProducoesRaw(cacheGet(rid, k('producoes'), c.producoes));
@@ -1410,6 +1563,7 @@ export function AppProvider({ children }) {
     // ⚠️ DO CACHE TAMBÉM SEM INTERNET: é o que deixa a senha conferir com o
     // Wi-Fi fora. Sem cache, ninguém tem senha até a nuvem responder.
     setSenhasEquipeRaw(cacheGet(rid, 'senhasEquipe', {}));
+    setUsoEquipeRaw(cacheGet(rid, 'usoEquipe', {}));
     // prefs = restaurante (nuvem) + aparelho (local), mescladas. NÃO é por
     // módulo: etiqueta, estabelecimento e responsável valem para a conta toda.
     setPrefsRaw({ ...cacheGet(rid, 'prefs', P.prefs), ...cacheGet(rid, '_prefs_device', {}) });
@@ -1624,6 +1778,10 @@ export function AppProvider({ children }) {
         if (!docsPendentes.has('senhasEquipe')) {
           const vindas = mapa['senhasEquipe'] && typeof mapa['senhasEquipe'] === 'object' ? mapa['senhasEquipe'] : {};
           setSenhasEquipeRaw(vindas); cacheSet(rid, 'senhasEquipe', vindas);
+        }
+        if (!docsPendentes.has('usoEquipe')) {
+          const uso = mapa['usoEquipe'] && typeof mapa['usoEquipe'] === 'object' ? mapa['usoEquipe'] : {};
+          setUsoEquipeRaw(uso); cacheSet(rid, 'usoEquipe', uso);
         }
         if (mapa['permissoes'] !== undefined) {
           setPermissoesRaw(mapa['permissoes']); cacheSet(rid, 'permissoes', mapa['permissoes']);
@@ -1878,7 +2036,8 @@ export function AppProvider({ children }) {
       permissoes: setPermissoesRaw, // matriz da equipe: do restaurante, sem namespace
       precos: setPrecosRaw,          // tabela de custos: idem, e só chega a quem pode
       estoques: setEstoquesDocRaw,   // registro dos estoques da conta
-      senhasEquipe: setSenhasEquipeRaw, // senha de cada nome: o dono trocou em outro aparelho
+      senhasEquipe: setSenhasEquipeRaw, // senha de cada nome: criada ou zerada em outro aparelho
+      usoEquipe: setUsoEquipeRaw,       // último uso de cada nome (a regra dos 60 dias)
     };
     const reparoDoc = { [k('locais')]: (d) => mesclarFixos(d, LOC) };
     // ⚠️ ETIQUETAS EM LINHAS (M49): chega SÓ a linha nova ou alterada — antes
@@ -2090,6 +2249,7 @@ export function AppProvider({ children }) {
     if (dados.pessoas) {
       const podadas = semOrfas(dadosRef.current.senhasEquipe, dados.pessoas);
       if (podadas !== dadosRef.current.senhasEquipe) persistCatalogo('senhasEquipe', setSenhasEquipeRaw, podadas);
+      salvarMesclando('usoEquipe', setUsoEquipeRaw, (doc) => podarUso(doc, dados.pessoas)).catch(() => {});
     }
     cat('destinos', setDestinosRaw, dados.destinos);
     cat('fichas', setFichasRaw, dados.fichas);
@@ -2144,7 +2304,7 @@ export function AppProvider({ children }) {
     // de linhas já existentes falharia e entupiria o outbox em retries eternos.
     reg('auditoria', setAuditoriaRaw, 'auditoria', dados.auditoria, false);
     logAudit('restaurou backup', `${(dados.entradas || []).length + (dados.saidas || []).length + (dados.compras || []).length} registros`);
-  }, [persistCatalogo, logAudit, setPrefs]);
+  }, [persistCatalogo, salvarMesclando, logAudit, setPrefs]);
 
   // ⚠️ MEMOIZADO, e isto não é micro-otimização — era um desperdício medido.
   // A ordem dos providers é UIProvider > AuthProvider > AppProvider, e o
@@ -2167,7 +2327,7 @@ export function AppProvider({ children }) {
       desperdicio, addDesperdicio, removeDesperdicio,
       ajustes, addAjuste, removeAjuste,
       pessoas, addPessoa, removePessoa,
-      senhasEquipe, definirSenhaDaPessoa,
+      senhasEquipe, usoEquipe, criarSenhaDaPessoa, zerarSenhaDaPessoa, marcarUsoDaPessoa,
       fichas, setFichas,
       producoes, setProducoes,
       locais, setLocais, destinosDeSaida,
@@ -2203,7 +2363,7 @@ export function AppProvider({ children }) {
     produtos, setProdutos, compras, addCompra, removeCompra, entradas,
     addEntrada, removeEntrada, saidas, addSaida, removeSaida, aparas,
     addApara, removeApara, desperdicio, addDesperdicio, removeDesperdicio, ajustes,
-    addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, senhasEquipe, definirSenhaDaPessoa, fichas,
+    addAjuste, removeAjuste, pessoas, addPessoa, removePessoa, senhasEquipe, usoEquipe, criarSenhaDaPessoa, zerarSenhaDaPessoa, marcarUsoDaPessoa, fichas,
     setFichas, producoes, setProducoes, locais, setLocais, destinosDeSaida, listaManual,
     setListaManual, etiquetasAvulsas, setEtiquetasAvulsas, etiquetasImpressas, adicionarEtiquetas, mudarStatusEtiqueta, tirarEtiquetaDaLista, etiquetaAindaSubindo, nuvemCarregada, permissoes,
     baixarEtiqueta, desfazerBaixa, buscarEtiqueta,

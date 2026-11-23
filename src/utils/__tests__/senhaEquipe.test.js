@@ -1,16 +1,18 @@
 // =====================================================================
 //  SENHA DA EQUIPE PARA IMPRIMIR ("Quem vai imprimir?", 13/10/2026)
 //
-//  A pessoa toca no nome, digita a senha de 4 números (se tiver) e a
-//  etiqueta sai assinada por ela. Aqui: a codificação, a trava de erros, os
-//  1 minuto sem uso, quem assina cada janela e as travas no código (a
-//  senha não sai na cópia de segurança, o operador não fica no aparelho).
+//  A pessoa toca no nome, digita a senha (ou cria a sua, no 1º acesso) e a
+//  etiqueta sai assinada por ela. Aqui: a codificação (2 números desde
+//  23/11/2026; as antigas, de 4, continuam valendo), a trava de erros, o
+//  minuto sem uso, quem assina cada janela e as travas no código (a senha
+//  não sai na cópia de segurança, o operador não fica no aparelho, ninguém
+//  cria a senha do outro).
 // =====================================================================
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  DIGITOS, ITERACOES_PADRAO, ITERACOES_MIN, ITERACOES_MAX, ERROS_ATE_ESPERAR, ESPERA_MS, OCIOSO_MS, CHAVE_TRAVAS,
+  DIGITOS, DIGITOS_ANTIGOS, digitosDe, novoSal, ITERACOES_PADRAO, ITERACOES_MIN, ITERACOES_MAX, ERROS_ATE_ESPERAR, ESPERA_MS, OCIOSO_MS, CHAVE_TRAVAS,
   senhaNoFormato, registroValido, registroDe, temSenha, gerarRegistroDeSenha, conferirSenha, derivarSenha,
   comSenha, semOrfas, estadoDaTrava, aposErro, expirou, assinaturaDaJanela,
 } from '../senhaEquipe';
@@ -20,50 +22,74 @@ const ler = (caminho) => readFileSync(new URL(caminho, import.meta.url), 'utf8')
 // o código sem os comentários (os comentários explicam justamente o que NÃO fazer)
 const semComentarios = (s) => s.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-describe('a senha: 4 números, codificada com sal', () => {
-  it('formato: exatamente 4 números', () => {
-    expect(DIGITOS).toBe(4);
-    expect(senhaNoFormato('0412')).toBe(true);
-    for (const ruim of ['123', '12345', '12a4', ' 1234', '', null, 1234]) expect(senhaNoFormato(ruim)).toBe(false);
+describe('a senha: 2 números, codificada com sal (as antigas, de 4, continuam)', () => {
+  it('formato: senha nova tem exatamente 2 números', () => {
+    expect(DIGITOS).toBe(2);
+    expect(DIGITOS_ANTIGOS).toBe(4);
+    expect(senhaNoFormato('04')).toBe(true);
+    for (const ruim of ['1', '123', '1234', '1a', ' 12', '', null, 12]) expect(senhaNoFormato(ruim)).toBe(false);
+    // a de 4 só no formato antigo
+    expect(senhaNoFormato('0412', DIGITOS_ANTIGOS)).toBe(true);
+    expect(senhaNoFormato('04', DIGITOS_ANTIGOS)).toBe(false);
+    expect(senhaNoFormato('041', 3)).toBe(false);
   });
 
-  it('gera um registro que confere com a senha certa e recusa a errada', async () => {
-    const reg = await gerarRegistroDeSenha('2507');
+  it('gera um registro de 2 números que confere com a senha certa e recusa a errada', async () => {
+    const reg = await gerarRegistroDeSenha('25');
     expect(registroValido(reg)).toBe(true);
     expect(reg.i).toBe(ITERACOES_PADRAO);
-    // a senha em si não fica no registro
-    expect(JSON.stringify(reg)).not.toContain('2507');
-    expect(await conferirSenha('2507', reg)).toBe(true);
-    expect(await conferirSenha('2508', reg)).toBe(false);
+    expect(reg.d).toBe(2);
+    expect(digitosDe(reg)).toBe(2);
+    // a senha em si não fica no registro: só sal, hash, voltas e quantos números
+    expect(Object.keys(reg).sort()).toEqual(['d', 'h', 'i', 's']);
+    expect(Object.values(reg)).not.toContain('25');
+    expect(await conferirSenha('25', reg)).toBe(true);
+    expect(await conferirSenha('26', reg)).toBe(false);
+    expect(await conferirSenha('2500', reg)).toBe(false);
   });
 
   it('o mesmo número dá registros diferentes (sal novo a cada vez)', async () => {
-    const a = await gerarRegistroDeSenha('1111');
-    const b = await gerarRegistroDeSenha('1111');
+    const a = await gerarRegistroDeSenha('11');
+    const b = await gerarRegistroDeSenha('11');
     expect(a.s).not.toBe(b.s);
     expect(a.h).not.toBe(b.h);
   });
 
-  it('recusa criar senha fora do formato', async () => {
-    await expect(gerarRegistroDeSenha('12')).rejects.toThrow(/4 números/);
+  it('só cria senha nova de 2 números', async () => {
+    await expect(gerarRegistroDeSenha('1234')).rejects.toThrow(/2 números/);
+    await expect(gerarRegistroDeSenha('1')).rejects.toThrow(/2 números/);
+  });
+
+  it('a senha ANTIGA de 4 números (registro sem `d`) continua entrando', async () => {
+    const s = novoSal();
+    const antiga = { s, h: await derivarSenha('0512', s, ITERACOES_PADRAO), i: ITERACOES_PADRAO };
+    expect(registroValido(antiga)).toBe(true);
+    expect(digitosDe(antiga)).toBe(4);
+    expect(await conferirSenha('0512', antiga)).toBe(true);
+    expect(await conferirSenha('05', antiga)).toBe(false);
+    expect(await conferirSenha('0513', antiga)).toBe(false);
   });
 
   it('falha FECHADA: registro estragado, formato ruim ou voltas fora do limite = errado', async () => {
-    const reg = await gerarRegistroDeSenha('4321');
-    expect(await conferirSenha('4321', { ...reg, h: 'x' })).toBe(false);
-    expect(await conferirSenha('4321', { ...reg, i: ITERACOES_MIN - 1 })).toBe(false);
-    expect(await conferirSenha('4321', { ...reg, i: ITERACOES_MAX + 1 })).toBe(false);
-    expect(await conferirSenha('4321', null)).toBe(false);
-    expect(await conferirSenha('432', reg)).toBe(false);
+    const reg = await gerarRegistroDeSenha('43');
+    expect(await conferirSenha('43', { ...reg, h: 'x' })).toBe(false);
+    expect(await conferirSenha('43', { ...reg, i: ITERACOES_MIN - 1 })).toBe(false);
+    expect(await conferirSenha('43', { ...reg, i: ITERACOES_MAX + 1 })).toBe(false);
+    expect(await conferirSenha('43', { ...reg, d: 3 })).toBe(false);
+    expect(await conferirSenha('43', null)).toBe(false);
+    expect(await conferirSenha('4', reg)).toBe(false);
+    // tirar o `d` não transforma a senha de 2 em senha de 4 que confira
+    expect(await conferirSenha('4300', { s: reg.s, h: reg.h, i: reg.i })).toBe(false);
   });
 
-  it('a senha da demonstração (João, 1234) confere — e o hash fixo bate com o cálculo', async () => {
+  it('a senha da demonstração (João, 12) confere — e o hash fixo bate com o cálculo', async () => {
     const reg = SENHAS_EQUIPE_DEMO[DEMO_COM_SENHA.nome];
-    expect(DEMO_COM_SENHA).toEqual({ nome: 'João', senha: '1234' });
-    expect(await derivarSenha('1234', reg.s, reg.i)).toBe(reg.h);
-    expect(await conferirSenha('1234', reg)).toBe(true);
-    expect(await conferirSenha('4321', reg)).toBe(false);
-    // Maria entra sem senha
+    expect(DEMO_COM_SENHA).toEqual({ nome: 'João', senha: '12' });
+    expect(reg.d).toBe(2);
+    expect(await derivarSenha('12', reg.s, reg.i)).toBe(reg.h);
+    expect(await conferirSenha('12', reg)).toBe(true);
+    expect(await conferirSenha('21', reg)).toBe(false);
+    // Maria ainda não tem: aparece como "1º acesso" e cria a dela
     expect(temSenha(SENHAS_EQUIPE_DEMO, 'Maria')).toBe(false);
   });
 });
@@ -177,7 +203,7 @@ describe('travas no código', () => {
   const op = semComentarios(ler('../../store/OperadorContext.jsx'));
 
   it('senhasEquipe é documento da CONTA (vale em todas as cozinhas)', () => {
-    expect(app).toMatch(/const GLOBAIS = \['pessoas', 'permissoes', 'precos', 'estoques', 'senhasEquipe'\];/);
+    expect(app).toMatch(/const GLOBAIS = \['pessoas', 'permissoes', 'precos', 'estoques', 'senhasEquipe', 'usoEquipe'\];/);
     expect(app).toMatch(/senhasEquipe: setSenhasEquipeRaw/);
     expect(app).toMatch(/setSenhasEquipeRaw\(cacheGet\(rid, 'senhasEquipe', \{\}\)\)/);
   });
@@ -190,7 +216,7 @@ describe('travas no código', () => {
 
   it('remover a pessoa apaga a senha; nome que volta não herda senha antiga', () => {
     const add = app.slice(app.indexOf('const addPessoa'), app.indexOf('const removePessoa'));
-    const rem = app.slice(app.indexOf('const removePessoa'), app.indexOf('const definirSenhaDaPessoa'));
+    const rem = app.slice(app.indexOf('const removePessoa'), app.indexOf('const criarSenhaDaPessoa'));
     expect(add).toMatch(/comSenha\(dadosRef\.current\.senhasEquipe, n, null\)/);
     expect(rem).toMatch(/comSenha\(dadosRef\.current\.senhasEquipe, nome, null\)/);
   });
@@ -218,9 +244,38 @@ describe('travas no código', () => {
     expect(ler('../../pages/Historico.jsx')).toMatch(/assinaturaOriginal: true,/);
   });
 
-  it('só a conta dona mexe nas senhas, e o campo não recebe a senha guardada da conta', () => {
+  it('ninguém cria a senha do outro: a conta dona só ZERA (desde 23/11/2026)', () => {
     const c = semComentarios(ler('../../components/config/CartaoEquipe.jsx'));
     expect(c).toMatch(/const ehDono = temPermissao\('diretoria'\);/);
-    expect(c.match(/autoComplete="new-password"/g)).toHaveLength(2);
+    expect(c).toMatch(/\{ehDono && com && \(/);
+    expect(c).toMatch(/zerarSenhaDaPessoa\(p\)/);
+    // nenhum campo de senha no cartão: o dono não digita senha de ninguém
+    expect(c).not.toMatch(/type="password"/);
+    expect(app).not.toMatch(/definirSenhaDaPessoa/);
+  });
+
+  it('senha OBRIGATÓRIA: não existe mais entrar só com o toque no nome', () => {
+    expect(op).not.toMatch(/const entrar = /);
+    expect(op).toMatch(/const criarSenha = useCallback/);
+    const tela = semComentarios(ler('../../components/QuemImprime.jsx'));
+    expect(tela).not.toMatch(/entrar\(/);
+  });
+
+  it('criar e zerar senha só com o servidor: sem internet não grava nem entra na fila', () => {
+    const corpo = app.slice(app.indexOf('const salvarMesclando'), app.indexOf('const setMetas'));
+    expect(corpo).toMatch(/navigator\.onLine === false\) return \{ ok: false, semRede: true \}/);
+    expect(corpo).not.toMatch(/outboxAdd/);
+    // conflito com outro aparelho: aplica de novo por cima do que está no servidor
+    expect(corpo).toMatch(/base = data\.dados;/);
+    const criar = app.slice(app.indexOf('const criarSenhaDaPessoa'), app.indexOf('const zerarSenhaDaPessoa'));
+    expect(criar).toMatch(/salvarMesclando\('senhasEquipe'/);
+    expect(criar).toMatch(/jaTinha = temSenha\(doc, nome\);/);
+  });
+
+  it('a pessoa só entra depois que o servidor guardou a senha criada', () => {
+    const criar = op.slice(op.indexOf('const criarSenha = useCallback'), op.indexOf('const tentarSenha'));
+    expect(criar.indexOf('await criarSenhaDaPessoa(nome, registro)')).toBeGreaterThan(-1);
+    expect(criar.indexOf('await criarSenhaDaPessoa(nome, registro)')).toBeLessThan(criar.indexOf('setEstado({ dono, nome })'));
+    expect(criar).toMatch(/if \(!r\.ok\) return r;/);
   });
 });

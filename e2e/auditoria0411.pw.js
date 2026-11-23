@@ -53,7 +53,7 @@ test('Etiquetas: o nome expira com "Saiu no papel?" aberto e a próxima pessoa n
   await expect(page.getByRole('heading', { name: 'Quem vai imprimir?' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: /^Continuar imprimindo/ })).toHaveCount(0);
   // a próxima pessoa entra e continua lá depois de 5 s (antes: era tirada)
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await page.clock.fastForward('00:08');
   await expect(page.getByText('Imprimindo como Maria')).toBeVisible();
   await expect(page.getByRole('dialog', { name: /^Continuar imprimindo/ })).toHaveCount(0);

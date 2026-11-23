@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo } from './apoio';
+import { continuarImprimindo, entrarComo, trocarDeTela } from './apoio';
 
 // =====================================================================
 //  BAIXA PELA ETIQUETA (M59, 30/09/2026) — o caminho inteiro, na
@@ -32,8 +32,7 @@ async function entrarNoPro(page) {
 
 // a sessão da demonstração vive na memória: navega pelo histórico, sem recarregar
 async function abrir(page, rota) {
-  await page.evaluate((r) => { window.history.pushState({}, '', r); window.dispatchEvent(new PopStateEvent('popstate')); }, rota);
-  await expect(page.locator('main')).not.toBeEmpty({ timeout: 15_000 });
+  await trocarDeTela(page, rota);
 }
 
 async function codigosNaValidade(page) {
@@ -58,8 +57,8 @@ test('Cozinha Pro: etiqueta com QR, saída pelo código, desfazer e sem baixa du
 
   // 1) imprime 2 etiquetas do mesmo item, com medida (a saída sabe quanto sai)
   await abrir(page, '/etiquetas');
-  // a tela começa por "Quem vai imprimir?" (Maria entra sem senha na demo)
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  // a tela começa por "Quem vai imprimir?" (Maria cria a senha no 1º acesso)
+  await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: 'Imprimir etiqueta de Filé de Frango (porção)' }).click();
   const janela = page.getByRole('dialog');
   await janela.getByLabel(/Medida/).first().fill('1 kg');

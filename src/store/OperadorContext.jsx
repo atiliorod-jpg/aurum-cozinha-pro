@@ -2,17 +2,21 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, us
 import { useApp } from './AppContext';
 import { useAuth } from './AuthContext';
 import {
-  temSenha as temSenhaNo, registroDe, conferirSenha, criptoDisponivel,
-  estadoDaTrava, aposErro, expirou, CHAVE_TRAVAS,
+  temSenha as temSenhaNo, registroDe, conferirSenha, criptoDisponivel, gerarRegistroDeSenha,
+  digitosDe, DIGITOS, estadoDaTrava, aposErro, expirou, CHAVE_TRAVAS,
 } from '../utils/senhaEquipe';
 
 // =====================================================================
 //  QUEM ESTÁ IMPRIMINDO AGORA ("Quem vai imprimir?", 13/10/2026)
 //
-//  A pessoa entra pelo nome (e a senha, se tiver) e as etiquetas saem
-//  assinadas por ela até: 1 minuto sem tocar em nada NA TELA IMPRIMIR,
-//  "Trocar", reabrir o app ou sair da conta. Nos lançamentos do Pro o nome
-//  não expira (decisão do dono, 04/11/2026).
+//  A pessoa entra pelo nome e a senha, e as etiquetas saem assinadas por
+//  ela até: 1 minuto sem tocar em nada NA TELA IMPRIMIR, "Trocar", reabrir
+//  o app ou sair da conta. Nos lançamentos do Pro o nome não expira
+//  (decisão do dono, 04/11/2026).
+//
+//  ⚠️ SENHA OBRIGATÓRIA DESDE 23/11/2026 (no jeito do Magurō): não existe
+//  mais entrar só com o toque no nome. Quem ainda não tem senha CRIA a sua
+//  (criarSenha) e já entra; os outros digitam (tentarSenha).
 //
 //  ⚠️ SÓ NA MEMÓRIA. Nunca em `prefs` nem em `_prefs_device`: guardado no
 //  aparelho, o nome sobreviveria a fechar o app e o próximo a pegar o
@@ -48,7 +52,7 @@ function gravarTrava(chave, trava) {
 }
 
 export function OperadorProvider({ children }) {
-  const { pessoas, senhasEquipe, rid } = useApp();
+  const { pessoas, senhasEquipe, rid, criarSenhaDaPessoa, marcarUsoDaPessoa } = useApp();
   const { sessao } = useAuth() || {};
   // ⚠️ O operador vale para ESTA conta e ESTE usuário. Trocou de conta (ou
   // saiu e entrou outro), o nome não passa para o lado de lá — sem efeito
@@ -124,17 +128,32 @@ export function OperadorProvider({ children }) {
   }, [expirar]);
 
   const temSenha = useCallback((nome) => temSenhaNo(senhasEquipe, nome), [senhasEquipe]);
+  // quantos números o teclado espera: 2, ou 4 na senha antiga criada pelo dono
+  const digitosDaSenha = useCallback((nome) => (temSenhaNo(senhasEquipe, nome)
+    ? digitosDe(registroDe(senhasEquipe, nome)) : DIGITOS), [senhasEquipe]);
 
   const chaveTrava = useCallback((nome) => `${rid || ''}::${nome}`, [rid]);
   const travaDe = useCallback((nome, agora = Date.now()) => estadoDaTrava(lerTravas()[chaveTrava(nome)], agora), [chaveTrava]);
 
-  // Sem senha: o toque no nome basta. COM senha, recusa — só tentarSenha entra.
-  const entrar = useCallback((nome) => {
-    if (!dono || !(pessoas || []).includes(nome) || temSenhaNo(senhasEquipe, nome)) return false;
+  // Primeiro acesso: a pessoa cria a senha (já digitada duas vezes na tela)
+  // e entra. ⚠️ Só entra depois que o SERVIDOR guardou a senha — ver
+  // criarSenhaDaPessoa. Devolve { ok } ou { ok: false, temSenha | semRede |
+  // semCripto | soLeitura | erro }.
+  const criarSenha = useCallback(async (nome, pin) => {
+    if (!dono || !(pessoas || []).includes(nome)) return { ok: false, erro: 'Este nome não está mais na equipe.' };
+    if (temSenhaNo(senhasEquipe, nome)) return { ok: false, temSenha: true };
+    if (!criptoDisponivel()) return { ok: false, semCripto: true };
+    let registro;
+    try { registro = await gerarRegistroDeSenha(pin); }
+    catch (e) { return { ok: false, erro: e?.message || 'Não foi possível criar a senha.' }; }
+    const r = await criarSenhaDaPessoa(nome, registro);
+    if (!r.ok) return r;
+    gravarTrava(chaveTrava(nome), null);
     ultimoUsoRef.current = Date.now();
     setEstado({ dono, nome });
-    return true;
-  }, [dono, pessoas, senhasEquipe]);
+    marcarUsoDaPessoa(nome);
+    return { ok: true };
+  }, [dono, pessoas, senhasEquipe, chaveTrava, criarSenhaDaPessoa, marcarUsoDaPessoa]);
 
   const tentarSenha = useCallback(async (nome, pin) => {
     if (!dono || !(pessoas || []).includes(nome)) return { ok: false, travado: false, restam: 0 };
@@ -150,17 +169,18 @@ export function OperadorProvider({ children }) {
       gravarTrava(chave, null);
       ultimoUsoRef.current = Date.now();
       setEstado({ dono, nome });
+      marcarUsoDaPessoa(nome); // a regra dos 60 dias (utils/usoEquipe.js)
       return { ok: true };
     }
     const fim = Date.now();
     const nova = aposErro(lerTravas()[chave], fim);
     gravarTrava(chave, nova);
     return { ok: false, em: fim, ...estadoDaTrava(nova, fim) };
-  }, [dono, pessoas, senhasEquipe, chaveTrava]);
+  }, [dono, pessoas, senhasEquipe, chaveTrava, marcarUsoDaPessoa]);
 
   const valor = useMemo(() => ({
-    operador, comEquipe, temSenha, entrar, tentarSenha, trocar: sair, travaDe, expiracoes, abrirTelaDeImprimir,
-  }), [operador, comEquipe, temSenha, entrar, tentarSenha, sair, travaDe, expiracoes, abrirTelaDeImprimir]);
+    operador, comEquipe, temSenha, digitosDaSenha, criarSenha, tentarSenha, trocar: sair, travaDe, expiracoes, abrirTelaDeImprimir,
+  }), [operador, comEquipe, temSenha, digitosDaSenha, criarSenha, tentarSenha, sair, travaDe, expiracoes, abrirTelaDeImprimir]);
 
   return <OperadorContext.Provider value={valor}>{children}</OperadorContext.Provider>;
 }

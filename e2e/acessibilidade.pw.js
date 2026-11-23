@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { entrarNaDemo, abrir, entrarComo, medirAcessibilidade } from './apoio';
+import { entrarNaDemo, abrir, entrarComo, medirAcessibilidade, passarPelaSenha } from './apoio';
 
 // =====================================================================
 //  TOQUE, CONTRASTE E TAMANHO DE LETRA — EM TODAS AS TELAS (Lote 0, 14/10)
@@ -37,7 +37,10 @@ test('plano Etiquetas: telas e janelas', async ({ page }) => {
   await page.getByRole('button', { name: /^João/ }).click();
   r['teclado da senha'] = await medirAcessibilidade(page);
   await page.getByRole('button', { name: 'Voltar aos nomes' }).click();
-  await entrarComo(page, 'Maria');
+  // 1º acesso: o teclado de criar a senha
+  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  r['criar a senha'] = await medirAcessibilidade(page);
+  await passarPelaSenha(page, 'Maria');
   await percorrer(page, ['/', '/itens', '/impressas', '/relatorio-etiquetas', '/pagamento', '/novidades',
     '/administracao', '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe', '/administracao/conta'], r, 'etiquetas');
   // a ficha do item (Lote 4): no plano Etiquetas, só a parte da etiqueta
@@ -86,7 +89,7 @@ test('plano Pro, Produção: telas e janelas', async ({ page }) => {
   await page.getByRole('button', { name: /^João/ }).click();
   r['teclado da senha no formulário'] = await medirAcessibilidade(page);
   await page.getByRole('button', { name: 'Voltar aos nomes' }).click();
-  await page.getByRole('button', { name: 'Maria', exact: true }).click();
+  await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
   r['janela de imprimir depois da entrada'] = await medirAcessibilidade(page, ['[role=dialog]']);
   await page.keyboard.press('Escape');
