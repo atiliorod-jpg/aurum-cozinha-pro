@@ -7,7 +7,7 @@
 --    Use este schema só para entender a estrutura ou semear um banco novo
 --    DO ZERO (e, mesmo aí, rode as migrations 4–11 em seguida).
 -- ============================================================
--- Polo Estoque — Schema Supabase (multi-tenant / multi-restaurante)
+-- Aurum Cozinha Pro — Schema Supabase (multi-tenant / multi-restaurante)
 -- Modelo: cada restaurante é isolado por Row Level Security (RLS).
 -- ============================================================
 

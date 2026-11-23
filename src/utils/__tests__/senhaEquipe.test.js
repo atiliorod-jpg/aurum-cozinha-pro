@@ -127,7 +127,8 @@ describe('o documento senhasEquipe', () => {
   });
 });
 
-describe('5 erros → espera 1 minuto (por aparelho)', () => {
+// era 1 minuto; o dono pediu 15 segundos em 23/11/2026, como no Magurō
+describe('5 erros → espera 15 segundos (por aparelho)', () => {
   it('conta os erros e trava no quinto', () => {
     let t = null;
     const agora = 1_000_000;
@@ -151,7 +152,7 @@ describe('5 erros → espera 1 minuto (por aparelho)', () => {
   it('a trava fica fora do pe::<rid>:: — sair da conta não zera os erros', () => {
     expect(CHAVE_TRAVAS.startsWith('pe::')).toBe(true);
     expect(CHAVE_TRAVAS).not.toMatch(/^pe::demo::/);
-    expect(ESPERA_MS).toBe(60_000);
+    expect(ESPERA_MS).toBe(15_000);
   });
 });
 

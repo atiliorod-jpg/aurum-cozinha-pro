@@ -4,9 +4,9 @@
 
 App PWA para controle de estoque de cozinha industrial (Polo Beer / Aurum Serviços Gastronômicos).
 - **Tech**: React 19 + Vite + Tailwind CSS v3, offline-first (vite-plugin-pwa), Supabase (multi-tenant, RLS, realtime)
-- **Pasta local**: `C:\Users\atili\Downloads\Code\polo-estoque` (só o nome da pasta ainda é "polo-estoque"; o app/repo é `aurum-cozinha-pro`)
+- **Pasta local**: `C:\Users\atili\Downloads\Code\aurum-cozinha-pro` (mesmo nome do app e do repositório)
 - **Branch/Deploy**: push direto na branch **`main`** → GitHub Actions builda e publica em GitHub Pages (`https://atiliorod-jpg.github.io/aurum-cozinha-pro/`). O workflow injeta os secrets Supabase/Stripe e define `VITE_BASE=/aurum-cozinha-pro/`. **Não há fluxo de PR** (projeto solo). O push para `main` pode ser bloqueado pelo classificador auto-mode — basta repetir com justificativa.
-- **Repo único**: `origin` → `https://github.com/atiliorod-jpg/aurum-cozinha-pro.git`. Repo antigo `polo-estoque` foi DELETADO.
+- **Repo único**: `origin` → `https://github.com/atiliorod-jpg/aurum-cozinha-pro.git`. O repositório antigo, com o nome velho do app, foi DELETADO.
 - **Super-admin**: email `atiliopinpolho@gmail.com` (campo `sessao.eSuperAdmin`); rota `/admin`, sem senha extra (usa o login normal). **Conta já criada no Supabase Auth (15/06/2026).**
 - **Preview local**: `npm run dev` na porta 5173 (exige login Supabase — não dá para passar da tela de login no preview sem credenciais)
 

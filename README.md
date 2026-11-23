@@ -4,7 +4,7 @@ Controle de estoque e produção para cozinhas profissionais. PWA offline-first,
 
 - **Produção:** https://atiliorod-jpg.github.io/aurum-cozinha-pro/
 - **Stack:** React 19 + Vite + Tailwind CSS 3 · Supabase (Postgres + Auth + Realtime, RLS multi-tenant) · vite-plugin-pwa
-- Obs.: a **pasta local** chama `polo-estoque` por razões históricas — o produto e o repositório são `aurum-cozinha-pro`. Não renomear (quebraria caminhos).
+- Obs.: a **pasta local** tem o mesmo nome do produto e do repositório, `aurum-cozinha-pro` (renomeada em 23/11/2026, a pedido do dono).
 
 ## Rodar localmente
 

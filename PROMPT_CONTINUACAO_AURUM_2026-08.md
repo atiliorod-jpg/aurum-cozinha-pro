@@ -11,9 +11,9 @@ estoque e produção para cozinhas profissionais. O dono é o Atílio (consultor
 gastronômico, Recife/PE). Ele decide o produto; você implementa, audita e é
 franco quando algo está errado — inclusive quando o erro foi seu.
 
-**Pasta:** `C:\Users\atili\Downloads\Code\polo-estoque`
+**Pasta:** `C:\Users\atili\Downloads\Code\aurum-cozinha-pro`
 **Repositório GitHub:** `atiliorod-jpg/aurum-cozinha-pro` (privado)
-⚠️ A pasta local se chama `polo-estoque` mas o repositório é `aurum-cozinha-pro`.
+A pasta local tem o mesmo nome do repositório (renomeada em 23/11/2026, a pedido do dono).
 
 ---
 
@@ -2537,7 +2537,7 @@ node scripts/pentest-financeiro.mjs   # trava do financeiro + cross-check SQL×J
 node scripts/pentest-limpar.mjs       # SEMPRE depois dos pentests
 ```
 
-**Preview:** use o Browser pane (`preview_start` com `{"name":"polo-estoque"}`),
+**Preview:** use o Browser pane (`preview_start` com `{"name":"aurum-cozinha-pro"}`),
 nunca `npm run dev` pelo Bash.
 
 **Antes de commitar:** testes + lint + build + **audit-check**. O CI roda os

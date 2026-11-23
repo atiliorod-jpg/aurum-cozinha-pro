@@ -1,12 +1,12 @@
 ================================================================================
 AURUM COZINHA PRO — BLOCO DE NOTAS PARA OUTRA IA
 Data: 2026-07-17
-Pasta do app: C:\Users\atili\Downloads\Code\polo-estoque
+Pasta do app: C:\Users\atili\Downloads\Code\aurum-cozinha-pro
 Prompt origem (produto): C:\Users\atili\Downloads\PROMPT_AURUM_COZINHA_PRO_10-10.txt
 Stack: React 19 + Vite + Tailwind 3 + Supabase + PWA offline-first
 Produção: https://atiliorod-jpg.github.io/aurum-cozinha-pro/
 Super-admin (hardcoded): atiliopinpolho@gmail.com
-NÃO implementar financeiro/CMV/PDV. NÃO renomear pasta polo-estoque.
+NÃO implementar financeiro/CMV/PDV. NÃO renomear pasta aurum-cozinha-pro.
 Idioma UI/código: pt-BR.
 
 ### DECISÃO DO DONO (2026-07-17) — LIMITE DE USUÁRIOS
@@ -19,7 +19,7 @@ Idioma UI/código: pt-BR.
 
 INSTRUÇÕES PARA A IA IMPLEMENTADORA
 -----------------------------------
-1. Só mexer em polo-estoque (e SQL migrations documentadas no Supabase se precisar).
+1. Só mexer em aurum-cozinha-pro (e SQL migrations documentadas no Supabase se precisar).
 2. Confirmar no código ANTES de “corrigir”. Diffs pequenos. test + lint no fim.
 3. Commits por arquivo se o dono pedir. Sem git add -A. Sem force-push.
 4. rid === 'demo' NUNCA chama Supabase.
@@ -28,7 +28,7 @@ INSTRUÇÕES PARA A IA IMPLEMENTADORA
 6. Ao terminar: npm test && npm run lint (e build se possível).
 
 Como rodar (PowerShell / cmd se script policy bloquear npm.ps1):
-  cd C:\Users\atili\Downloads\Code\polo-estoque
+  cd C:\Users\atili\Downloads\Code\aurum-cozinha-pro
   cmd /c "npm test"
   cmd /c "npm run lint"
 

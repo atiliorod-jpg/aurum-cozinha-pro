@@ -90,7 +90,8 @@ test('Etiquetas: Maria cria a senha no 1º acesso, João só com a senha certa, 
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
-test('Etiquetas: 5 senhas erradas fazem o aparelho esperar 1 minuto', async ({ page }) => {
+// era 1 minuto; o dono pediu 15 segundos em 23/11/2026, como no Magurō
+test('Etiquetas: 5 senhas erradas fazem o aparelho esperar 15 segundos', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
   await cartao(page, 'João').click();
   for (let i = 0; i < 4; i++) await digitarNumeros(page, '00');

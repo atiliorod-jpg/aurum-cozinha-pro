@@ -87,7 +87,7 @@ Get-WinEvent -LogName "Microsoft-Windows-PrintService/Operational" -MaxEvents 20
 
 ## O que já se sabe do código do app
 
-Pasta: `C:\Users\atili\Downloads\Code\polo-estoque` (repo `atiliorod-jpg/aurum-cozinha-pro`).
+Pasta: `C:\Users\atili\Downloads\Code\aurum-cozinha-pro` (repo `atiliorod-jpg/aurum-cozinha-pro`).
 Último commit: `4041320 Corrige dois bugs do plano Etiquetas e trava a biblioteca com testes`.
 
 Arquivos relevantes:

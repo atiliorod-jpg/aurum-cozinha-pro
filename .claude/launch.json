@@ -1,1 +1,1 @@
-﻿{"version":"0.0.1","configurations":[{"name":"polo-estoque","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":5179}]}
+﻿{"version":"0.0.1","configurations":[{"name":"aurum-cozinha-pro","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":5179}]}

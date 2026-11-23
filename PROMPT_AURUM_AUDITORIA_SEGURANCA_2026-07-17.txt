@@ -21,8 +21,8 @@ Origem desta rodada:
 CONTEXTO DO PROJETO
 ================================================================================
 
-- Pasta local: C:\Users\atili\Downloads\Code\polo-estoque
-- Produto: Aurum Cozinha Pro (pasta polo-estoque — NÃO renomear)
+- Pasta local: C:\Users\atili\Downloads\Code\aurum-cozinha-pro
+- Produto: Aurum Cozinha Pro (pasta aurum-cozinha-pro — NÃO renomear)
 - Stack: React 19 + Vite + Tailwind 3 + Supabase (Auth + RLS multi-tenant +
   Realtime) + PWA offline-first
 - Deploy: push main → GitHub Actions (test → lint → audit high → build) → Pages
@@ -96,7 +96,7 @@ DECISÕES CONFIRMADAS — NÃO FAZER NESTE CICLO
 
 6. NÃO módulo financeiro/CMV/PDV/preço/DRE.
 
-7. NÃO renomear pasta polo-estoque; NÃO force-push; NÃO git add -A.
+7. NÃO renomear pasta aurum-cozinha-pro; NÃO force-push; NÃO git add -A.
 
 8. NÃO aumentar o DEFAULT global de max_usuarios para 4 ou 5. Padrão permanece 3.
    VIP 4–5 só via super-admin por restaurante (já existe).
@@ -107,7 +107,7 @@ DECISÕES CONFIRMADAS — NÃO FAZER NESTE CICLO
 REGRAS DE TRABALHO
 ================================================================================
 
-1. Só pasta polo-estoque (+ SQL em src/lib/*.sql documentado no README).
+1. Só pasta aurum-cozinha-pro (+ SQL em src/lib/*.sql documentado no README).
 2. Confirme no código ANTES de “corrigir”. Diffs pequenos.
 3. Migrations: idempotentes (IF EXISTS / OR REPLACE), numeradas, README com
    ordem e queries de checagem. Dono aplica no Supabase SQL Editor.
@@ -116,7 +116,7 @@ REGRAS DE TRABALHO
 6. Não expor secrets de .env. Anon key no client é esperada (segurança = RLS).
 
 ```bash
-cd "C:\Users\atili\Downloads\Code\polo-estoque"
+cd "C:\Users\atili\Downloads\Code\aurum-cozinha-pro"
 cmd /c "npm test"
 cmd /c "npm run lint"
 cmd /c "npm run build"

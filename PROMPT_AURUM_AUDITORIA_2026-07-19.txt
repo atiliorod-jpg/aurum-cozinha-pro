@@ -3,7 +3,7 @@ PROMPT UNIFICADO — Aurum Cozinha Pro
 Auditoria ultra completa 19/07/2026 (pós-evolução Pix / m11–m15 / permissões)
 Cole este documento INTEIRO em outra IA (implementação).
 Não reescreva o app do zero. Não invente features fora deste documento.
-Idioma: pt-BR. Pasta: C:\Users\atili\Downloads\Code\polo-estoque
+Idioma: pt-BR. Pasta: C:\Users\atili\Downloads\Code\aurum-cozinha-pro
 ================================================================================
 
 ## ESTADO VERIFICADO (NÃO ALUCINAR — revalidar no código)
@@ -53,7 +53,7 @@ HEAD de referência da auditoria: e0ce836 (main)
 ================================================================================
 REGRAS DE TRABALHO
 ================================================================================
-1. Só polo-estoque. Diffs pequenos. Confirme no código ANTES de “corrigir”.
+1. Só aurum-cozinha-pro. Diffs pequenos. Confirme no código ANTES de “corrigir”.
 2. Migrations idempotentes + README. Dono cola SQL no Supabase.
 3. NÃO git add -A; NÃO force-push; NÃO secrets no client além anon/VITE_PIX_*.
 4. rid === 'demo' NUNCA Supabase.
@@ -62,7 +62,7 @@ REGRAS DE TRABALHO
 7. Se o PR ficar grande: PR A (docs+higiene+rate limit) → PR B (produto) → PR C.
 
 ```bash
-cd "C:\Users\atili\Downloads\Code\polo-estoque"
+cd "C:\Users\atili\Downloads\Code\aurum-cozinha-pro"
 cmd /c "npm test"
 cmd /c "npm run lint"
 cmd /c "npm run build"

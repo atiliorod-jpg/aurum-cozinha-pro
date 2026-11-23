@@ -43,7 +43,7 @@ O que NÃO reabrir (já fechado / decisões confirmadas):
 CONTEXTO DO PROJETO
 ================================================================================
 
-- Pasta: C:\Users\atili\Downloads\Code\polo-estoque
+- Pasta: C:\Users\atili\Downloads\Code\aurum-cozinha-pro
 - Stack: React 19 + Vite + Tailwind 3 + Supabase + PWA offline-first
 - Produção: https://atiliorod-jpg.github.io/aurum-cozinha-pro/
 - Super-admin: atiliopinpolho@gmail.com (hardcoded em sou_super_admin / client)
@@ -59,7 +59,7 @@ Docs: README.md, PROMPT_NOVA_CONVERSA.md, scripts/pentest-*.mjs
 REGRAS DE TRABALHO
 ================================================================================
 
-1. Só pasta polo-estoque. Diffs pequenos. Confirme no código antes de “corrigir”.
+1. Só pasta aurum-cozinha-pro. Diffs pequenos. Confirme no código antes de “corrigir”.
 2. SQL: migrations idempotentes + README (ordem + queries de checagem).
 3. NÃO git add -A; NÃO force-push; NÃO renomear pasta; NÃO secrets no client além
    de anon key (esperado).
@@ -72,7 +72,7 @@ REGRAS DE TRABALHO
    Não misturar com financeiro nem com refactor grande.
 
 ```bash
-cd "C:\Users\atili\Downloads\Code\polo-estoque"
+cd "C:\Users\atili\Downloads\Code\aurum-cozinha-pro"
 cmd /c "npm test"
 cmd /c "npm run lint"
 cmd /c "npm run build"

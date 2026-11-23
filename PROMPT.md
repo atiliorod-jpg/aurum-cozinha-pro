@@ -99,8 +99,8 @@ calcEstoquePuro = estoqueInicial + Σentradas − Σsaidas(exceto destino='produ
 
 ## Deploy step-by-step
 ```powershell
-# 1. Build (no polo-estoque)
-cd C:\Users\atili\Downloads\Code\polo-estoque
+# 1. Build (no aurum-cozinha-pro)
+cd C:\Users\atili\Downloads\Code\aurum-cozinha-pro
 $env:VITE_BASE='/aurum-cozinha-teste/'; npm run build
 
 # 2. Sincronizar branch gh-pages
@@ -109,7 +109,7 @@ git fetch origin
 git reset --hard origin/gh-pages
 
 # 3. Copiar dist
-$src = "C:\Users\atili\Downloads\Code\polo-estoque\dist"
+$src = "C:\Users\atili\Downloads\Code\aurum-cozinha-pro\dist"
 $dst = "C:\Users\atili\Downloads\Code\aurum-cozinha-teste"
 Get-ChildItem $dst -Force | Where-Object { $_.Name -ne '.git' } | Remove-Item -Recurse -Force
 Copy-Item -Path "$src\*" -Destination $dst -Recurse -Force

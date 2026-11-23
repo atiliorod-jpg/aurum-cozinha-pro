@@ -175,7 +175,7 @@ function SenhaDoNome({ nome, aoVoltar, compacto }) {
     if (r.em) setAgora(r.em);
     if (r.semCripto) return 'Este aparelho não consegue conferir a senha. Abra o app pelo endereço com https.';
     if (r.travado) return '';
-    return `Senha errada. ${r.restam === 1 ? 'Resta 1 tentativa' : `Restam ${r.restam} tentativas`} antes de esperar 1 minuto.`;
+    return `Senha errada. ${r.restam === 1 ? 'Resta 1 tentativa' : `Restam ${r.restam} tentativas`} antes de esperar 15 segundos.`;
   };
 
   const guardarPrimeira = async (pin) => { setPrimeira(pin); setAviso(''); setFase('criar2'); return ''; };

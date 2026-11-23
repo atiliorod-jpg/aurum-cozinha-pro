@@ -39,9 +39,10 @@ export const ITERACOES_PADRAO = 100_000;
 // trivial de descobrir.
 export const ITERACOES_MIN = 10_000;
 export const ITERACOES_MAX = 1_000_000;
-// 5 erros seguidos → o aparelho espera 1 minuto antes de aceitar de novo
+// 5 erros seguidos → o aparelho espera 15 segundos antes de aceitar de novo.
+// Era 1 minuto; o dono pediu 15 s em 23/11/2026, como no Magurō.
 export const ERROS_ATE_ESPERAR = 5;
-export const ESPERA_MS = 60_000;
+export const ESPERA_MS = 15_000;
 // 1 minuto sem tocar em nada → volta para os nomes. Eram 5; o dono pediu 1
 // em 03/11/2026, como na Suflex: o aparelho da cozinha passa de mão em mão.
 export const OCIOSO_MS = 60_000;
