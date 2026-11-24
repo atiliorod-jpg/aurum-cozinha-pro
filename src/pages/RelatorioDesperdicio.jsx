@@ -9,10 +9,10 @@ import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
-import { fmtData, fmtNum, hoje } from '../utils/formatters';
+import { fmtData, hoje } from '../utils/formatters';
 import {
-  somarPorItem, somarPorGrupo, somarPorMotivo, totais, itensForaDaLista, fmtQtd, resumoRegistro,
-  planilhaDoDesperdicio, motivosDaCasa, conferirDescarte,
+  somarPorItem, somarPorGrupo, somarPorMotivo, totais, itensForaDaLista, fmtQtd, fmtSoma, fmtPeso, resumoRegistro,
+  mudancaDoRegistro, planilhaDoDesperdicio, motivosDaCasa, conferirDescarte, UNIDADES_DESCARTE,
 } from '../utils/desperdicio';
 import {
   listarDescartes, corrigirDescarte, voltarDescarteOriginal, apagarDescarte, apagarDescartesDoPeriodo,
@@ -24,6 +24,9 @@ import {
 //  grupo, um por um e por motivo; imprimir e planilha; corrigir (fica marcado
 //  "Corrigido" e guarda como a pessoa registrou), apagar um ou o período, e
 //  os itens registrados fora da lista para cadastrar com um toque.
+//  ⚠️ GRAMAS (M66): as somas juntam g e kg (abaixo de 1 kg aparecem em g);
+//  o "Um por um" mostra como foi registrado. "Alterado na hora" é quem
+//  registrou, logo depois, no aparelho; "Corrigido" é a Administração.
 // =====================================================================
 const somarDias = (iso, n) => {
   const [a, m, d] = iso.split('-').map(Number);
@@ -87,7 +90,7 @@ export default function RelatorioDesperdicio() {
   const porMotivo = useMemo(() => somarPorMotivo(regs), [regs]);
   const paraCadastrar = useMemo(() => itensForaDaLista(fora, produtos), [fora, produtos]);
   const t = totais(regs);
-  const corrigidos = regs.filter(l => l.editado_em).length;
+  const mudaram = regs.filter(l => mudancaDoRegistro(l)).length;
   const periodoTxt = de === ate ? fmtData(de) : `${fmtData(de)} a ${fmtData(ate)}`;
   const podeMexer = !impersonando;
 
@@ -146,7 +149,7 @@ export default function RelatorioDesperdicio() {
                 <li key={`${g.item}|${g.unidade}`} className="flex items-center justify-between gap-3 px-3 py-2">
                   <span className="min-w-0">
                     <span className="block font-bold text-polo-navy break-words">{g.item}</span>
-                    <span className="block text-xs text-gray-600">{g.vezes}× · {fmtQtd(g.total, g.unidade)} nos últimos 30 dias</span>
+                    <span className="block text-xs text-gray-600">{g.vezes}× · {fmtSoma(g.total, g.unidade)} nos últimos 30 dias</span>
                   </span>
                   <button type="button" onClick={() => navigate(`/itens?novo=${encodeURIComponent(g.item)}&unidade=${g.unidade}`)}
                     className="min-h-11 px-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm flex-shrink-0">Cadastrar</button>
@@ -157,10 +160,10 @@ export default function RelatorioDesperdicio() {
         )}
 
         <div className="grid grid-cols-2 gap-2">
-          <Resumo rotulo="Total descartado" valor={`${fmtNum(t.kg, 3)} kg`} extra={t.unid ? `+ ${fmtNum(t.unid, 3)} unid` : ''} />
+          <Resumo rotulo="Total descartado" valor={fmtPeso(t.kg)} extra={t.unid ? `+ ${fmtQtd(t.unid, 'unid')}` : ''} />
           <Resumo rotulo="Registros" valor={linhas ? String(t.registros) : '…'} />
-          <Resumo rotulo="Item que mais saiu" valor={porItem[0]?.item || '—'} extra={porItem[0] ? fmtQtd(porItem[0].total, porItem[0].unidade) : ''} />
-          <Resumo rotulo="Motivo mais comum" valor={porMotivo[0]?.motivo || '—'} extra={porMotivo[0] ? `${fmtNum(porMotivo[0].total, 3)} kg` : ''} />
+          <Resumo rotulo="Item que mais saiu" valor={porItem[0]?.item || '—'} extra={porItem[0] ? fmtSoma(porItem[0].total, porItem[0].unidade) : ''} />
+          <Resumo rotulo="Motivo mais comum" valor={porMotivo[0]?.motivo || '—'} extra={porMotivo[0] ? fmtPeso(porMotivo[0].total) : ''} />
         </div>
 
         <div className="flex flex-wrap gap-2 print:hidden" role="group" aria-label="Como ver">
@@ -183,10 +186,10 @@ export default function RelatorioDesperdicio() {
         </div>
 
         <p className="hidden print:block text-polo-navy font-bold">
-          Desperdício · {VISOES.find(v => v.id === visao)?.rotulo} · {periodoTxt} · {fmtNum(t.kg, 3)} kg{t.unid ? ` + ${fmtNum(t.unid, 3)} unid` : ''}
+          Desperdício · {VISOES.find(v => v.id === visao)?.rotulo} · {periodoTxt} · {fmtPeso(t.kg)}{t.unid ? ` + ${fmtQtd(t.unid, 'unid')}` : ''}
         </p>
-        {corrigidos > 0 && (
-          <Aviso tom="neutro">{corrigidos === 1 ? '1 registro deste período foi corrigido' : `${corrigidos} registros deste período foram corrigidos`}{visao !== 'lista' ? ' (veja em “Um por um”).' : '.'}</Aviso>
+        {mudaram > 0 && (
+          <Aviso tom="neutro">{mudaram === 1 ? '1 registro deste período mudou depois de feito' : `${mudaram} registros deste período mudaram depois de feitos`}{visao !== 'lista' ? ' (veja em “Um por um”).' : '.'}</Aviso>
         )}
         {erro && <Aviso tom="erro">{erro}</Aviso>}
 
@@ -197,21 +200,21 @@ export default function RelatorioDesperdicio() {
             <li key={`${g.item}|${g.unidade}`} className="px-4 py-3">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="font-bold text-polo-navy break-words">{g.item}</span>
-                <span className="font-black text-polo-navy whitespace-nowrap">{fmtQtd(g.total, g.unidade)}</span>
+                <span className="font-black text-polo-navy whitespace-nowrap">{fmtSoma(g.total, g.unidade)}</span>
               </div>
-              <p className="text-xs text-gray-600 mt-0.5">{g.vezes}× · {g.motivos.map(m => `${m.motivo} (${fmtQtd(m.total, g.unidade)})`).join(' · ')}</p>
+              <p className="text-xs text-gray-600 mt-0.5">{g.vezes}× · {g.motivos.map(m => `${m.motivo} (${fmtSoma(m.total, g.unidade)})`).join(' · ')}</p>
             </li>
           ))}
           {visao === 'grupo' && porGrupo.map(g => (
             <li key={`${g.grupo}|${g.unidade}`} className="px-4 py-3 flex items-baseline justify-between gap-3">
               <span className="font-bold text-polo-navy">{g.grupo} <span className="text-xs font-normal text-gray-600">· {g.vezes}×</span></span>
-              <span className="font-black text-polo-navy whitespace-nowrap">{fmtQtd(g.total, g.unidade)}</span>
+              <span className="font-black text-polo-navy whitespace-nowrap">{fmtSoma(g.total, g.unidade)}</span>
             </li>
           ))}
           {visao === 'motivo' && porMotivo.map(m => (
             <li key={m.motivo} className="px-4 py-3 flex items-baseline justify-between gap-3">
               <span className="font-bold text-polo-navy break-words">{m.motivo}</span>
-              <span className="font-black text-polo-navy whitespace-nowrap">{fmtNum(m.total, 3)} kg</span>
+              <span className="font-black text-polo-navy whitespace-nowrap">{fmtPeso(m.total)}</span>
             </li>
           ))}
           {visao === 'lista' && regs.map(l => (
@@ -223,10 +226,10 @@ export default function RelatorioDesperdicio() {
                 <p className="text-xs text-gray-600 mt-0.5">
                   {fmtData(l.dia)} {l.hora} · {l.turno || 'sem turno'} · {l.motivo}{l.responsavel ? ` · ${l.responsavel}` : ''}
                 </p>
-                {l.editado_em && (
+                {mudancaDoRegistro(l) && (
                   <p className="text-xs text-polo-navy mt-1">
                     <span className="inline-flex items-center gap-1 rounded-md bg-polo-gold/20 border border-polo-gold px-1.5 py-0.5 font-bold">
-                      <Icon name="editar" size={12} />Corrigido
+                      <Icon name="editar" size={12} />{mudancaDoRegistro(l)}
                     </span>
                     {l.original && <span className="block text-gray-600 mt-0.5">antes: {resumoRegistro(l.original)}</span>}
                   </p>
@@ -307,9 +310,9 @@ function JanelaCorrigir({ registro, aoFechar, aoSalvar, onde }) {
             className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 px-3 text-xl font-extrabold text-polo-navy" />
         </div>
         <div className="flex gap-1.5" role="radiogroup" aria-label="Unidade">
-          {['kg', 'unid'].map(u => (
+          {UNIDADES_DESCARTE.map(u => (
             <button key={u} type="button" role="radio" aria-checked={unidade === u} onClick={() => setUnidade(u)}
-              className={`min-h-12 px-4 rounded-xl font-bold border-[3px] ${unidade === u ? 'bg-polo-navy border-polo-navy text-polo-gold' : 'bg-white border-polo-navy/15 text-polo-navy'}`}>{u}</button>
+              className={`min-h-12 min-w-11 px-3 rounded-xl font-bold border-[3px] ${unidade === u ? 'bg-polo-navy border-polo-navy text-polo-gold' : 'bg-white border-polo-navy/15 text-polo-navy'}`}>{u}</button>
           ))}
         </div>
       </div>
@@ -321,7 +324,7 @@ function JanelaCorrigir({ registro, aoFechar, aoSalvar, onde }) {
       </div>
       {erro && <p role="alert" className="text-sm font-bold text-red-700">{erro}</p>}
       <div className="flex flex-wrap gap-2">
-        {registro.editado_em && (
+        {registro.original && (
           <button type="button" onClick={voltar} className="min-h-12 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold">Voltar ao original</button>
         )}
         <button type="button" onClick={salvar} disabled={salvando} className="flex-1 min-h-12 rounded-xl bg-polo-navy text-polo-gold font-bold disabled:opacity-80">

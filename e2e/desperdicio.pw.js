@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
-import { entrarNaDemo, abrir, entrarComo } from './apoio';
+import { entrarNaDemo, abrir, entrarComo, comVozDeMentira, falar } from './apoio';
 
 // =====================================================================
 //  REGISTRO DE DESPERDÍCIO (24/11/2026, pedido do dono): o checklist do
@@ -9,6 +10,8 @@ import { entrarNaDemo, abrir, entrarComo } from './apoio';
 //  • "Registrar outro desperdício?" como o "Continuar imprimindo?";
 //  • relatório só na Administração: soma por item, um por um, corrigir
 //    (guarda o original), fora da lista → Cadastrar, apagar o período.
+//  • (M66) gramas; o "Alterar" de quem anotou errado; a voz entende item,
+//    quanto e motivo; a planilha baixada é ABERTA e conferida.
 //  (o banco — a mesma regra — confere em scripts/pentest-desperdicio.mjs)
 // =====================================================================
 
@@ -18,7 +21,7 @@ async function registrar(page, { item, livre = false, qtd, unidade = 'kg', motiv
   const janela = page.getByRole('dialog', { name: livre ? 'Item fora da lista' : item });
   await expect(janela).toBeVisible();
   if (livre) await janela.getByLabel('Item', { exact: true }).fill(item);
-  if (unidade === 'unid') await janela.getByRole('radio', { name: 'unid', exact: true }).click();
+  if (unidade !== 'kg') await janela.getByRole('radio', { name: unidade, exact: true }).click();
   await janela.getByLabel('Quantidade descartada').fill(qtd);
   if (motivo) await janela.getByRole('radio', { name: motivo, exact: true }).click();
   if (outro) await janela.getByLabel('Outro motivo').fill(outro);
@@ -117,5 +120,152 @@ test('Administração → Desperdício: o motivo novo vira botão no registro', 
   await entrarComo(page);
   await page.getByRole('button', { name: 'Descartar Frango desfiado' }).click();
   await expect(page.getByRole('dialog').getByRole('radio', { name: 'Validade curta' })).toBeVisible();
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('gramas e o "Alterar": quem anotou errado corrige na hora, até o item; o relatório mostra', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await abrir(page, '/desperdicio');
+  await entrarComo(page);
+  await page.getByRole('button', { name: 'Descartar Frango desfiado' }).click();
+  let janela = page.getByRole('dialog', { name: 'Frango desfiado' });
+  await janela.getByRole('radio', { name: 'g', exact: true }).click();
+  await janela.getByLabel('Quantidade descartada').fill('300');
+  await janela.getByRole('radio', { name: 'Vencido', exact: true }).click();
+  await janela.getByRole('button', { name: 'Registrar descarte · 300 g' }).click();
+  // o "Registrar outro?" tem o Alterar (tocar nele para a contagem)
+  await page.getByRole('dialog', { name: 'Registrar outro desperdício, Maria?' })
+    .getByRole('button', { name: 'Alterar o registro' }).click();
+  janela = page.getByRole('dialog', { name: 'Alterar registro' });
+  await expect(janela.getByLabel('Quantidade descartada')).toHaveValue('300');
+  await expect(janela.getByRole('radio', { name: 'g', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await janela.getByLabel('Quantidade descartada').fill('350');
+  await janela.getByRole('radio', { name: 'Queimado', exact: true }).click();
+  await janela.getByRole('button', { name: 'Salvar alteração · 350 g' }).click();
+  await expect(page.getByText('Alterado: Frango desfiado · 350 g')).toBeVisible();
+  await page.getByRole('dialog', { name: 'Registrar outro desperdício, Maria?' })
+    .getByRole('button', { name: 'Continuar', exact: true }).click();
+
+  // depois do "Continuar", o último registro fica com o Alterar; dá para trocar até o item
+  await expect(page.getByText('Frango desfiado · 350 g · Queimado')).toBeVisible();
+  await page.getByRole('button', { name: 'Alterar o registro de Frango desfiado' }).click();
+  janela = page.getByRole('dialog', { name: 'Alterar registro' });
+  await janela.getByRole('button', { name: 'Trocar item' }).click();
+  await janela.getByLabel('Qual é o item certo?').fill('queijo');
+  await janela.getByRole('button', { name: 'Queijo mussarela', exact: true }).click();
+  await janela.getByRole('button', { name: 'Salvar alteração · 350 g' }).click();
+  await page.getByRole('dialog', { name: 'Registrar outro desperdício, Maria?' })
+    .getByRole('button', { name: 'Continuar', exact: true }).click();
+  // mais 1 kg do mesmo item: a soma junta g e kg
+  await registrar(page, { item: 'Queijo mussarela', qtd: '1', motivo: 'Vencido' });
+
+  await abrir(page, '/administracao'); // o robô digita 1234
+  await page.getByRole('link', { name: /^Relatório de desperdício/ }).click();
+  const lista = page.getByRole('main').getByRole('list').last();
+  await expect(lista.getByRole('listitem').filter({ hasText: 'Queijo mussarela' })).toContainText('1,35 kg');
+  await page.getByRole('button', { name: 'Um por um', exact: true }).click();
+  await expect(page.getByText('Alterado na hora', { exact: true })).toBeVisible();
+  await expect(page.getByText('antes: Frango desfiado · 300 g · Vencido')).toBeVisible();
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('Relatório: a planilha baixada abre com as 4 abas e os números certos; Imprimir imprime', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await abrir(page, '/desperdicio');
+  await entrarComo(page);
+  await registrar(page, { item: 'Frango desfiado', qtd: '1.5', motivo: 'Vencido' });
+  await registrar(page, { item: 'Frango desfiado', qtd: '250', unidade: 'g', motivo: 'Vencido' });
+  await registrar(page, { item: 'Picanha (porção)', qtd: '2', unidade: 'unid', motivo: 'Queimado' });
+  await abrir(page, '/administracao');
+  await page.getByRole('link', { name: /^Relatório de desperdício/ }).click();
+  const lista = page.getByRole('main').getByRole('list').last();
+  await expect(lista.getByRole('listitem').filter({ hasText: 'Frango desfiado' })).toContainText('1,75 kg');
+  await page.getByRole('button', { name: 'Por grupo', exact: true }).click();
+  await expect(lista.getByRole('listitem').filter({ hasText: 'AVES' })).toContainText('1,75 kg');
+  await page.getByRole('button', { name: 'Por motivo', exact: true }).click();
+  await expect(lista.getByRole('listitem').filter({ hasText: 'Vencido' })).toContainText('1,75 kg');
+
+  // a planilha: baixa, abre e confere aba por aba
+  const [baixada] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Planilha' }).click()]);
+  expect(baixada.suggestedFilename()).toMatch(/^desperdicio_\d{4}-\d{2}-\d{2}_a_\d{4}-\d{2}-\d{2}\.xlsx$/);
+  const XLSX = await import('xlsx');
+  const wb = XLSX.read(readFileSync(await baixada.path()));
+  expect(wb.SheetNames).toEqual(['Soma por item', 'Por grupo', 'Por motivo', 'Um por um']);
+  const aba = (nome) => XLSX.utils.sheet_to_json(wb.Sheets[nome], { header: 1, defval: '', blankrows: false });
+  const soma = aba('Soma por item');
+  const topo = soma.findIndex(l => l[0] === 'Item');
+  expect(soma[topo]).toEqual(['Item', 'Total', 'Unidade', 'Vezes', 'Motivos']);
+  expect(soma.slice(topo + 1)).toEqual([
+    ['Frango desfiado', 1.75, 'kg', 2, 'Vencido (1,75 kg)'],
+    ['Picanha (porção)', 2, 'unid', 1, 'Queimado (2 unid)'],
+  ]);
+  expect(aba('Por motivo')).toEqual([['Motivo', 'Total (kg)'], ['Vencido', 1.75]]);
+  const umPorUm = aba('Um por um');
+  expect(umPorUm[0]).toEqual(['Data', 'Hora', 'Turno', 'Item', 'Quantidade', 'Unidade', 'Peso (kg)', 'Motivo', 'Responsável', 'Mudou depois']);
+  expect(umPorUm.slice(1).map(l => l.slice(3, 9))).toEqual([
+    ['Picanha (porção)', 2, 'unid', '', 'Queimado', 'Maria'],
+    ['Frango desfiado', 250, 'g', 0.25, 'Vencido', 'Maria'],
+    ['Frango desfiado', 1.5, 'kg', 1.5, 'Vencido', 'Maria'],
+  ]);
+
+  // Imprimir chama a impressão do navegador
+  await page.evaluate(() => { window.__imprimiu = 0; window.print = () => { window.__imprimiu += 1; }; });
+  await page.getByRole('button', { name: 'Imprimir', exact: true }).click();
+  expect(await page.evaluate(() => window.__imprimiu)).toBe(1);
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('voz: "300 gramas de frango desfiado vencido" abre a janela preenchida; o motivo também por voz', async ({ page }) => {
+  await comVozDeMentira(page);
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await abrir(page, '/desperdicio');
+  await entrarComo(page);
+  await falar(page, { textos: ['300 gramas de frango desfiado vencido'] });
+  await page.getByRole('button', { name: 'Buscar falando' }).click();
+  const janela = page.getByRole('dialog', { name: 'Frango desfiado' });
+  await expect(janela.getByLabel('Quantidade descartada')).toHaveValue('300');
+  await expect(janela.getByRole('radio', { name: 'g', exact: true })).toHaveAttribute('aria-checked', 'true');
+  await expect(janela.getByRole('radio', { name: 'Vencido', exact: true })).toHaveAttribute('aria-checked', 'true');
+  // o microfone do motivo: o botão que combina...
+  await falar(page, { textos: ['caiu no chão'] });
+  await janela.getByRole('button', { name: 'Falar o motivo' }).click();
+  await expect(janela.getByRole('radio', { name: 'Caiu no chão', exact: true })).toHaveAttribute('aria-checked', 'true');
+  // ...ou o que foi dito, escrito
+  await falar(page, { textos: ['cheiro estranho'] });
+  await janela.getByRole('button', { name: 'Falar o motivo' }).click();
+  await expect(janela.getByLabel('Outro motivo')).toHaveValue('Cheiro estranho');
+  await janela.getByRole('button', { name: 'Registrar descarte · 300 g' }).click();
+  await page.getByRole('dialog', { name: /^Registrar outro desperdício/ }).getByRole('button', { name: 'Continuar', exact: true }).click();
+  await expect(page.getByText('Frango desfiado · 300 g · Cheiro estranho')).toBeVisible();
+
+  // o que não está na lista: o que foi falado vira o item, com a quantidade
+  await falar(page, { textos: ['lasanha bolonhesa 2 kg'] });
+  await page.getByRole('button', { name: 'Buscar falando' }).click();
+  await page.getByRole('button', { name: 'Registrar “Lasanha bolonhesa” fora da lista' }).click();
+  const livre = page.getByRole('dialog', { name: 'Item fora da lista' });
+  await expect(livre.getByLabel('Item', { exact: true })).toHaveValue('Lasanha bolonhesa');
+  await expect(livre.getByLabel('Quantidade descartada')).toHaveValue('2');
+  expect(erros, erros.join('\n')).toEqual([]);
+});
+
+test('o "Alterar" é só de quem registrou: voltou pelo nome, ainda está lá; outra pessoa não vê', async ({ page }) => {
+  const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
+  await abrir(page, '/desperdicio');
+  await entrarComo(page);
+  await page.getByRole('button', { name: 'Descartar Queijo mussarela' }).click();
+  const janela = page.getByRole('dialog', { name: 'Queijo mussarela' });
+  await janela.getByLabel('Quantidade descartada').fill('2');
+  await janela.getByRole('radio', { name: 'Vencido', exact: true }).click();
+  await janela.getByRole('button', { name: 'Registrar descarte · 2 kg' }).click();
+  await page.getByRole('dialog', { name: 'Registrar outro desperdício, Maria?' })
+    .getByRole('button', { name: 'Trocar pessoa' }).click();
+  // o João não vê o "Alterar" da Maria
+  await entrarComo(page, 'João');
+  await expect(page.getByText(/Registrando como João/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Alterar o registro de Queijo mussarela' })).toHaveCount(0);
+  // a Maria volta pelo nome e o encontra
+  await page.getByRole('button', { name: 'Trocar', exact: true }).click();
+  await entrarComo(page, 'Maria');
+  await expect(page.getByRole('button', { name: 'Alterar o registro de Queijo mussarela' })).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });

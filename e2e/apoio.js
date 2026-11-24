@@ -255,3 +255,30 @@ export async function medirAcessibilidade(page, raizes = ['main', 'nav', 'header
     return { pequenos, contraste, letrasPequenas };
   }, raizes);
 }
+
+// ── O MICROFONE DE MENTIRA (04/11/2026; aqui desde 24/11/2026) ─────────
+// O robô não tem microfone: um reconhecimento de fala de mentira devolve a
+// frase combinada (window.__fala) quando o app liga o microfone, do mesmo
+// jeito que o navegador devolve. `falar(page, { textos: ['...'] })` antes
+// de tocar no microfone; `{ erro: 'network' }` simula a falha.
+export async function comVozDeMentira(page) {
+  await page.addInitScript(() => {
+    class ReconhecimentoDeMentira {
+      start() {
+        const fala = window.__fala || {};
+        setTimeout(() => {
+          if (fala.erro) { this.onerror?.({ error: fala.erro }); this.onend?.(); return; }
+          // `partes`: a frase com pausa — o navegador fecha cada parte à parte
+          const partes = fala.partes || [fala.textos || []];
+          const results = partes.map(versoes => Object.assign(versoes.map(t => ({ transcript: t })), { isFinal: true }));
+          this.onresult?.({ results });
+          this.onend?.();
+        }, 30);
+      }
+      stop() { this.onend?.(); }
+      abort() { this.onend?.(); }
+    }
+    window.SpeechRecognition = ReconhecimentoDeMentira;
+  });
+}
+export const falar = (page, fala) => page.evaluate((f) => { window.__fala = f; }, fala);

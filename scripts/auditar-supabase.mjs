@@ -57,6 +57,8 @@ const RPCS = [
   // M65: o registro de desperdício (registrar é da equipe; o resto, da Administração aberta)
   'registrar_descartes', 'descartes_do_periodo', 'corrigir_descarte', 'voltar_descarte_original',
   'apagar_descarte', 'apagar_descartes_periodo',
+  // M66: o "Alterar" de quem registrou (o banco confere aparelho e prazo)
+  'alterar_meu_descarte',
 ];
 
 const req = (caminho, chave, opts = {}) =>

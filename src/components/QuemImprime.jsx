@@ -376,7 +376,9 @@ export function FaixaOperador({ acao = 'Imprimindo', aoTrocar = null }) {
 export const SEGUNDOS_PARA_CONTINUAR = 5;
 
 // `pergunta`: "Registrar outro desperdício, Maria?" na tela de desperdício.
-export function ContinuarImprimindo({ nome, aoContinuar, aoTrocar, pergunta = '' }) {
+// `aoAlterar` (o desperdício, 24/11/2026): o botão "Alterar o registro" para
+// quem anotou errado — tocar nele já para a contagem (a janela fecha).
+export function ContinuarImprimindo({ nome, aoContinuar, aoTrocar, pergunta = '', aoAlterar = null }) {
   const [restam, setRestam] = useState(SEGUNDOS_PARA_CONTINUAR);
   useEffect(() => {
     if (restam <= 0) { aoTrocar(); return undefined; }
@@ -391,6 +393,12 @@ export function ContinuarImprimindo({ nome, aoContinuar, aoTrocar, pergunta = ''
         <div className="h-full bg-polo-gold transition-[width] duration-1000 ease-linear"
           style={{ width: `${(Math.max(0, restam - 1) / SEGUNDOS_PARA_CONTINUAR) * 100}%` }} />
       </div>
+      {aoAlterar && (
+        <button type="button" onClick={aoAlterar}
+          className="w-full min-h-12 rounded-xl border-[3px] border-polo-gold bg-polo-beige text-polo-navy font-bold text-base">
+          Alterar o registro
+        </button>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <button type="button" onClick={aoContinuar} autoFocus
           className="min-h-12 rounded-xl bg-polo-navy text-polo-gold font-bold text-base">

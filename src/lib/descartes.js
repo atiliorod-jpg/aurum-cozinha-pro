@@ -9,7 +9,7 @@
 //  `pe::demo::` — que o "Sair da demo" já apaga.
 // =====================================================================
 import { supabase } from './supabase';
-import { outboxAdd } from './cache';
+import { outboxAdd, outboxGet } from './cache';
 import { isoLocal } from '../utils/formatters';
 
 const CHAVE_DEMO = 'pe::demo::descartes';
@@ -41,9 +41,57 @@ export async function registrarDescarte({ rid, demo }, linha) {
     return { enviado: false };
   };
   try {
-    const { error } = await supabase.rpc('registrar_descartes', { p_itens: [linha] });
-    return error ? naFila() : { enviado: true };
+    const { data, error } = await supabase.rpc('registrar_descartes', { p_itens: [linha] });
+    if (error) return naFila();
+    // ⚠️ O BANCO RECUSOU SEM ERRO (auditoria 24/11/2026): a função devolve
+    // quantos gravou, e 0 é conta sem liberação (M55) ou o relógio do aparelho
+    // muito atrasado. Antes a tela dizia "Descarte registrado" assim mesmo.
+    return Number(data) === 0 ? { enviado: false, recusado: true } : { enviado: true };
   } catch { return naFila(); }
+}
+
+const ehFalhaDeRede = (msg) => /Failed to fetch|NetworkError|network|Load failed|fetch failed/i.test(String(msg || ''));
+
+/**
+ * O "ALTERAR" DE QUEM ACABOU DE REGISTRAR (24/11/2026, pedido do dono, M66):
+ * anotou errado, corrige ali mesmo, sem a senha da Administração. O banco só
+ * deixa no registro feito NESTE aparelho, nos primeiros 15 minutos e enquanto
+ * a Administração não corrigiu; guarda como estava e marca "Alterado na hora".
+ * `a` = { id, item_id, item_nome, quantidade, unidade, motivo }.
+ * ⚠️ SEM INTERNET (o registro ainda na fila, ou a rede caiu): a alteração
+ * entra na MESMA fila, DEPOIS do registro — a fila sobe em ordem, então o
+ * registro chega primeiro e a alteração em seguida.
+ * Devolve { enviado }; erro do banco (passou o tempo...) vira exceção.
+ */
+export async function alterarMeuDescarte({ rid, demo }, a) {
+  const campos = { item_id: a.item_id || null, item_nome: a.item_nome, quantidade: a.quantidade, unidade: a.unidade, motivo: a.motivo };
+  if (demo) {
+    gravarDemo(lerDemo().map(l => (l.id !== a.id ? l : {
+      ...l,
+      original: l.original || { item_id: l.item_id, item_nome: l.item_nome, quantidade: l.quantidade, unidade: l.unidade, motivo: l.motivo },
+      ...campos,
+      alterado_em: new Date().toISOString(),
+    })));
+    return { enviado: true };
+  }
+  const naFila = () => {
+    outboxAdd(rid, { kind: 'descarte', op: 'alterar', payload: { id: a.id, ...campos } });
+    try { window.dispatchEvent(new Event('forcar-sync')); } catch { /* sem window */ }
+    return { enviado: false };
+  };
+  const registroNaFila = outboxGet(rid).some(i => i.kind === 'descarte' && i.op === 'rpc' && !i._morto
+    && (i.payload?.itens || []).some(l => l.id === a.id));
+  if (registroNaFila) return naFila();
+  let erro;
+  try {
+    ({ error: erro } = await supabase.rpc('alterar_meu_descarte', {
+      p_id: a.id, p_item_id: campos.item_id, p_item_nome: campos.item_nome,
+      p_quantidade: campos.quantidade, p_unidade: campos.unidade, p_motivo: campos.motivo,
+    }));
+  } catch (e) { erro = e; }
+  if (!erro) return { enviado: true };
+  if (ehFalhaDeRede(erro.message || erro)) return naFila();
+  throw new Error(erro.message || 'Não deu para alterar.');
 }
 
 /** Os registros do período (Administração aberta). `restaurante`: só no modo suporte. */
@@ -52,7 +100,7 @@ export async function listarDescartes({ demo, restaurante = null }, de, ate) {
   const { data, error } = await supabase.rpc('descartes_do_periodo', {
     p_de: de, p_ate: ate, ...(restaurante ? { p_restaurante: restaurante } : {}),
   });
-  if (error) throw new Error(/Failed to fetch|NetworkError|network/i.test(error.message || '') ? 'Sem internet para ver os registros.' : error.message);
+  if (error) throw new Error(ehFalhaDeRede(error.message) ? 'Sem internet para ver os registros.' : error.message);
   return data || [];
 }
 
@@ -76,7 +124,7 @@ export async function corrigirDescarte({ demo }, c) {
 
 export async function voltarDescarteOriginal({ demo }, id) {
   if (demo) {
-    gravarDemo(lerDemo().map(l => (l.id !== id || !l.original ? l : { ...l, ...l.original, original: null, editado_em: null })));
+    gravarDemo(lerDemo().map(l => (l.id !== id || !l.original ? l : { ...l, ...l.original, original: null, editado_em: null, alterado_em: null })));
     return;
   }
   const { error } = await supabase.rpc('voltar_descarte_original', { p_id: id });

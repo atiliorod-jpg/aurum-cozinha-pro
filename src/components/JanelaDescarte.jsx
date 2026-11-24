@@ -1,122 +1,240 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import Dialogo from './Dialogo';
 import Icon from './Icons';
 import { CampoNumerico } from './ui/TecladoNumerico';
+import { useMicrofone } from './useMicrofone';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { fmtData, isoLocal } from '../utils/formatters';
-import { conferirDescarte, fmtQtd, motivosDaCasa, turnoDe, turnosDaCasa, MAX_MOTIVO } from '../utils/desperdicio';
-import { novoIdDeDescarte, registrarDescarte } from '../lib/descartes';
+import { casaBusca, normalizarBusca } from '../utils/busca';
+import { vozDisponivel } from '../utils/voz';
+import { motivoDaFala } from '../utils/vozDoDescarte';
+import {
+  conferirDescarte, fmtQtd, motivosDaCasa, turnoDe, turnosDaCasa, MAX_MOTIVO, UNIDADES_DESCARTE,
+} from '../utils/desperdicio';
+import { alterarMeuDescarte, novoIdDeDescarte, registrarDescarte } from '../lib/descartes';
 
 // =====================================================================
 //  O REGISTRO DE UM DESCARTE (24/11/2026, o checklist do Magurō)
 //  A pessoa só diz QUANTO e POR QUÊ. Data, hora e turno saem sozinhos;
 //  responsável é quem entrou pelo nome. Sem internet, fica guardado e sobe
 //  sozinho depois (lib/descartes.js), com a hora em que foi feito.
-//  `inicial`: { id, nome, unidade, quantidade } do item, ou { livre: true, nome }.
+//  `inicial`: { id, nome, unidade, quantidade, motivo } do item, ou
+//  { livre: true, nome, ... } — a voz já preenche quantidade, unidade e motivo.
+//  `alterando`: o registro feito agora há pouco — o "Alterar" de quem anotou
+//  errado (M66): mesma janela, com o que foi registrado, e dá para trocar o
+//  item (`produtos`, os da lista).
 // =====================================================================
 const horaDe = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+// acima disto em kg, a janela pergunta se não era em gramas
+const MUITO_KG = 30;
 
-export default function JanelaDescarte({ inicial, responsavel, aoFechar, aoRegistrar }) {
+export default function JanelaDescarte({ inicial, alterando = null, produtos = [], responsavel, aoFechar, aoRegistrar }) {
   const { prefs, rid } = useApp();
   const { sessao } = useAuth();
   const { toast } = useUI();
   const id = useId();
-  const [nome, setNome] = useState(inicial.livre ? (inicial.nome || '') : inicial.nome);
+  const [item, setItem] = useState(() => (inicial.livre
+    ? { id: null, nome: inicial.nome || '', livre: true }
+    : { id: inicial.id, nome: inicial.nome, livre: false }));
   const [qtd, setQtd] = useState(inicial.quantidade ? String(inicial.quantidade) : '');
-  const [unidade, setUnidade] = useState(inicial.unidade === 'unid' ? 'unid' : 'kg');
-  const [motivo, setMotivo] = useState('');
+  const [unidade, setUnidade] = useState(UNIDADES_DESCARTE.includes(inicial.unidade) ? inicial.unidade : 'kg');
+  const [motivo, setMotivo] = useState(inicial.motivo || '');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [trocandoItem, setTrocandoItem] = useState(false);
+  const [buscaItem, setBuscaItem] = useState('');
   const [agora, setAgora] = useState(() => new Date());
-  useEffect(() => { const t = setInterval(() => setAgora(new Date()), 15000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    if (alterando) return undefined;
+    const t = setInterval(() => setAgora(new Date()), 15000);
+    return () => clearInterval(t);
+  }, [alterando]);
 
   const motivos = motivosDaCasa(prefs);
   const turnos = turnosDaCasa(prefs);
   const quantidade = Number(String(qtd).replace(',', '.')) || 0;
+  // ⚠️ O MOTIVO POR VOZ (pedido do dono, como no Magurō): o botão da casa
+  // quando combina ("venceu" → Vencido), senão o que foi dito
+  const mic = useMicrofone({
+    aoOuvir: (alternativas) => { setMotivo(motivoDaFala(alternativas, motivos)); setErro(''); },
+    aoAvisar: (texto) => setErro(texto || ''),
+  });
+  const comVoz = vozDisponivel();
+
+  // o "quando" de quem altera é o do registro, não o de agora
+  const quando = alterando ? new Date(alterando.quando) : agora;
+  const linhaDeDados = [
+    ['Data', fmtData(isoLocal(quando))], ['Hora', horaDe(quando)],
+    ['Turno', alterando ? (alterando.turno || '—') : turnoDe(agora, turnos)],
+    ['Responsável', (alterando ? alterando.responsavel : responsavel) || '—'],
+  ];
+
+  const achadosItem = useMemo(() => {
+    const t = buscaItem.trim();
+    return t ? produtos.filter(p => casaBusca(t, p.nome)).slice(0, 6) : [];
+  }, [buscaItem, produtos]);
+  const escolherItem = (novo) => { setItem(novo); setTrocandoItem(false); setBuscaItem(''); setErro(''); };
 
   const confirmar = async () => {
     if (salvando) return;
     try {
-      conferirDescarte({ itemNome: nome, quantidade, unidade, motivo });
+      conferirDescarte({ itemNome: item.nome, quantidade, unidade, motivo });
     } catch (e) { setErro(e.message); return; }
     setSalvando(true);
-    const quando = new Date();
+    const q = Math.round(quantidade * 1000) / 1000;
+    const campos = { item_id: item.livre ? null : item.id, item_nome: item.nome.trim(), quantidade: q, unidade, motivo: motivo.trim() };
+    if (alterando) {
+      const nova = { ...alterando, ...campos };
+      try {
+        const r = await alterarMeuDescarte({ rid, demo: !!sessao?.demo }, nova);
+        toast(r.enviado
+          ? `Alterado: ${nova.item_nome} · ${fmtQtd(q, unidade)}`
+          : 'Sem internet: a alteração ficou guardada e vai sozinha quando a conexão voltar.',
+        r.enviado ? 'sucesso' : 'aviso');
+        aoRegistrar(nova);
+      } catch (e) { setErro(e.message); setSalvando(false); }
+      return;
+    }
+    const agoraMesmo = new Date();
     const linha = {
-      id: novoIdDeDescarte(), quando: quando.toISOString(), turno: turnoDe(quando, turnos),
-      item_id: inicial.livre ? null : inicial.id, item_nome: nome.trim(),
-      quantidade: Math.round(quantidade * 1000) / 1000, unidade, motivo: motivo.trim(),
-      responsavel: responsavel || '',
+      id: novoIdDeDescarte(), quando: agoraMesmo.toISOString(), turno: turnoDe(agoraMesmo, turnos),
+      ...campos, responsavel: responsavel || '',
     };
     const r = await registrarDescarte({ rid, demo: !!sessao?.demo }, linha);
+    if (r.recusado) {
+      setErro('O registro não foi aceito. Confira a data e a hora do aparelho; se estiverem certas, fale com a Aurum.');
+      setSalvando(false);
+      return;
+    }
     toast(r.enviado
       ? `Descarte registrado: ${linha.item_nome} · ${fmtQtd(linha.quantidade, unidade)}`
       : `Sem internet: ${linha.item_nome} · ${fmtQtd(linha.quantidade, unidade)} ficou guardado e vai sozinho quando a conexão voltar.`,
     r.enviado ? 'sucesso' : 'aviso');
-    aoRegistrar();
+    aoRegistrar(linha);
   };
 
   // ⚠️ CABE NA TELA SEM ROLAR (regra do dono): os motivos em duas colunas,
   // e data, hora, turno e responsável numa linha só
   const chip = (sel) => `min-h-11 px-2 rounded-xl font-bold text-sm leading-tight border-[3px]
     ${sel ? 'bg-polo-gold border-polo-gold text-polo-navy' : 'bg-white border-polo-navy/15 text-polo-navy'}`;
+  const titulo = alterando ? 'Alterar registro' : (inicial.livre ? 'Item fora da lista' : inicial.nome);
 
   return (
-    <Dialogo aoFechar={aoFechar} titulo={inicial.livre ? 'Item fora da lista' : inicial.nome} forma="ficha" largura="lg" classeCaixa="space-y-4">
+    <Dialogo aoFechar={aoFechar} titulo={titulo} forma="ficha" largura="lg" classeCaixa="space-y-4">
       <dl className="flex flex-wrap gap-x-3 gap-y-1 rounded-xl bg-polo-beige border-2 border-polo-navy/10 px-3 py-2 text-sm text-polo-navy">
-        {[['Data', fmtData(isoLocal(agora))], ['Hora', horaDe(agora)], ['Turno', turnoDe(agora, turnos)], ['Responsável', responsavel || '—']].map(([r, v]) => (
+        {linhaDeDados.map(([r, v]) => (
           <div key={r} className="flex gap-1"><dt className="text-gray-600">{r}</dt><dd className="font-bold">{v}</dd></div>
         ))}
       </dl>
 
-      {inicial.livre && (
+      {!alterando && inicial.livre && (
         <div>
           <label htmlFor={`${id}-nome`} className="block text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Item</label>
-          <input id={`${id}-nome`} value={nome} onChange={e => { setNome(e.target.value); setErro(''); }} maxLength={120}
+          <input id={`${id}-nome`} value={item.nome} onChange={e => { setItem({ id: null, nome: e.target.value, livre: true }); setErro(''); }} maxLength={120}
             placeholder="Nome do item" className="w-full min-h-14 rounded-2xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-lg text-polo-navy" />
         </div>
       )}
 
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1" aria-hidden="true">Quantidade descartada</p>
-        <div className="grid grid-cols-[1fr_auto] gap-2 items-stretch">
-          <CampoNumerico valor={qtd} aoMudar={(v) => { setQtd(v); setErro(''); }} rotulo="Quantidade descartada"
-            titulo={`Quantidade — ${nome || 'descarte'}`} unidade={unidade} decimal={unidade === 'kg'}
-            className="w-full min-h-14 rounded-2xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-2xl font-extrabold text-polo-navy" />
-          <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Unidade">
-            {['kg', 'unid'].map(u => (
-              <button key={u} type="button" role="radio" aria-checked={unidade === u} onClick={() => setUnidade(u)}
-                className={`min-h-14 px-4 rounded-xl font-bold text-base border-[3px]
-                  ${unidade === u ? 'bg-polo-navy border-polo-navy text-polo-gold' : 'bg-white border-polo-navy/15 text-polo-navy'}`}>{u}</button>
-            ))}
+      {/* ALTERAR: o item também pode estar errado (tocou no vizinho da lista) */}
+      {alterando && !trocandoItem && (
+        <div className="flex items-center gap-2">
+          <p className="flex-1 min-w-0 text-polo-navy leading-tight">
+            <span className="block text-xs font-bold uppercase tracking-wide text-gray-600">Item</span>
+            <span className="block font-bold text-lg break-words">{item.nome}</span>
+          </p>
+          <button type="button" onClick={() => setTrocandoItem(true)}
+            className="min-h-11 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-sm flex-shrink-0">
+            Trocar item
+          </button>
+        </div>
+      )}
+      {alterando && trocandoItem && (
+        <div className="space-y-2">
+          <label htmlFor={`${id}-busca-item`} className="block text-xs font-bold uppercase tracking-wide text-gray-600">Qual é o item certo?</label>
+          <input id={`${id}-busca-item`} value={buscaItem} onChange={e => setBuscaItem(e.target.value)} maxLength={120}
+            placeholder="Digite o nome" className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-base text-polo-navy" />
+          {achadosItem.map(p => (
+            <button key={p.id} type="button" onClick={() => escolherItem({ id: p.id, nome: p.nome, livre: false })}
+              className="w-full min-h-11 px-3 rounded-xl border-2 border-polo-navy/10 bg-white text-left font-bold text-polo-navy">
+              {p.nome}
+            </button>
+          ))}
+          {buscaItem.trim() && !achadosItem.some(p => normalizarBusca(p.nome).trim() === normalizarBusca(buscaItem).trim()) && (
+            <button type="button" onClick={() => escolherItem({ id: null, nome: buscaItem.trim(), livre: true })}
+              className="w-full min-h-11 px-3 rounded-xl border-2 border-dashed border-polo-navy/25 bg-white text-left text-polo-navy">
+              Usar “{buscaItem.trim()}” (fora da lista)
+            </button>
+          )}
+          <button type="button" onClick={() => { setTrocandoItem(false); setBuscaItem(''); }}
+            className="min-h-11 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-sm">
+            Manter {item.nome}
+          </button>
+        </div>
+      )}
+
+      {!trocandoItem && (<>
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1" aria-hidden="true">Quantidade descartada</p>
+          <div className="grid grid-cols-[1fr_auto] gap-2 items-stretch">
+            <CampoNumerico valor={qtd} aoMudar={(v) => { setQtd(v); setErro(''); }} rotulo="Quantidade descartada"
+              titulo={`Quantidade — ${item.nome || 'descarte'}`} unidade={unidade} decimal={unidade === 'kg'}
+              className="w-full min-h-14 rounded-2xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-3 text-2xl font-extrabold text-polo-navy" />
+            {/* ⚠️ GRAMAS (24/11/2026, pedido do dono): "10 g" sem fazer conta.
+                Botões justos (44 px): com três, o número ficava com 98 px no
+                celular de 375 e "1,250" não cabia */}
+            <div className="flex gap-1.5" role="radiogroup" aria-label="Unidade">
+              {UNIDADES_DESCARTE.map(u => (
+                <button key={u} type="button" role="radio" aria-checked={unidade === u} onClick={() => setUnidade(u)}
+                  className={`min-h-14 min-w-11 px-2 rounded-xl font-bold text-base border-[3px]
+                    ${unidade === u ? 'bg-polo-navy border-polo-navy text-polo-gold' : 'bg-white border-polo-navy/15 text-polo-navy'}`}>{u}</button>
+              ))}
+            </div>
+          </div>
+          {unidade === 'kg' && quantidade >= MUITO_KG && (
+            <p className="mt-1 text-sm font-bold text-polo-navy">{fmtQtd(quantidade, 'kg')} é muita coisa. Se for em gramas, toque em g.</p>
+          )}
+        </div>
+
+        <div>
+          <p id={`${id}-motivo`} className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Motivo do descarte</p>
+          {motivos.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 mb-3" role="radiogroup" aria-labelledby={`${id}-motivo`}>
+              {motivos.map(m => (
+                <button key={m} type="button" role="radio" aria-checked={motivo === m}
+                  onClick={() => { setMotivo(m); setErro(''); }} className={chip(motivo === m)}>{m}</button>
+              ))}
+            </div>
+          )}
+          <label htmlFor={`${id}-outro`} className="block text-xs font-semibold text-gray-600 mb-1">Outro motivo</label>
+          <div className="flex gap-2">
+            <input id={`${id}-outro`} value={mic.ouvindo ? mic.parcial : (motivos.includes(motivo) ? '' : motivo)} maxLength={MAX_MOTIVO * 5}
+              readOnly={mic.ouvindo} onChange={e => { setMotivo(e.target.value); setErro(''); }}
+              placeholder={mic.ouvindo ? 'Ouvindo… fale o motivo' : 'Escreva ou fale o motivo'}
+              className="flex-1 min-w-0 min-h-12 rounded-xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-base text-polo-navy" />
+            {comVoz && (
+              <button type="button" onClick={mic.ouvir} aria-pressed={mic.ouvindo}
+                aria-label={mic.ouvindo ? 'Parar de ouvir' : 'Falar o motivo'}
+                className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors
+                  ${mic.ouvindo ? 'bg-red-700 text-white animate-pulse' : 'bg-polo-gold text-polo-navy'}`}>
+                <Icon name="microfone" size={22} />
+              </button>
+            )}
           </div>
         </div>
-      </div>
 
-      <div>
-        <p id={`${id}-motivo`} className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Motivo do descarte</p>
-        {motivos.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 mb-3" role="radiogroup" aria-labelledby={`${id}-motivo`}>
-            {motivos.map(m => (
-              <button key={m} type="button" role="radio" aria-checked={motivo === m}
-                onClick={() => { setMotivo(m); setErro(''); }} className={chip(motivo === m)}>{m}</button>
-            ))}
-          </div>
-        )}
-        <label htmlFor={`${id}-outro`} className="block text-xs font-semibold text-gray-600 mb-1">Outro motivo</label>
-        <input id={`${id}-outro`} value={motivos.includes(motivo) ? '' : motivo} maxLength={MAX_MOTIVO * 5}
-          onChange={e => { setMotivo(e.target.value); setErro(''); }} placeholder="Escreva o motivo"
-          className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-base text-polo-navy" />
-      </div>
+        {erro && <p role="alert" className="text-sm font-bold text-red-700">{erro}</p>}
 
-      {erro && <p role="alert" className="text-sm font-bold text-red-700">{erro}</p>}
-
-      <button type="button" onClick={confirmar} disabled={salvando}
-        className="w-full min-h-14 rounded-2xl bg-red-700 text-white font-black text-lg inline-flex items-center justify-center gap-2 disabled:opacity-80">
-        <Icon name="check" size={24} />
-        {salvando ? 'Registrando…' : quantidade > 0 ? `Registrar descarte · ${fmtQtd(quantidade, unidade)}` : 'Registrar descarte'}
-      </button>
+        <button type="button" onClick={confirmar} disabled={salvando}
+          className={`w-full min-h-14 rounded-2xl font-black text-lg inline-flex items-center justify-center gap-2 disabled:opacity-80
+            ${alterando ? 'bg-polo-navy text-polo-gold' : 'bg-red-700 text-white'}`}>
+          <Icon name="check" size={24} />
+          {alterando
+            ? (salvando ? 'Salvando…' : `Salvar alteração${quantidade > 0 ? ` · ${fmtQtd(quantidade, unidade)}` : ''}`)
+            : (salvando ? 'Registrando…' : quantidade > 0 ? `Registrar descarte · ${fmtQtd(quantidade, unidade)}` : 'Registrar descarte')}
+        </button>
+      </>)}
     </Dialogo>
   );
 }

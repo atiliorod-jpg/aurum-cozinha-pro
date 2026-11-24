@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
 import Icon from './Icons';
-import { vozDisponivel, acharPorVoz, itemCerto, textoDoErroDeVoz, juntarAlternativas } from '../utils/voz';
+import { useMicrofone } from './useMicrofone';
+import { vozDisponivel, acharPorVoz, itemCerto } from '../utils/voz';
 
 /**
  * O MICROFONE DA BUSCA (pedido do dono, 04/11/2026) — ver utils/voz.js.
@@ -23,30 +23,27 @@ import { vozDisponivel, acharPorVoz, itemCerto, textoDoErroDeVoz, juntarAlternat
  * WhatsApp): o microfone nem aparece — um botão que não funciona é pior que
  * nenhum.
  */
-// `rotuloQuantidade` e `dicaOuvindo`: a tela de desperdício (24/11/2026) usa a
-// mesma busca, sem falar em "etiquetas".
+// A tela de DESPERDÍCIO (24/11/2026) usa a mesma busca com o seu jeito de
+// entender a fala: `interpretar(alternativas)` devolve { termo, falado,
+// achados, ...o pedido } (ver utils/vozDoDescarte.js); `descreverPedido`
+// resume o pedido no aviso ("10 g, Vencido"). O pedido é tudo o que veio
+// além do item — o que `aoImprimir` e `aoBuscar` recebem.
+const pedidoDasEtiquetas = (r) => [r.quantidade && `${r.quantidade} etiquetas`, r.metodoFalado].filter(Boolean).join(', ');
+
+// `opcaoForaDaLista(falado, pedido)`: o desperdício registra também o item
+// que não está na lista — o botão aparece quando nada (ou só parecido) casou.
 export default function BuscaPorVoz({
   produtos, vocabulario, aviso, aoAvisar, aoBuscar, aoImprimir, children,
-  rotuloQuantidade = (q) => `${q} etiquetas`,
+  interpretar = null,
+  descreverPedido = pedidoDasEtiquetas,
+  opcaoForaDaLista = null,
   dicaOuvindo = 'Ouvindo… fale o item, quantas etiquetas e o método.',
 }) {
-  const [ouvindo, setOuvindo] = useState(false);
-  const [parcial, setParcial] = useState('');
-  const reconhecimento = useRef(null);
-  const naTela = useRef(true);
-  // saiu da tela no meio da fala: o microfone desliga e nada abre depois
-  useEffect(() => {
-    naTela.current = true;
-    return () => { naTela.current = false; reconhecimento.current?.abort?.(); };
-  }, []);
-
-  if (!vozDisponivel()) return children;
-
   const resolver = (alternativas) => {
     const ouvi = `Ouvi: "${alternativas[0]}".`;
-    const r = acharPorVoz(alternativas, produtos, vocabulario);
-    const pedido = { quantidade: r.quantidade, armazenamento: r.armazenamento, estado: r.estado, metodoFalado: r.metodoFalado };
-    const certo = itemCerto(r.achados);
+    const r = interpretar ? interpretar(alternativas) : acharPorVoz(alternativas, produtos, vocabulario);
+    const { achados = [], termo = '', falado: dito = '', ...pedido } = r;
+    const certo = itemCerto(achados);
     if (certo) {
       // fica escrito o que foi ouvido: ao fechar a janela, dá para conferir
       aoAvisar({ texto: ouvi });
@@ -54,66 +51,33 @@ export default function BuscaPorVoz({
       return;
     }
     // o que a pessoa falou, com acento ("filé"); a busca ignora acento
-    const falado = r.falado || r.termo || alternativas[0] || '';
-    const extras = [r.quantidade && rotuloQuantidade(r.quantidade), r.metodoFalado].filter(Boolean).join(', ');
-    if (r.achados.some(a => a.nota >= 80)) {
-      const n = r.achados.filter(a => a.nota >= 80).length;
+    const falado = dito || termo || alternativas[0] || '';
+    const extras = descreverPedido(r);
+    if (achados.some(a => a.nota >= 80)) {
+      const n = achados.filter(a => a.nota >= 80).length;
       aoBuscar(falado, pedido);
       aoAvisar({ texto: `${ouvi} ${n} itens com "${falado}". Toque no certo${extras ? ` (${extras})` : ''}.` });
       return;
     }
-    if (r.achados.length) {
+    const fora = opcaoForaDaLista && dito ? [opcaoForaDaLista(dito, pedido)] : [];
+    if (achados.length) {
       aoAvisar({
         texto: `${ouvi} Não achei "${falado}". Você quis dizer:`,
-        opcoes: r.achados.slice(0, 3).map(a => ({ rotulo: a.produto.nome, acao: () => aoImprimir(a.produto, pedido) })),
+        opcoes: [...achados.slice(0, 3).map(a => ({ rotulo: a.produto.nome, acao: () => aoImprimir(a.produto, pedido) })), ...fora],
       });
       return;
     }
-    aoAvisar({ texto: `${ouvi} Não achei "${falado}". Toque no microfone e fale de novo, ou digite.` });
+    aoAvisar(fora.length
+      ? { texto: `${ouvi} Não achei "${falado}" na lista.`, opcoes: fora }
+      : { texto: `${ouvi} Não achei "${falado}". Toque no microfone e fale de novo, ou digite.` });
   };
 
-  const ouvir = () => {
-    if (ouvindo) { reconhecimento.current?.stop?.(); return; }
-    // sem internet o serviço de voz nem responde: avisa antes de tentar
-    if (navigator.onLine === false) { aoAvisar({ texto: textoDoErroDeVoz('network') }); return; }
-    const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const rec = new Reconhecimento();
-    rec.lang = 'pt-BR';
-    rec.interimResults = true;
-    rec.maxAlternatives = 3;
-    // ⚠️ UMA FRASE SÓ, NÃO CONTÍNUO (05/11/2026, no celular do dono). A
-    // escuta contínua foi tentada para aguentar pausas, mas o Chrome do
-    // Android devolve nela a frase repetida e grudada ("bolinho de
-    // costelabolinho de costela…") e nada mais casava. A frase vai num
-    // fôlego; a ordem das palavras é livre (ver utils/voz.js).
-    rec.continuous = false;
-    let resultados = [];
-    rec.onresult = (ev) => {
-      resultados = Array.from(ev.results || []);
-      setParcial(juntarAlternativas(resultados)[0] || '');
-    };
-    rec.onerror = (ev) => {
-      const texto = textoDoErroDeVoz(ev?.error);
-      if (texto) aoAvisar({ texto });
-    };
-    rec.onend = () => {
-      setOuvindo(false);
-      setParcial('');
-      reconhecimento.current = null;
-      const alternativas = juntarAlternativas(resultados);
-      resultados = [];
-      if (naTela.current && alternativas.length) resolver(alternativas);
-    };
-    reconhecimento.current = rec;
-    aoAvisar(null);
-    setParcial('');
-    setOuvindo(true);
-    try { rec.start(); } catch {
-      setOuvindo(false);
-      reconhecimento.current = null;
-      aoAvisar({ texto: 'Não deu para abrir o microfone. Toque de novo.' });
-    }
-  };
+  const { ouvindo, parcial, ouvir } = useMicrofone({
+    aoOuvir: resolver,
+    aoAvisar: (texto) => aoAvisar(texto ? { texto } : null),
+  });
+
+  if (!vozDisponivel()) return children;
 
   return (
     <div className="space-y-2">

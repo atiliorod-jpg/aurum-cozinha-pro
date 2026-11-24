@@ -267,7 +267,9 @@ describe('a frase repetida pelo celular', () => {
     expect(itemCerto(r.achados)?.id).toBe('f');
   });
   it('a escuta é de uma frase só: o modo contínuo é o que repete no Android', () => {
-    expect(ler('../../components/BuscaPorVoz.jsx')).toMatch(/rec\.continuous = false;/);
+    // o microfone mora em useMicrofone desde 24/11/2026 (a busca e o motivo do desperdício)
+    expect(ler('../../components/useMicrofone.js')).toMatch(/rec\.continuous = false;/);
+    expect(ler('../../components/BuscaPorVoz.jsx')).toMatch(/useMicrofone\(/);
   });
 });
 

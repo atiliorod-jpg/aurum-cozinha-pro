@@ -1711,6 +1711,13 @@ export function AppProvider({ children }) {
           // que veio do aparelho, e com a hora em que foi feito
           else if (item.kind === 'descarte' && item.op === 'rpc')
             ({ error } = await supabase.rpc('registrar_descartes', { p_itens: item.payload?.itens || [] }));
+          // o "Alterar" feito sem internet (M66): vem DEPOIS do registro na
+          // fila, que sobe em ordem — o registro chega antes da alteração
+          else if (item.kind === 'descarte' && item.op === 'alterar')
+            ({ error } = await supabase.rpc('alterar_meu_descarte', {
+              p_id: item.payload?.id, p_item_id: item.payload?.item_id ?? null, p_item_nome: item.payload?.item_nome,
+              p_quantidade: item.payload?.quantidade, p_unidade: item.payload?.unidade, p_motivo: item.payload?.motivo,
+            }));
           else if (item.kind === 'clearAll')
             // Os tipos vão no PAYLOAD: o replay acontece depois, possivelmente
             // com outro módulo aberto. Sem isso, "apagar tudo" feito offline no
@@ -1732,9 +1739,16 @@ export function AppProvider({ children }) {
       }
       // Relê a fila AGORA (pode ter crescido durante os awaits acima) e aplica o
       // resultado item a item — o que entrou no meio do flush continua na fila.
-      outboxSet(rid, outboxGet(rid)
+      const depois = outboxGet(rid)
         .filter(i => !sincronizados.has(i._uid))
-        .map(i => falhados.get(i._uid) || i));
+        .map(i => falhados.get(i._uid) || i);
+      outboxSet(rid, depois);
+      // ⚠️ O QUE ENTROU DURANTE A SUBIDA SOBE LOGO EM SEGUIDA (24/11/2026): o
+      // aviso 'forcar-sync' de quem salvou no meio do caminho batia no flush
+      // que já estava rodando e se perdia — o item esperava a próxima volta da
+      // internet ou abrir o app de novo.
+      const vistos = new Set(fila.map(i => i._uid));
+      if (ativo && depois.some(i => !i._morto && !vistos.has(i._uid))) setTimeout(() => { if (ativo) flush(); }, 1500);
       } finally { flushandoRef.current = false; }
     };
 

@@ -23,25 +23,27 @@ export const vozDisponivel = () =>
 const UNIDADES = {
   um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9,
 };
-const NUMEROS = {
+// ⚠️ os `export` abaixo: a voz do desperdício (utils/vozDoDescarte.js) usa as
+// mesmas peças — a mesma tolerância, os mesmos números, as mesmas palavras soltas
+export const NUMEROS = {
   ...UNIDADES, dez: 10, onze: 11, doze: 12, treze: 13, catorze: 14, quatorze: 14, quinze: 15,
   dezesseis: 16, dezessete: 17, dezoito: 18, dezenove: 19, vinte: 20, trinta: 30, quarenta: 40, cinquenta: 50,
 };
 // "de frango", "do molho", "pra picanha" — ligam a quantidade ao item
-const LIGACOES = new Set(['de', 'do', 'da', 'dos', 'das', 'pra', 'para']);
+export const LIGACOES = new Set(['de', 'do', 'da', 'dos', 'das', 'pra', 'para']);
 const ETIQUETA = /^etiquetas?$/;
 // o que se fala antes do pedido e não é o item
 const VERBOS = new Set(['imprimir', 'imprime', 'imprima', 'quero', 'faz', 'faca', 'fazer', 'me', 've', 'manda', 'mais']);
 // palavras que não ajudam a achar o item ("filé DE frango")
-const VAZIAS = new Set(['de', 'do', 'da', 'dos', 'das', 'e', 'com', 'sem', 'a', 'o', 'as', 'os', 'em', 'no', 'na']);
+export const VAZIAS = new Set(['de', 'do', 'da', 'dos', 'das', 'e', 'com', 'sem', 'a', 'o', 'as', 'os', 'em', 'no', 'na']);
 // o que sobra entre o item e o método: "frango NA geladeira", "EM temperatura ambiente"
 const LIGACOES_DO_METODO = new Set(['em', 'no', 'na', 'de', 'do', 'da', 'a', 'o']);
 // "3 etiquetas", "três unidades", "2 cópias": a palavra que gruda no número
 const DEPOIS_DO_NUMERO = /^(etiquetas?|unidades?|copias?|vez|vezes)$/;
 // "quantidade três", "quantidade de três"
-const ANTES_DO_NUMERO = new Set(['quantidade', 'qtd', 'qtde']);
+export const ANTES_DO_NUMERO = new Set(['quantidade', 'qtd', 'qtde']);
 // o que se fala e não é item, quantidade nem método ("…, por favor")
-const SOBRAS = new Set(['por', 'favor', 'obrigado', 'obrigada', 'entao', 'ai', 'agora', 'tambem', 'ok']);
+export const SOBRAS = new Set(['por', 'favor', 'obrigado', 'obrigada', 'entao', 'ai', 'agora', 'tambem', 'ok']);
 // o que fica solto nas pontas depois de tirar a quantidade e o método
 const PONTAS = new Set([...LIGACOES, 'e', 'com', 'em', 'no', 'na', 'a', 'o', ...ANTES_DO_NUMERO]);
 
@@ -55,7 +57,7 @@ const PALAVRAS_DO_ARMAZENAMENTO = {
   ambiente: ['ambiente', 'temperatura ambiente'],
 };
 
-const palavras = (s) => normalizarBusca(s).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+export const palavras = (s) => normalizarBusca(s).replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
 // cada palavra falada como veio ("filé", para mostrar) e como compara ("file")
 // ⚠️ O HÍFEN SEPARA (auditoria 15/11/2026): "couve-flor" virava "couveflor" e
 // nunca casava com o item — os seis itens com hífen da biblioteca (Couve-flor,
@@ -95,7 +97,7 @@ function lerNumero(ps, i) {
 }
 
 /** Distância de edição (quantas letras trocar, pôr ou tirar). */
-function distancia(a, b) {
+export function distancia(a, b) {
   if (a === b) return 0;
   const linha = Array.from({ length: b.length + 1 }, (_, j) => j);
   for (let i = 1; i <= a.length; i++) {
@@ -111,7 +113,7 @@ function distancia(a, b) {
 }
 
 /** Duas palavras parecidas o bastante: plural, gênero, uma letra trocada. */
-function parecida(falada, doNome) {
+export function parecida(falada, doNome) {
   if (falada === doNome) return true;
   if (falada.length >= 3 && doNome.startsWith(falada)) return true;
   const tolerancia = Math.max(falada.length, doNome.length) >= 7 ? 2 : falada.length >= 4 ? 1 : 0;
@@ -156,7 +158,7 @@ export function vocabularioDeMetodos(armazenamentos = [], estados = []) {
 }
 
 /** A melhor nota de um pedaço da fala entre os itens. */
-const melhorNota = (lista, produtos) => {
+export const melhorNota = (lista, produtos) => {
   const t = lista.map(p => p.norm).join(' ');
   let melhor = 0;
   for (const p of produtos || []) melhor = Math.max(melhor, pontuarItem(t, p.nome));
@@ -164,7 +166,7 @@ const melhorNota = (lista, produtos) => {
 };
 
 /** Tira das pontas o que sobrou solto: "etiqueta de", "com", "na". */
-function aparar(lista) {
+export function aparar(lista) {
   const solta = (p) => p && (ETIQUETA.test(p.norm) || PONTAS.has(p.norm));
   let r = lista;
   while (r.length && solta(r[0])) r = r.slice(1);

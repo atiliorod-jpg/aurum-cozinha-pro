@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { entrarNaDemo, abrir, entrarComo } from './apoio';
+import { entrarNaDemo, abrir, entrarComo, comVozDeMentira, falar } from './apoio';
 
 // =====================================================================
 //  BUSCA POR VOZ (04/11/2026) — o robô não tem microfone: um reconhecimento
@@ -8,28 +8,7 @@ import { entrarNaDemo, abrir, entrarComo } from './apoio';
 // =====================================================================
 
 test.use({ viewport: { width: 390, height: 844 } });
-
-async function comVozDeMentira(page) {
-  await page.addInitScript(() => {
-    class ReconhecimentoDeMentira {
-      start() {
-        const fala = window.__fala || {};
-        setTimeout(() => {
-          if (fala.erro) { this.onerror?.({ error: fala.erro }); this.onend?.(); return; }
-          // `partes`: a frase com pausa — o navegador fecha cada parte à parte
-          const partes = fala.partes || [fala.textos || []];
-          const results = partes.map(versoes => Object.assign(versoes.map(t => ({ transcript: t })), { isFinal: true }));
-          this.onresult?.({ results });
-          this.onend?.();
-        }, 30);
-      }
-      stop() { this.onend?.(); }
-      abort() { this.onend?.(); }
-    }
-    window.SpeechRecognition = ReconhecimentoDeMentira;
-  });
-}
-const falar = (page, fala) => page.evaluate((f) => { window.__fala = f; }, fala);
+// o microfone de mentira mora em apoio.js (o desperdício usa também)
 
 test('Etiquetas: "três etiquetas de frango desfiada" abre a impressão do frango com 3', async ({ page }) => {
   await comVozDeMentira(page);

@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   conferirDescarte, somarPorGrupo, somarPorItem, somarPorMotivo, totais, itensForaDaLista, registroForaDaLista,
   turnoDe, turnosDaCasa, motivosDaCasa, MOTIVOS_PADRAO, TURNOS_PADRAO, unidadeDoItem, fmtQtd, resumoRegistro,
-  planilhaDoDesperdicio,
+  planilhaDoDesperdicio, fmtPeso, fmtSoma, mudancaDoRegistro, UNIDADES_DESCARTE,
 } from '../desperdicio';
 
 const r = (item_nome, quantidade, motivo, unidade = 'kg', item_id = null) => ({ item_nome, quantidade, motivo, unidade, item_id });
@@ -54,6 +54,30 @@ describe('as somas do relatório (iguais às do Magurō)', () => {
     ]);
   });
 
+  it('⚠️ GRAMAS (M66): g vira kg nas somas e soma junto; unid continua à parte', () => {
+    const regs = [r('Bolinho de costela', 10, 'Vencido', 'g'), r('Bolinho de costela', 0.5, 'Vencido', 'kg'),
+      r('Bolinho de costela', 4, 'Queimado', 'unid'), r('Arroz', 250, 'Sobra', 'g')];
+    const s = somarPorItem(regs);
+    expect(s.map(g => [g.item, g.total, g.unidade])).toEqual([
+      ['Bolinho de costela', 0.51, 'kg'], ['Arroz', 0.25, 'kg'], ['Bolinho de costela', 4, 'unid']]);
+    expect(totais(regs)).toEqual({ kg: 0.76, unid: 4, registros: 4 });
+    expect(somarPorMotivo(regs)).toEqual([{ motivo: 'Vencido', total: 0.51 }, { motivo: 'Sobra', total: 0.25 }]);
+    expect(somarPorGrupo(regs)).toEqual([
+      { grupo: 'Sem grupo', unidade: 'kg', total: 0.76, vezes: 3 }, { grupo: 'Sem grupo', unidade: 'unid', total: 4, vezes: 1 }]);
+    // 2,5 g não se perdem no arredondamento
+    expect(totais([r('Sal', 2.5, 'V', 'g')]).kg).toBe(0.0025);
+  });
+
+  it('a soma aparece em gramas abaixo de 1 kg; o registro, como foi feito', () => {
+    expect(fmtPeso(0.25)).toBe('250 g');
+    expect(fmtPeso(0.0025)).toBe('2,5 g');
+    expect(fmtPeso(1.25)).toBe('1,25 kg');
+    expect(fmtPeso(0)).toBe('0 kg');
+    expect(fmtSoma(4, 'unid')).toBe('4 unid');
+    expect(fmtSoma(0.51, 'kg')).toBe('510 g');
+    expect(fmtQtd(10, 'g')).toBe('10 g');
+  });
+
   it('⚠️ a letra "s" não vira espaço (o defeito do Magurō): "Massa" e "Maa" são itens diferentes', () => {
     expect(somarPorItem([r('Massa', 1, 'V'), r('Maa', 1, 'V')])).toHaveLength(2);
     expect(registroForaDaLista(r('Massa', 1, 'V'), [{ id: 'x', nome: 'Maa' }])).toBe(true);
@@ -61,7 +85,9 @@ describe('as somas do relatório (iguais às do Magurō)', () => {
 });
 
 describe('o registro', () => {
-  it('exige item, quantidade maior que zero, unidade kg/unid e motivo', () => {
+  it('exige item, quantidade maior que zero, unidade kg/g/unid e motivo', () => {
+    expect(UNIDADES_DESCARTE).toEqual(['kg', 'g', 'unid']);
+    expect(conferirDescarte({ itemNome: 'x', quantidade: 10, unidade: 'g', motivo: 'm' })).toBe(true);
     expect(() => conferirDescarte({ itemNome: 'x', quantidade: 1, unidade: 'kg', motivo: '' })).toThrow(/motivo/);
     expect(() => conferirDescarte({ itemNome: 'x', quantidade: 0, unidade: 'kg', motivo: 'm' })).toThrow(/maior que zero/);
     expect(() => conferirDescarte({ itemNome: 'x', quantidade: 1, unidade: 'cx', motivo: 'm' })).toThrow(/Unidade/);
@@ -69,11 +95,13 @@ describe('o registro', () => {
     expect(conferirDescarte({ itemNome: 'x', quantidade: 1, unidade: 'unid', motivo: 'm' })).toBe(true);
   });
 
-  it('a unidade de costume vem do item: unid, ou kg para todo o resto', () => {
+  it('a unidade de costume vem do item: unid; g (e mL) em gramas; kg para o resto', () => {
     expect(unidadeDoItem({ unidade: 'unid' })).toBe('unid');
     expect(unidadeDoItem({ unidade: 'Un' })).toBe('unid');
     expect(unidadeDoItem({ unidade: 'kg' })).toBe('kg');
-    expect(unidadeDoItem({ unidade: 'g' })).toBe('kg');
+    expect(unidadeDoItem({ unidade: 'g' })).toBe('g');
+    expect(unidadeDoItem({ unidade: 'gramas' })).toBe('g');
+    expect(unidadeDoItem({ unidade: 'mL' })).toBe('g');
     expect(unidadeDoItem({ unidade: 'L' })).toBe('kg');
   });
 
@@ -124,9 +152,30 @@ describe('a planilha', () => {
       editado_em: '2026-11-24T14:00:00Z', original: { item_nome: 'Frango', quantidade: 1.5, unidade: 'kg', motivo: 'Vencido' } }];
     const abas = planilhaDoDesperdicio(regs, [{ id: 'f', nome: 'Frango' }], { de: '2026-11-24', ate: '2026-11-24' });
     expect(abas.map(a => a[0])).toEqual(['Soma por item', 'Por grupo', 'Por motivo', 'Um por um']);
-    expect(abas[3][1][1]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Frango', 2, 'kg', 'Sobra de produção', 'Maria',
-      'Sim (antes: Frango · 1,5 kg · Vencido)']);
+    expect(abas[3][1][0]).toEqual(['Data', 'Hora', 'Turno', 'Item', 'Quantidade', 'Unidade', 'Peso (kg)', 'Motivo', 'Responsável', 'Mudou depois']);
+    expect(abas[3][1][1]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Frango', 2, 'kg', 2, 'Sobra de produção', 'Maria',
+      'Corrigido (antes: Frango · 1,5 kg · Vencido)']);
     expect(resumoRegistro(null)).toBe('');
+  });
+
+  it('gramas: as somas em kg (número, dá para somar no Excel) e o "um por um" como foi registrado', () => {
+    const base = { dia: '2026-11-24', hora: '10:00', turno: 'Manhã', responsavel: 'Ana' };
+    const regs = [{ ...r('Bolinho', 300, 'Vencido', 'g'), ...base }, { ...r('Bolinho', 1, 'Vencido', 'kg'), ...base },
+      { ...r('Pão', 3, 'Queimado', 'unid'), ...base, alterado_em: '2026-11-24T13:05:00Z',
+        original: { item_nome: 'Pão', quantidade: 30, unidade: 'unid', motivo: 'Queimado' } }];
+    const abas = planilhaDoDesperdicio(regs, [], { de: '2026-11-24', ate: '2026-11-24' });
+    expect(abas[0][1].slice(3)).toEqual([['Bolinho', 1.3, 'kg', 2, 'Vencido (1,3 kg)'], ['Pão', 3, 'unid', 1, 'Queimado (3 unid)']]);
+    expect(abas[2][1]).toEqual([['Motivo', 'Total (kg)'], ['Vencido', 1.3]]);
+    expect(abas[3][1][1]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Bolinho', 300, 'g', 0.3, 'Vencido', 'Ana', '']);
+    expect(abas[3][1][3]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Pão', 3, 'unid', '', 'Queimado', 'Ana',
+      'Alterado na hora (antes: Pão · 30 unid · Queimado)']);
+  });
+
+  it('o que mudou depois: alterado na hora (quem registrou) e/ou corrigido (Administração)', () => {
+    expect(mudancaDoRegistro({})).toBe('');
+    expect(mudancaDoRegistro({ alterado_em: 'x' })).toBe('Alterado na hora');
+    expect(mudancaDoRegistro({ editado_em: 'x' })).toBe('Corrigido');
+    expect(mudancaDoRegistro({ alterado_em: 'x', editado_em: 'y' })).toBe('Alterado na hora e corrigido');
   });
 });
 
@@ -163,6 +212,40 @@ describe('ligado no app (o Etiquetas com o desperdício)', () => {
     expect(ler('../../store/AppContext.jsx')).toMatch(/else if \(item\.kind === 'descarte' && item\.op === 'rpc'\)\s+\(\{ error \} = await supabase\.rpc\('registrar_descartes'/);
   });
 
+  it('ALTERAR (M66): o último registro fica com o botão por 15 minutos, e o "Registrar outro?" também tem', () => {
+    const tela = ler('../../pages/Desperdicio.jsx');
+    expect(tela).toMatch(/const MINUTOS_PARA_ALTERAR = 15;/);
+    expect(tela).toMatch(/aria-label=\{`Alterar o registro de \$\{ultimo\.item_nome\}`\}/);
+    expect(tela).toMatch(/aoAlterar=\{podeAlterar \? alterarUltimo : null\}/);
+    // ⚠️ só QUEM REGISTROU vê o "Alterar" — e ela o reencontra se voltar pelo nome
+    expect(tela).toMatch(/const podeAlterar = !!ultimo && ultimo\.responsavel === responsavel;/);
+    expect(tela).not.toMatch(/setUltimo\(null\);\s*\}, \[\]\);/);
+    expect(ler('../../components/QuemImprime.jsx')).toMatch(/\{aoAlterar && \(/);
+    const janela = ler('../../components/JanelaDescarte.jsx');
+    expect(janela).toMatch(/await alterarMeuDescarte\(\{ rid, demo: !!sessao\?\.demo \}, nova\)/);
+    expect(janela).toMatch(/Trocar item/);
+  });
+
+  it('ALTERAR sem internet: vai na mesma fila, DEPOIS do registro', () => {
+    const lib = ler('../../lib/descartes.js');
+    expect(lib).toMatch(/outboxAdd\(rid, \{ kind: 'descarte', op: 'alterar', payload: \{ id: a\.id, \.\.\.campos \} \}\)/);
+    expect(ler('../../store/AppContext.jsx')).toMatch(/else if \(item\.kind === 'descarte' && item\.op === 'alterar'\)\s+\(\{ error \} = await supabase\.rpc\('alterar_meu_descarte'/);
+  });
+
+  it('a voz: item, quanto e motivo numa frase; o motivo também por voz', () => {
+    const tela = ler('../../pages/Desperdicio.jsx');
+    expect(tela).toMatch(/interpretar=\{\(alternativas\) => acharDescartePorVoz\(alternativas, ativos, motivos\)\}/);
+    expect(tela).toMatch(/opcaoForaDaLista=\{opcaoForaDaLista\}/);
+    const janela = ler('../../components/JanelaDescarte.jsx');
+    expect(janela).toMatch(/setMotivo\(motivoDaFala\(alternativas, motivos\)\)/);
+    expect(janela).toMatch(/aria-label=\{mic\.ouvindo \? 'Parar de ouvir' : 'Falar o motivo'\}/);
+  });
+
+  it('o banco recusou sem erro (conta sem liberação): a tela não diz "registrado"', () => {
+    expect(ler('../../lib/descartes.js')).toMatch(/return Number\(data\) === 0 \? \{ enviado: false, recusado: true \} : \{ enviado: true \};/);
+    expect(ler('../../components/JanelaDescarte.jsx')).toMatch(/if \(r\.recusado\) \{/);
+  });
+
   it('"Cadastrar" do fora da lista abre Meus itens com o nome', () => {
     expect(ler('../../pages/RelatorioDesperdicio.jsx')).toMatch(/navigate\(`\/itens\?novo=\$\{encodeURIComponent\(g\.item\)\}&unidade=\$\{g\.unidade\}`\)/);
     expect(ler('../../pages/etiquetas/Itens.jsx')).toMatch(/const nome = \(params\.get\('novo'\) \|\| ''\)\.trim\(\)\.slice\(0, 120\);/);
@@ -184,5 +267,24 @@ describe('a migração 65 (o banco decide)', () => {
       expect(sql).toMatch(new RegExp(`function ${f}\\([\\s\\S]*?_conta_do_desperdicio\\(`));
     }
     expect(sql).toMatch(/set original = coalesce\(original, jsonb_build_object\(/);
+  });
+});
+
+describe('a migração 66 (gramas e o "Alterar" de quem registrou)', () => {
+  const sql = ler('../../lib/migration66_desperdicio_gramas_e_alterar.sql');
+  it('g passa a valer no banco, no registro e nas correções', () => {
+    expect(sql).toMatch(/add constraint descartes_unidade_check check \(unidade in \('kg', 'g', 'unid'\)\)/);
+    expect(sql.match(/unidade in \('kg', 'g', 'unid'\)/g)).toHaveLength(2);
+    expect(sql.match(/p_unidade not in \('kg', 'g', 'unid'\)/g)).toHaveLength(2);
+  });
+  it('alterar só o registro deste aparelho, em 15 minutos, antes da Administração corrigir', () => {
+    expect(sql).toMatch(/auth\.uid\(\), sessao_atual\(\)/);
+    expect(sql).toMatch(/if v\.sessao is distinct from sessao_atual\(\) then/);
+    expect(sql).toMatch(/if v\.criado_em < now\(\) - interval '15 minutes' then/);
+    expect(sql).toMatch(/if v\.editado_em is not null then/);
+    expect(sql).toMatch(/alterado_em = now\(\)/);
+    expect(sql).toMatch(/revoke all on function alterar_meu_descarte\(uuid, text, text, numeric, text, text\) from public, anon;/);
+    // "Voltar ao original" tira as duas marcas
+    expect(sql).toMatch(/original = null, editado_em = null, alterado_em = null/);
   });
 });

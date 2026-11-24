@@ -13,7 +13,10 @@ import { fmtNum, fmtData } from './formatters';
 import { gruposDoProduto } from './grupos';
 import { normalizarUnidade } from './itens';
 
-export const UNIDADES_DESCARTE = ['kg', 'unid'];
+// ⚠️ GRAMAS (24/11/2026, pedido do dono, M66): "10 g de bolinho" sem fazer
+// conta. Cada registro guarda a unidade como foi digitada; nas SOMAS, g vira
+// kg e soma junto com o kg (e abaixo de 1 kg a soma aparece em gramas).
+export const UNIDADES_DESCARTE = ['kg', 'g', 'unid'];
 
 // os motivos que o Magurō usa; a casa muda na Administração → Desperdício
 export const MOTIVOS_PADRAO = ['Vencido', 'Estragado', 'Queimado', 'Sobra de produção', 'Caiu no chão',
@@ -25,6 +28,8 @@ export const MAX_MOTIVO = 40;
 export const TURNOS_PADRAO = [{ nome: 'Manhã', inicio: '05:00' }, { nome: 'Noite', inicio: '16:00' }];
 
 const arred = (n) => Math.round((Number(n) || 0) * 1000) / 1000;
+// as somas em kg guardam 6 casas: 2,5 g são 0,0025 kg, e 3 casas perdiam isso
+const arredKg = (n) => Math.round((Number(n) || 0) * 1e6) / 1e6;
 // o texto que compara nomes: sem acento, minúsculo, espaços juntos
 // ⚠️ no Magurō isto era `/s+/` (sem a barra): trocava a LETRA "s" por espaço
 const chaveDoNome = (s) => normalizarBusca(String(s ?? '').trim()).replace(/\s+/g, ' ');
@@ -61,11 +66,31 @@ export function turnoDe(data, turnos = TURNOS_PADRAO) {
   return r;
 }
 
-/** A unidade de costume do item no descarte: unid, ou kg para todo o resto. */
-export const unidadeDoItem = (p) => (normalizarUnidade(p?.unidade) === 'unid' ? 'unid' : 'kg');
+/**
+ * A unidade de costume do item no descarte: unid; g para o item em g (e em
+ * mL, que na cozinha pesa quase o mesmo); kg para todo o resto. A pessoa
+ * troca na janela se precisar.
+ */
+export function unidadeDoItem(p) {
+  const u = normalizarUnidade(p?.unidade);
+  if (u === 'unid') return 'unid';
+  return u === 'g' || u === 'mL' ? 'g' : 'kg';
+}
 
-/** "1,5 kg", "3 unid". */
-export const fmtQtd = (n, unidade) => `${fmtNum(n, 3)} ${unidade === 'unid' ? 'unid' : 'kg'}`;
+/** Peso ou unidade? g e kg são peso (somam juntos); unid é à parte. */
+export const tipoDaUnidade = (unidade) => (unidade === 'unid' ? 'unid' : 'kg');
+
+/** A quantidade para as somas: g vira kg; unid fica como está. */
+export const paraSomar = (quantidade, unidade) => (unidade === 'g' ? Number(quantidade) / 1000 : Number(quantidade)) || 0;
+
+/** "1,5 kg", "250 g", "3 unid" — como foi registrado. */
+export const fmtQtd = (n, unidade) => `${fmtNum(n, 3)} ${UNIDADES_DESCARTE.includes(unidade) ? unidade : 'kg'}`;
+
+/** Uma SOMA de peso (em kg): abaixo de 1 kg aparece em gramas ("250 g"). */
+export const fmtPeso = (kg) => (Number(kg) > 0 && Number(kg) < 1 ? `${fmtNum(Number(kg) * 1000, 1)} g` : `${fmtNum(kg, 3)} kg`);
+
+/** Uma soma do relatório: peso (`tipo` 'kg', em kg) ou unidades. */
+export const fmtSoma = (total, tipo) => (tipo === 'unid' ? fmtQtd(total, 'unid') : fmtPeso(total));
 
 /** Confere o registro antes de mandar (o banco confere de novo). */
 export function conferirDescarte({ itemNome, quantidade, unidade, motivo }) {
@@ -81,8 +106,8 @@ export function conferirDescarte({ itemNome, quantidade, unidade, motivo }) {
  * SOMA OS ITENS IGUAIS: "Salmão", "salmao " e "SALMÃO" são o mesmo item —
  * cadastrado ou digitado em "Item fora da lista". Item cadastrado que mudou
  * de nome usa o nome de HOJE (`itensAtuais`), então registros antigos e novos
- * somam juntos. kg e unid nunca se somam.
- * Devolve [{ item, unidade, total, vezes, foraDaLista, motivos: [{ motivo, total }] }], maior primeiro.
+ * somam juntos. Peso (kg e g, em kg) e unid nunca se somam.
+ * Devolve [{ item, unidade: 'kg' | 'unid', total, vezes, foraDaLista, motivos: [{ motivo, total }] }], maior primeiro.
  */
 export function somarPorItem(registros, itensAtuais = []) {
   const nomeAtual = new Map((itensAtuais || []).map(i => [i.id, i.nome]));
@@ -90,15 +115,17 @@ export function somarPorItem(registros, itensAtuais = []) {
   const grupos = new Map();
   for (const r of registros || []) {
     const nome = String((r.item_id && nomeAtual.get(r.item_id)) || r.item_nome || '').trim();
-    const chave = `${chaveDoNome(nome)}|${r.unidade}`;
+    const tipo = tipoDaUnidade(r.unidade);
+    const q = paraSomar(r.quantidade, r.unidade);
+    const chave = `${chaveDoNome(nome)}|${tipo}`;
     let g = grupos.get(chave);
-    if (!g) { g = { item: nome, cadastrado: false, unidade: r.unidade, total: 0, vezes: 0, porMotivo: new Map() }; grupos.set(chave, g); }
+    if (!g) { g = { item: nome, cadastrado: false, unidade: tipo, total: 0, vezes: 0, porMotivo: new Map() }; grupos.set(chave, g); }
     // o nome do cadastro ganha do que foi digitado à mão ("Salmão", não "salmao")
     if (!g.cadastrado && r.item_id && nomeAtual.has(r.item_id)) { g.item = nome; g.cadastrado = true; }
-    g.total = arred(g.total + Number(r.quantidade));
+    g.total = arredKg(g.total + q);
     g.vezes += 1;
     const m = String(r.motivo || '').trim();
-    g.porMotivo.set(m, arred((g.porMotivo.get(m) || 0) + Number(r.quantidade)));
+    g.porMotivo.set(m, arredKg((g.porMotivo.get(m) || 0) + q));
   }
   return [...grupos.values()]
     .map(g => ({
@@ -109,23 +136,23 @@ export function somarPorItem(registros, itensAtuais = []) {
     .sort((a, b) => (a.unidade === b.unidade ? 0 : a.unidade === 'kg' ? -1 : 1) || b.total - a.total || a.item.localeCompare(b.item, 'pt-BR'));
 }
 
-/** Soma por motivo (só kg, que é o que dá para comparar). */
+/** Soma por motivo (só peso, em kg — o que dá para comparar). */
 export function somarPorMotivo(registros) {
   const m = new Map();
   for (const r of registros || []) {
-    if (r.unidade !== 'kg') continue;
+    if (tipoDaUnidade(r.unidade) !== 'kg') continue;
     const k = String(r.motivo || '').trim();
-    m.set(k, arred((m.get(k) || 0) + Number(r.quantidade)));
+    m.set(k, arredKg((m.get(k) || 0) + paraSomar(r.quantidade, r.unidade)));
   }
   return [...m.entries()].map(([motivo, total]) => ({ motivo, total })).sort((a, b) => b.total - a.total);
 }
 
-/** Totais do período: kg, unidades e quantos registros. */
+/** Totais do período: peso (em kg, com os gramas), unidades e quantos registros. */
 export function totais(registros) {
   const l = registros || [];
   return {
-    kg: arred(l.filter(r => r.unidade === 'kg').reduce((s, r) => s + Number(r.quantidade), 0)),
-    unid: arred(l.filter(r => r.unidade !== 'kg').reduce((s, r) => s + Number(r.quantidade), 0)),
+    kg: arredKg(l.filter(r => tipoDaUnidade(r.unidade) === 'kg').reduce((s, r) => s + paraSomar(r.quantidade, r.unidade), 0)),
+    unid: arred(l.filter(r => tipoDaUnidade(r.unidade) === 'unid').reduce((s, r) => s + Number(r.quantidade), 0)),
     registros: l.length,
   };
 }
@@ -133,7 +160,7 @@ export function totais(registros) {
 /**
  * Soma por GRUPO. O grupo é o PRINCIPAL do item cadastrado (o de hoje); item
  * digitado fora da lista acha o grupo pelo nome, se houver um item igual;
- * senão fica em "Sem grupo". kg e unid separados.
+ * senão fica em "Sem grupo". Peso (em kg) e unid separados.
  */
 export function somarPorGrupo(registros, itensAtuais = []) {
   const porId = new Map((itensAtuais || []).map(i => [i.id, i]));
@@ -142,9 +169,10 @@ export function somarPorGrupo(registros, itensAtuais = []) {
   for (const r of registros || []) {
     const item = (r.item_id && porId.get(r.item_id)) || porNome.get(chaveDoNome(r.item_nome));
     const grupo = String(gruposDoProduto(item)[0] || '').trim() || 'Sem grupo';
-    const chave = `${chaveDoNome(grupo)}|${r.unidade}`;
-    const g = grupos.get(chave) || { grupo, unidade: r.unidade, total: 0, vezes: 0 };
-    g.total = arred(g.total + Number(r.quantidade));
+    const tipo = tipoDaUnidade(r.unidade);
+    const chave = `${chaveDoNome(grupo)}|${tipo}`;
+    const g = grupos.get(chave) || { grupo, unidade: tipo, total: 0, vezes: 0 };
+    g.total = arredKg(g.total + paraSomar(r.quantidade, r.unidade));
     g.vezes += 1;
     grupos.set(chave, g);
   }
@@ -164,19 +192,40 @@ export const itensForaDaLista = (registros, itensAtuais = []) => somarPorItem(re
 /** "Frango · 1,5 kg · Vencido" — como a pessoa registrou, antes da correção. */
 export const resumoRegistro = (o) => (o ? `${o.item_nome} · ${fmtQtd(o.quantidade, o.unidade)} · ${o.motivo}` : '');
 
-/** As abas da planilha (xlsx): soma por item, por grupo, por motivo e um por um. */
+/**
+ * O que mudou depois de registrado (M66): "Alterado na hora" (quem registrou,
+ * logo depois, no mesmo aparelho) e/ou "Corrigido" (a Administração).
+ * Vazio quando ficou como foi registrado.
+ */
+export function mudancaDoRegistro(r) {
+  if (r?.alterado_em && r?.editado_em) return 'Alterado na hora e corrigido';
+  if (r?.alterado_em) return 'Alterado na hora';
+  return r?.editado_em ? 'Corrigido' : '';
+}
+
+/**
+ * As abas da planilha (xlsx): soma por item, por grupo, por motivo e um por
+ * um. ⚠️ AS SOMAS SÃO NÚMERO EM kg (gramas convertidos) ou em unid, com a
+ * unidade ao lado — dá para somar no Excel. No "Um por um" fica a quantidade
+ * como foi registrada e, ao lado, o peso em kg.
+ */
 export function planilhaDoDesperdicio(registros, itensAtuais, periodo) {
   const titulo = periodo.de === periodo.ate ? fmtData(periodo.de) : `${fmtData(periodo.de)} a ${fmtData(periodo.ate)}`;
+  const mudou = (r) => {
+    const m = mudancaDoRegistro(r);
+    return m && r.original ? `${m} (antes: ${resumoRegistro(r.original)})` : m;
+  };
   return [
     ['Soma por item', [['Desperdício', titulo], [],
       ['Item', 'Total', 'Unidade', 'Vezes', 'Motivos'],
       ...somarPorItem(registros, itensAtuais).map(g => [g.item, g.total, g.unidade, g.vezes,
-        g.motivos.map(m => `${m.motivo} (${fmtNum(m.total, 3)})`).join(', ')])]],
+        g.motivos.map(m => `${m.motivo} (${fmtSoma(m.total, g.unidade)})`).join(', ')])]],
     ['Por grupo', [['Grupo', 'Total', 'Unidade', 'Vezes'],
       ...somarPorGrupo(registros, itensAtuais).map(g => [g.grupo, g.total, g.unidade, g.vezes])]],
     ['Por motivo', [['Motivo', 'Total (kg)'], ...somarPorMotivo(registros).map(m => [m.motivo, m.total])]],
-    ['Um por um', [['Data', 'Hora', 'Turno', 'Item', 'Quantidade', 'Unidade', 'Motivo', 'Responsável', 'Corrigido'],
+    ['Um por um', [['Data', 'Hora', 'Turno', 'Item', 'Quantidade', 'Unidade', 'Peso (kg)', 'Motivo', 'Responsável', 'Mudou depois'],
       ...(registros || []).map(r => [fmtData(r.dia), r.hora, r.turno, r.item_nome, Number(r.quantidade), r.unidade,
-        r.motivo, r.responsavel, r.editado_em ? `Sim (antes: ${resumoRegistro(r.original)})` : ''])]],
+        tipoDaUnidade(r.unidade) === 'kg' ? arredKg(paraSomar(r.quantidade, r.unidade)) : '',
+        r.motivo, r.responsavel, mudou(r)])]],
   ];
 }

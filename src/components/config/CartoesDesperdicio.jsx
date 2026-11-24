@@ -50,6 +50,10 @@ export function CartaoTurnosDescarte({ prefs, setPref, toast }) {
   const [rascunho, setRascunho] = useState(null);
   const atuais = rascunho || turnos;
   const salvar = () => {
+    // ⚠️ HORÁRIO APAGADO (auditoria 24/11/2026): o turno sem hora sumia da
+    // lista ao salvar (turnosDaCasa descarta hora inválida) e não havia como
+    // pôr de volta
+    if (atuais.some(t => !/^([01]\d|2[0-3]):[0-5]\d$/.test(t.inicio || ''))) { toast('Preencha o horário de cada turno.', 'aviso'); return; }
     if (new Set(atuais.map(t => t.inicio)).size !== atuais.length) { toast('Os turnos precisam começar em horários diferentes.', 'aviso'); return; }
     setPref('turnosDescarte', atuais);
     setRascunho(null);
