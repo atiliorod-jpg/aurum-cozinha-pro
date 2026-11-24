@@ -181,6 +181,42 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (24/11/2026, noite) — DESPERDÍCIO: GRAMAS, VOZ, ALTERAR (M66 APLICADA) + AUDITORIA
+
+Pedido do dono: gramas; motivo por voz; voz que entende "bolinho de costela 10
+gramas" / "10kg"; tecla de alterar depois de registrar; conferir relatório e
+planilha; auditar etiquetas + desperdício. Tudo no ar (commit 9cb3b81 + o da auditoria).
+- **M66** (`migration66_desperdicio_gramas_e_alterar.sql`): unidade 'g' (check +
+  registrar + corrigir); colunas `sessao` (sessão de login que registrou) e
+  `alterado_em`; `alterar_meu_descarte(id, item_id, item_nome, quantidade, unidade,
+  motivo)` SEM a senha: só mesma sessão, até 15 min de `criado_em`, e se a
+  Administração não corrigiu (guarda `original`); `voltar_descarte_original` tira as
+  duas marcas; `descartes_do_periodo` devolve `alterado_em`. pentest 35/35; auditoria 63/63.
+- **Gramas**: g guardado como digitado; nas somas g vira kg (`paraSomar`,
+  `tipoDaUnidade`, `fmtPeso`: < 1 kg aparece em g; `fmtSoma`). Planilha: somas em kg
+  (número), "Um por um" com "Peso (kg)" e "Mudou depois".
+- **Voz**: `utils/vozDoDescarte.js` (`entenderFalaDoDescarte`, `acharDescartePorVoz`,
+  `motivoDaFala`) — número grudado ("10kg"), decimal, por extenso (meio, quilo e meio,
+  "um quilo e duzentos" = 1,2 kg, dúzia), litro→kg e mL→g, motivo pelos botões da casa
+  (palavra parecida ou `SINONIMOS`: venceu, derrubou…; ⚠️ sem "começa igual": "que"
+  achava "queimado"), "porque/motivo" = texto livre como foi dito. Testes em
+  `__tests__/vozDoDescarte.test.js`. O microfone virou `components/useMicrofone.js`
+  (a busca e o motivo usam); `BuscaPorVoz` ganhou `interpretar`, `descreverPedido`,
+  `opcaoForaDaLista`.
+- **Alterar**: botão no "Registrar outro?" (`ContinuarImprimindo aoAlterar`) e cartão
+  "Registrado: … [Alterar]" por 15 min; só aparece para QUEM REGISTROU (`podeAlterar`
+  compara `responsavel`), e volta se a mesma pessoa entrar de novo pelo nome. Troca até
+  o item. Sem internet: `outbox` kind 'descarte' op 'alterar', DEPOIS do registro.
+- Correções da auditoria: `registrar_descartes` devolvendo 0 = `recusado` (a tela não
+  diz mais "registrado"); o flush roda de novo se entrou item durante a subida (vale
+  para tudo); turno sem horário não salva; pentest usa o "hoje" de Recife.
+- Robô: `e2e/desperdicio.pw.js` (7 cenários) e `e2e/relatorioEtiquetas.pw.js` (planilha
+  baixada e ABERTA com o pacote xlsx). O microfone de mentira mora em `e2e/apoio.js`.
+- **Esperando o dono** (`AUDITORIA_ETIQUETAS_DESPERDICIO_2026-11-24.md`, seção 3): 1
+  minuto parado com a janela aberta (pesar) → 3 min?; responsável sem equipe; tirar o
+  botão "Item fora da lista"; tirar a linha Data/Hora/Turno; "Mais descartados"; relatório
+  por turno e por pessoa; menos motivos de fábrica.
+
 ## Onde paramos (24/11/2026, manhã) — REGISTRO DE DESPERDÍCIO NO ETIQUETAS (M65 APLICADA)
 
 Pedido do dono: trazer o checklist de desperdício do Magurō (projeto
