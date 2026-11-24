@@ -181,7 +181,66 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (24/11/2026) — ACESSOS NO JEITO DO MAGURŌ (app no ar; M62 APLICADA)
+## Onde paramos (24/11/2026, madrugada) — R$ 99,90 COM 3 APARELHOS, SEM "OUTRO CNPJ" (M63 e M64 APLICADAS)
+
+O dono deixou o computador e pediu as 4 partes prontas. Tudo no ar (commits
+23ddcb8, 45d13a2, 300a4f2, 114142d, 6fa2c5b):
+
+1. **Ajustes rápidos**: a janela de imprimir/reimprimir não treme mais
+   (zoom da prévia com faixa morta + `scrollbar-gutter` estável, era 0,79↔0,80
+   a cada quadro em DPR 3); **link discreto "Reimprimir"** na tela Imprimir,
+   abre SÓ AS DE HOJE ("de outro dia, imprima uma nova"); o Relatório de
+   etiquetas perdeu a aba Impressas; **Meus itens sem senha** (M63:
+   `pode_na_conta('gerenciarProdutos')` livre para quem está na conta;
+   pentest 19/19); uma varredura de textos longos (Imprimir, prévia, itens,
+   impressora, suporte, armazenamentos, estados, cópia, fale com a gente).
+2. **Plano**: Etiquetas a **R$ 99,90** (`PRODUTOS.etiquetas.precoMes`), com
+   **até 3 aparelhos** (`APARELHOS_INCLUSOS`), **R$ 20 por aparelho a mais**
+   (`ADICIONAL_APARELHO`) em toda cobrança (`restaurantes.aparelhos_extras`).
+   Pro continua R$ 399 "em breve" e **sem limite de aparelhos** (decisão
+   minha, fácil de mudar: `limite_de_aparelhos()` na M64 + a constante).
+   **M64**: tabela `aparelhos` (sem grant, sem policy), aparelho = a SESSÃO de
+   login (`sessao_atual()`), `registrar_aparelho` decide com a linha da conta
+   travada (`for update`); o 4º fica 'aguardando' e o app mostra
+   `components/AparelhoAMais.jsx` (Pix de R$ 20 + "Já paguei" →
+   `pedir_aparelho_extra`; ou "Ou libere uma vaga" → Tirar com a senha da
+   Administração). Parado 30 dias libera a vaga sozinho. Tirado pela
+   Administração → `situacao 'removido'` → o aparelho sai e a entrada diz
+   "Este aparelho saiu da conta". Administração → Equipe: `CartaoAparelhos`.
+   `pentest-aparelhos.mjs` 29/29; auditoria 55/55.
+   ⚠️ **BUG CORRIGIDO**: `supabase.auth.signOut()` é `scope: 'global'` por
+   padrão — com o login da casa, "Sair" num aparelho derrubava os outros na
+   renovação do token. Agora `signOut({ scope: 'local' })` + `sair_do_aparelho`.
+   ⚠️ O Pix de liberação é só R$ 20 também em conta semestral/anual já paga
+   (como o dono descreveu); se ele quiser cobrar os meses até a renovação, a
+   Aurum lança uma cobrança à parte no painel (M54). Perguntar a ele.
+3. **"Outro CNPJ" fora do app inteiro** (o banco tinha 0 unidades e 2 contas):
+   `AppContext` com `SEM_UNIDADES` (lista sempre vazia, não lê a tabela),
+   saíram CartaoUnidades, Equipe por unidade, CartaoContas, CartaoCargos,
+   SecaoUnidades, SecaoContas, o pedido/cobrança da unidade e o "+ Unidade
+   para um cliente" do painel. O Pro tem a tela "Cozinhas" (era "Unidades e
+   cozinhas"). As funções puras de `utils/unidades.js` ficaram (com a lista
+   vazia caem no caminho de um estabelecimento só). **Termos 1.4**: aparelhos
+   conectados no lugar das unidades adicionais.
+4. **Painel da Aurum**: bloco Aparelhos por conta (Confirmar Pix → vaga paga +
+   pagamento no histórico com `valor 0, valor_extras 20`; dispensar;
+   desconectar; vagas pagas −/+), Pix de aparelho na fila do dia (logo depois
+   dos avisos de pagamento), MRR com os aparelhos; saíram "Limite de usuários"
+   (VIP) e os campos "Contas extras" do registrar pagamento; lista de acesso
+   vira "Login" (login da casa / conta antiga).
+
+**IA na voz (pedido do dono)**: plano em `PLANO_IA_VOZ.md` + tarefa pronta no
+gatilho. A IA só abre a janela preenchida; reserva = `acharPorVoz` de hoje;
+modelo é decisão do dono (Opus 5.5 ≈ US$ 0,012/frase × Haiku 5.5 ≈ US$ 0,0003).
+
+**Armadilha do GitHub**: os testes rodam SEM o endereço do Supabase. Teste de
+componente que importa algo que puxa `lib/supabase` quebra a suíte inteira no
+deploy (aconteceu com o AparelhoAMais: 2 deploys falharam). Use `vi.mock`.
+Para conferir local: um vitest.config temporário com `envDir` vazio.
+
+---
+
+## Antes disso (24/11/2026) — ACESSOS NO JEITO DO MAGURŌ (app no ar; M62 APLICADA)
 
 **M62 aplicada em 24/11** (o dono renovou o token do Supabase): conferida no catálogo
 (11 funções sem acesso anônimo, `meu_cargo()` segue a Administração, tabelas com RLS
