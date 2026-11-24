@@ -42,7 +42,9 @@ test('plano Etiquetas: telas e janelas', async ({ page }) => {
   r['criar a senha'] = await medirAcessibilidade(page);
   await passarPelaSenha(page, 'Maria');
   await percorrer(page, ['/', '/itens', '/impressas', '/relatorio-etiquetas', '/pagamento', '/novidades',
-    '/administracao', '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe', '/administracao/conta'], r, 'etiquetas');
+    '/administracao', '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe', '/administracao/conta',
+    // o desperdício (24/11/2026): a tela, o relatório e os motivos e turnos
+    '/desperdicio', '/relatorio-desperdicio', '/administracao/desperdicio'], r, 'etiquetas');
   // a ficha do item (Lote 4): no plano Etiquetas, só a parte da etiqueta
   await abrir(page, '/itens');
   await page.getByRole('button', { name: /^Frango desfiado/ }).click();

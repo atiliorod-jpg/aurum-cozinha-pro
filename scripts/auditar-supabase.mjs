@@ -36,7 +36,9 @@ const TABELAS = ['admin_notas', 'admin_exclusoes', 'admin_log', 'convites', 'doc
   // M62 (24/11/2026): a senha da Administração (com hash) e quem está com ela aberta
   'administracao_senha', 'administracao_aberta',
   // M64 (24/11/2026): os aparelhos conectados de cada conta
-  'aparelhos'];
+  'aparelhos',
+  // M65 (24/11/2026): o registro de desperdício
+  'descartes'];
 const RPCS = [
   'aceitar_convite', 'alterar_cargo', 'ativar_assinatura', 'avisar_pagamento',
   'convite_valido', 'criar_restaurante', 'definir_bloqueio', 'definir_max_usuarios',
@@ -52,6 +54,9 @@ const RPCS = [
   // M64: os aparelhos conectados (o 4º espera o Pix; só a Aurum dá a vaga paga)
   'registrar_aparelho', 'sair_do_aparelho', 'meus_aparelhos', 'remover_aparelho', 'pedir_aparelho_extra',
   'aparelhos_admin', 'confirmar_aparelho_extra', 'dispensar_pedido_de_aparelho', 'definir_aparelhos_extras',
+  // M65: o registro de desperdício (registrar é da equipe; o resto, da Administração aberta)
+  'registrar_descartes', 'descartes_do_periodo', 'corrigir_descarte', 'voltar_descarte_original',
+  'apagar_descarte', 'apagar_descartes_periodo',
 ];
 
 const req = (caminho, chave, opts = {}) =>

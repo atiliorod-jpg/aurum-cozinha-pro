@@ -352,13 +352,15 @@ export default function QuemImprime({ dentroDaJanela = false, titulo = 'Quem vai
 
 // "Imprimindo como Maria · Trocar" — acima da busca, na tela de Etiquetas.
 // (o Reimprimir saiu daqui em 24/11/2026: virou um link discreto na tela)
-export function FaixaOperador() {
+// `acao`: "Registrando" na tela de desperdício — a MESMA pessoa vale nas duas.
+// `aoTrocar`: a tela que limpa a busca junto (sem ele, só troca a pessoa).
+export function FaixaOperador({ acao = 'Imprimindo', aoTrocar = null }) {
   const { operador, trocar } = useOperador();
   if (!operador) return null;
   return (
     <div className="flex items-center justify-between gap-2 bg-polo-navy text-white rounded-2xl pl-4 pr-1.5 py-1.5">
-      <p className="text-base min-w-0 truncate">Imprimindo como <strong className="text-polo-gold">{operador}</strong></p>
-      <button type="button" onClick={trocar}
+      <p className="text-base min-w-0 truncate">{acao} como <strong className="text-polo-gold">{operador}</strong></p>
+      <button type="button" onClick={aoTrocar || trocar}
         className="min-h-12 px-4 rounded-xl bg-white/10 text-white text-sm font-bold flex-shrink-0">
         Trocar
       </button>
@@ -373,7 +375,8 @@ export function FaixaOperador() {
 // ⚠️ O "×" e o Esc contam como continuar: quem fechou está ali.
 export const SEGUNDOS_PARA_CONTINUAR = 5;
 
-export function ContinuarImprimindo({ nome, aoContinuar, aoTrocar }) {
+// `pergunta`: "Registrar outro desperdício, Maria?" na tela de desperdício.
+export function ContinuarImprimindo({ nome, aoContinuar, aoTrocar, pergunta = '' }) {
   const [restam, setRestam] = useState(SEGUNDOS_PARA_CONTINUAR);
   useEffect(() => {
     if (restam <= 0) { aoTrocar(); return undefined; }
@@ -381,7 +384,7 @@ export function ContinuarImprimindo({ nome, aoContinuar, aoTrocar }) {
     return () => clearTimeout(t);
   }, [restam, aoTrocar]);
   return (
-    <Dialogo aoFechar={aoContinuar} titulo={`Continuar imprimindo, ${nome}?`}
+    <Dialogo aoFechar={aoContinuar} titulo={pergunta || `Continuar imprimindo, ${nome}?`}
       forma="caixa" largura="sm" camada={110} classeCaixa="space-y-3">
       <p className="text-sm text-gray-700">Volta para os nomes em {restam} s.</p>
       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden" aria-hidden="true">

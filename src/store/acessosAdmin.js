@@ -17,6 +17,8 @@ export const GRUPOS_ADMIN = [
     // o plano Etiquetas não tem QR nem cozinhas: a descrição não promete o que não há
     descEtiquetas: 'Campos impressos, armazenamentos e temperaturas' },
   // desde 23/11/2026: sem contas da equipe, cargos nem matriz (jeito do Magurō)
+  // o registro de desperdício (24/11/2026): só no Aurum Etiquetas
+  { id: 'desperdicio', titulo: 'Desperdício', icone: 'perda', desc: 'Motivos e turnos do registro' },
   { id: 'equipe', titulo: 'Equipe', icone: 'equipe', desc: 'Nomes de quem imprime, senha da Administração e aparelhos conectados' },
   { id: 'estoque', titulo: 'Estoque', icone: 'mantimento', desc: 'Receitas, destinos de saída e de apara, mínimo e máximo, rendimento' },
   { id: 'conta', titulo: 'Conta', icone: 'cartao', desc: 'Plano e pagamento, minha senha, suporte remoto, cópia de segurança' },
@@ -49,6 +51,8 @@ export function useAcessosAdmin() {
     cozinhas: !soEtiq && dono,
     // aparelhos conectados (M64): ver e tirar é da Administração aberta
     aparelhos: dono && !sessao?.eSuperAdmin,
+    // motivos e turnos do desperdício: só no Etiquetas, por enquanto
+    desperdicio: soEtiq && sistema,
     etiqueta: sistema,
     nomes: soEtiq ? sistema : gerente,
     contas: soEtiq ? dono : gerente,
@@ -63,6 +67,7 @@ export function useAcessosAdmin() {
   a.grupos = {
     casa: a.estabelecimento || a.cozinhas,
     etiqueta: a.etiqueta,
+    desperdicio: a.desperdicio,
     equipe: a.nomes || a.contas || a.cargos || a.aparelhos,
     estoque: a.receitas || a.ajustesEstoque,
     // Instalar o app e Novidades valem para qualquer um que entra aqui

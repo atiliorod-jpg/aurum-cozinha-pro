@@ -66,6 +66,11 @@ export default function Administracao() {
       to: '/relatorio-etiquetas', icone: 'etiqueta', titulo: 'Relatório de etiquetas',
       desc: 'Quantas saíram por dia, semana e mês',
     },
+    // o checklist de desperdício do Magurō (24/11/2026), no Aurum Etiquetas
+    acesso.soEtiq && can('verRelatorioEtiquetas') && {
+      to: '/relatorio-desperdicio', icone: 'perda', titulo: 'Relatório de desperdício',
+      desc: 'Por item, grupo e motivo',
+    },
     !acesso.soEtiq && can('verFinanceiro') && {
       to: '/financeiro', icone: 'financeiro', titulo: 'Custos e valor do estoque', desc: 'Valor parado, curva ABC, consumo e perdas em R$',
     },

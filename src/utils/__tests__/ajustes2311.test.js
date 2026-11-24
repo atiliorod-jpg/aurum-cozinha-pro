@@ -191,7 +191,7 @@ describe('telas', () => {
     const nav = ler('../../components/NavBar.jsx');
     const barraEtiquetas = nav.slice(nav.indexOf('const NAV_ETIQUETAS'), nav.indexOf('export default function NavBar'));
     expect(barraEtiquetas).not.toMatch(/to: '\/impressas'/);
-    expect(barraEtiquetas).toMatch(/label: 'Administração', cap: 'configurarSistema', tambem: \['\/relatorio-etiquetas'\]/);
+    expect(barraEtiquetas).toMatch(/label: 'Administração', cap: 'configurarSistema', tambem: \['\/relatorio-etiquetas', '\/relatorio-desperdicio'\]/);
     // 24/11/2026: a aba Impressas SAIU do relatório (reimprimir = link discreto, só as de hoje)
     const rel = ler('../../pages/RelatorioEtiquetas.jsx');
     expect(rel).not.toMatch(/ListaDeImpressas|\['impressas', 'Impressas'\]/);

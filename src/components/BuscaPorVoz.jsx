@@ -23,7 +23,13 @@ import { vozDisponivel, acharPorVoz, itemCerto, textoDoErroDeVoz, juntarAlternat
  * WhatsApp): o microfone nem aparece — um botão que não funciona é pior que
  * nenhum.
  */
-export default function BuscaPorVoz({ produtos, vocabulario, aviso, aoAvisar, aoBuscar, aoImprimir, children }) {
+// `rotuloQuantidade` e `dicaOuvindo`: a tela de desperdício (24/11/2026) usa a
+// mesma busca, sem falar em "etiquetas".
+export default function BuscaPorVoz({
+  produtos, vocabulario, aviso, aoAvisar, aoBuscar, aoImprimir, children,
+  rotuloQuantidade = (q) => `${q} etiquetas`,
+  dicaOuvindo = 'Ouvindo… fale o item, quantas etiquetas e o método.',
+}) {
   const [ouvindo, setOuvindo] = useState(false);
   const [parcial, setParcial] = useState('');
   const reconhecimento = useRef(null);
@@ -49,7 +55,7 @@ export default function BuscaPorVoz({ produtos, vocabulario, aviso, aoAvisar, ao
     }
     // o que a pessoa falou, com acento ("filé"); a busca ignora acento
     const falado = r.falado || r.termo || alternativas[0] || '';
-    const extras = [r.quantidade && `${r.quantidade} etiquetas`, r.metodoFalado].filter(Boolean).join(', ');
+    const extras = [r.quantidade && rotuloQuantidade(r.quantidade), r.metodoFalado].filter(Boolean).join(', ');
     if (r.achados.some(a => a.nota >= 80)) {
       const n = r.achados.filter(a => a.nota >= 80).length;
       aoBuscar(falado, pedido);
@@ -125,7 +131,7 @@ export default function BuscaPorVoz({ produtos, vocabulario, aviso, aoAvisar, ao
       {(ouvindo || aviso) && (
         <div role="status" className="text-base text-gray-700 bg-white border-[3px] border-polo-navy/15 rounded-2xl px-4 py-3 space-y-2">
           {ouvindo
-            ? <p>{parcial ? <>Ouvindo: <strong className="text-polo-navy">{parcial}</strong></> : 'Ouvindo… fale o item, quantas etiquetas e o método.'}</p>
+            ? <p>{parcial ? <>Ouvindo: <strong className="text-polo-navy">{parcial}</strong></> : dicaOuvindo}</p>
             : <p>{aviso.texto}</p>}
           {!ouvindo && aviso?.opcoes?.length > 0 && (
             <div className="flex flex-wrap gap-2">

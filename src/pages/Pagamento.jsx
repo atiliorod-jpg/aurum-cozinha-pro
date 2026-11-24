@@ -51,6 +51,8 @@ const RECURSOS_POR_PRODUTO = {
     // TELA DE PAGAMENTO um recurso que não existe é o pior lugar possível
     // para essa dívida ficar.
     'Itens abertos com data de abertura (ex.: leite, molho do dia)',
+    // o checklist de desperdício do Magurō (24/11/2026), com a mesma equipe e itens
+    'Registro de desperdício, com relatório por item, grupo e motivo',
     // M64 (24/11/2026): o plano inclui 3; o aparelho a mais é cobrado à parte
     'Até 3 aparelhos conectados na mesma conta',
     'Funciona offline e sincroniza na nuvem',

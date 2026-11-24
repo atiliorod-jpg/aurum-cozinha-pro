@@ -24,6 +24,7 @@ import Icon from '../components/Icons';
 import QuemImprime, { FaixaOperador, ContinuarImprimindo } from '../components/QuemImprime';
 import BuscaPorVoz from '../components/BuscaPorVoz';
 import { useOperador, useTelaDeImprimir } from '../store/OperadorContext';
+import TrocaEtiquetaDesperdicio from '../components/TrocaEtiquetaDesperdicio';
 
 // Página de etiquetas: imprime etiqueta de QUALQUER produto do catálogo a
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
@@ -86,6 +87,10 @@ export default function Etiquetas() {
     recomecar();
   }, [expiracoes, recomecar]);
   const trocarPessoa = useCallback(() => { trocar(); recomecar(); }, [trocar, recomecar]);
+  // ⚠️ ENTROU PELO NOME: de volta ao topo (24/11/2026). Quem tocou num nome
+  // lá embaixo da lista ficava com a tela rolada, e os botões Etiquetas |
+  // Desperdício sumiam debaixo do cabeçalho.
+  useEffect(() => { if (operador) { try { window.scrollTo(0, 0); } catch { /* sem window */ } } }, [operador]);
   // ⚠️ "CONTINUAR IMPRIMINDO?" SÓ PARA QUEM AINDA ESTÁ (auditoria 04/11/2026).
   // O nome pode expirar no meio de um envio longo pelo Bluetooth ou com "Saiu
   // no papel?" esperando: a pergunta ficava guardada e aparecia para a PRÓXIMA
@@ -239,6 +244,9 @@ export default function Etiquetas() {
           ⚠️ Os avulsos ("leite aberto") não têm lista própria: são itens com
           a DATA DE ABERTURA (ver etiquetas/Itens). */}
         <div className="space-y-4">
+          {/* ⚠️ ETIQUETAS | DESPERDÍCIO NO TOPO (24/11/2026, decisão do dono):
+              a mesma pessoa vale nas duas telas. Só no Aurum Etiquetas. */}
+          {soEtiq && <TrocaEtiquetaDesperdicio atual="etiquetas" />}
           {/* a impressora à vista ANTES de escolher o item (só no Android) */}
           <FaixaImpressora />
           {/* ⚠️ NO CAMINHO DE ENTRADA, e não escondido na Administração: uma

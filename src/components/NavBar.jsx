@@ -54,7 +54,9 @@ const NAV = [
 //  • A Administração tem lugar fixo: neste plano não há seletor de área no
 //    cabeçalho, então a barra é a única porta dela.
 const NAV_ETIQUETAS = [
-  { to: '/',        icon: 'etiqueta', label: 'Imprimir' },
+  // o Desperdício (24/11/2026) é a outra metade da tela inicial: os botões
+  // Etiquetas | Desperdício no topo trocam; a aba continua acesa
+  { to: '/',        icon: 'etiqueta', label: 'Imprimir', tambem: ['/desperdicio'] },
   // ⚠️ MESMA REGRA DO /ajustes, e ela faltava aqui. O cargo Cozinha não tem
   // `gerenciarProdutos` por padrão: a rota redirecionava em silêncio e a
   // pessoa tocava, a tela piscava e ela voltava sem entender. Pior, na conta
@@ -76,7 +78,7 @@ const NAV_ETIQUETAS = [
   // acesa dentro deles (NavLink sem `end`).
   // `tambem`: o relatório de etiquetas é aberto da Administração — a aba
   // continua acesa lá dentro.
-  { to: '/administracao', icon: 'config', label: 'Administração', cap: 'configurarSistema', tambem: ['/relatorio-etiquetas'] },
+  { to: '/administracao', icon: 'config', label: 'Administração', cap: 'configurarSistema', tambem: ['/relatorio-etiquetas', '/relatorio-desperdicio'] },
 ];
 
 export default function NavBar({ soEtiquetas = false }) {

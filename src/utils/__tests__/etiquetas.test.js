@@ -1130,7 +1130,9 @@ describe('plano Etiquetas não abre tela do plano completo', () => {
       // Administração passou a ser a MESMA nos dois planos, e o que o plano
       // não tem não aparece nela (store/acessosAdmin.js). `/ajustes` ficou só
       // como endereço antigo que leva para lá.
-      ['*', '/', '/admin', '/administracao', '/administracao/:grupo', '/ajustes', '/etiquetas', '/impressas', '/itens', '/novidades', '/pagamento', '/relatorio-etiquetas'].sort(),
+      // `/desperdicio` e `/relatorio-desperdicio` entraram em 24/11/2026: o
+      // checklist de desperdício do Magurō, com a mesma base (itens, equipe).
+      ['*', '/', '/admin', '/administracao', '/administracao/:grupo', '/ajustes', '/desperdicio', '/etiquetas', '/impressas', '/itens', '/novidades', '/pagamento', '/relatorio-desperdicio', '/relatorio-etiquetas'].sort(),
     );
   });
 

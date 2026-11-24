@@ -1,0 +1,333 @@
+import { useEffect, useId, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Layout from '../components/Layout';
+import Dialogo from '../components/Dialogo';
+import Aviso from '../components/Aviso';
+import Icon from '../components/Icons';
+import { CampoNumerico } from '../components/ui/TecladoNumerico';
+import { useApp } from '../store/AppContext';
+import { useAuth } from '../store/AuthContext';
+import { useUI } from '../store/UIContext';
+import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
+import { fmtData, fmtNum, hoje } from '../utils/formatters';
+import {
+  somarPorItem, somarPorGrupo, somarPorMotivo, totais, itensForaDaLista, fmtQtd, resumoRegistro,
+  planilhaDoDesperdicio, motivosDaCasa, conferirDescarte,
+} from '../utils/desperdicio';
+import {
+  listarDescartes, corrigirDescarte, voltarDescarteOriginal, apagarDescarte, apagarDescartesDoPeriodo,
+} from '../lib/descartes';
+
+// =====================================================================
+//  RELATÓRIO DE DESPERDÍCIO (24/11/2026) — o do checklist do Magurō, na
+//  Administração (decisão do dono: só aqui, com a senha). Soma por item, por
+//  grupo, um por um e por motivo; imprimir e planilha; corrigir (fica marcado
+//  "Corrigido" e guarda como a pessoa registrou), apagar um ou o período, e
+//  os itens registrados fora da lista para cadastrar com um toque.
+// =====================================================================
+const somarDias = (iso, n) => {
+  const [a, m, d] = iso.split('-').map(Number);
+  const x = new Date(a, m - 1, d + n);
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+};
+const PERIODOS = [
+  { id: 'hoje', rotulo: 'Hoje', de: () => hoje(), ate: () => hoje() },
+  { id: 'ontem', rotulo: 'Ontem', de: () => somarDias(hoje(), -1), ate: () => somarDias(hoje(), -1) },
+  { id: '7', rotulo: '7 dias', de: () => somarDias(hoje(), -6), ate: () => hoje() },
+  { id: 'mes', rotulo: 'Este mês', de: () => `${hoje().slice(0, 8)}01`, ate: () => hoje() },
+];
+const VISOES = [
+  { id: 'item', rotulo: 'Soma por item' },
+  { id: 'grupo', rotulo: 'Por grupo' },
+  { id: 'lista', rotulo: 'Um por um' },
+  { id: 'motivo', rotulo: 'Por motivo' },
+];
+const botaoFiltro = (sel) => `min-h-11 px-4 rounded-xl font-bold text-sm border-[3px]
+  ${sel ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-polo-navy border-polo-navy/15'}`;
+
+export default function RelatorioDesperdicio() {
+  const { produtos } = useApp();
+  const { sessao, impersonando } = useAuth();
+  const { toast, confirm } = useUI();
+  const navigate = useNavigate();
+  const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
+  const onde = useMemo(() => ({ demo: !!sessao?.demo, restaurante: impersonando?.restauranteId || null }),
+    [sessao?.demo, impersonando?.restauranteId]);
+
+  const [periodo, setPeriodo] = useState('hoje');
+  const [de, setDe] = useState(hoje());
+  const [ate, setAte] = useState(hoje());
+  const [visao, setVisao] = useState('item');
+  const [linhas, setLinhas] = useState(null);
+  const [fora, setFora] = useState([]);
+  const [erro, setErro] = useState('');
+  const [recarga, setRecarga] = useState(0);
+  const [corrigindo, setCorrigindo] = useState(null);
+
+  const escolherPeriodo = (p) => { setPeriodo(p.id); setDe(p.de()); setAte(p.ate()); };
+
+  useEffect(() => {
+    let vivo = true;
+    listarDescartes(onde, de, ate)
+      .then(l => { if (vivo) { setLinhas(l); setErro(''); } })
+      .catch(e => { if (vivo) { setLinhas([]); setErro(e.message); } });
+    return () => { vivo = false; };
+  }, [onde, de, ate, recarga]);
+  // os itens registrados fora da lista nos últimos 30 dias, para cadastrar
+  useEffect(() => {
+    let vivo = true;
+    listarDescartes(onde, somarDias(hoje(), -29), hoje())
+      .then(l => { if (vivo) setFora(l); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [onde, recarga]);
+
+  const regs = useMemo(() => linhas || [], [linhas]);
+  const porItem = useMemo(() => somarPorItem(regs, produtos), [regs, produtos]);
+  const porGrupo = useMemo(() => somarPorGrupo(regs, produtos), [regs, produtos]);
+  const porMotivo = useMemo(() => somarPorMotivo(regs), [regs]);
+  const paraCadastrar = useMemo(() => itensForaDaLista(fora, produtos), [fora, produtos]);
+  const t = totais(regs);
+  const corrigidos = regs.filter(l => l.editado_em).length;
+  const periodoTxt = de === ate ? fmtData(de) : `${fmtData(de)} a ${fmtData(ate)}`;
+  const podeMexer = !impersonando;
+
+  const baixarPlanilha = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.utils.book_new();
+      for (const [nome, aba] of planilhaDoDesperdicio(regs, produtos, { de, ate })) {
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aba), nome);
+      }
+      XLSX.writeFile(wb, `desperdicio_${de}_a_${ate}.xlsx`);
+    } catch (e) { toast(`Não consegui gerar a planilha: ${e?.message || 'erro'}`, 'erro'); }
+  };
+  const apagar = async (l) => {
+    const ok = await confirm({ titulo: 'Apagar o registro?', mensagem: `${l.item_nome} · ${fmtQtd(l.quantidade, l.unidade)} · ${fmtData(l.dia)} ${l.hora}`, perigo: true, confirmar: 'Apagar' });
+    if (!ok) return;
+    try { await apagarDescarte(onde, l.id); toast('Registro apagado.', 'sucesso'); setRecarga(n => n + 1); }
+    catch (e) { toast(e.message, 'erro'); }
+  };
+  const apagarPeriodo = async () => {
+    if (!regs.length) return;
+    const ok = await confirm({
+      titulo: 'Apagar todos deste período?',
+      mensagem: `Os ${regs.length} registros de ${periodoTxt} somem de vez do relatório e do banco. Não tem volta.`,
+      perigo: true, confirmar: 'Apagar todos',
+    });
+    if (!ok) return;
+    try { const n = await apagarDescartesDoPeriodo(onde, de, ate); toast(`${n} registros apagados.`, 'sucesso'); setRecarga(x => x + 1); }
+    catch (e) { toast(e.message, 'erro'); }
+  };
+
+  return (
+    <Layout title="Relatório de desperdício" {...(soEtiq ? { voltar: '/administracao' } : { area: 'admin' })}>
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2 print:hidden" role="group" aria-label="Período">
+          {PERIODOS.map(p => (
+            <button key={p.id} type="button" onClick={() => escolherPeriodo(p)} aria-pressed={periodo === p.id} className={botaoFiltro(periodo === p.id)}>{p.rotulo}</button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <label className="text-sm text-gray-600">De
+            <input type="date" value={de} onChange={e => { setPeriodo('livre'); setDe(e.target.value); }}
+              className="ml-2 min-h-11 rounded-xl border-[3px] border-polo-navy/15 px-2 text-polo-navy" />
+          </label>
+          <label className="text-sm text-gray-600">até
+            <input type="date" value={ate} onChange={e => { setPeriodo('livre'); setAte(e.target.value); }}
+              className="ml-2 min-h-11 rounded-xl border-[3px] border-polo-navy/15 px-2 text-polo-navy" />
+          </label>
+        </div>
+
+        {paraCadastrar.length > 0 && podeMexer && (
+          <section className="rounded-2xl border-[3px] border-polo-gold bg-polo-beige p-4 space-y-2 print:hidden" aria-labelledby="fora-titulo">
+            <h2 id="fora-titulo" className="font-titulo font-black text-base text-polo-navy uppercase">Registrados fora da lista</h2>
+            <ul className="divide-y divide-polo-gold/30 bg-white rounded-xl border border-polo-gold/40">
+              {paraCadastrar.map(g => (
+                <li key={`${g.item}|${g.unidade}`} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="min-w-0">
+                    <span className="block font-bold text-polo-navy break-words">{g.item}</span>
+                    <span className="block text-xs text-gray-600">{g.vezes}× · {fmtQtd(g.total, g.unidade)} nos últimos 30 dias</span>
+                  </span>
+                  <button type="button" onClick={() => navigate(`/itens?novo=${encodeURIComponent(g.item)}&unidade=${g.unidade}`)}
+                    className="min-h-11 px-3 rounded-xl bg-polo-navy text-polo-gold font-bold text-sm flex-shrink-0">Cadastrar</button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <div className="grid grid-cols-2 gap-2">
+          <Resumo rotulo="Total descartado" valor={`${fmtNum(t.kg, 3)} kg`} extra={t.unid ? `+ ${fmtNum(t.unid, 3)} unid` : ''} />
+          <Resumo rotulo="Registros" valor={linhas ? String(t.registros) : '…'} />
+          <Resumo rotulo="Item que mais saiu" valor={porItem[0]?.item || '—'} extra={porItem[0] ? fmtQtd(porItem[0].total, porItem[0].unidade) : ''} />
+          <Resumo rotulo="Motivo mais comum" valor={porMotivo[0]?.motivo || '—'} extra={porMotivo[0] ? `${fmtNum(porMotivo[0].total, 3)} kg` : ''} />
+        </div>
+
+        <div className="flex flex-wrap gap-2 print:hidden" role="group" aria-label="Como ver">
+          {VISOES.map(v => (
+            <button key={v.id} type="button" onClick={() => setVisao(v.id)} aria-pressed={visao === v.id} className={botaoFiltro(visao === v.id)}>{v.rotulo}</button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <button type="button" onClick={() => window.print()} className="min-h-11 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-sm inline-flex items-center gap-2">
+            <Icon name="impressora" size={18} />Imprimir
+          </button>
+          <button type="button" onClick={baixarPlanilha} disabled={!regs.length} className="min-h-11 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-sm inline-flex items-center gap-2 disabled:opacity-80">
+            <Icon name="lista" size={18} />Planilha
+          </button>
+          {podeMexer && regs.length > 0 && (
+            <button type="button" onClick={apagarPeriodo} className="min-h-11 px-4 rounded-xl border-[3px] border-red-200 bg-white text-red-700 font-bold text-sm inline-flex items-center gap-2">
+              <Icon name="apagar" size={18} />Apagar todos deste período
+            </button>
+          )}
+        </div>
+
+        <p className="hidden print:block text-polo-navy font-bold">
+          Desperdício · {VISOES.find(v => v.id === visao)?.rotulo} · {periodoTxt} · {fmtNum(t.kg, 3)} kg{t.unid ? ` + ${fmtNum(t.unid, 3)} unid` : ''}
+        </p>
+        {corrigidos > 0 && (
+          <Aviso tom="neutro">{corrigidos === 1 ? '1 registro deste período foi corrigido' : `${corrigidos} registros deste período foram corrigidos`}{visao !== 'lista' ? ' (veja em “Um por um”).' : '.'}</Aviso>
+        )}
+        {erro && <Aviso tom="erro">{erro}</Aviso>}
+
+        <ul className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100">
+          {linhas === null && <li className="p-4 text-sm text-gray-600">Carregando…</li>}
+          {linhas !== null && !regs.length && !erro && <li className="p-4 text-sm text-gray-600">Nenhum descarte neste período.</li>}
+          {visao === 'item' && porItem.map(g => (
+            <li key={`${g.item}|${g.unidade}`} className="px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-bold text-polo-navy break-words">{g.item}</span>
+                <span className="font-black text-polo-navy whitespace-nowrap">{fmtQtd(g.total, g.unidade)}</span>
+              </div>
+              <p className="text-xs text-gray-600 mt-0.5">{g.vezes}× · {g.motivos.map(m => `${m.motivo} (${fmtQtd(m.total, g.unidade)})`).join(' · ')}</p>
+            </li>
+          ))}
+          {visao === 'grupo' && porGrupo.map(g => (
+            <li key={`${g.grupo}|${g.unidade}`} className="px-4 py-3 flex items-baseline justify-between gap-3">
+              <span className="font-bold text-polo-navy">{g.grupo} <span className="text-xs font-normal text-gray-600">· {g.vezes}×</span></span>
+              <span className="font-black text-polo-navy whitespace-nowrap">{fmtQtd(g.total, g.unidade)}</span>
+            </li>
+          ))}
+          {visao === 'motivo' && porMotivo.map(m => (
+            <li key={m.motivo} className="px-4 py-3 flex items-baseline justify-between gap-3">
+              <span className="font-bold text-polo-navy break-words">{m.motivo}</span>
+              <span className="font-black text-polo-navy whitespace-nowrap">{fmtNum(m.total, 3)} kg</span>
+            </li>
+          ))}
+          {visao === 'lista' && regs.map(l => (
+            <li key={l.id} className="px-4 py-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-bold text-polo-navy break-words">
+                  {l.item_nome} · <span className="font-black">{fmtQtd(l.quantidade, l.unidade)}</span>
+                </p>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  {fmtData(l.dia)} {l.hora} · {l.turno || 'sem turno'} · {l.motivo}{l.responsavel ? ` · ${l.responsavel}` : ''}
+                </p>
+                {l.editado_em && (
+                  <p className="text-xs text-polo-navy mt-1">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-polo-gold/20 border border-polo-gold px-1.5 py-0.5 font-bold">
+                      <Icon name="editar" size={12} />Corrigido
+                    </span>
+                    {l.original && <span className="block text-gray-600 mt-0.5">antes: {resumoRegistro(l.original)}</span>}
+                  </p>
+                )}
+              </div>
+              {podeMexer && (
+                <div className="flex gap-1 flex-shrink-0 print:hidden">
+                  <button type="button" onClick={() => setCorrigindo(l)} aria-label={`Corrigir o registro de ${l.item_nome}`}
+                    className="w-11 h-11 rounded-xl text-polo-navy hover:bg-polo-navy/10 flex items-center justify-center"><Icon name="editar" size={20} /></button>
+                  <button type="button" onClick={() => apagar(l)} aria-label={`Apagar o registro de ${l.item_nome}`}
+                    className="w-11 h-11 rounded-xl text-red-700 hover:bg-red-50 flex items-center justify-center"><Icon name="apagar" size={20} /></button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {corrigindo && (
+        <JanelaCorrigir registro={corrigindo} aoFechar={() => setCorrigindo(null)}
+          aoSalvar={() => { setCorrigindo(null); setRecarga(n => n + 1); }} onde={onde} />
+      )}
+    </Layout>
+  );
+}
+
+const Resumo = ({ rotulo, valor, extra }) => (
+  <div className="rounded-2xl bg-white border-2 border-polo-navy/10 p-3">
+    <p className="text-xs font-bold uppercase text-gray-600">{rotulo}</p>
+    <p className="text-xl font-black text-polo-navy leading-tight break-words">{valor}</p>
+    {extra && <p className="text-xs text-gray-600">{extra}</p>}
+  </div>
+);
+
+// Corrigir um registro feito errado: item, quantidade, unidade ou motivo.
+// Data, hora, turno e responsável não mudam (o banco nem aceita).
+function JanelaCorrigir({ registro, aoFechar, aoSalvar, onde }) {
+  const { produtos, prefs } = useApp();
+  const { toast } = useUI();
+  const id = useId();
+  const [nome, setNome] = useState(registro.item_nome);
+  const [qtd, setQtd] = useState(String(registro.quantidade));
+  const [unidade, setUnidade] = useState(registro.unidade);
+  const [motivo, setMotivo] = useState(registro.motivo);
+  const [erro, setErro] = useState('');
+  const [salvando, setSalvando] = useState(false);
+  const ativos = produtos.filter(p => p.ativo);
+  const motivos = motivosDaCasa(prefs);
+
+  const salvar = async () => {
+    const quantidade = Number(String(qtd).replace(',', '.')) || 0;
+    try { conferirDescarte({ itemNome: nome, quantidade, unidade, motivo }); } catch (e) { setErro(e.message); return; }
+    const item = ativos.find(p => (p.nome || '').trim().toLowerCase() === nome.trim().toLowerCase());
+    setSalvando(true);
+    try {
+      await corrigirDescarte(onde, { id: registro.id, item_id: item?.id || null, item_nome: item?.nome || nome.trim(), quantidade, unidade, motivo: motivo.trim() });
+      toast('Registro corrigido.', 'sucesso');
+      aoSalvar();
+    } catch (e) { setErro(e.message); setSalvando(false); }
+  };
+  const voltar = async () => {
+    try { await voltarDescarteOriginal(onde, registro.id); toast('Voltou ao que foi registrado.', 'sucesso'); aoSalvar(); }
+    catch (e) { setErro(e.message); }
+  };
+
+  return (
+    <Dialogo aoFechar={aoFechar} titulo="Corrigir registro" forma="ficha" largura="lg" classeCaixa="space-y-4">
+      <p className="text-sm text-gray-600">{fmtData(registro.dia)} {registro.hora} · {registro.turno || 'sem turno'} · {registro.responsavel || '—'}</p>
+      <div>
+        <label htmlFor={`${id}-item`} className="block text-xs font-bold uppercase text-gray-600 mb-1">Item</label>
+        <input id={`${id}-item`} list={`${id}-itens`} value={nome} onChange={e => { setNome(e.target.value); setErro(''); }} maxLength={120}
+          className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 px-3 text-base text-polo-navy" />
+        <datalist id={`${id}-itens`}>{ativos.map(p => <option key={p.id} value={p.nome} />)}</datalist>
+      </div>
+      <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+        <div>
+          <p className="text-xs font-bold uppercase text-gray-600 mb-1">Quantidade</p>
+          <CampoNumerico valor={qtd} aoMudar={(v) => { setQtd(v); setErro(''); }} rotulo="Quantidade" unidade={unidade} decimal={unidade === 'kg'}
+            className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 px-3 text-xl font-extrabold text-polo-navy" />
+        </div>
+        <div className="flex gap-1.5" role="radiogroup" aria-label="Unidade">
+          {['kg', 'unid'].map(u => (
+            <button key={u} type="button" role="radio" aria-checked={unidade === u} onClick={() => setUnidade(u)}
+              className={`min-h-12 px-4 rounded-xl font-bold border-[3px] ${unidade === u ? 'bg-polo-navy border-polo-navy text-polo-gold' : 'bg-white border-polo-navy/15 text-polo-navy'}`}>{u}</button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <label htmlFor={`${id}-motivo`} className="block text-xs font-bold uppercase text-gray-600 mb-1">Motivo</label>
+        <input id={`${id}-motivo`} list={`${id}-motivos`} value={motivo} onChange={e => { setMotivo(e.target.value); setErro(''); }} maxLength={300}
+          className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 px-3 text-base text-polo-navy" />
+        <datalist id={`${id}-motivos`}>{motivos.map(m => <option key={m} value={m} />)}</datalist>
+      </div>
+      {erro && <p role="alert" className="text-sm font-bold text-red-700">{erro}</p>}
+      <div className="flex flex-wrap gap-2">
+        {registro.editado_em && (
+          <button type="button" onClick={voltar} className="min-h-12 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold">Voltar ao original</button>
+        )}
+        <button type="button" onClick={salvar} disabled={salvando} className="flex-1 min-h-12 rounded-xl bg-polo-navy text-polo-gold font-bold disabled:opacity-80">
+          {salvando ? 'Salvando…' : 'Salvar correção'}
+        </button>
+      </div>
+    </Dialogo>
+  );
+}

@@ -43,6 +43,8 @@ import { useNavigate } from 'react-router-dom';
 // na mesma conta): cada CNPJ passa a ser uma conta. Entram os APARELHOS
 // CONECTADOS (M64): o plano inclui até 3 aparelhos com a conta aberta; cada
 // aparelho a mais custa R$ 20 por mês, com o 1º mês pago antes de liberar.
+// Complemento no mesmo dia, ainda na 1.4: os registros de desperdício entram
+// nos dados tratados (cl. 12) — o checklist do Magurō no Aurum Etiquetas.
 export const TERMOS_VERSAO = '1.4';
 export const TERMOS_VIGENCIA = '24 de novembro de 2026';
 
@@ -387,8 +389,9 @@ export default function Termos() {
               Nome e e-mail dos usuários vinculados à conta, os nomes dos responsáveis que assinam
               as etiquetas, os dados cadastrais do estabelecimento (razão social, CNPJ, WhatsApp,
               cidade) e os registros operacionais — itens, prazos, etiquetas emitidas (com data,
-              hora, item e responsável, que formam o relatório de etiquetas) e, no plano completo,
-              estoque, produção e movimentações.
+              hora, item e responsável, que formam o relatório de etiquetas), os registros de
+              desperdício (item, quantidade, motivo, data, hora, turno e responsável) e, no plano
+              completo, estoque, produção e movimentações.
             </p>
           </Clausula>
 

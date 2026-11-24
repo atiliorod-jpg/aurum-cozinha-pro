@@ -65,6 +65,9 @@ const Balanco = lazy(() => import('./pages/Balanco'));
 const RelatorioEtiquetas = lazy(() => import('./pages/RelatorioEtiquetas'));
 // reimprimir é LIVRE (23/11/2026): a porta é o botão na tela Imprimir
 const Reimprimir = lazy(() => import('./pages/Reimprimir'));
+// o registro de desperdício (24/11/2026, o checklist do Magurō)
+const Desperdicio = lazy(() => import('./pages/Desperdicio'));
+const RelatorioDesperdicio = lazy(() => import('./pages/RelatorioDesperdicio'));
 // Baixa pela etiqueta (M59): só o Pro imprime QR, então só o Pro tem a tela
 const LerEtiquetas = lazy(() => import('./pages/LerEtiquetas'));
 
@@ -440,6 +443,10 @@ function Rotas() {
               (link antigo, favorito) e leva para o mesmo lugar. */}
           <Route path="/"           element={<Etiquetas />} />
           <Route path="/etiquetas"  element={<Navigate to="/" replace />} />
+          {/* ⚠️ DESPERDÍCIO (24/11/2026, pedido do dono): o checklist do Magurō,
+              com a mesma base (itens, equipe). Livre como imprimir; o relatório
+              fica na Administração, com a senha. */}
+          <Route path="/desperdicio" element={<Desperdicio />} />
           {/* ⚠️ JEITO DO MAGURŌ (23/11/2026): Meus itens, a Administração e o
               relatório pedem a SENHA DA ADMINISTRAÇÃO (ComSenha) — em vez de
               mandar de volta, a tela trava ali e abre com a senha. */}
@@ -455,6 +462,7 @@ function Rotas() {
               O relatório (totais, Apagar) é da Administração, com a senha. */}
           <Route path="/impressas"  element={can('verImpressas') ? <Reimprimir /> : <Navigate to="/" replace />} />
           <Route path="/relatorio-etiquetas" element={<ComSenha liberado={can('verRelatorioEtiquetas')} titulo="Relatório de etiquetas"><RelatorioEtiquetas /></ComSenha>} />
+          <Route path="/relatorio-desperdicio" element={<ComSenha liberado={can('verRelatorioEtiquetas')} titulo="Relatório de desperdício"><RelatorioDesperdicio /></ComSenha>} />
           {/* ⚠️ Estava SEM TRAVA: qualquer pessoa logada — inclusive o
               cozinheiro que entrou por convite — mudava temperatura, tamanho
               de etiqueta, dados do estabelecimento, suporte remoto e
@@ -542,6 +550,10 @@ function Rotas() {
         ? <ComSenha liberado={can('inventario')} titulo="Contagem física"><Inventario /></ComSenha> : <Navigate to="/" replace />} />
       <Route path="/relatorio" element={<ComSenha liberado={can('verRelatorio')} titulo="Relatórios"><Relatorio /></ComSenha>} />
       <Route path="/relatorio-etiquetas" element={<ComSenha liberado={can('verRelatorioEtiquetas')} titulo="Relatório de etiquetas"><RelatorioEtiquetas /></ComSenha>} />
+      {/* o Etiquetas é um recorte do Pro: o relatório de desperdício (24/11/2026)
+          existe aqui também. O Pro ainda registra perda em Aparas e perdas, e
+          ganha a tela do desperdício na reformulação. */}
+      <Route path="/relatorio-desperdicio" element={<ComSenha liberado={can('verRelatorioEtiquetas')} titulo="Relatório de desperdício"><RelatorioDesperdicio /></ComSenha>} />
       {/* ⚠️ O ETIQUETAS É UM RECORTE DO PRO, e esta tela faltava aqui (15/09):
           reimprimir com as datas originais, totais, apagar a etiqueta que
           contou errado (M44) e a porta do relatório só existiam no plano

@@ -1707,6 +1707,10 @@ export function AppProvider({ children }) {
             // relatório de etiquetas (M43): o id de cada linha veio do aparelho,
             // então reenviar aqui não conta a mesma etiqueta duas vezes
             ({ error } = await supabase.rpc('registrar_impressoes', { p_itens: item.payload?.itens || [] }));
+          // desperdício registrado sem internet (M65): idempotente pelo id
+          // que veio do aparelho, e com a hora em que foi feito
+          else if (item.kind === 'descarte' && item.op === 'rpc')
+            ({ error } = await supabase.rpc('registrar_descartes', { p_itens: item.payload?.itens || [] }));
           else if (item.kind === 'clearAll')
             // Os tipos vão no PAYLOAD: o replay acontece depois, possivelmente
             // com outro módulo aberto. Sem isso, "apagar tudo" feito offline no

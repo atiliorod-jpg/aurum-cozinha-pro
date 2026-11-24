@@ -11,6 +11,7 @@ import {
   CartaoMeusDados,
 } from '../components/config/CartoesConfig';
 import CartaoAparelhos from '../components/config/CartaoAparelhos';
+import { CartaoMotivosDescarte, CartaoTurnosDescarte } from '../components/config/CartoesDesperdicio';
 import { CartaoSenhaDaAdministracao } from '../components/SenhaDaAdministracao';
 import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
 import CartaoEquipe from '../components/config/CartaoEquipe';
@@ -40,6 +41,7 @@ export default function AdministracaoGrupo() {
     <Layout title={g.titulo} {...(acesso.soEtiq ? { voltar: '/administracao' } : { area: 'admin' })}>
       {grupo === 'casa' && <GrupoCasa a={acesso} />}
       {grupo === 'etiqueta' && <GrupoEtiqueta a={acesso} />}
+      {grupo === 'desperdicio' && <GrupoDesperdicio />}
       {grupo === 'equipe' && <GrupoEquipe a={acesso} />}
       {grupo === 'estoque' && <GrupoEstoque a={acesso} />}
       {grupo === 'conta' && <GrupoConta a={acesso} />}
@@ -98,6 +100,17 @@ function GrupoEtiqueta({ a }) {
       <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} mostrarQR={!a.soEtiq} />
       {/* ⚠️ A impressora (conectar, rolo, etiqueta de teste) mora em Meus itens
           → Impressora desde 23/11/2026 — o dono tirou o cartão daqui. */}
+    </>
+  );
+}
+
+function GrupoDesperdicio() {
+  const { prefs, setPref } = useApp();
+  const { toast } = useUI();
+  return (
+    <>
+      <CartaoMotivosDescarte prefs={prefs} setPref={setPref} toast={toast} />
+      <CartaoTurnosDescarte prefs={prefs} setPref={setPref} toast={toast} />
     </>
   );
 }

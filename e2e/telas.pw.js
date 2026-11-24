@@ -17,6 +17,8 @@ const TELAS_ETIQUETAS = [
   // a Administração em grupos (Lote 4); /ajustes é o endereço antigo
   '/administracao', '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe',
   '/administracao/conta', '/ajustes',
+  // o desperdício (24/11/2026)
+  '/desperdicio', '/relatorio-desperdicio', '/administracao/desperdicio',
 ];
 const TELAS_PRO = [
   '/', '/estoque', '/registrar', '/historico', '/compras', '/entradas', '/saidas', '/producao', '/aparas',

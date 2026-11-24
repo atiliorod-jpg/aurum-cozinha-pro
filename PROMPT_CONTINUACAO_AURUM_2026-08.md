@@ -181,7 +181,33 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (24/11/2026, madrugada) — R$ 99,90 COM 3 APARELHOS, SEM "OUTRO CNPJ" (M63 e M64 APLICADAS)
+## Onde paramos (24/11/2026, manhã) — REGISTRO DE DESPERDÍCIO NO ETIQUETAS (M65 APLICADA)
+
+Pedido do dono: trazer o checklist de desperdício do Magurō (projeto
+`Downloads/Code/maguro-estoque`, pasta `src/desperdicio`) para o Aurum Etiquetas, com
+a MESMA base (itens de Meus itens, equipe com senha de 2 números) e troca prática.
+Decisões dele (perguntas clicáveis): **botões no topo** (Etiquetas | Desperdício; a
+barra continua com 3 abas), **relatório só na Administração**, **turnos Manhã e
+Noite** (horários na Administração → Desperdício), **sem setor** por enquanto.
+- **M65**: tabela `descartes` (sem grant/policy), `registrar_descartes` (lote até
+  200, id do aparelho = sem duplicar, hora do aparelho até 30 dias, dia/hora no fuso
+  de Recife, `_pode_gravar_etiqueta`), e só com a Administração aberta:
+  `descartes_do_periodo`, `corrigir_descarte` (guarda o original), `voltar_descarte_original`,
+  `apagar_descarte`, `apagar_descartes_periodo`. `pentest-desperdicio.mjs` 23/23; auditoria 62/62.
+- App: `pages/Desperdicio.jsx` (/desperdicio), `components/JanelaDescarte.jsx`,
+  `components/TrocaEtiquetaDesperdicio.jsx`, `pages/RelatorioDesperdicio.jsx`
+  (/relatorio-desperdicio, também no Pro por paridade, sem cartão lá),
+  `components/config/CartoesDesperdicio.jsx` (motivos e turnos em prefs
+  `motivosDescarte`/`turnosDescarte`), `utils/desperdicio.js` (somas do Magurō, com
+  o defeito `/s+/` corrigido), `lib/descartes.js` (fila offline kind 'descarte'; demo
+  em `pe::demo::descartes`). Meus itens abre ficha nova com `?novo=<nome>`.
+- NÃO mexe em estoque (como no Magurō). O Pro continua com Aparas e perdas; ganha
+  o desperdício na reformulação (ideia do Pro: Imprimir · Produção · Estoque · Meus
+  itens · Admin, sem Finalização — esperando as 3 decisões dele).
+
+---
+
+## Antes disso (24/11/2026, madrugada) — R$ 99,90 COM 3 APARELHOS, SEM "OUTRO CNPJ" (M63 e M64 APLICADAS)
 
 O dono deixou o computador e pediu as 4 partes prontas. Tudo no ar (commits
 23ddcb8, 45d13a2, 300a4f2, 114142d, 6fa2c5b):

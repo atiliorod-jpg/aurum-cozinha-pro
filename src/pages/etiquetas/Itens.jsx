@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useId } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Abas from '../../components/ui/Abas';
 import Chave from '../../components/ui/Chave';
 import Layout from '../../components/Layout';
@@ -68,7 +69,16 @@ export default function Itens() {
 
   const [aba, setAba] = useState('meus');   // 'meus' | 'biblioteca' | 'impressora'
   const [busca, setBusca] = useState('');
-  const [editando, setEditando] = useState(null); // {produto} | {rascunho} | null
+  // ⚠️ "CADASTRAR" DO RELATÓRIO DE DESPERDÍCIO (24/11/2026): o item que a
+  // equipe registrou fora da lista chega aqui com ?novo=<nome> e a ficha já
+  // abre com o nome (e a unidade) — ninguém redigita.
+  const [params, setParams] = useSearchParams();
+  const [editando, setEditando] = useState(() => {
+    const nome = (params.get('novo') || '').trim().slice(0, 120);
+    return nome ? { nome, categoria: categorias[0] || 'OUTROS', unidade: params.get('unidade') === 'unid' ? 'unid' : 'kg',
+      tipoData: tipoPadrao, prazos: {}, medidaPadrao: '', marca: '', sif: '' } : null;
+  }); // {produto} | {rascunho} | null
+  useEffect(() => { if (params.get('novo')) setParams({}, { replace: true }); }, [params, setParams]);
   const [planilha, setPlanilha] = useState(false);
   const [organizando, setOrganizando] = useState(false);
 
