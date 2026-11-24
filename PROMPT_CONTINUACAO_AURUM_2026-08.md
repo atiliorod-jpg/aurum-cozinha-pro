@@ -229,11 +229,10 @@ O dono deixou o computador e pediu as 4 partes prontas. Tudo no ar (commits
    (VIP) e os campos "Contas extras" do registrar pagamento; lista de acesso
    vira "Login" (login da casa / conta antiga).
 
-**IA na voz (pedido do dono)**: plano em `PLANO_IA_VOZ.md` + tarefa pronta no
-gatilho. A IA só abre a janela preenchida. **Decisão do dono (24/11): TESTE com
-Claude Haiku 5.5, chamado só quando a busca de hoje (`acharPorVoz`/`itemCerto`)
-não entender** — cerca de R$ 1 por mês por restaurante. Ligado só na conta de
-teste; falta a chave da Anthropic no `.env.local` (o dono cola).
+**IA na voz: CANCELADA pelo dono em 24/11/2026** ("não quero mais"). O plano
+(Claude Haiku 5.5 só quando a busca de hoje falhasse) saiu do projeto; nada
+chegou ao app nem ao banco. Não propor de novo sem ele pedir. A busca por voz
+continua a de sempre (`utils/voz.js`).
 
 **Armadilha do GitHub**: os testes rodam SEM o endereço do Supabase. Teste de
 componente que importa algo que puxa `lib/supabase` quebra a suíte inteira no
