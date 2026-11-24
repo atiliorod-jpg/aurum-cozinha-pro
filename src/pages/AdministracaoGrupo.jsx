@@ -101,8 +101,8 @@ function GrupoEtiqueta({ a }) {
       {/* ⚠️ QR só no Pro: quem lê o código é a baixa pela etiqueta e a
           contagem por câmera, telas que só existem lá. */}
       <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} mostrarQR={!a.soEtiq} />
-      <LinkCartao to={a.soEtiq ? '/?aba=impressora' : '/etiquetas?aba=impressora'} icone="etiqueta"
-        titulo="Impressora e rolo" desc="Ligar a impressora, o rolo 60 × 50 mm e a etiqueta de teste" />
+      {/* ⚠️ A impressora (conectar, rolo, etiqueta de teste) mora em Meus itens
+          → Impressora desde 23/11/2026 — o dono tirou o cartão daqui. */}
     </>
   );
 }

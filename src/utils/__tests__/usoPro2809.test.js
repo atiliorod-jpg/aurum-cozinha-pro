@@ -47,7 +47,8 @@ describe('janela de imprimir e suporte', () => {
 
   it('o WhatsApp do suporte tem link de verdade, com a mensagem pronta', () => {
     expect(linkSuporte('Olá! Quero refil')).toBe(`https://wa.me/${WHATSAPP_SUPORTE}?text=Ol%C3%A1!%20Quero%20refil`);
-    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/linkSuporte\('Olá! Quero refil de etiquetas 60 × 50 mm\.'\)/);
+    // o guia da impressora mora em Meus itens → Impressora desde 23/11/2026
+    expect(ler('../../components/GuiaImpressora.jsx')).toMatch(/linkSuporte\('Olá! Quero refil de etiquetas 60 × 50 mm\.'\)/);
     expect(ler('../../components/Impressora.jsx')).toMatch(/Enviar ao suporte pelo WhatsApp/);
   });
 

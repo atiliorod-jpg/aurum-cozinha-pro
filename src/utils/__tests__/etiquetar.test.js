@@ -149,10 +149,15 @@ describe('impressora à vista', () => {
     expect(ep).toMatch(/if \(!soTeste\) setPerguntaPara\(etiquetaState\);/);
   });
 
-  it('a faixa fica na tela Etiquetar e o cartão na aba Impressora', () => {
+  it('a faixa fica na tela Etiquetar e o cartão na aba Impressora — que mora em Meus itens (23/11/2026)', () => {
     const src = ler('../../pages/Etiquetas.jsx');
     expect(src).toMatch(/<FaixaImpressora \/>/);
-    expect(src).toMatch(/<CartaoImpressora \/>/);
+    // a tela Imprimir é só etiquetar: sem abas, sem o guia
+    expect(src).not.toMatch(/CartaoImpressora|GuiaImpressora|'impressora', 'Impressora'/);
+    expect(ler('../../components/GuiaImpressora.jsx')).toMatch(/<CartaoImpressora \/>/);
+    const itens = ler('../../pages/etiquetas/Itens.jsx');
+    expect(itens).toMatch(/\['impressora', 'Impressora'\]/);
+    expect(itens).toMatch(/aba === 'impressora' \? \(\s*<GuiaImpressora \/>/);
   });
 
   it('diagnóstico: o que o suporte precisa, e nada de dado pessoal', () => {

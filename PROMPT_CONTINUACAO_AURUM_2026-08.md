@@ -181,6 +181,39 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (23/11/2026, noite) — AJUSTES DO DONO DEPOIS DO MAGURŌ
+
+Seis pedidos, todos feitos e publicados (sem migração):
+- **Dados do estabelecimento sumiam** (sobretudo depois de ficar sem internet).
+  Causa: `prefs` é UM documento para a conta e subia INTEIRO — sem internet a
+  cópia ia para a fila e voltava com versão -1 por cima do servidor (apagando
+  o endereço salvo noutro aparelho; aparelho de cache vazio subia o PADRÃO por
+  cima de tudo); com internet, o conflito descartava a mudança. Agora
+  `utils/prefsDaConta.js` + `subirPrefs`/`gravarPrefsDaConta`/
+  `mostrarPrefsDoServidor` no AppContext: cada mudança é um PATCH (só as
+  chaves que mudaram); sobe o documento DO SERVIDOR com os patches por cima, em
+  ordem, com a versão dele (conflito → reaplica). Fila nova: `kind 'prefs' /
+  op 'mesclar'`; o item antigo (`doc` de prefs) vira patch de todas as chaves.
+  Uma subida por vez (`correntePrefsRef`); o que não subiu vai para a fila.
+  Carga e tempo real mostram servidor + pendentes (antes a carga IGNORAVA o
+  servidor com prefs na fila). `prefsConhecidas`: o cartão de primeiro uso só
+  pede endereço quando cache ou nuvem já disseram o que vale. O formulário do
+  estabelecimento mostra o GRAVADO até a pessoa digitar (`rascunho ?? gravado`).
+  ⚠️ Os outros catálogos (itens, grupos...) continuam no caminho antigo
+  (documento inteiro; offline = último que sobe ganha).
+- **"Como vai sair" no topo da janela de imprimir** (logo depois de quem
+  assina), como `<figure>` com legenda — no celular ficava atrás do rodapé.
+- **Tela Imprimir só etiquetar**: sem abas. A aba Impressora (CartaoImpressora
+  + guia) virou `components/GuiaImpressora.jsx` e mora em **Meus itens →
+  Impressora** (3ª aba). Saiu o cartão "Impressora e rolo" da Administração →
+  Etiqueta. A FaixaImpressora (Conectar) continua na tela Imprimir.
+- **Impressas sem "Válida/Vencida"** (não há controle real); a data continua.
+- **Texto dos métodos do item**: "Quanto dura depois de manipulado/aberto?" +
+  "Um método para cada jeito de guardar. O principal já vem escolhido na hora
+  de imprimir."
+- 1130 testes de unidade (novo: `ajustes2311.test.js`), 81 cenários do robô
+  (novo: `e2e/ajustes2311.pw.js`, com o teste de que a prévia aparece sem rolar).
+
 ## Onde paramos (23/11/2026) — JEITO DO MAGURŌ, PARTE 1: SENHA E TELA DE NOMES
 
 Pedido do dono: trazer do app **Magurō Estoque** (`Downloads/Code/maguro-estoque`,

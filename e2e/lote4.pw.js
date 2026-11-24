@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import * as XLSX from 'xlsx';
-import { entrarNaDemo, abrir, entrarComo } from './apoio';
+import { entrarNaDemo, abrir, entrarComo, trocarDeTela } from './apoio';
 
 // =====================================================================
 //  LOTE 4 DA AUDITORIA (14/10/2026) — um lugar para cada coisa.
@@ -144,7 +144,11 @@ test('Etiquetas: a Administração é a mesma, sem o grupo Estoque, e a barra co
   await expect(page.getByRole('heading', { name: 'Armazenamento' })).toBeVisible();
   // a barra do plano Etiquetas fica, com a aba Administração acesa
   await expect(page.getByRole('navigation').getByRole('link', { name: /Administração/ })).toHaveClass(/text-polo-gold/);
-  await page.getByRole('link', { name: /Impressora e rolo/ }).click();
+  // ⚠️ a impressora saiu daqui (23/11/2026): mora em Meus itens → Impressora
+  await expect(page.getByRole('link', { name: /Impressora e rolo/ })).toHaveCount(0);
+  await trocarDeTela(page, '/itens');
+  await page.getByRole('button', { name: 'Impressora', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Impressora', pressed: true })).toBeVisible();
+  await expect(page.getByText('Sua impressora', { exact: true })).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });

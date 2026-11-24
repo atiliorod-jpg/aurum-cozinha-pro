@@ -14,6 +14,7 @@ import { useAuth } from './AuthContext';
 import { supabase } from '../lib/supabase';
 import { cacheGet, cacheSet, outboxGet, outboxSet, outboxAdd, outboxCount, outboxMortos, outboxGarantirUids, definirUsuarioDaFila } from '../lib/cache';
 import { registrarFalha, ressuscitar, ehErroDefinitivo } from '../utils/outbox';
+import { ehMudancaDePrefs, itensDePrefs, patchDoItem, aplicarPatches, subirPatches } from '../utils/prefsDaConta';
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
 import { cozinhaDeEtiquetas, acharUnidade, baseDoCatalogo, cozinhaDaFixa, cozinhasDaFixa } from '../utils/unidades';
@@ -355,6 +356,11 @@ export function AppProvider({ children }) {
   // toda entrada num aparelho mostrava "Você ainda não tem itens" até a nuvem
   // responder. As telas usam isto para mostrar um esqueleto nesse intervalo.
   const [nuvemCarregada, setNuvemCarregada] = useState(false);
+  // ⚠️ AS PREFERÊNCIAS JÁ SÃO AS DA CONTA? (23/11/2026) Num aparelho sem cache,
+  // até a nuvem responder, `prefs` é o padrão — sem endereço. O cartão de
+  // primeiro uso pedia o endereço de novo nesse intervalo, e sem internet o
+  // intervalo não acaba. Fica falso até o cache ou a nuvem dizer o que vale.
+  const [prefsConhecidas, setPrefsConhecidas] = useState(false);
 
   const dadosRef = useRef({});
   // ⚠️ produtosCat e metas PRECISAM estar aqui: setProdutos lê os dois deste
@@ -718,6 +724,85 @@ export function AppProvider({ children }) {
   const setPrecos = useCallback((v) => persistCatalogo('precos', setPrecosRaw, v), [persistCatalogo]);
   const setEstoquesDoc = useCallback((v) => persistCatalogo('estoques', setEstoquesDocRaw, v), [persistCatalogo]);
 
+  // ── PREFERÊNCIAS DA CONTA: SOBEM POR CHAVE (23/11/2026) ───────────────
+  // O porquê está em utils/prefsDaConta.js. Em resumo: o que sobe é o
+  // documento do SERVIDOR com as mudanças deste aparelho por cima — nunca a
+  // cópia inteira daqui, que apagava os dados do estabelecimento salvos em
+  // outro aparelho (e, sem internet, subia por cima de tudo na volta).
+  // O que o servidor ainda não confirmou mora em dois lugares: aqui (a
+  // caminho, com internet) e na fila (`prefs`/`mesclar`, sem internet). Uma
+  // subida leva os dois, NA ORDEM em que foram feitos, e uma de cada vez.
+  const prefsNoCaminhoRef = useRef([]);   // [{ rid, patch }]
+  const prefsServidorRef = useRef(null);  // { rid, dados, versao }: o último documento visto do servidor
+  const correntePrefsRef = useRef(Promise.resolve());
+
+  // A tela mostra o documento do servidor com o que ainda não subiu por cima.
+  const mostrarPrefsDoServidor = useCallback((r, dados, versao) => {
+    prefsServidorRef.current = { rid: r, dados, versao };
+    const vista = aplicarPatches(dados, [
+      ...itensDePrefs(outboxGet(r)).map(patchDoItem),
+      ...prefsNoCaminhoRef.current.filter(x => x.rid === r).map(x => x.patch),
+    ]);
+    cacheSet(r, 'prefs', vista);
+    // resposta de uma conta que já não está aberta: fica só no cache dela
+    if (ridRef.current !== r) return;
+    versoesRef.current.prefs = versao;
+    setPrefsRaw({ ...vista, ...cacheGet(r, '_prefs_device', {}) });
+  }, []);
+
+  // Sobe TUDO o que falta de prefs desta conta, num documento só. `semear`: a
+  // conta ainda não tem o documento — nasce com o padrão mesmo sem mudança.
+  // Nunca rejeita: devolve { ok } ou { ok: false, error }.
+  const subirPrefs = useCallback((r, { semear = false } = {}) => {
+    const passo = async () => {
+      if (soLeituraRef.current || !nuvemDe(r)) return { ok: true };
+      const naFila = itensDePrefs(outboxGet(r));
+      const noCaminho = prefsNoCaminhoRef.current.filter(x => x.rid === r);
+      if (!naFila.length && !noCaminho.length && !semear) return { ok: true };
+      let res;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        res = { ok: false, error: { message: 'Sem internet.' } };
+      } else {
+        try {
+          const semResposta = { error: { message: 'O servidor não respondeu a tempo.' } };
+          res = await subirPatches({
+            servidor: prefsServidorRef.current?.rid === r ? prefsServidorRef.current : null,
+            patches: [...naFila.map(patchDoItem), ...noCaminho.map(x => x.patch)],
+            padrao: soRestaurante(CAT.prefs),
+            salvar: async (dados, versao) => (await comPrazo(supabase.rpc('salvar_documento', {
+              p_restaurante: r, p_chave: 'prefs', p_dados: dados, p_versao: versao,
+            }), PRAZO_DO_SERVIDOR_MS)) || semResposta,
+            ler: async () => (await comPrazo(supabase.from('documentos').select('dados, versao')
+              .eq('restaurante_id', r).eq('chave', 'prefs').maybeSingle(), PRAZO_DO_SERVIDOR_MS)) || semResposta,
+          });
+        } catch (e) { res = { ok: false, error: { message: e?.message || 'erro' } }; }
+      }
+      const levados = new Set(noCaminho);
+      prefsNoCaminhoRef.current = prefsNoCaminhoRef.current.filter(x => !levados.has(x));
+      if (res.ok) {
+        // confirmadas: saem da fila as que foram junto
+        const subiram = new Set(naFila.map(i => i._uid));
+        if (subiram.size) outboxSet(r, outboxGet(r).filter(i => !subiram.has(i._uid)));
+        mostrarPrefsDoServidor(r, res.dados, res.versao);
+        return { ok: true };
+      }
+      // ⚠️ NÃO SUBIU: as que estavam a caminho vão para a fila, na ordem, e
+      // sobem quando a internet voltar. Nada fica só na memória.
+      for (const x of noCaminho) outboxAdd(r, { kind: 'prefs', op: 'mesclar', payload: { patch: x.patch } });
+      return { ok: false, error: res.error };
+    };
+    const vez = correntePrefsRef.current.then(passo, passo);
+    correntePrefsRef.current = vez.catch(() => {});
+    return vez;
+  }, [mostrarPrefsDoServidor]);
+
+  // Uma mudança de prefs da CONTA (as de aparelho não passam por aqui).
+  const gravarPrefsDaConta = useCallback((r, patch) => {
+    if (!nuvemDe(r) || !patch || !Object.keys(patch).length) return;
+    prefsNoCaminhoRef.current = [...prefsNoCaminhoRef.current, { rid: r, patch }];
+    subirPrefs(r).catch(() => {});
+  }, [subirPrefs]);
+
   /**
    * Grava VÁRIAS preferências de uma vez.
    *
@@ -746,16 +831,11 @@ export function AppProvider({ children }) {
     const chaves = Object.keys(patch);
     if (chaves.some(k => PREFS_APARELHO.includes(k))) cacheSet(r, '_prefs_device', soAparelho(next));
     if (chaves.some(k => !PREFS_APARELHO.includes(k))) {
-      const restPrefs = soRestaurante(next);
-      cacheSet(r, 'prefs', restPrefs);
-      if (nuvemDe(r)) {
-        salvarDocNuvem(r, 'prefs', restPrefs, (dadosSrv) => {
-          cacheSet(r, 'prefs', dadosSrv);
-          setPrefsRaw({ ...dadosSrv, ...cacheGet(r, '_prefs_device', {}) });
-        });
-      }
+      cacheSet(r, 'prefs', soRestaurante(next));
+      // só as chaves que mudaram sobem (ver gravarPrefsDaConta)
+      gravarPrefsDaConta(r, soRestaurante(patch));
     }
-  }, [salvarDocNuvem]);
+  }, [gravarPrefsDaConta]);
 
   const setPref = useCallback((chave, valor) => {
     if (soLeituraRef.current) { avisaBloqueioLeitura(); return; } // modo suporte = só leitura
@@ -766,17 +846,11 @@ export function AppProvider({ children }) {
       // só neste aparelho — não sobe para a nuvem
       cacheSet(r, '_prefs_device', soAparelho(next));
     } else {
-      // preferência do restaurante → nuvem (sem as chaves de aparelho)
-      const restPrefs = soRestaurante(next);
-      cacheSet(r, 'prefs', restPrefs);
-      if (nuvemDe(r)) {
-        salvarDocNuvem(r, 'prefs', restPrefs, (dadosSrv) => {
-          cacheSet(r, 'prefs', dadosSrv);
-          setPrefsRaw({ ...dadosSrv, ...cacheGet(r, '_prefs_device', {}) });
-        });
-      }
+      // preferência do restaurante → nuvem, SÓ ESTA CHAVE (ver gravarPrefsDaConta)
+      cacheSet(r, 'prefs', soRestaurante(next));
+      gravarPrefsDaConta(r, { [chave]: valor });
     }
-  }, [salvarDocNuvem]);
+  }, [gravarPrefsDaConta]);
 
   const addPessoa = useCallback((nome) => {
     const n = (nome || '').trim();
@@ -1400,6 +1474,8 @@ export function AppProvider({ children }) {
   useEffect(() => {
     // a primeira leitura da nuvem ainda não chegou (a tela mostra "carregando" em vez de "vazio")
     setNuvemCarregada(rid === 'demo');
+    // as prefs do cache são as da conta (como ficaram da última vez); sem cache, só a nuvem diz
+    setPrefsConhecidas(rid === 'demo' || (!!rid && cacheGet(rid, 'prefs', null) !== null));
     if (!rid) {
       // sem sessão: volta aos valores padrão
       setProdutosRaw(CAT.produtos); setCategoriasRaw(CAT.categorias);
@@ -1606,6 +1682,7 @@ export function AppProvider({ children }) {
       // apagava o que entrou no meio do caminho.
       const sincronizados = new Set();
       const falhados = new Map();
+      let prefsTentadas = false; // uma subida leva todas as mudanças de prefs
       for (const item of fila) {
         // Itens mortos (falharam MAX vezes) não são retentados no loop normal;
         // ficam na fila para a lista de erro permanente / retry manual.
@@ -1613,6 +1690,21 @@ export function AppProvider({ children }) {
         // ⚠️ auditoria de OUTRA pessoa (saiu sem internet): espera ela voltar —
         // a função do banco assina com quem estiver logado agora (28/09/2026)
         if (item.kind === 'auditoria' && item._usuario && item._usuario !== sessaoRef.current?.usuarioId) continue;
+        // ⚠️ PREFS SOBEM TODAS JUNTAS, por cima do servidor (23/11/2026, ver
+        // subirPrefs). ANTES do caminho de `doc`: o item antigo de prefs era
+        // um `doc`, e por ali subia por cima de tudo (versão -1).
+        if (ehMudancaDePrefs(item)) {
+          if (prefsTentadas) continue;
+          prefsTentadas = true;
+          const res = await subirPrefs(rid).catch(e => ({ ok: false, error: { message: e?.message || 'erro' } }));
+          if (res.ok) sincronizados.add(item._uid);
+          else {
+            const falhou = registrarFalha({ ...item, _ultimoErro: res.error?.message || 'erro' });
+            if (falhou._morto && !item._morto) relatarErro({ tipo: 'fila', mensagem: `prefs/mesclar: ${falhou._ultimoErro}` });
+            falhados.set(item._uid, falhou);
+          }
+          continue;
+        }
         try {
           let error = null;
           if (item.kind === 'registro' && item.op === 'insert')
@@ -1791,15 +1883,18 @@ export function AppProvider({ children }) {
         } else if (mapa['prefs']?.permissoes) {
           setPermissoesRaw(mapa['prefs'].permissoes); cacheSet(rid, 'permissoes', mapa['prefs'].permissoes);
         }
-        // prefs: parte do restaurante (nuvem) + parte do aparelho (local)
-        if (!docsPendentes.has('prefs')) {
-          const prefsNuvem = mapa['prefs'] !== undefined ? mapa['prefs'] : soRestaurante(CAT.prefs);
-          if (mapa['prefs'] === undefined && !soLeituraRef.current) {
-            salvarDocNuvem(rid, 'prefs', prefsNuvem, () => {});
-          }
-          cacheSet(rid, 'prefs', prefsNuvem);
-          setPrefsRaw({ ...prefsNuvem, ...cacheGet(rid, '_prefs_device', {}) });
+        // prefs: o documento do servidor com o que este aparelho ainda não
+        // subiu por cima, mais a parte do aparelho (local). ⚠️ Antes, com uma
+        // mudança na fila, o servidor era IGNORADO: a cópia velha daqui ficava
+        // valendo e depois subia por cima dele (ver utils/prefsDaConta.js).
+        if (mapa['prefs'] !== undefined) {
+          mostrarPrefsDoServidor(rid, mapa['prefs'], versoesRef.current.prefs || 0);
+        } else {
+          // a conta ainda não tem o documento: nasce com o padrão (versão 0 = criar)
+          mostrarPrefsDoServidor(rid, soRestaurante(CAT.prefs), 0);
+          if (!soLeituraRef.current) subirPrefs(rid, { semear: true }).catch(() => {});
         }
+        setPrefsConhecidas(true);
       }
 
       // ── ETIQUETAS IMPRESSAS, EM LINHAS (M49) ─────────────────────────
@@ -2102,14 +2197,17 @@ export function AppProvider({ children }) {
     };
     const aplicaDocRT = (row) => {
       if (!row) return;
-      // outro aparelho gravou: a versão dele passa a ser a que conhecemos
-      if (row.chave) versoesRef.current[row.chave] = row.versao || 0;
       // prefs e pessoas valem para a conta toda — não passam pelo filtro de módulo
-      if (row.chave === 'prefs') { // mescla com as preferências locais do aparelho
-        cacheSet(rid, 'prefs', row.dados);
-        setPrefsRaw({ ...row.dados, ...cacheGet(rid, '_prefs_device', {}) });
+      if (row.chave === 'prefs') {
+        // ⚠️ o eco atrasado de uma gravação já superada não volta a tela para trás
+        const conhecida = prefsServidorRef.current?.rid === rid ? prefsServidorRef.current.versao || 0 : 0;
+        if ((row.versao || 0) < conhecida) return;
+        // o que este aparelho ainda não subiu continua por cima (ver subirPrefs)
+        mostrarPrefsDoServidor(rid, row.dados, row.versao || 0);
         return;
       }
+      // outro aparelho gravou: a versão dele passa a ser a que conhecemos
+      if (row.chave) versoesRef.current[row.chave] = row.versao || 0;
       if (row.chave === 'pessoas') { setPessoasRaw(row.dados); cacheSet(rid, 'pessoas', row.dados); return; }
       // A chave já vem namespaceada ('seco::produtos'). O mapa acima só contém
       // as chaves que ESTE módulo lê, então doc de outro módulo simplesmente
@@ -2149,7 +2247,8 @@ export function AppProvider({ children }) {
     // `moduloEfetivo` nas deps: trocar de estoque re-hidrata tudo daquele
     // estoque. É o EFETIVO, não o do localStorage: um id arquivado precisa
     // hidratar a raiz, não continuar carregando o estoque escondido.
-  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo, rodadaSync, acompanharBrutos]);
+  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo, rodadaSync, acompanharBrutos,
+      mostrarPrefsDoServidor, subirPrefs]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Administração de dados ─────────────────────────────────
@@ -2346,7 +2445,7 @@ export function AppProvider({ children }) {
       categorias, setCategorias,
       auditoria, logAudit,
       restaurarRegistro,
-      prefs, setPref, setPrefs,
+      prefs, setPref, setPrefs, prefsConhecidas,
       modulo: moduloEfetivo, setModulo, recebimentos,
       estoque, lotes,
       limparTudo,
@@ -2373,7 +2472,7 @@ export function AppProvider({ children }) {
     setPermissoes, precos, setPrecos, estoques, estoqueAtual, estoquesDoc,
     setEstoquesDoc, visoesPorEstoque, metas, setMetas, saidasParaConsumo, destinos,
     setDestinos, categorias, setCategorias, auditoria, logAudit, restaurarRegistro,
-    prefs, setPref, setPrefs, moduloEfetivo, setModulo, recebimentos,
+    prefs, setPref, setPrefs, prefsConhecidas, moduloEfetivo, setModulo, recebimentos,
     estoque, lotes, limparTudo, exportarBackup, importarBackup, soLeitura,
     rid, pendencias, online, mortos, retentarMortos, descartarMortos,
     registrarImpressoes,

@@ -1282,6 +1282,74 @@ export default function EtiquetaPrint() {
             <Aviso tom="atencao">Escolha quem assina antes de imprimir.</Aviso>
           )}
 
+          {/* ⚠️ "COMO VAI SAIR" NO TOPO DA JANELA (23/11/2026, pedido do dono):
+              embaixo dos campos do item, num celular, a prévia ficava atrás dos
+              botões do rodapé e era preciso rolar para ver a etiqueta. Agora é a
+              primeira coisa depois de quem assina; quantidade, método, medida e
+              lote vêm logo abaixo, e a prévia acompanha cada mudança. */}
+          {/* ⚠️ PREVIEW em tamanho real. A área que de fato imprime é
+              visibility:hidden (index.css), então até aqui a pessoa só descobria
+              como a etiqueta ficou DEPOIS de gastar rolo — e o layout é
+              configurável (9 campos ligáveis + largura/altura), o que torna o
+              erro provavel. É a MESMA marcação da impressa, só que visível. */}
+          {/* <figure> com legenda: o leitor de tela anuncia "Como vai sair" */}
+          {itens[0] && (
+            <figure>
+              <figcaption className="text-xs font-semibold text-gray-700 mb-1.5">
+                Como vai sair — {config.larguraMm}×{config.alturaMm} mm
+              </figcaption>
+              {/* ⚠️ ANTES DE GASTAR ROLO. O corpo cresce de cima e o rodapé é
+                  ancorado embaixo: com val. original, marca, SIF e lote ligados
+                  ao mesmo tempo os dois se encontram, e o RESP. imprime EM CIMA
+                  do nome da casa — sem erro, sem aviso, direto no papel. A
+                  medida vem do mesmo desenho que vai para a impressora
+                  (medirEtiqueta), não de uma segunda conta. */}
+              {/* ⚠️ COM `estabelecimento`, senão a conta é de outra etiqueta.
+                  A impressão real usa `{ ...config, estabelecimento }` (o
+                  rodapé precisa dele) e esta medida usava `config` puro: o
+                  rodapé medido tinha só o nome da casa, o impresso tem até
+                  três linhas a mais. Media 12,9 mm de folga onde o papel
+                  tinha 2,4 — cega por mais do que a folga inteira.
+                  ⚠️ E mede TODOS os itens, não só o primeiro: quem estoura é
+                  sempre o de nome maior, que pode ser o terceiro da lista. */}
+              {desenhos.some(d => !d.cabe) && (
+                <Aviso tom="erro" className="mb-2">
+                  Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
+                  Em Administração → Etiqueta, desligue um campo (marca ou validade original).
+                </Aviso>
+              )}
+              {/* ⚠️ CADA APARELHO VÊ A PRÉVIA DO SEU PRÓPRIO PAPEL, e é isto
+                  que acaba com a família de defeitos "na tela aparece, no papel
+                  não". A etiqueta era desenhada duas vezes por códigos
+                  diferentes — HTML na tela, TSPL na impressora — e nada garantia
+                  que concordassem.
+
+                  No celular quem imprime é o TSPL: a prévia agora LÊ esse mesmo
+                  texto e o desenha (EtiquetaTSPL). No computador quem imprime é
+                  o diálogo do navegador, e o que sai no papel lá é exatamente o
+                  HTML abaixo — ali a prévia já era o próprio artefato impresso,
+                  e trocá-la por um SVG seria substituir uma prévia fiel por uma
+                  aproximação. Nada do que é IMPRESSO mudou nos dois casos. */}
+              <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
+                <div className="shadow-md flex-shrink-0">
+                  {mostrarDireto ? (
+                    <EtiquetaTSPL tspl={tsplDaPrevia} nomeImagem={nomeImagem} />
+                  ) : (
+                    <EtiquetaLabel
+                      campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}
+                      config={config}
+                      qr={qrs[payloadDe(itens[0], loteDaCopia(itens[0], 0))]}
+                      estabelecimento={estabelecimento}
+                      nivel={nivelDoItem(0)} />
+                  )}
+                </div>
+              </div>
+              {itens.length > 1 && (
+                <p className="text-xs text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
+              )}
+            </figure>
+          )}
+
           <div className="space-y-3">
             {itens.map((item, idx) => {
               const campos = camposDe(item);
@@ -1479,68 +1547,6 @@ export default function EtiquetaPrint() {
               );
             })}
           </div>
-
-          {/* ⚠️ PREVIEW em tamanho real. A área que de fato imprime é
-              visibility:hidden (index.css), então até aqui a pessoa só descobria
-              como a etiqueta ficou DEPOIS de gastar rolo — e o layout é
-              configurável (9 campos ligáveis + largura/altura), o que torna o
-              erro provavel. É a MESMA marcação da impressa, só que visível. */}
-          {itens[0] && (
-            <div>
-              <p className="text-xs font-semibold text-gray-700 mb-1.5">
-                Como vai sair — {config.larguraMm}×{config.alturaMm} mm
-              </p>
-              {/* ⚠️ ANTES DE GASTAR ROLO. O corpo cresce de cima e o rodapé é
-                  ancorado embaixo: com val. original, marca, SIF e lote ligados
-                  ao mesmo tempo os dois se encontram, e o RESP. imprime EM CIMA
-                  do nome da casa — sem erro, sem aviso, direto no papel. A
-                  medida vem do mesmo desenho que vai para a impressora
-                  (medirEtiqueta), não de uma segunda conta. */}
-              {/* ⚠️ COM `estabelecimento`, senão a conta é de outra etiqueta.
-                  A impressão real usa `{ ...config, estabelecimento }` (o
-                  rodapé precisa dele) e esta medida usava `config` puro: o
-                  rodapé medido tinha só o nome da casa, o impresso tem até
-                  três linhas a mais. Media 12,9 mm de folga onde o papel
-                  tinha 2,4 — cega por mais do que a folga inteira.
-                  ⚠️ E mede TODOS os itens, não só o primeiro: quem estoura é
-                  sempre o de nome maior, que pode ser o terceiro da lista. */}
-              {desenhos.some(d => !d.cabe) && (
-                <Aviso tom="erro" className="mb-2">
-                  Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
-                  Em Administração → Etiqueta, desligue um campo (marca ou validade original).
-                </Aviso>
-              )}
-              {/* ⚠️ CADA APARELHO VÊ A PRÉVIA DO SEU PRÓPRIO PAPEL, e é isto
-                  que acaba com a família de defeitos "na tela aparece, no papel
-                  não". A etiqueta era desenhada duas vezes por códigos
-                  diferentes — HTML na tela, TSPL na impressora — e nada garantia
-                  que concordassem.
-
-                  No celular quem imprime é o TSPL: a prévia agora LÊ esse mesmo
-                  texto e o desenha (EtiquetaTSPL). No computador quem imprime é
-                  o diálogo do navegador, e o que sai no papel lá é exatamente o
-                  HTML abaixo — ali a prévia já era o próprio artefato impresso,
-                  e trocá-la por um SVG seria substituir uma prévia fiel por uma
-                  aproximação. Nada do que é IMPRESSO mudou nos dois casos. */}
-              <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
-                <div className="shadow-md flex-shrink-0">
-                  {mostrarDireto ? (
-                    <EtiquetaTSPL tspl={tsplDaPrevia} nomeImagem={nomeImagem} />
-                  ) : (
-                    <EtiquetaLabel
-                      campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}
-                      config={config}
-                      qr={qrs[payloadDe(itens[0], loteDaCopia(itens[0], 0))]}
-                      estabelecimento={estabelecimento}
-                      nivel={nivelDoItem(0)} />
-                  )}
-                </div>
-              </div>
-              {itens.length > 1 && (
-                <p className="text-xs text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
-              )}
-            </div>
-          )}
 
           {/* ⚠️ CADA APARELHO VÊ SÓ O QUE SERVE PARA ELE.
               No celular não existe janela de impressão que valha: o Android

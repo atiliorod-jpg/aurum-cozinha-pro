@@ -83,7 +83,8 @@ test('sem internet e sem cópia guardada: pede internet (antes: login ou "Cadast
 
 test('sem internet com a assinatura confirmada há 1 hora: o app abre e dá para imprimir', async ({ page }) => {
   const erros = await abrirSemInternet(page, { horasDaCopia: 1 });
-  await expect(page.getByRole('button', { name: 'Etiquetar' })).toBeVisible({ timeout: 20_000 });
+  // a tela Imprimir (sem abas desde 23/11/2026: o título é o sinal de que abriu)
+  await expect(page.getByRole('heading', { name: 'Imprimir etiqueta', level: 1 })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Conecte à internet para continuar', { exact: true })).toHaveCount(0);
   expect(erros, erros.join('\n')).toEqual([]);
 });
@@ -92,14 +93,14 @@ test('sem internet há mais de 72 horas: pede internet', async ({ page }) => {
   const erros = await abrirSemInternet(page, { horasDaCopia: 80 });
   await expect(page.getByText('Conecte à internet para continuar', { exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/mais de 3 dias/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Etiquetar' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Imprimir etiqueta', level: 1 })).toHaveCount(0);
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
 test('sem internet com a cópia recente mas a assinatura já vencida: não libera', async ({ page }) => {
   const erros = await abrirSemInternet(page, { horasDaCopia: 2, assinaturaAte: new Date(Date.now() - 24 * H).toISOString() });
   await expect(page.locator('body')).toContainText(/Assine|assinatura|venc|terminou/i, { timeout: 20_000 });
-  await expect(page.getByRole('button', { name: 'Etiquetar' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Imprimir etiqueta', level: 1 })).toHaveCount(0);
   expect(erros, erros.join('\n')).toEqual([]);
 });
 

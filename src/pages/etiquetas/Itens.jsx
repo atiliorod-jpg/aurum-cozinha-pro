@@ -6,6 +6,7 @@ import Botao from '../../components/Botao';
 import Dialogo from '../../components/Dialogo';
 import Aviso from '../../components/Aviso';
 import PlanilhaDeItens from '../../components/PlanilhaDeItens';
+import GuiaImpressora from '../../components/GuiaImpressora';
 import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
 import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
@@ -65,7 +66,7 @@ export default function Itens() {
   // cocção e fator de correção só fazem sentido onde se limpa e porciona
   const temProducao = !soEtiq && temRecurso(modulo, 'aparas');
 
-  const [aba, setAba] = useState('meus');   // 'meus' | 'biblioteca'
+  const [aba, setAba] = useState('meus');   // 'meus' | 'biblioteca' | 'impressora'
   const [busca, setBusca] = useState('');
   const [editando, setEditando] = useState(null); // {produto} | {rascunho} | null
   const [planilha, setPlanilha] = useState(false);
@@ -264,14 +265,21 @@ export default function Itens() {
           setas). Aqui elas são poucas e ficam todas no caminho do Tab, que num
           aparelho com teclado é melhor — trocar o modelo de teclado por causa
           de um anúncio seria arriscar o que já funciona. */}
-      <Abas opcoes={[['meus', `Meus itens (${meus.length})`], ['biblioteca', 'Adicionar prontos']]} valor={aba} aoTrocar={setAba} className="mb-4" />
+      {/* ⚠️ A ABA IMPRESSORA VEIO DA TELA IMPRIMIR (23/11/2026, pedido do
+          dono): lá ficou só etiquetar. Ver components/GuiaImpressora.jsx. */}
+      <Abas opcoes={[['meus', `Meus itens (${meus.length})`], ['biblioteca', 'Adicionar prontos'], ['impressora', 'Impressora']]}
+        valor={aba} aoTrocar={setAba} className="mb-4 print:hidden" />
 
-      <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-        placeholder={aba === 'meus' ? 'Buscar nos meus itens…' : 'Buscar item pronto (ex.: picanha, sal, alface)…'}
-        aria-label="Buscar item"
-        className="busca-grande mb-4" />
+      {aba !== 'impressora' && (
+        <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+          placeholder={aba === 'meus' ? 'Buscar nos meus itens…' : 'Buscar item pronto (ex.: picanha, sal, alface)…'}
+          aria-label="Buscar item"
+          className="busca-grande mb-4" />
+      )}
 
-      {aba === 'meus' ? (
+      {aba === 'impressora' ? (
+        <GuiaImpressora />
+      ) : aba === 'meus' ? (
         <>
           {semPrazo > 0 && (
             <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
@@ -726,17 +734,16 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
               "consumir em 3 dias após aberto" vira 3 aqui, e a etiqueta sai
               com a data certa. Perguntar "validade" genérica fazia parecer
               que era a validade de fábrica, que não é o que o app calcula. */}
+          {/* ⚠️ TEXTO CURTO (23/11/2026, pedido do dono: "simplifique"). Eram
+              três frases; a pergunta e uma linha bastam. */}
           <p className="text-xs font-semibold text-gray-600 mb-1.5">
-            {form.tipoData === 'abertura'
-              ? 'Depois de ABERTO, como fica guardado e quanto dura?'
-              : 'Depois de MANIPULADO, como fica guardado e quanto dura?'}
+            {form.tipoData === 'abertura' ? 'Quanto dura depois de aberto?' : 'Quanto dura depois de manipulado?'}
           </p>
           <p className="text-xs text-gray-600 mb-2">
             {form.tipoData === 'abertura'
-              ? 'Está na embalagem do fabricante — algo como "após aberto, consumir em 3 dias". '
-              : 'É o prazo do processo da sua cozinha. '}
-            Um método para cada jeito de guardar (na câmara, na pista fria, descongelando). O primeiro é o
-            que a etiqueta usa se ninguém escolher outro.
+              ? 'O prazo vem na embalagem ("após aberto, consumir em 3 dias"). '
+              : 'Um método para cada jeito de guardar. '}
+            O principal já vem escolhido na hora de imprimir.
           </p>
           {/* ⚠️ MÉTODOS EM CARTÕES (Lote 11, ideia do Suflex): antes eram um
               campo de dias para CADA armazenamento da casa, usado ou não, e um

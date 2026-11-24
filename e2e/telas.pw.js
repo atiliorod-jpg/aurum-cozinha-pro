@@ -72,7 +72,7 @@ async function abrirTela(page, rota) {
 
 test('plano Etiquetas: todas as telas abrem sem travar', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
-  await expect(page.getByRole('button', { name: 'Etiquetar' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Imprimir etiqueta', level: 1 })).toBeVisible();
   for (const rota of TELAS_ETIQUETAS) {
     await test.step(rota, () => abrirTela(page, rota));
   }

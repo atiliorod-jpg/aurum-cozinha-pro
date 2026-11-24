@@ -12,8 +12,12 @@
  * Devolve o que está faltando, não um booleano: a mesma resposta serve para
  * decidir se mostra e para escrever a frase certa.
  */
-export function faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria }) {
+export function faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria, prefsConhecidas = true }) {
   const nada = { mostrar: false, faltaPessoa: false, faltaEndereco: false };
+  // ⚠️ AS PREFS AINDA NÃO SÃO AS DA CONTA (23/11/2026): aparelho sem cache,
+  // antes de a nuvem responder (ou sem internet). O endereço "falta" só
+  // porque ainda não chegou — pedir de novo foi o que o dono relatou.
+  if (!prefsConhecidas) return nada;
   // Cozinha não alcança equipe nem dados do estabelecimento — oferecer o
   // formulário a ela seria botão que leva a uma recusa.
   if (!ehDiretoria) return nada;

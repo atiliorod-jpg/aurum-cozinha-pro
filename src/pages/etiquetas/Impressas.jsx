@@ -7,8 +7,8 @@ import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { pode } from '../../utils/permissoes';
 import { supabase } from '../../lib/supabase';
-import { hoje, fmtData, fmtHora } from '../../utils/formatters';
-import { statusEtiqueta, STATUS_ETIQUETA, medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
+import { hoje, fmtData } from '../../utils/formatters';
+import { medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
 import { prazosDoProduto } from '../../utils/armazenamento';
 import { casaBusca } from '../../utils/busca';
 import Esqueleto from '../../components/Esqueleto';
@@ -48,8 +48,6 @@ export default function Impressas() {
   const buscaAdiada = useDeferredValue(busca);
 
   const hj = hoje();
-  // a etiqueta de prazo em horas vence na hora dela (ver statusEtiqueta)
-  const agora = fmtHora();
 
   // Mais recentes primeiro, agrupadas por dia. `impressoEm` é só a data (sem
   // hora), então o dia é o agrupamento natural — e é como a cozinha procura:
@@ -234,8 +232,6 @@ export default function Impressas() {
 
               <ul className="space-y-2">
                 {lista.map(e => {
-                  const st = statusEtiqueta(e, hj, agora);
-                  const info = STATUS_ETIQUETA[st] || STATUS_ETIQUETA.valida;
                   return (
                     <li key={e.id} className="bg-white border border-gray-200 rounded-xl p-3">
                       <div className="flex items-start justify-between gap-3">
@@ -257,9 +253,11 @@ export default function Impressas() {
                             {e.responsavel ? ` · ${e.responsavel}` : ''}
                             {(e.copias || 1) > 1 ? ` · ${e.copias} cópias` : ''}
                           </p>
-                          <span className={`inline-block mt-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${info.cor}`}>
-                            {info.label}
-                          </span>
+                          {/* ⚠️ SEM "VÁLIDA / VENCIDA" AQUI (23/11/2026, pedido do
+                              dono): a lista diz o que saiu no rolo, não o que
+                              ainda está na câmara — o pote pode já ter sido
+                              usado ou jogado fora, e ninguém marca isso aqui.
+                              Um selo de situação sem controle real só confundia. */}
                         </div>
                         {/* ⚠️ Alvo de 44px: é tocado com o dedo numa bancada, e
                             os controles menores que isso já foram achado de

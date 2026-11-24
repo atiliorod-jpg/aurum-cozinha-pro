@@ -420,9 +420,17 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
   const variasUnidades = temUnidadesExtras(unidades);
   const dono = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin;
   const podeEditar = extra ? dono : true;
-  const [local, setLocal] = useState(() => (extra
+  // ⚠️ O QUE ESTÁ GRAVADO, ATÉ ALGUÉM MEXER (23/11/2026). O formulário
+  // copiava os dados UMA vez, ao abrir: aberto antes de a nuvem responder (ou
+  // sem internet, num aparelho sem cache), mostrava tudo em branco — e quem
+  // via em branco digitava de novo. Agora mostra o gravado, que chega
+  // depois, e só vira rascunho quando a pessoa digita.
+  const gravado = extra
     ? { endereco: extra.endereco || '', cidade: extra.cidade || '', uf: extra.uf || '', cep: formatarCEP(extra.cep) }
-    : (prefs.estabelecimento || {})));
+    : (prefs.estabelecimento || {});
+  const [rascunho, setRascunho] = useState(null);
+  const local = rascunho ?? gravado;
+  const setLocal = (mudar) => setRascunho(atual => mudar(atual ?? gravado));
   const [salvando, setSalvando] = useState(false);
 
   const salvar = async () => {
@@ -430,6 +438,7 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
       setSalvando(true);
       const erro = await editarEnderecoUnidade(extra.id, local);
       setSalvando(false);
+      if (!erro) setRascunho(null);
       toast(erro ? `Não salvou: ${erro}` : 'Endereço da unidade salvo.', erro ? 'erro' : 'sucesso');
       return;
     }
@@ -439,6 +448,7 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
     const { cnpj: _ignorado, ...semCnpj } = local;
     const limpo = Object.fromEntries(Object.entries(semCnpj).map(([k, v]) => [k, (v || '').trim()]));
     setPref('estabelecimento', limpo);
+    setRascunho(null);
     toast('Dados do estabelecimento salvos.', 'sucesso');
   };
 

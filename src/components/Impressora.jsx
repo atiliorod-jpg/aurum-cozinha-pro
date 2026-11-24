@@ -21,7 +21,8 @@ import { linkSuporte } from '../utils/suporte';
 //  descobria que ela tinha caído DEPOIS de escolher o item e tocar em
 //  imprimir. Aqui:
 //   • a faixa da tela Etiquetar diz se a impressora está conectada;
-//   • o cartão da aba Impressora troca de impressora, imprime uma etiqueta de
+//   • o cartão da aba Impressora (em Meus itens desde 23/11/2026 — a tela
+//     Imprimir ficou só para etiquetar) troca de impressora, imprime uma etiqueta de
 //     teste (que NÃO entra no relatório) e copia um diagnóstico para o
 //     suporte colar no WhatsApp.
 //

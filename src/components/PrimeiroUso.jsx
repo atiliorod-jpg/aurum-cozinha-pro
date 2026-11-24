@@ -27,7 +27,7 @@ import { faltasDoPrimeiroUso } from '../utils/primeiroUso';
 //  aviso, não portão: quem está com o pote na mão pode resolver depois.
 // =====================================================================
 export default function PrimeiroUso() {
-  const { pessoas, addPessoa, prefs, setPref } = useApp();
+  const { pessoas, addPessoa, prefs, setPref, prefsConhecidas } = useApp();
   const { temPermissao } = useAuth();
   const [nome, setNome] = useState('');
   const est = prefs.estabelecimento || {};
@@ -35,7 +35,7 @@ export default function PrimeiroUso() {
   const [cidade, setCidade] = useState(est.cidade || '');
 
   const { mostrar, faltaPessoa, faltaEndereco } =
-    faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria: temPermissao('diretoria') });
+    faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria: temPermissao('diretoria'), prefsConhecidas });
   if (!mostrar) return null;
 
   const salvarPessoa = () => {
