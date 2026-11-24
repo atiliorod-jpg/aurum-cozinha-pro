@@ -24,6 +24,8 @@ import Login from './pages/Login';
 // medido). A tela de imprimir e o login continuam no pacote principal.
 const NovaSenha = lazy(() => import('./pages/NovaSenha'));
 const Pagamento = lazy(() => import('./pages/Pagamento'));
+// o 4º aparelho (M64): só carrega quando a conta passa do limite
+const AparelhoAMais = lazy(() => import('./components/AparelhoAMais'));
 import Etiquetas from './pages/Etiquetas';
 const Novidades = lazy(() => import('./pages/Novidades'));
 const Termos = lazy(() => import('./pages/Termos'));
@@ -179,7 +181,7 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, eraAssinante =
 
 function Rotas() {
   const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao, cadastroPendenteErro,
-          confirmacao, reconfirmar, nivelLogin, verificarNivel, administracaoComSenha } = useAuth();
+          confirmacao, reconfirmar, nivelLogin, verificarNivel, administracaoComSenha, aparelho } = useAuth();
   // marca de que este aparelho já escolheu o estoque de trabalho
   const [escolheuModulo, setEscolheuModulo] = useState(() => {
     try { return !!localStorage.getItem('pe::modulo'); } catch { return true; }
@@ -234,16 +236,16 @@ function Rotas() {
   if (carregando) return <Splash />;
   // Veio do link de recuperação de senha → tela de nova senha (tem prioridade)
   if (recuperando) return <Suspense fallback={<Splash />}><NovaSenha /></Suspense>;
-  // A conta foi aberta em outro aparelho (sessão única) → avisa e volta ao login
+  // ⚠️ ESTE APARELHO FOI TIRADO DA CONTA (M64): alguém, na Administração de
+  // outro aparelho, liberou a vaga dele. A entrada diz o que houve, em vez de
+  // o app só voltar para o login sem explicação.
   if (derrubado) {
     return (
       <div className="min-h-screen bg-polo-navy flex flex-col items-center justify-center gap-4 p-6 text-center">
         <span className="w-14 h-14 rounded-2xl bg-polo-gold/15 text-polo-gold flex items-center justify-center" aria-hidden="true"><Icon name="celular" size={28} /></span>
-        <p className="text-polo-gold font-bold text-lg">Conta aberta em outro aparelho</p>
-        <p className="text-white/80 text-sm max-w-xs">
-          Sua conta foi acessada em outro dispositivo. Por segurança, cada conta fica conectada em apenas um aparelho por vez.
-        </p>
-        <button onClick={limparDerrubado} className="bg-polo-gold text-polo-navy font-bold px-6 py-2.5 rounded-xl">
+        <p className="text-polo-gold font-bold text-lg">Este aparelho saiu da conta</p>
+        <p className="text-white/80 text-sm max-w-xs">A vaga dele foi liberada na Administração.</p>
+        <button onClick={limparDerrubado} className="bg-polo-gold text-polo-navy font-bold px-6 min-h-12 rounded-xl">
           Entrar novamente
         </button>
       </div>
@@ -336,6 +338,14 @@ function Rotas() {
       </Routes>
       </Suspense>
     );
+  }
+
+  // ⚠️ APARELHOS CONECTADOS (M64, 24/11/2026): o Etiquetas inclui 3 na mesma
+  // conta. O 4º espera aqui — com o Pix do aparelho a mais, ou liberando a
+  // vaga de um que não se usa. Quem decide é o banco (registrar_aparelho); o
+  // modo suporte e a demonstração nem perguntam.
+  if (aparelho?.situacao === 'aguardando' && !impersonando && !sessao?.demo) {
+    return <Suspense fallback={<Splash />}><AparelhoAMais aoSair={logout} /></Suspense>;
   }
 
   // Primeiro acesso NESTE aparelho: pergunta em qual estoque a pessoa trabalha.

@@ -5,6 +5,12 @@
 //  extras. Estes testes travam as regras que, se voltarem atrás, fazem a
 //  etiqueta sair com o CNPJ de outra casa — que é o defeito que tudo isto
 //  existe para impedir.
+//
+//  ⚠️ 24/11/2026 (pedido do dono): "outro CNPJ" SAIU DO APP — cada CNPJ é uma
+//  conta. As funções puras continuam (com a lista vazia, tudo cai no caminho
+//  da conta de um estabelecimento só, e os testes delas seguem valendo); as
+//  telas, o pedido, o painel e a cobrança da unidade saíram — ver o bloco
+//  "sem unidades nas telas" lá embaixo.
 // =====================================================================
 
 import { describe, it, expect } from 'vitest';
@@ -15,10 +21,7 @@ import {
   nomeDaUnidade, temUnidadesExtras, unidadesAtivas, cidadeUf,
 } from '../unidades';
 import { totaisPorUnidade, linhasDaUnidade, planilhaDoRelatorio, resumirRelatorio } from '../relatorioEtiquetas';
-import {
-  ADICIONAL_UNIDADE, adicionalUnidade, mensalComUnidades, precoPlano, economiaPlano,
-  precoMensalEquivalente, PLANOS,
-} from '../assinatura';
+
 import { numerosDoPainel } from '../painel';
 import { formatarCEP } from '../documentos';
 
@@ -229,118 +232,82 @@ describe('relatório de etiquetas por unidade', () => {
   });
 });
 
-describe('unidades nos dois planos (o Etiquetas é um recorte do Pro)', () => {
-  it('o Etiquetas tem o cartão Unidades e o seletor de unidade; o Pro tem "Unidades e cozinhas"', () => {
-    expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/<CartaoUnidades \/>/);
-    expect(ler('../../components/Layout.jsx')).toMatch(/<SeletorModulo soUnidades=\{soEtiq\}/);
-    // o pedido de unidade nova mora em Planos e pagamento (27/09/2026), nos dois planos
-    expect(ler('../../pages/Estoques.jsx')).toMatch(/to="\/pagamento#unidades"/);
-    expect(ler('../../components/config/CartoesConfig.jsx')).toMatch(/to="\/pagamento#unidades"/);
-    expect(ler('../../pages/Pagamento.jsx')).toMatch(/<SecaoUnidades \/>/);
-    expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/titulo="Unidades e cozinhas"/);
+describe('sem unidades nas telas (24/11/2026)', () => {
+  it('nenhum cartão, pedido ou cobrança de unidade', () => {
+    expect(ler('../../pages/AdministracaoGrupo.jsx')).not.toMatch(/CartaoUnidades/);
+    expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/titulo="Cozinhas"/);
+    expect(ler('../../pages/Estoques.jsx')).not.toMatch(/pagamento#unidades|outro CNPJ\?/);
+    expect(ler('../../pages/Pagamento.jsx')).not.toMatch(/SecaoUnidades|unidades adicionais/);
+    expect(ler('../../components/PlanoExtras.jsx')).not.toMatch(/export function SecaoUnidades|tipoPedido: 'unidade'/);
+    const adm = ler('../../pages/Admin.jsx');
+    expect(adm).not.toMatch(/criar_unidade|arquivar_unidade|editar_unidade|\+ Unidade para um cliente/);
   });
 
-  it('a etiqueta tira nome, CNPJ e endereço de UM lugar só, e grava a unidade no relatório', () => {
+  it('a lista de unidades do app é sempre vazia, e o app não lê mais a tabela', () => {
+    const app = ler('../../store/AppContext.jsx');
+    expect(app).toMatch(/const SEM_UNIDADES = \[\];/);
+    expect(app).toMatch(/const unidades = SEM_UNIDADES;/);
+    expect(app).not.toMatch(/from\('unidades'\)/);
+    expect(app).toMatch(/const unidadeAtual = null;/);
+  });
+
+  it('a etiqueta tira nome, CNPJ e endereço de UM lugar só: a conta', () => {
     const tela = ler('../../components/EtiquetaPrint.jsx');
     expect(tela).toMatch(/dadosDaEtiqueta\(\{/);
     expect(tela).not.toMatch(/estabelecimentoDe\(/);
-    expect(tela).toMatch(/unidade: unidadeAtual\?\.id \|\| null/);
+    expect(dadosDaEtiqueta({ unidade: null, estoque: null, nomeConta: 'Casa', cnpjConta: '12345678000190', estabelecimentoConta: { endereco: 'Rua A' } }))
+      .toMatchObject({ nome: 'Casa', estabelecimento: { cnpj: '12345678000190', endereco: 'Rua A' } });
   });
 
-  it('no Etiquetas a cozinha sai da unidade do aparelho — não mais cravada na raiz', () => {
+  it('no Etiquetas a cozinha continua saindo de cozinhaDeEtiquetas (lista vazia: a Produção da conta)', () => {
     expect(ler('../../store/AppContext.jsx')).toMatch(/soEtiq \? cozinhaDeEtiquetas\(estoques, modulo\)/);
   });
-
-  it('trocar de unidade pede confirmação', () => {
-    expect(ler('../../components/SeletorModulo.jsx')).toMatch(/titulo: 'Trocar de unidade'/);
-  });
 });
 
-// ─────────────────────────────────────────────────────────────────────
-//  Etapa 3 — cobrança do adicional (decisão do dono: 1/3 do plano por mês)
-// ─────────────────────────────────────────────────────────────────────
-describe('adicional por unidade extra', () => {
-  it('é 1/3 do plano por mês: Etiquetas R$ 49,97; Pro R$ 133,00', () => {
-    expect(ADICIONAL_UNIDADE).toBeCloseTo(1 / 3);
-    expect(adicionalUnidade('etiquetas')).toBe(49.97);
-    expect(adicionalUnidade('completo')).toBe(133);
-    expect(mensalComUnidades('etiquetas', 2)).toBe(249.84);
-  });
-
-  it('sem unidade extra, o preço de todo plano continua o mesmo de antes', () => {
-    for (const p of PLANOS) {
-      expect(precoPlano(p, 'etiquetas', 0)).toBe(precoPlano(p, 'etiquetas'));
-    }
-  });
-
-  it('o desconto semestral e o anual valem sobre o total, com as unidades', () => {
-    const anual = PLANOS.find(p => p.id === 'anual');
-    // (149,90 + 49,97) × 12 × 0,90
-    expect(precoPlano(anual, 'etiquetas', 1)).toBe(2158.6);
-    expect(economiaPlano(anual, 'etiquetas', 1)).toBe(239.84);
-    expect(precoMensalEquivalente(anual, 'etiquetas', 1)).toBe(179.88);
-  });
-
-  it('a receita estimada do painel soma as unidades ATIVAS — a arquivada não cobra', () => {
-    const agora = Date.now();
-    const r = { id: 'r1', produto: 'etiquetas', assinatura_ate: new Date(agora + 86400000 * 10).toISOString(), unidades: [U1, U2] };
-    expect(numerosDoPainel([r], agora).mrr).toBe(199.87);
-  });
-
-  it('o QR do cliente e o painel usam as unidades extras no valor', () => {
-    const pag = ler('../../pages/Pagamento.jsx');
-    expect(pag).toMatch(/precoPlano\(plano, prod\.id, extras, desconto\)/);
-    expect(pag).toMatch(/const extras = unidadesAtivas\(unidades\)\.length/);
-    const adm = ler('../../pages/Admin.jsx');
-    expect(adm).toMatch(/precoPlano\(plano, r\.produto, extrasDe\(r\), descontoDe\(r\)\)/);
-    expect(adm).toMatch(/supabase\.rpc\('criar_unidade'/);
-    expect(adm).toMatch(/supabase\.rpc\('arquivar_unidade'/);
-  });
-});
-
-// Revisão de 23/09/2026: a cobrança com unidades tinha de dar o MESMO número
-// em todo lugar — QR do cliente, fila do painel, "Registrar pagamento",
-// Ajustes — e a parcela do contrato não podia ficar para trás.
-describe('cobrança com unidades: um número só em todas as telas', () => {
-  it('a fila do painel usa a mesma conta do Registrar pagamento (parcela, unidades, juros, impressora)', () => {
+// O que se paga a mais agora é o APARELHO (M64) — ver também aparelhos.test.js.
+describe('cobrança: um número só em todas as telas (com os aparelhos a mais)', () => {
+  it('a fila do painel usa a mesma conta do Registrar pagamento (parcela, aparelhos, juros, impressora)', () => {
     const adm = ler('../../pages/Admin.jsx');
     expect(adm).toMatch(/brlAdmin\(valorCobranca\(r, plano, !!encargos\[r\.id\], pim\.total > 0\)\)/);
-    expect(adm).not.toMatch(/brlAdmin\(precoPlano\(plano, r\.produto, extrasDe\(r\)\)\)/);
+    expect(adm).toMatch(/precoPlano\(plano, r\.produto, extrasDe\(r\), descontoDe\(r\)\)/);
+    expect(adm).toMatch(/const extrasDe = \(r\) => Math\.max\(0, Number\(r\?\.aparelhos_extras\) \|\| 0\);/);
   });
 
-  it('o contrato parcelado já vem preenchido COM as unidades, e a confirmação avisa', () => {
+  it('o contrato parcelado já vem preenchido COM os aparelhos, e a confirmação avisa', () => {
     const adm = ler('../../pages/Admin.jsx');
-    expect(adm).toMatch(/setParcelaEdit\(\{ id: r\.id, valor: fmtPreco\(mensalComUnidades\(r\.produto, extrasDe\(r\)\)\) \}\)/);
-    expect(adm).not.toMatch(/valor: fmtPreco\(produtoDe\(r\.produto\)\.precoMes\)/);
-    expect(adm).toMatch(/const avisoUnidades = v !== null && extras > 0/);
+    expect(adm).toMatch(/setParcelaEdit\(\{ id: r\.id, valor: fmtPreco\(mensalComAparelhos\(r\.produto, extrasDe\(r\)\)\) \}\)/);
+    expect(adm).toMatch(/const avisoAparelhos = v !== null && extras > 0/);
   });
 
-  it('criar, arquivar e reativar unidade oferecem ajustar a parcela do contrato', () => {
+  it('confirmar o aparelho a mais oferece ajustar a parcela do contrato', () => {
     const adm = ler('../../pages/Admin.jsx');
     expect(adm).toMatch(/const oferecerAjusteParcela = async \(r, delta, porque\)/);
-    expect(adm).toMatch(/if \(nova\) \{\s*await oferecerAjusteParcela\(r, adicionalUnidade\(r\.produto\)/);
-    expect(adm).toMatch(/await oferecerAjusteParcela\(r, arquivar \? -adicional : adicional/);
-    // a ajuda é declarada ANTES de quem a chama
-    expect(adm.indexOf('const oferecerAjusteParcela')).toBeLessThan(adm.indexOf('const salvarUnidade'));
+    expect(adm).toMatch(/await oferecerAjusteParcela\(r, ADICIONAL_APARELHO, 'somando o aparelho a mais'\);/);
+    expect(adm.indexOf('const oferecerAjusteParcela')).toBeLessThan(adm.indexOf('const confirmarAparelho'));
   });
 
-  it('trocar de plano no painel diz o valor do mês com as unidades', () => {
-    const adm = ler('../../pages/Admin.jsx');
-    expect(adm).toMatch(/fmtPreco\(mensalComUnidades\(novo, extras\)\)/);
+  it('trocar de plano no painel diz o valor do mês com os aparelhos', () => {
+    expect(ler('../../pages/Admin.jsx')).toMatch(/fmtPreco\(mensalComAparelhos\(novo, extras\)\)/);
   });
 
-  it('o Pagamento confere as unidades na rede ao abrir', () => {
+  it('o Pagamento confere os aparelhos na rede ao abrir, e o QR usa os aparelhos a mais', () => {
     const pag = ler('../../pages/Pagamento.jsx');
-    expect(pag).toMatch(/const \{ unidades, recarregarUnidades \} = useApp\(\)/);
-    expect(pag).toMatch(/useEffect\(\(\) => \{ recarregarUnidades\(\); \}, \[recarregarUnidades\]\)/);
+    expect(pag).toMatch(/useEffect\(\(\) => \{ conferirAparelho\(\); \}, \[conferirAparelho\]\);/);
+    expect(pag).toMatch(/const extras = Number\(aparelho\?\.extras\) \|\| 0;/);
+    expect(pag).toMatch(/precoPlano\(plano, prod\.id, extras, desconto\)/);
   });
 
-  it('a linha do plano na Administração mostra o que o cliente paga: parcela do contrato, ou plano + unidades', () => {
+  it('a linha do plano na Administração mostra o que o cliente paga: parcela do contrato, ou plano + aparelhos', () => {
     expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/<ResumoDoPlano \/>/);
     const aj = ler('../../components/PlanoExtras.jsx');
     expect(aj).toMatch(/const valor = parcela \? brl\(parcela\) : brl\(mensalCombinado\(prod\.id, extras, sessao\?\.desconto\)\);/);
-    expect(aj).toMatch(/const parcela = Number\(sessao\?\.parcelaContrato\) \|\| 0/);
-    expect(mensalComUnidades('etiquetas', 1)).toBe(199.87);
+    expect(aj).toMatch(/const extras = Number\(aparelho\?\.extras\) \|\| 0;/);
+  });
+
+  it('a receita estimada do painel soma os aparelhos a mais', () => {
+    const agora = Date.now();
+    const r = { id: 'r1', produto: 'etiquetas', assinatura_ate: new Date(agora + 86400000 * 10).toISOString(), aparelhos_extras: 2 };
+    expect(numerosDoPainel([r], agora).mrr).toBe(139.9);
   });
 });
 

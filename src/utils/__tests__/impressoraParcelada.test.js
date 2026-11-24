@@ -8,7 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   PRODUTOS, IMPRESSORA_PARCELADA, totalDaImpressora, impressoraEmPagamento,
-  parcelaDasImpressoras, saldoDaImpressora, precoPlano, planoPorId, adicionalUnidade,
+  parcelaDasImpressoras, saldoDaImpressora, precoPlano, planoPorId, ADICIONAL_APARELHO,
 } from '../assinatura';
 
 const ler = (caminho) => readFileSync(new URL(caminho, import.meta.url), 'utf8');
@@ -29,12 +29,13 @@ describe('a tabela da impressora', () => {
   });
 
   it('com o sistema, o 1º ano fecha nos números que o dono viu', () => {
-    expect(PRODUTOS.etiquetas.precoMes).toBe(149.9);
-    expect(adicionalUnidade('etiquetas')).toBe(49.97);
+    // 99,90 desde 24/11/2026; aparelho a mais R$ 20 (M64)
+    expect(PRODUTOS.etiquetas.precoMes).toBe(99.9);
+    expect(ADICIONAL_APARELHO).toBe(20);
     const com = (forma) => Math.round((precoPlano(planoPorId(forma), 'etiquetas') + IMPRESSORA_PARCELADA[forma].valor) * 100) / 100;
-    expect(com('mensal')).toBe(209.9);
-    expect(com('semestral')).toBe(1144.43);
-    expect(com('anual')).toBe(2178.92);
+    expect(com('mensal')).toBe(159.9);
+    expect(com('semestral')).toBe(859.43);
+    expect(com('anual')).toBe(1638.92);
   });
 });
 
@@ -120,12 +121,12 @@ describe('M60 no banco', () => {
   });
 });
 
-describe('Termos 1.3', () => {
+describe('Termos 1.3 (a impressora) e 1.4 (os aparelhos)', () => {
   const termos = ler('../../pages/Termos.jsx');
   const visivel = termos.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
 
   it('a impressora é vendida em parcelas, com os valores cobrados no sistema', () => {
-    expect(termos).toMatch(/export const TERMOS_VERSAO = '1\.3';/);
+    expect(termos).toMatch(/export const TERMOS_VERSAO = '1\.4';/);
     expect(visivel).toMatch(/12 parcelas mensais de R\$ 60,00, 2 parcelas semestrais de R\$ 290,00 ou 1 parcela\s+anual de R\$ 560,00/);
     expect(visivel).toMatch(/o saldo das parcelas da impressora é cobrado conforme o\s+contrato/);
   });

@@ -8,8 +8,9 @@ import { GRUPOS_ADMIN, useAcessosAdmin } from '../store/acessosAdmin';
 import { temRecurso } from '../utils/modulos';
 import {
   CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEstados, CartaoEtiquetas, CartaoEstabelecimento,
-  CartaoMeusDados, CartaoUnidades,
+  CartaoMeusDados,
 } from '../components/config/CartoesConfig';
+import CartaoAparelhos from '../components/config/CartaoAparelhos';
 import { CartaoSenhaDaAdministracao } from '../components/SenhaDaAdministracao';
 import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
 import CartaoEquipe from '../components/config/CartaoEquipe';
@@ -73,18 +74,12 @@ function GrupoCasa({ a }) {
         <CartaoEstabelecimento prefs={prefs} setPref={setPref} toast={toast}
           nomeRestaurante={sessao?.restauranteNome} cnpjDaConta={sessao?.cnpj} />
       )}
-      {/* No Pro, unidades e cozinhas têm tela própria (criar, renomear,
-          arquivar cozinha). No plano Etiquetas não há cozinha para criar: só a
-          lista de unidades e onde cada conta trabalha — e os dois cartões
-          somem com uma unidade só. */}
-      {/* ⚠️ "Onde cada conta trabalha" (CartaoEquipeDasUnidades) saiu com as
-          contas da equipe (23/11/2026): um login da casa só. */}
-      {a.unidades && (a.soEtiq ? (
-        <CartaoUnidades />
-      ) : (
-        <LinkCartao to="/estoques" icone="estabelecimento" titulo="Unidades e cozinhas"
-          desc="Cada unidade com o seu CNPJ, as cozinhas de cada uma e onde cada conta trabalha" />
-      ))}
+      {/* ⚠️ SEM UNIDADES (24/11/2026, pedido do dono): "outro CNPJ" saiu do
+          app — cada CNPJ é uma conta. No Pro fica a tela das cozinhas. */}
+      {a.cozinhas && (
+        <LinkCartao to="/estoques" icone="estabelecimento" titulo="Cozinhas"
+          desc="Criar, renomear e arquivar as cozinhas" />
+      )}
     </>
   );
 }
@@ -120,6 +115,8 @@ function GrupoEquipe({ a }) {
           todos os aparelhos; os nomes acima dizem quem fez; e a senha abaixo
           abre a Administração, Meus itens e os relatórios. */}
       <CartaoSenhaDaAdministracao />
+      {/* quais aparelhos estão com a conta aberta, e o "Tirar" (M64) */}
+      {a.aparelhos && <CartaoAparelhos />}
     </>
   );
 }

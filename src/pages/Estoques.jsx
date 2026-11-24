@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Icon from '../components/Icons';
 import { useApp } from '../store/AppContext';
@@ -7,18 +6,16 @@ import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { MODULOS, gerarIdInstancia } from '../utils/modulos';
 import { salvarEstoque } from '../utils/instancias';
-import { nomeDaUnidade, cidadeUf } from '../utils/unidades';
 import { formatarCNPJ } from '../utils/documentos';
 
 /**
- * UNIDADES E COZINHAS — onde a conta trabalha (era "Estoques da conta").
+ * COZINHAS — onde a conta trabalha (era "Unidades e cozinhas").
  *
- * ⚠️ DOIS NÍVEIS DESDE A M46 (22/09/2026):
- *   • UNIDADE → o estabelecimento, com o seu CNPJ. É o que sai na etiqueta.
- *     A principal é a própria conta; as extras só a Aurum cria (painel).
- *   • COZINHA → Produção, Seco, Finalização. Cada uma pertence a uma unidade,
- *     e é criada DENTRO dela.
- * Antes havia um nível só, e a "unidade" era improvisada num campo de texto
+ * ⚠️ SEM UNIDADES DESDE 24/11/2026 (pedido do dono): "outro CNPJ" saiu do
+ * app — cada CNPJ é uma conta. A M46 tinha posto dois níveis (unidade →
+ * cozinha); ficou um só: a casa, com as cozinhas dela (Produção, Seco,
+ * Finalização). A tabela `unidades` continua no banco, sem uso.
+ * Antes da M46 a "unidade" era improvisada num campo de texto
  * livre por estoque ("Nome do estabelecimento na etiqueta"): sem CNPJ, sem
  * endereço — e a lista ainda mostrava "[object Object]" quando o dono já
  * tinha preenchido o endereço da conta. O campo saiu; o texto que alguém já
@@ -33,7 +30,7 @@ import { formatarCNPJ } from '../utils/documentos';
  * mantém tudo legível no histórico.
  */
 export default function Estoques() {
-  const { estoques, estoquesDoc, setEstoquesDoc, unidades } = useApp();
+  const { estoques, estoquesDoc, setEstoquesDoc } = useApp();
   const { sessao, impersonando } = useAuth();
   const { toast, confirm } = useUI();
   const [criando, setCriando] = useState(null);   // { unidade, tipo }
@@ -45,7 +42,7 @@ export default function Estoques() {
 
   if (!eDiretoria) {
     return (
-      <Layout title="Unidades e cozinhas" area="admin">
+      <Layout title="Cozinhas" area="admin">
         <div className="bg-white rounded-xl p-6 text-center border border-gray-100">
           <span className="w-14 h-14 mx-auto mb-2 rounded-2xl bg-polo-beige text-polo-navy flex items-center justify-center" aria-hidden="true"><Icon name="cadeado" size={28} /></span>
           <p className="text-sm font-bold text-polo-navy">Só a diretoria mexe nas cozinhas</p>
@@ -59,16 +56,10 @@ export default function Estoques() {
 
   const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
 
-  // A principal primeiro, depois as extras — inclusive as arquivadas, que
-  // aparecem apagadas: o histórico delas continua existindo.
+  // ⚠️ SEM UNIDADES (24/11/2026, pedido do dono): "outro CNPJ" saiu do app —
+  // cada CNPJ é uma conta. Fica um grupo só: a casa, com as cozinhas dela.
   const grupos = [
-    { id: null, principal: true, nome: nomeDaUnidade(unidades, null, nomeConta), cnpj: sessao?.cnpj || '' },
-    ...(unidades || []).map(u => ({
-      id: u.id, principal: false, nome: u.nome, cnpj: u.cnpj,
-      local: cidadeUf(u.cidade, u.uf), arquivada: !!u.arquivada_em,
-      // lista de itens própria (M48): quem liga é a Aurum, no painel
-      listaPropria: !!u.catalogo_proprio,
-    })),
+    { id: null, principal: true, nome: nomeConta || 'A casa', cnpj: sessao?.cnpj || '' },
   ];
 
   const criar = () => {
@@ -113,7 +104,7 @@ export default function Estoques() {
   const pararNomeAntigo = async (e) => {
     const ok = await confirm({
       titulo: 'Parar de usar o nome antigo',
-      mensagem: `A etiqueta de "${e.nome}" deixa de sair como "${e.estabelecimento}" e passa a sair com o nome da conta.\n\nSe essa cozinha é de outra casa, com outro CNPJ, peça à Aurum para criar a unidade — assim o CNPJ também sai certo.`,
+      mensagem: `A etiqueta de "${e.nome}" deixa de sair como "${e.estabelecimento}" e passa a sair com o nome da conta.`,
       confirmar: 'Parar de usar',
     });
     if (!ok) return;
@@ -124,13 +115,10 @@ export default function Estoques() {
   const campo = 'campo';
 
   return (
-    <Layout title="Unidades e cozinhas" area="admin">
+    <Layout title="Cozinhas" area="admin">
       <div className="space-y-5">
         <p className="text-xs text-gray-600 px-1 leading-relaxed">
-          Cada <strong>unidade</strong> é um estabelecimento, com o seu CNPJ — é o que sai na etiqueta.
-          Dentro de cada uma ficam as <strong>cozinhas</strong>, com saldo e mín/máx próprios. Os itens
-          são cadastrados uma vez e aparecem em todas as cozinhas do mesmo tipo — menos na unidade com
-          lista de itens própria, que tem a sua.
+          Cada cozinha tem saldo e mín/máx próprios. Os itens aparecem em todas as cozinhas do mesmo tipo.
         </p>
 
         {grupos.map(g => {
@@ -144,13 +132,9 @@ export default function Estoques() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-polo-gold truncate">
                     {g.nome}
-                    {g.principal && <span className="ml-1.5 text-xs font-semibold text-white/70">principal</span>}
-                    {g.arquivada && <span className="ml-1.5 text-xs font-bold text-white/70">arquivada</span>}
                   </p>
                   <p className="text-xs text-white/80">
                     {g.cnpj ? `CNPJ ${formatarCNPJ(g.cnpj)}` : 'Sem CNPJ cadastrado'}
-                    {g.local ? ` · ${g.local}` : ''}
-                    {g.listaPropria ? ' · lista de itens própria' : ''}
                   </p>
                 </div>
               </div>
@@ -250,25 +234,6 @@ export default function Estoques() {
           );
         })}
 
-        {/* "quem trabalha em cada unidade" saiu com as contas da equipe
-            (23/11/2026, jeito do Magurō): um login da casa só */}
-
-        {/* ⚠️ A UNIDADE NOVA NÃO SE CRIA AQUI: o CNPJ é o que identifica quem
-            manipulou o alimento, e passa pela Aurum — que também combina o
-            adicional antes. O pedido chega no painel, na fila do dia. */}
-        {!sessao?.eSuperAdmin && (
-          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
-            <p className="text-sm font-bold text-polo-navy">Tem outro restaurante, com outro CNPJ?</p>
-            <p className="text-xs text-gray-600">
-              A equipe Aurum cria a unidade nesta mesma conta: os itens continuam os mesmos, e cada casa
-              imprime a etiqueta com o seu CNPJ.
-            </p>
-            <Link to="/pagamento#unidades"
-              className="block w-full border-2 border-polo-navy text-polo-navy font-bold rounded-xl py-2.5 text-sm text-center">
-              Ver preço e pedir em Planos e pagamento
-            </Link>
-          </div>
-        )}
       </div>
     </Layout>
   );

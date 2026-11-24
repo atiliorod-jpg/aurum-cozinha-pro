@@ -44,7 +44,7 @@ describe('funções do servidor', () => {
     expect((contas.match(/senha\.length < 8/g) || []).length).toBe(2);
     expect(contas).toMatch(/admin\.rpc\('restaurante_pode_escrever', \{ rid \}\)/);
     expect(contas).toMatch(/\(acao === 'criar' \|\| acao === 'senha'\) && podeEscrever !== true/);
-    expect(ler('../../components/config/CartoesConfig.jsx')).toMatch(/senha\.length < 8/);
+    // (o cartão das contas da equipe saiu do app em 24/11/2026: login da casa)
   });
 
   it('Stripe: só libera pago, confere o valor e ignora evento repetido', () => {

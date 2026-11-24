@@ -50,12 +50,13 @@ export const PRODUTOS = {
   etiquetas: {
     id: 'etiquetas',
     label: 'Aurum Etiquetas',
-    // ⚠️ 149,90 desde 30/09/2026 (era 279,90; antes, 249). Decisão do dono
-    // depois de comparar com o mercado: o sistema ficou mais barato e a
-    // impressora passou a ser vendida à parte, em parcelas (IMPRESSORA_PARCELADA).
-    // O preço é a fonte da verdade: as telas e os planos semestral/anual saem
-    // daqui por cálculo, nunca de número digitado noutro lugar.
-    precoMes: 149.90,
+    // ⚠️ 99,90 desde 24/11/2026, com ATÉ 3 APARELHOS conectados (decisão do
+    // dono; antes 149,90 desde 30/09, 279,90 e 249). Aparelho a mais:
+    // ADICIONAL_APARELHO por mês. A impressora é vendida à parte, em parcelas
+    // (IMPRESSORA_PARCELADA). O preço é a fonte da verdade: as telas e os
+    // planos semestral/anual saem daqui por cálculo, nunca de número
+    // digitado noutro lugar.
+    precoMes: 99.90,
     // ⚠️ NÃO prometer "acompanhar o que vence": a tela de Validades saiu deste
     // produto de propósito — ele imprime a data na etiqueta, não monitora
     // vencimento. Quem quer acompanhamento compra o completo. Prometer aqui é
@@ -100,21 +101,31 @@ export const PLANOS = [
 // arredondava para baixo. Corta o ruído (4 casas) antes de arredondar.
 const r2 = (n) => Math.round(Number((n * 100).toFixed(4))) / 100;
 const mensalDe = (produto) => produtoDe(produto).precoMes;
-// Preço TOTAL do período, já com o desconto aplicado.
-//
-// ⚠️ UNIDADES ADICIONAIS (M46, decisão do dono em 22/09/2026): cada unidade
-// extra da conta — outro CNPJ, na mesma conta — custa 1/3 do plano por mês.
-// `extras` tem padrão 0, então toda chamada antiga continua dando o mesmo
-// valor. O desconto semestral/anual vale sobre o total, com as unidades.
-export const ADICIONAL_UNIDADE = 1 / 3;
-/** Quanto custa UMA unidade extra por mês: Etiquetas R$ 49,97; Pro R$ 133,00. */
-export const adicionalUnidade = (produto) => r2(mensalDe(produto) * ADICIONAL_UNIDADE);
-/** O mês cheio da conta: o plano mais as unidades extras. */
-export const mensalComUnidades = (produto, extras = 0) =>
-  r2(mensalDe(produto) + Math.max(0, parseInt(extras, 10) || 0) * adicionalUnidade(produto));
+
+// ── APARELHOS CONECTADOS (M64, decisão do dono em 24/11/2026) ───────
+// O Etiquetas inclui até 3 aparelhos conectados na mesma conta. O 4º mostra o
+// Pix de ADICIONAL_APARELHO e só entra depois que a Aurum confirma; daí em
+// diante, cada aparelho a mais soma ADICIONAL_APARELHO em TODA cobrança
+// (`restaurantes.aparelhos_extras`). O Cozinha Pro (em breve) não tem limite.
+// ⚠️ PARIDADE com limite_de_aparelhos() da M64: 3 aqui, 3 lá.
+// ⚠️ SUBSTITUI AS UNIDADES (M46): "outro CNPJ" saiu do app em 24/11/2026 —
+// cada CNPJ é uma conta. `extras` em todas as contas abaixo são APARELHOS
+// a mais, não unidades.
+export const APARELHOS_INCLUSOS = { etiquetas: 3, completo: null };
+export const ADICIONAL_APARELHO = 20;
+/** Quantos aparelhos o plano inclui (null = sem limite). */
+export const aparelhosInclusos = (produto) => {
+  const id = produtoDe(produto).id;
+  return APARELHOS_INCLUSOS[id] ?? null;
+};
+/** O mês cheio da conta: o plano mais os aparelhos a mais. */
+export const mensalComAparelhos = (produto, extras = 0) =>
+  r2(mensalDe(produto) + Math.max(0, parseInt(extras, 10) || 0) * ADICIONAL_APARELHO);
+// Preço TOTAL do período, já com o desconto aplicado. O desconto
+// semestral/anual vale sobre o total, com os aparelhos a mais.
 // ── DESCONTO COMBINADO (M54, 28/09/2026) ────────────────────────────
 // A Aurum combina com o cliente R$ X a menos por mês, ou X% a menos, com
-// data para acabar ou não. Vale sobre o MÊS (plano + unidades) e DEPOIS vem o
+// data para acabar ou não. Vale sobre o MÊS (plano + aparelhos) e DEPOIS vem o
 // desconto do período (semestral/anual). `desconto` = { tipo: 'valor' |
 // 'percentual', valor, ate: 'AAAA-MM-DD' | null } — o que a linha de
 // `restaurantes` traz. Sem desconto (ou vencido), tudo como sempre foi.
@@ -137,9 +148,9 @@ export function aplicarDesconto(mensal, desconto, agora = Date.now()) {
   const com = d.tipo === 'percentual' ? mensal * (1 - Math.min(d.valor, 90) / 100) : mensal - d.valor;
   return r2(Math.max(0, com));
 }
-/** O mês que ESTA conta paga: plano + unidades, menos o desconto combinado. */
+/** O mês que ESTA conta paga: plano + aparelhos a mais, menos o desconto combinado. */
 export const mensalCombinado = (produto, extras = 0, desconto = null, agora = Date.now()) =>
-  aplicarDesconto(mensalComUnidades(produto, extras), desconto, agora);
+  aplicarDesconto(mensalComAparelhos(produto, extras), desconto, agora);
 /** O desconto a partir da linha crua de `restaurantes` (painel). */
 export const descontoDaLinha = (r) => (r?.desconto_tipo
   ? { tipo: r.desconto_tipo, valor: Number(r.desconto_valor) || 0, ate: r.desconto_ate || null, motivo: r.desconto_motivo || '' }
@@ -158,23 +169,6 @@ export const precoMensalEquivalente = (plano, produto, extras = 0, desconto = nu
 export const economiaPlano = (plano, produto, extras = 0, desconto = null, agora = Date.now()) =>
   r2(mensalCombinado(produto, extras, desconto, agora) * plano.meses - precoPlano(plano, produto, extras, desconto, agora));
 
-/**
- * A cobrança à parte da unidade criada no meio de um período JÁ PAGO (M54,
- * decisão do dono): os meses que faltam até o vencimento × o adicional, com o
- * mesmo desconto do período pago (5% semestral, 10% anual) e o combinado.
- * Faltando 31 dias ou menos, não há cobrança à parte — entra na próxima.
- * Devolve { meses, valor } ou null.
- */
-export function cobrancaDaUnidade({ produto, assinaturaAte, planoPago, desconto = null, agora = Date.now() }) {
-  const fim = assinaturaAte ? new Date(assinaturaAte).getTime() : NaN;
-  if (Number.isNaN(fim)) return null;
-  const dias = Math.ceil((fim - agora) / 86400000);
-  if (dias <= 31) return null;
-  const meses = Math.ceil(dias / 30);
-  const plano = planoPorId(planoPago);
-  const adicionalMes = aplicarDesconto(adicionalUnidade(produto), descontoAtivo(desconto, agora)?.tipo === 'percentual' ? desconto : null, agora);
-  return { meses, valor: r2(adicionalMes * meses * (1 - plano.desconto)) };
-}
 export const planoPorId = (id) => PLANOS.find(p => p.id === id) || PLANOS[0];
 
 // ── IMPRESSORA PARCELADA (M60, decisão do dono em 30/09/2026) ───────

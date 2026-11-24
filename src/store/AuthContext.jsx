@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
+import { nomeDoAparelho, decidirAparelho, lerAparelhoGuardado, guardarAparelho, INTERVALO_APARELHO_MS, INTERVALO_ESPERANDO_MS } from '../lib/aparelhos';
 import { emailDeLogin } from '../utils/contas';
 import { limparCacheLocal, cacheGet, cacheSet } from '../lib/cache';
 import { desvioDoRelogio, horaConfiavel } from '../utils/semInternet';
@@ -130,8 +131,17 @@ const lerNivelDoLogin = async () => {
 // compartilhado, na mão do próximo. Agora a sessão DESTE aparelho sai de
 // qualquer jeito em até 3 s; o aviso ao servidor vai se der.
 async function sairDoSupabase() {
+  // ⚠️ A VAGA DO APARELHO VOLTA NA HORA (M64): avisa o banco antes de sair.
+  // Sem internet, segue sem esperar — a vaga se solta sozinha em 30 dias.
+  await Promise.race([
+    Promise.resolve(supabase.rpc('sair_do_aparelho')).catch(() => null),
+    new Promise(r => setTimeout(r, 1500)),
+  ]);
+  // ⚠️ SÓ ESTE APARELHO (scope 'local', 24/11/2026). O padrão do Supabase é
+  // 'global': com o LOGIN DA CASA aberto em 3 aparelhos, "Sair" num deles
+  // derrubava os outros dois na renovação seguinte do token (até 1 hora).
   const resposta = await Promise.race([
-    supabase.auth.signOut().catch(e => ({ error: e || 'falhou' })),
+    supabase.auth.signOut({ scope: 'local' }).catch(e => ({ error: e || 'falhou' })),
     new Promise(r => setTimeout(() => r({ error: 'sem resposta' }), 3000)),
   ]);
   if (!resposta?.error) return;
@@ -214,11 +224,14 @@ export function AuthProvider({ children }) {
   // (ex.: o CNPJ foi tomado no intervalo). Guarda o motivo para a tela explicar.
   const [cadastroPendenteErro, setCadastroPendenteErro] = useState(null);
   // ⚠️ A SESSÃO ÚNICA SAIU (23/11/2026, jeito do Magurō): o LOGIN DA CASA
-  // entra em quantos aparelhos quiser, e quem imprime é dito pelos nomes.
-  // Antes, cada conta só ficava aberta num aparelho — e a casa precisava de
-  // uma conta (e uma vaga) por tablet. `derrubado` fica sempre falso; o
-  // estado continua só para quem ainda o lê.
+  // entra em vários aparelhos, e quem imprime é dito pelos nomes. Desde
+  // 24/11/2026 (M64) o Etiquetas inclui 3 aparelhos. `derrubado` = 'removido'
+  // quando a Administração de outro aparelho tirou ESTE da conta: a tela de
+  // entrada explica, em vez de o app só voltar para o login.
   const [derrubado, setDerrubado] = useState(false);
+  // A última resposta do banco sobre ESTE aparelho (M64): { situacao, usados,
+  // limite, extras, pedido_em } — ou null (conta sem limite, demo, suporte).
+  const [aparelho, setAparelho] = useState(null);
 
   // ── A ADMINISTRAÇÃO COM SENHA (23/11/2026) — ver utils/senhaAdministracao.js ──
   // Aberta POR APARELHO: a sessão de login deste aparelho (no banco, a M62
@@ -706,6 +719,8 @@ export function AuthProvider({ children }) {
     // A fila do outbox com item vivo é preservada de propósito: é trabalho que
     // o servidor ainda não recebeu. Quem chama avisa antes (ver Layout.sair).
     limparCacheLocal();
+    guardarAparelho(null);
+    setAparelho(null);
     carregadoRef.current = null;
     setSessao(null);
     setUsuarios([]);
@@ -805,6 +820,89 @@ export function AuthProvider({ children }) {
   }, [sessao]);
   const sairImpersonacao = useCallback(() => setImpersonando(null), []);
   const limparDerrubado = useCallback(() => setDerrubado(false), []);
+
+  // ── APARELHOS CONECTADOS (M64, 24/11/2026 — pedido do dono) ──────────
+  // O Etiquetas inclui 3 aparelhos na mesma conta; o 4º espera o Pix do
+  // aparelho a mais. O BANCO decide (registrar_aparelho): aqui o aparelho só
+  // se apresenta — ao abrir, ao voltar para a tela, a cada 5 minutos, e a
+  // cada 30 s enquanto espera a Aurum confirmar.
+  // ⚠️ Demo, super-admin e modo suporte não ocupam vaga e nem perguntam.
+  const usuarioDaVaga = sessao?.restauranteId && !sessao?.demo && !sessao?.eSuperAdmin && !impersonando
+    ? sessao.usuarioId : null;
+  const aparelhoRef = useRef(null);
+  useEffect(() => { aparelhoRef.current = aparelho; }, [aparelho]);
+  const conferirAparelho = useCallback(async () => {
+    if (!usuarioDaVaga) return null;
+    let resp = null;
+    try {
+      const { data, error } = await supabase.rpc('registrar_aparelho', { p_nome: nomeDoAparelho() });
+      if (!error && data && typeof data === 'object') resp = data;
+    } catch { /* sem rede: vale a resposta guardada */ }
+    if (!resp) return null;
+    guardarAparelho(usuarioDaVaga, resp);
+    setAparelho(resp);
+    return resp;
+  }, [usuarioDaVaga]);
+  const logoutRef = useRef(null);
+  useEffect(() => { logoutRef.current = logout; }, [logout]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- troca de conta: começa da resposta guardada desta conta
+    setAparelho(usuarioDaVaga ? lerAparelhoGuardado(usuarioDaVaga) : null);
+    if (!usuarioDaVaga) return undefined;
+    let vivo = true;
+    let ultimo = 0;
+    const conferir = async (forcar = false) => {
+      if (!forcar && (document.visibilityState !== 'visible' || navigator.onLine === false)) return;
+      if (!forcar && Date.now() - ultimo < 15 * 1000) return;
+      ultimo = Date.now();
+      const r = await conferirAparelho();
+      if (!vivo || !r) return;
+      // tirado pela Administração de outro aparelho: sai, e a entrada explica
+      if (decidirAparelho(r) === 'sair') {
+        await logoutRef.current?.();
+        setDerrubado('removido');
+      }
+    };
+    conferir(true);
+    const relogio = setInterval(() => {
+      const esperando = aparelhoRef.current?.situacao === 'aguardando';
+      if (esperando || Date.now() - ultimo >= INTERVALO_APARELHO_MS) conferir();
+    }, INTERVALO_ESPERANDO_MS);
+    const aoVoltar = () => conferir();
+    document.addEventListener('visibilitychange', aoVoltar);
+    window.addEventListener('online', aoVoltar);
+    return () => {
+      vivo = false;
+      clearInterval(relogio);
+      document.removeEventListener('visibilitychange', aoVoltar);
+      window.removeEventListener('online', aoVoltar);
+    };
+  }, [usuarioDaVaga, conferirAparelho]);
+
+  /** A lista da conta: { limite, extras, lista: [...] } — ou null sem rede/sem M64. */
+  const listarAparelhos = useCallback(async () => {
+    if (sessao?.demo) return null;
+    try {
+      const { data, error } = await supabase.rpc('meus_aparelhos');
+      return error ? null : data;
+    } catch { return null; }
+  }, [sessao?.demo]);
+  /** Tira um aparelho da conta (só com a Administração aberta). Devolve o erro, ou ''. */
+  const removerAparelho = useCallback(async (id) => {
+    try {
+      const { error } = await supabase.rpc('remover_aparelho', { p_id: id });
+      return error ? (error.message || 'Não foi possível tirar o aparelho.') : '';
+    } catch { return 'Sem internet: tente de novo.'; }
+  }, []);
+  /** "Já paguei" do aparelho a mais. Devolve o erro, ou ''. */
+  const pedirAparelhoExtra = useCallback(async (pagador) => {
+    try {
+      const { error } = await supabase.rpc('pedir_aparelho_extra', { p_pagador: pagador || null });
+      if (error) return error.message || 'Não foi possível avisar.';
+      await conferirAparelho();
+      return '';
+    } catch { return 'Sem internet: tente de novo.'; }
+  }, [conferirAparelho]);
 
   // ── Esqueci minha senha (envia email de recuperação) ─────────
   /**
@@ -1232,6 +1330,8 @@ export function AuthProvider({ children }) {
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,
       confirmacao, reconfirmar, definirUnidadeDaConta, nivelLogin, verificarNivel,
+      // aparelhos conectados (M64)
+      aparelho, conferirAparelho, listarAparelhos, removerAparelho, pedirAparelhoExtra,
       // a Administração com senha (23/11/2026)
       administracaoComSenha: comSenhaAdm, administracaoAberta: admAberta, temSenhaAdministracao: temSenhaAdm,
       abrirAdministracao, fecharAdministracao, confirmarSenhaDoLogin, definirSenhaAdministracao,
@@ -1246,6 +1346,7 @@ export function AuthProvider({ children }) {
     reativarUsuario, avisarPagamento, criarConta, trocarSenhaDe, removerConta,
     definirApelido, temPermissao, impersonando, verComoRestaurante, sairImpersonacao,
     derrubado, limparDerrubado, confirmacao, reconfirmar, definirUnidadeDaConta, nivelLogin, verificarNivel,
+    aparelho, conferirAparelho, listarAparelhos, removerAparelho, pedirAparelhoExtra,
     comSenhaAdm, admAberta, temSenhaAdm, abrirAdministracao, fecharAdministracao, confirmarSenhaDoLogin, definirSenhaAdministracao,
   ]);
 

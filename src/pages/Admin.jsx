@@ -6,12 +6,12 @@ import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
 import { buscarTodas } from '../lib/paginar';
 import ErrosDosAparelhos from '../components/ErrosDosAparelhos';
-import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, adicionalUnidade, mensalComUnidades, descontoDaLinha, descontoAtivo, rotuloDesconto, cobrancaDaUnidade, IMPRESSORA_PARCELADA, parcelaDasImpressoras, impressoraEmPagamento, saldoDaImpressora } from '../utils/assinatura';
-import { unidadesAtivas } from '../utils/unidades';
+import { statusRestaurante, PLANOS, produtoDe, precoPlano, planoPorId, rotuloRegime, fmtPreco, mensalComAparelhos, ADICIONAL_APARELHO, aparelhosInclusos, descontoDaLinha, descontoAtivo, rotuloDesconto, IMPRESSORA_PARCELADA, parcelaDasImpressoras, impressoraEmPagamento, saldoDaImpressora } from '../utils/assinatura';
+import { quandoFoiVisto } from '../lib/aparelhos';
 import { calcularEncargo } from '../utils/encargos';
 import { filaDoPainel, numerosDoPainel, passaNoFiltro, situacaoPresenca, contasEmUso } from '../utils/painel';
 import { temCaixaDeEntrada } from '../utils/contas';
-import { formatarCNPJ, formatarCEP, formatarTelefone, UFS } from '../utils/documentos';
+import { formatarCNPJ, formatarTelefone, UFS } from '../utils/documentos';
 import Icon from '../components/Icons';
 import { plural, fmtDataDoBanco, hoje } from '../utils/formatters';
 import { textoDaFalhaDeRede } from '../utils/conexao';
@@ -86,8 +86,9 @@ const dataHoraOuNunca = (iso) => iso ? dataHoraBR(iso) : 'nunca';
 // faz a tela discordar de si mesma. Aqui elas só rodam em clique ou dentro de
 // um `useMemo` com dependência declarada.
 const daquiADias = (n) => new Date(Date.now() + n * 86400000).toISOString();
-// Unidades extras ATIVAS da conta (M46): cada uma soma 1/3 do plano por mês.
-const extrasDe = (r) => unidadesAtivas(r?.unidades).length;
+// Aparelhos a mais PAGOS da conta (M64, 24/11/2026): R$ 20 cada, por mês.
+// (Substituiu as unidades extras da M46: "outro CNPJ" saiu do app.)
+const extrasDe = (r) => Math.max(0, Number(r?.aparelhos_extras) || 0);
 // Desconto combinado que vale hoje (M54), ou null
 const descontoDe = (r) => descontoAtivo(descontoDaLinha(r));
 const aindaVale = (iso, agora) => !!iso && new Date(iso).getTime() > agora;
@@ -115,7 +116,7 @@ export default function Admin() {
   // Abrir conta de cliente pelo painel. `null` = formulário fechado.
   const [situacao, setSituacao] = useState('todos'); // todos|pagantes|teste|vencidos|bloqueados|cortesia|etiquetas|completo
   const [vencCustom, setVencCustom] = useState({}); // { [rid]: 'aaaa-mm-dd' } — data exata do vencimento
-  const [cobrando, setCobrando] = useState(null);   // { id, valor, dias, plano, extras, valorExtras, obs } | null
+  const [cobrando, setCobrando] = useState(null);   // { id, valor, dias, plano, incluiEncargo, incluiImpressora, obs } | null
   const [regimeEdit, setRegimeEdit] = useState(null); // { id, regime, motivo, ate } | null
   const [pagamentos, setPagamentos] = useState(null); // { id, itens, carregando, erro } | null
   const [novaConta, setNovaConta] = useState(null);
@@ -130,10 +131,6 @@ export default function Admin() {
   const [parcelaEdit, setParcelaEdit] = useState(null); // { id, valor }
   // Dias digitados à mão para teste e empréstimo: { [restauranteId]: { teste, emprestimo } }
   const [diasLivres, setDiasLivres] = useState({});
-  // Criar/editar unidade (M46): { restId, id|null, nome, cnpj, endereco, cidade, uf, cep }
-  const [unidadeForm, setUnidadeForm] = useState(null);
-  // "+ Unidade para um cliente": escolhendo de qual cliente
-  const [escolhendoCliente, setEscolhendoCliente] = useState(false);
   // Desconto combinado e cobrança à parte (M54)
   const [avulsas, setAvulsas] = useState({});           // { [restauranteId]: [cobrança pendente] }
   const [descontoForm, setDescontoForm] = useState(null); // { restId, tipo, valor, ate, motivo }
@@ -143,7 +140,6 @@ export default function Admin() {
   const [impressoras, setImpressoras] = useState({});
   const [impForm, setImpForm] = useState(null);          // { restId, forma, parcelas, valor, inicio, unidade, obs }
   const [impCorrige, setImpCorrige] = useState(null);    // { id, pagas }
-  const [salvandoUnidade, setSalvandoUnidade] = useState(false);
   // Presença (M58): { [restauranteId]: { agora, quem, ultimo } } e o filtro "em uso agora"
   const [presenca, setPresenca] = useState({});
   const [soEmUso, setSoEmUso] = useState(false);
@@ -206,7 +202,7 @@ export default function Admin() {
       // ⚠️ cnpj/whatsapp/cidade/uf (M28) entram SÓ nesta primeira tentativa. A
       // cadeia de fallback abaixo existe para banco sem as colunas novas; pôr
       // as colunas lá também faria a queda em cascata falhar inteira.
-      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, teste_ate, produto_teste, produto_teste_ate, regime, regime_motivo, cortesia_ate, parcela_contrato, desconto_tipo, desconto_valor, desconto_ate, desconto_motivo')
+      .select('id, nome, created_at, assinatura_ate, max_usuarios, bloqueado, aviso_pagamento_em, aviso_pagamento_plano, aviso_pagamento_nome, produto, cnpj, whatsapp, cidade, uf, teste_ate, produto_teste, produto_teste_ate, regime, regime_motivo, cortesia_ate, parcela_contrato, desconto_tipo, desconto_valor, desconto_ate, desconto_motivo, aparelhos_extras')
       .order('created_at', { ascending: false });
     if (errR) {
       // banco sem a migração 27: cai para o select de antes e todo mundo
@@ -266,29 +262,17 @@ export default function Admin() {
     setImpressoras(impPorRest);
 
     // As prefs (incl. autorização de suporte) ficam em documentos.chave='prefs'.
-    // ⚠️ O documento `estoques` vem junto (M46): é nele que mora o nome antigo
-    // de estabelecimento que alguns donos digitaram por cozinha — a unidade
-    // improvisada de antes das unidades. Conta que tem isso aparece como
-    // "unidade a confirmar", para a Aurum criar a unidade de verdade.
     const { data: docsPrefs } = ids.length
-      ? await supabase.from('documentos').select('restaurante_id, chave, dados').in('restaurante_id', ids).in('chave', ['prefs', 'estoques'])
+      ? await supabase.from('documentos').select('restaurante_id, chave, dados').in('restaurante_id', ids).eq('chave', 'prefs')
       : { data: [] };
     const prefsPorRest = {};
-    const nomesAntigosPorRest = {};
-    (docsPrefs || []).forEach(d => {
-      if (d.chave === 'prefs') { prefsPorRest[d.restaurante_id] = d.dados || {}; return; }
-      const nomes = (Array.isArray(d.dados?.itens) ? d.dados.itens : [])
-        .map(i => String(i?.estabelecimento || '').trim()).filter(Boolean);
-      if (nomes.length) nomesAntigosPorRest[d.restaurante_id] = [...new Set(nomes)];
-    });
+    (docsPrefs || []).forEach(d => { prefsPorRest[d.restaurante_id] = d.dados || {}; });
 
-    // Unidades extras (M46) — o super-admin lê todas pela policy de leitura.
-    // Falhar aqui (banco sem a M46) não derruba o painel: fica sem unidades.
-    const { data: todasUnidades } = await supabase.from('unidades')
-      .select('id, restaurante_id, nome, cnpj, endereco, cidade, uf, cep, cozinha, arquivada_em, criada_em, catalogo_proprio')
-      .order('criada_em');
-    const unidadesPorRest = {};
-    (todasUnidades || []).forEach(u => { (unidadesPorRest[u.restaurante_id] ||= []).push(u); });
+    // ⚠️ APARELHOS CONECTADOS (M64, 24/11/2026), no lugar das unidades (M46),
+    // que saíram do app. Sem a migração, a lista só fica vazia.
+    const { data: todosAparelhos } = await supabase.rpc('aparelhos_admin');
+    const aparelhosPorRest = {};
+    (todosAparelhos || []).forEach(a => { (aparelhosPorRest[a.restaurante_id] ||= []).push(a); });
 
     setRestaurantes(rests.map(r => {
       const conf = prefsPorRest[r.id] || {};
@@ -299,8 +283,7 @@ export default function Admin() {
         suporteAtivo,
         suporteAte: suporteAtivo ? conf.suporteAtivo : null,
         podeMexer: suporteAtivo && conf.suportePermissao === 'mexer',
-        unidades: unidadesPorRest[r.id] || [],
-        nomesAntigos: nomesAntigosPorRest[r.id] || [],
+        aparelhos: aparelhosPorRest[r.id] || [],
       };
     }));
     // Notas internas: tabela admin_notas via RPC (migração 10) — o cliente não
@@ -409,7 +392,7 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
       plano: plano.id,
       incluiEncargo,
       incluiImpressora,
-      extras: '', valorExtras: '', obs: '',
+      obs: '',
     });
   };
 
@@ -418,9 +401,12 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     if (!c) return;
     const valor = Number(String(c.valor).replace(',', '.')) || 0;
     const dias = parseInt(c.dias, 10) || 0;
-    const extras = parseInt(c.extras, 10) || 0;
-    const valorExtras = Number(String(c.valorExtras).replace(',', '.')) || 0;
-    if (valor <= 0 && valorExtras <= 0) { toast('Digite o valor recebido.', 'aviso'); return; }
+    // ⚠️ OS APARELHOS A MAIS (M64) JÁ ESTÃO NO VALOR — é a conta do QR do
+    // cliente. O número deles vai junto só para o histórico dizer quantos.
+    // (Os campos "Contas extras" saíram com as contas da equipe, 24/11/2026.)
+    const extras = extrasDe(r);
+    const valorExtras = 0;
+    if (valor <= 0) { toast('Digite o valor recebido.', 'aviso'); return; }
     const ok = await confirm({
       titulo: 'Registrar pagamento',
       mensagem: `${r.nome}\n\nRecebido: ${brlAdmin(valor + valorExtras)}`
@@ -472,17 +458,17 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
       return;
     }
     // ⚠️ Com contrato, a parcela SUBSTITUI o preço da tabela no QR — inclusive
-    // o adicional das unidades. Se ela não inclui as unidades ativas, a
-    // confirmação diz, para o adicional não sumir da cobrança sem ninguém ver.
+    // os aparelhos a mais (M64). Se ela não os inclui, a confirmação diz, para
+    // o adicional não sumir da cobrança sem ninguém ver.
     const extras = extrasDe(r);
-    const avisoUnidades = v !== null && extras > 0
-      ? `\n\nA conta tem ${extras} unidade(s) extra(s) ativa(s): com elas, o mês fica em R$ ${fmtPreco(mensalComUnidades(r.produto, extras))}. A parcela é o que o cliente paga — confira se ela inclui as unidades.`
+    const avisoAparelhos = v !== null && extras > 0
+      ? `\n\nA conta paga ${extras} aparelho(s) a mais: com eles, o mês fica em R$ ${fmtPreco(mensalComAparelhos(r.produto, extras))}. A parcela é o que o cliente paga — confira se ela inclui os aparelhos.`
       : '';
     const ok = await confirm({
       titulo: v === null ? 'Encerrar contrato' : (r.parcela_contrato ? 'Alterar parcela do contrato' : 'Registrar contrato parcelado'),
       mensagem: v === null
         ? `Encerrar o contrato de "${r.nome}"?\n\nEle deixa de ter os 10 dias de tolerância e os juros de atraso. Faça isso quando o contrato terminar ou for rescindido.`
-        : `"${r.nome}" — parcela de R$ ${fmtPreco(v)} por mês.\n\nCom isso: 10 dias de tolerância antes de suspender o acesso (cláusula 7ª) e juros de atraso calculados sobre esta parcela (cláusula 6ª).${avisoUnidades}`,
+        : `"${r.nome}" — parcela de R$ ${fmtPreco(v)} por mês.\n\nCom isso: 10 dias de tolerância antes de suspender o acesso (cláusula 7ª) e juros de atraso calculados sobre esta parcela (cláusula 6ª).${avisoAparelhos}`,
       confirmar: v === null ? 'Encerrar' : 'Salvar',
       perigo: v === null,
     });
@@ -525,23 +511,11 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     toast(quitar ? 'Juros marcados como pagos.' : 'Juros dispensados.', 'sucesso');
   };
 
-  // ── Unidades (M46) ────────────────────────────────────────────
-  // ⚠️ SÓ A AURUM CRIA UNIDADE (decisão do dono): o CNPJ é o que identifica
-  // quem manipulou o alimento, e a unidade custa 1/3 do plano por mês — a
-  // confirmação diz o valor antes. O banco confere de novo: só super-admin,
-  // CNPJ válido e único no sistema inteiro (conta ou unidade).
-  const abrirUnidade = (r, u = null) => setUnidadeForm({
-    restId: r.id, id: u?.id || null,
-    nome: u?.nome || '', cnpj: u?.cnpj ? formatarCNPJ(u.cnpj) : '',
-    endereco: u?.endereco || '', cidade: u?.cidade || '', uf: u?.uf || 'PE', cep: formatarCEP(u?.cep),
-  });
-
   // ⚠️ CONTRATO PARCELADO: no QR quem manda é a parcela do contrato, não o
-  // preço da tabela — e ela não muda sozinha. Criar ou reativar uma unidade
-  // sem subir a parcela deixa a unidade ativa e não cobrada; arquivar sem
-  // descer segue cobrando a que saiu (os Termos dizem que arquivada não
-  // cobra). Por isso os três caminhos oferecem o ajuste, e quem decide é a
-  // Aurum: o adicional pode ter ficado fora do contrato.
+  // preço da tabela — e ela não muda sozinha. Dar uma vaga paga de aparelho
+  // (M64) sem subir a parcela deixa o aparelho a mais sem cobrança. Por isso
+  // o painel OFERECE o ajuste, e quem decide é a Aurum: o adicional pode ter
+  // ficado fora do contrato. (Era o mesmo cuidado com as unidades da M46.)
   const oferecerAjusteParcela = async (r, delta, porque) => {
     const atual = Number(r.parcela_contrato) || 0;
     if (!atual) return;
@@ -551,7 +525,7 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
       titulo: 'Parcela do contrato',
       mensagem: `Esta conta tem contrato parcelado de R$ ${fmtPreco(atual)}.
 
-Atualizar a parcela para R$ ${fmtPreco(novaParcela)}, ${porque}? Faça isso se o adicional da unidade ${delta > 0 ? 'entra no' : 'estava no'} contrato.`,
+Atualizar a parcela para R$ ${fmtPreco(novaParcela)}, ${porque}? Faça isso se o aparelho a mais ${delta > 0 ? 'entra no' : 'estava no'} contrato.`,
       confirmar: 'Atualizar parcela',
     });
     if (!ok) return;
@@ -561,94 +535,72 @@ Atualizar a parcela para R$ ${fmtPreco(novaParcela)}, ${porque}? Faça isso se o
     toast(`Parcela atualizada para R$ ${fmtPreco(novaParcela)}.`, 'sucesso');
   };
 
-  const salvarUnidade = async (r) => {
-    const f = unidadeForm;
-    if (!f) return;
-    const nova = !f.id;
-    if (nova) {
-      const ok = await confirm({
-        titulo: 'Criar unidade',
-        mensagem: `"${f.nome}" — CNPJ ${f.cnpj}
-
-A unidade entra na conta de "${r.nome}", com a sua Cozinha de Produção. A partir da próxima cobrança a conta paga R$ ${fmtPreco(adicionalUnidade(r.produto))} a mais por mês (1/3 do plano).`,
-        confirmar: 'Criar unidade',
-      });
-      if (!ok) return;
-    }
-    setSalvandoUnidade(true);
-    const campos = {
-      p_nome: f.nome, p_cnpj: f.cnpj, p_endereco: f.endereco || null,
-      p_cidade: f.cidade || null, p_uf: f.uf || null, p_cep: f.cep || null,
-    };
-    const { data, error } = nova
-      ? await supabase.rpc('criar_unidade', { p_restaurante: r.id, ...campos })
-      : await supabase.rpc('editar_unidade', { p_id: f.id, ...campos });
-    setSalvandoUnidade(false);
-    if (error || !data) { toast('Não salvou: ' + (error?.message || 'sem resposta'), 'erro'); return; }
-    setRestaurantes(prev => prev.map(x => (x.id !== r.id ? x : {
-      ...x,
-      unidades: nova ? [...(x.unidades || []), data] : (x.unidades || []).map(u => (u.id === data.id ? data : u)),
-    })));
-    setUnidadeForm(null);
-    toast(nova ? `Unidade "${data.nome}" criada.` : 'Unidade atualizada.', 'sucesso');
-
-    if (nova) {
-      await oferecerAjusteParcela(r, adicionalUnidade(r.produto), 'somando a unidade nova');
-      await sugerirCobrancaDaUnidade(r, data.nome);
-    }
-  };
-
-  // ⚠️ ARQUIVAR, NUNCA APAGAR: as etiquetas e os lançamentos da unidade
-  // continuam no histórico. Arquivada, ela sai do seletor e deixa de cobrar.
-  const arquivarUnidade = async (r, u, arquivar) => {
+  // ── Aparelhos conectados (M64, 24/11/2026) ──────────────────────
+  // O Etiquetas inclui 3; o 4º aparelho mostra o Pix de R$ 20 e espera.
+  // "Confirmar Pix" dá a vaga paga (aparelhos_extras + 1), põe o aparelho
+  // para dentro e grava o pagamento no histórico — tudo no banco, numa
+  // função só (confirmar_aparelho_extra).
+  const trocarAparelhos = (rid, mudar) => setRestaurantes(prev => prev.map(x => (x.id === rid ? mudar(x) : x)));
+  const confirmarAparelho = async (r, a) => {
+    const extras = extrasDe(r) + 1;
     const ok = await confirm({
-      titulo: arquivar ? 'Arquivar unidade' : 'Reativar unidade',
-      mensagem: arquivar
-        ? `Arquivar "${u.nome}"?
+      titulo: 'Confirmar o Pix do aparelho a mais',
+      mensagem: `${r.nome} — ${a.nome || 'aparelho'}${a.pagador ? `, Pix de ${a.pagador}` : ''}.
 
-Ela sai do seletor de todos os aparelhos e deixa de ser cobrada. Nada é apagado: as etiquetas e os lançamentos continuam no histórico, e dá para reativar.`
-        : `Reativar "${u.nome}"? Ela volta ao seletor e à cobrança (R$ ${fmtPreco(adicionalUnidade(r.produto))} por mês).`,
-      confirmar: arquivar ? 'Arquivar' : 'Reativar',
-      perigo: arquivar,
+Conferiu os R$ ${fmtPreco(ADICIONAL_APARELHO)} no extrato? O aparelho entra sozinho, o pagamento vai para o histórico, e a conta passa a pagar ${extras} aparelho(s) a mais: R$ ${fmtPreco(mensalComAparelhos(r.produto, extras))}/mês a partir da próxima cobrança.`,
+      confirmar: 'Confirmar',
     });
     if (!ok) return;
-    const { data, error } = await supabase.rpc('arquivar_unidade', { p_id: u.id, p_arquivar: arquivar });
-    if (error || !data) { toast('Erro: ' + (error?.message || 'sem resposta'), 'erro'); return; }
-    setRestaurantes(prev => prev.map(x => (x.id !== r.id ? x : {
-      ...x, unidades: (x.unidades || []).map(y => (y.id === u.id ? data : y)),
-    })));
-    toast(arquivar ? 'Unidade arquivada.' : 'Unidade reativada.', 'sucesso');
-    const adicional = adicionalUnidade(r.produto);
-    await oferecerAjusteParcela(r, arquivar ? -adicional : adicional,
-      arquivar ? 'tirando a unidade arquivada' : 'somando a unidade reativada');
-    if (!arquivar) await sugerirCobrancaDaUnidade(r, u.nome);
+    const { data, error } = await supabase.rpc('confirmar_aparelho_extra', { p_restaurante: r.id, p_aparelho: a.id, p_valor: ADICIONAL_APARELHO });
+    if (error) { toast('Não confirmou: ' + error.message, 'erro'); return; }
+    trocarAparelhos(r.id, x => ({
+      ...x, aparelhos_extras: Number(data) || extras,
+      aparelhos: (x.aparelhos || []).map(y => (y.id === a.id ? { ...y, situacao: 'ativo', pedido_em: null, pagador: null } : y)),
+    }));
+    toast(`Confirmado: ${a.nome || 'o aparelho'} entra, e ${r.nome} paga ${extras} aparelho(s) a mais.`, 'sucesso');
+    await oferecerAjusteParcela(r, ADICIONAL_APARELHO, 'somando o aparelho a mais');
+  };
+  const dispensarAparelho = async (r, a) => {
+    const ok = await confirm({
+      titulo: 'Dispensar o aviso',
+      mensagem: `O Pix do aparelho a mais de ${r.nome} não caiu? O aviso sai daqui, e o aparelho continua esperando.`,
+      confirmar: 'Dispensar',
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('dispensar_pedido_de_aparelho', { p_aparelho: a.id });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    trocarAparelhos(r.id, x => ({ ...x, aparelhos: (x.aparelhos || []).map(y => (y.id === a.id ? { ...y, pedido_em: null, pagador: null } : y)) }));
+    toast('Aviso dispensado.', 'sucesso');
+  };
+  const desconectarAparelho = async (r, a) => {
+    const ok = await confirm({
+      titulo: 'Desconectar aparelho',
+      mensagem: `Tirar ${a.nome || 'este aparelho'} da conta de ${r.nome}? Ele volta para a tela de entrada, e a vaga fica livre.`,
+      confirmar: 'Desconectar', perigo: true,
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('remover_aparelho', { p_id: a.id });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    trocarAparelhos(r.id, x => ({ ...x, aparelhos: (x.aparelhos || []).filter(y => y.id !== a.id) }));
+    toast('Aparelho desconectado.', 'sucesso');
+  };
+  // Ajuste à mão: o cliente deixou de usar o aparelho a mais, ou cortesia.
+  // ⚠️ Baixar não derruba ninguém: vale para os próximos que entrarem.
+  const mudarExtras = async (r, n) => {
+    if (n < 0 || n > 50) return;
+    const ok = await confirm({
+      titulo: 'Aparelhos a mais pagos',
+      mensagem: `${r.nome}: ${n} aparelho(s) a mais — R$ ${fmtPreco(mensalComAparelhos(r.produto, n))}/mês a partir da próxima cobrança.${n < extrasDe(r) ? '\n\nQuem já está conectado continua; a vaga some quando um aparelho sair.' : ''}`,
+      confirmar: 'Salvar',
+    });
+    if (!ok) return;
+    const { error } = await supabase.rpc('definir_aparelhos_extras', { p_restaurante: r.id, p_extras: n });
+    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
+    trocarAparelhos(r.id, x => ({ ...x, aparelhos_extras: n }));
+    toast(`${r.nome}: ${n} aparelho(s) a mais.`, 'sucesso');
   };
 
   // ── Desconto combinado e cobrança à parte (M54) ─────────────────
-  // ⚠️ UNIDADE NO MEIO DE UM PERÍODO JÁ PAGO (decisão do dono, 28/09/2026):
-  // quem pagou semestral ou anual paga à parte os meses que faltam até o
-  // vencimento, com o mesmo desconto do período. O painel sugere o valor e
-  // abre o formulário; a Aurum confere e lança. Contrato parcelado e conta
-  // que vence em até 31 dias não têm cobrança à parte (entra na próxima).
-  const sugerirCobrancaDaUnidade = async (r, nomeUnidade) => {
-    if (Number(r.parcela_contrato) > 0 || (r.regime && r.regime !== 'pagante')) return;
-    let planoPago = 'mensal';
-    try {
-      const { data } = await supabase.from('pagamentos').select('plano').eq('restaurante_id', r.id)
-        .order('criado_em', { ascending: false }).limit(1);
-      planoPago = data?.[0]?.plano || 'mensal';
-    } catch { /* sem histórico: sem desconto de período */ }
-    const c = cobrancaDaUnidade({ produto: r.produto, assinaturaAte: r.assinatura_ate, planoPago, desconto: descontoDaLinha(r) });
-    if (!c) return;
-    irAoRestaurante(r.id);
-    setAvulsaForm({
-      restId: r.id,
-      descricao: `Unidade ${nomeUnidade}: ${c.meses} ${c.meses > 1 ? 'meses' : 'mês'} até ${dataBR(r.assinatura_ate)}`,
-      valor: fmtPreco(c.valor),
-    });
-    toast(`O cliente já pagou até ${dataBR(r.assinatura_ate)}: confira a cobrança à parte da unidade no cartão dele.`, 'aviso', { duracao: 7000 });
-  };
-
   const lancarAvulsa = async (r) => {
     const f = avulsaForm;
     const valor = Number(String(f?.valor || '').replace(/\./g, '').replace(',', '.'));
@@ -755,32 +707,6 @@ Ela sai do seletor de todos os aparelhos e deixa de ser cobrada. Nada é apagado
       desconto_ate: data.desconto_ate, desconto_motivo: data.desconto_motivo } : x)));
     setDescontoForm(null);
     toast(remover ? 'Desconto removido.' : 'Desconto salvo: o cliente já vê os preços com ele.', 'sucesso');
-  };
-
-  // ⚠️ LISTA DE ITENS PRÓPRIA (M48): para grupo com conceitos diferentes
-  // (pizzaria e hamburgueria). Ao ligar, o banco COPIA a lista atual da conta
-  // para a unidade — ela não nasce vazia, e as etiquetas já impressas seguem
-  // apontando para os mesmos itens. Desligar volta a unidade para a lista da
-  // conta; a própria fica guardada e volta se religar.
-  const mudarCatalogoDaUnidade = async (r, u, proprio) => {
-    const ok = await confirm({
-      titulo: proprio ? 'Lista de itens própria' : 'Usar a lista da conta',
-      mensagem: proprio
-        ? `"${u.nome}" passa a ter a SUA lista de itens (prazos, categorias, fichas).
-
-Ela começa como cópia da lista de hoje de "${r.nome}" e, dali em diante, o que mudar numa não muda na outra. Use quando as casas trabalham com cardápios diferentes.`
-        : `"${u.nome}" volta a usar a lista de itens de "${r.nome}".
-
-A lista própria dela fica guardada: se você religar, ela volta como estava.`,
-      confirmar: proprio ? 'Ligar lista própria' : 'Usar a lista da conta',
-    });
-    if (!ok) return;
-    const { data, error } = await supabase.rpc('definir_catalogo_da_unidade', { p_id: u.id, p_proprio: proprio });
-    if (error || !data) { toast('Não salvou: ' + (error?.message || 'sem resposta'), 'erro'); return; }
-    setRestaurantes(prev => prev.map(x => (x.id !== r.id ? x : {
-      ...x, unidades: (x.unidades || []).map(y => (y.id === u.id ? data : y)),
-    })));
-    toast(proprio ? 'Lista própria ligada. Os aparelhos da unidade passam a usá-la ao abrir o app ou voltar à tela.' : 'A unidade voltou para a lista da conta.', 'sucesso');
   };
 
   const carregarPagamentos = async (r) => {
@@ -894,10 +820,9 @@ A lista própria dela fica guardada: se você religar, ela volta como estava.`,
     const atual = r.produto || 'completo';
     if (novo === atual) return;
     const paraEtiquetas = novo === 'etiquetas';
-    // o adicional das unidades acompanha o plano (1/3 de cada um), então o
-    // valor do mês muda junto
+    // o valor do mês muda junto (com os aparelhos a mais pagos, M64)
     const extras = extrasDe(r);
-    const mes = `R$ ${fmtPreco(mensalComUnidades(novo, extras))}/mês${extras ? `, com ${extras} unidade(s) extra(s)` : ''}`;
+    const mes = `R$ ${fmtPreco(mensalComAparelhos(novo, extras))}/mês${extras ? `, com ${extras} aparelho(s) a mais` : ''}`;
     const ok = await confirm({
       titulo: paraEtiquetas ? 'Mudar para Aurum Etiquetas' : 'Mudar para Aurum Cozinha Pro',
       mensagem: paraEtiquetas
@@ -1317,13 +1242,6 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
     toast('Feedback apagado.', 'sucesso');
   };
 
-  const mudarMax = async (r, novoMax) => {
-    const { error } = await supabase.rpc('definir_max_usuarios', { p_restaurante: r.id, p_max: novoMax });
-    if (error) { toast('Erro: ' + error.message, 'erro'); return; }
-    setRestaurantes(prev => prev.map(x => x.id === r.id ? { ...x, max_usuarios: novoMax } : x));
-    toast(`Limite de usuários de "${r.nome}" agora é ${novoMax}.`, 'sucesso');
-  };
-
   const alternarBloqueio = async (r) => {
     const bloquear = !r.bloqueado;
     const ok = await confirm({
@@ -1384,12 +1302,12 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               </p>
             </div>
             <div className="divide-y divide-gray-100">
-              {fila.map(({ r, tipo, feedback }) => {
+              {fila.map(({ r, tipo, feedback, aparelho }) => {
                 // com impressora em pagamento, o plano é o dela e a parcela entra
                 const pim = parcelaDasImpressoras(impressoras[r.id]);
                 const plano = planoPorId(pim.forma || r.aviso_pagamento_plano || 'mensal');
                 return (
-                  <button key={`${tipo}-${feedback?.id || r.id}`}
+                  <button key={`${tipo}-${feedback?.id || aparelho?.id || r.id}`}
                     onClick={() => (tipo === 'feedback' ? irAoFeedback() : irAoRestaurante(r.id))}
                     className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-3
                                active:bg-gray-50">
@@ -1409,6 +1327,10 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           {' — '}
                           {String(feedback?.dados?.mensagem || feedback?.dados?.texto || '').slice(0, 60) || 'sem texto'}
                         </>}
+                        {tipo === 'aparelho' && <>
+                          Pagou o aparelho a mais{aparelho?.pagador ? ` — ${aparelho.pagador}` : ''}
+                          {' · '}{dataBRHora(aparelho?.pedido_em)}
+                        </>}
                         {tipo === 'teste' && <>Teste acabando: {plural(statusRestaurante(r).diasRestantes, 'dia', 'dias')}</>}
                         {tipo === 'vencido' && <>Vencido desde {dataBR(r.assinatura_ate)}</>}
                         {tipo === 'atraso' && <>
@@ -1420,12 +1342,15 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     {/* O valor já calculado poupa a conta de cabeça na hora de
                         conferir o Pix — é o número que tem que bater no extrato.
                         ⚠️ A MESMA conta do "Registrar pagamento" e do QR do
-                        cliente (parcela do contrato, unidades, juros): aqui era
+                        cliente (parcela do contrato, aparelhos, juros): aqui era
                         só o preço da tabela, e com contrato não batia. */}
                     {tipo === 'aviso' && (
                       <span className="text-xs font-bold text-polo-navy flex-shrink-0 tabular-nums">
                         {brlAdmin(valorCobranca(r, plano, !!encargos[r.id], pim.total > 0))}
                       </span>
+                    )}
+                    {tipo === 'aparelho' && (
+                      <span className="text-xs font-bold text-polo-navy flex-shrink-0 tabular-nums">{brlAdmin(ADICIONAL_APARELHO)}</span>
                     )}
                     <span aria-hidden="true" className="text-gray-400 text-lg leading-none flex-shrink-0">›</span>
                   </button>
@@ -1639,24 +1564,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       ) : (
                         <div className="flex flex-wrap gap-2 mt-2">
                           {/* ⚠️ PEDIDO DE PLANOS E PAGAMENTO (27/09/2026): vem com
-                              os dados prontos. "Criar esta unidade" abre o cliente
-                              com o formulário preenchido — ninguém redigita CNPJ;
-                              "contas" leva ao cartão, onde se muda o limite. */}
-                          {fb.status !== 'resolvido' && d.tipoPedido === 'unidade' && fb.restaurante_id && (
-                            <button onClick={() => {
-                              const r = restaurantes.find(x => x.id === fb.restaurante_id);
-                              if (!r) { toast('Cliente não encontrado na lista.', 'erro'); return; }
-                              irAoRestaurante(r.id);
-                              setUnidadeForm({
-                                restId: r.id, id: null, nome: d.unidadeNome || '',
-                                cnpj: formatarCNPJ(d.unidadeCnpj || ''), endereco: '',
-                                cidade: d.unidadeCidade || '', uf: d.unidadeUf || 'PE', cep: '',
-                              });
-                            }}
-                              className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
-                              Criar esta unidade
-                            </button>
-                          )}
+                              os dados prontos. ("Criar esta unidade" saiu com as
+                              unidades em 24/11/2026: cada CNPJ é uma conta.) */}
                           {fb.status !== 'resolvido' && d.tipoPedido === 'impressora' && fb.restaurante_id && (
                             <button onClick={() => {
                               const r = restaurantes.find(x => x.id === fb.restaurante_id);
@@ -1786,50 +1695,16 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                 </div>
               </div>
             )}
-            {/* ⚠️ OUTRO CNPJ DO MESMO CLIENTE NÃO É CONTA NOVA (27/09/2026: o dono
-                não achou onde criar). A unidade fica DENTRO da conta: paga junto
-                (1/3 do plano), divide itens e equipe, e cada casa imprime com o
-                seu CNPJ. O botão escolhe o cliente e já abre o formulário. */}
+            {/* ⚠️ OUTRO CNPJ É OUTRA CONTA (24/11/2026, pedido do dono). Até
+                aqui havia o botão de unidade para um cliente (M46); saiu do app. */}
             {!novaConta && (
-              escolhendoCliente ? (
-                <div className="bg-white rounded-xl p-3 space-y-2 border border-polo-gold/50">
-                  <p className="text-xs font-bold text-polo-navy">Nova unidade (outro CNPJ) — de qual cliente?</p>
-                  <p className="text-xs text-gray-600">
-                    A unidade entra na conta do cliente, é paga junto com o plano dele (1/3 do plano por mês)
-                    e usa os mesmos itens e a mesma equipe. Não precisa abrir conta nova.
-                  </p>
-                  <select defaultValue="" aria-label="Cliente da nova unidade"
-                    onChange={e => {
-                      const r = restaurantes.find(x => x.id === e.target.value);
-                      if (!r) return;
-                      setEscolhendoCliente(false);
-                      irAoRestaurante(r.id);
-                      abrirUnidade(r);
-                    }}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white min-h-11">
-                    <option value="" disabled>Escolha o cliente…</option>
-                    {[...restaurantes].sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(r => (
-                      <option key={r.id} value={r.id}>{r.nome}{r.cnpj ? ` · ${formatarCNPJ(r.cnpj)}` : ''}</option>
-                    ))}
-                  </select>
-                  <button onClick={() => setEscolhendoCliente(false)}
-                    className="w-full border border-gray-200 text-gray-600 font-semibold text-xs py-2.5 rounded-lg">Cancelar</button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <button onClick={() => setNovaConta({
-                    nomeRestaurante: '', nomeDono: '', email: '',
-                    produto: 'etiquetas', cnpj: '', whatsapp: '', cidade: '', uf: 'PE',
-                  })}
-                    className="flex-1 border-2 border-dashed border-polo-navy/30 text-polo-navy font-bold text-xs rounded-xl py-2.5">
-                    + Abrir conta de cliente
-                  </button>
-                  <button onClick={() => setEscolhendoCliente(true)}
-                    className="flex-1 border-2 border-dashed border-polo-navy/30 text-polo-navy font-bold text-xs rounded-xl py-2.5">
-                    + Unidade para um cliente (outro CNPJ)
-                  </button>
-                </div>
-              )
+              <button onClick={() => setNovaConta({
+                nomeRestaurante: '', nomeDono: '', email: '',
+                produto: 'etiquetas', cnpj: '', whatsapp: '', cidade: '', uf: 'PE',
+              })}
+                className="w-full border-2 border-dashed border-polo-navy/30 text-polo-navy font-bold text-xs rounded-xl py-2.5 min-h-11">
+                + Abrir conta de cliente
+              </button>
             )}
             {novaConta && (
               <div className="bg-white rounded-xl p-3 space-y-2 border border-polo-gold/50">
@@ -1838,11 +1713,6 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   A conta nasce SEM acesso — libere o teste no cartão dela depois de criar.
                   A senha é sorteada e aparece aqui uma vez; nenhum e-mail é enviado.
                   O dono troca a senha dele depois, em Administração.
-                </p>
-                <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                  Outra casa de um cliente que já existe? Não abra conta nova: cancele e use
-                  <strong> + Unidade para um cliente</strong>. Conta nova é outro contrato, outra cobrança
-                  e outra lista de itens.
                 </p>
 
                 {[['nomeRestaurante', 'Nome do restaurante'], ['nomeDono', 'Nome do responsável'], ['email', 'E-mail do responsável']].map(([k, l]) => (
@@ -1917,7 +1787,11 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
               const agora = Date.now();
               const st = statusRestaurante(r, agora);
               const restanteH = r.suporteAte ? Math.ceil((r.suporteAte - agora) / 3600000) : 0;
-              const maxU = r.max_usuarios || 3;
+              // aparelhos conectados (M64): os que estão dentro, o limite e os pagos
+              const inclusos = aparelhosInclusos(r.produto);
+              const extras = extrasDe(r);
+              const conectados = (r.aparelhos || []).filter(a => a.situacao === 'ativo').length;
+              const pixDeAparelho = (r.aparelhos || []).some(a => a.pedido_em);
               const pres = situacaoPresenca(presenca[r.id], agora);
               return (
                 <div key={r.id} id={`rest-${r.id}`} className={`bg-white border rounded-xl overflow-hidden
@@ -1972,18 +1846,15 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           {rotuloRegime(r.regime)}
                         </span>
                       )}
-                      {/* ⚠️ "unidade a confirmar": a conta usa o nome antigo de
-                          estabelecimento em alguma cozinha (texto livre de antes
-                          da M46) — provavelmente outra casa, imprimindo com o
-                          CNPJ da principal. Some quando ela ganha unidade. */}
-                      {r.nomesAntigos?.length > 0 && !extrasDe(r) && (
+                      {/* o Pix do aparelho a mais esperando a Aurum (M64) */}
+                      {pixDeAparelho && (
                         <span className="text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 bg-amber-100 text-amber-900">
-                          unidade a confirmar
+                          Pix de aparelho
                         </span>
                       )}
-                      {extrasDe(r) > 0 && (
+                      {extras > 0 && (
                         <span className="text-xs font-bold px-2 py-1 rounded-full flex-shrink-0 bg-polo-beige text-polo-navy">
-                          {extrasDe(r) + 1} unidades
+                          +{extras} aparelho{extras > 1 ? 's' : ''}
                         </span>
                       )}
                       <BadgeProduto produto={r.produto} />
@@ -2021,7 +1892,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                   <div className="px-4 py-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600 border-b border-gray-50">
                     <span>Teste até: <strong>{r.teste_ate ? dataBR(r.teste_ate) : '— não liberado'}</strong></span>
                     <span>Assinatura até: <strong>{dataBR(r.assinatura_ate)}</strong></span>
-                    <span>Usuários: <strong>{r.usuarios.length}/{maxU}</strong></span>
+                    <span>Aparelhos: <strong>{inclusos == null ? `${conectados}, sem limite` : `${conectados}/${inclusos + extras}`}</strong></span>
                     <span>Suporte: <strong>{r.suporteAtivo ? `ativo ~${restanteH}h${r.podeMexer ? ' (editar)' : ' (ver)'}` : '—'}</strong></span>
                     {r.regime_motivo && (
                       <span className="col-span-2 text-polo-navy">
@@ -2037,119 +1908,66 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     )}
                   </div>
 
-                  {/* ══ UNIDADES (M46) ══════════════════════════
-                      A principal é a própria conta (nome e CNPJ do cadastro);
-                      as extras moram na tabela `unidades`. Cada extra traz a
-                      sua Cozinha de Produção e custa 1/3 do plano por mês. */}
+                  {/* ══ APARELHOS CONECTADOS (M64, 24/11/2026) ═══════════
+                      No lugar das unidades (M46), que saíram do app. O
+                      Etiquetas inclui 3; cada aparelho a mais custa R$ 20 por
+                      mês, pago nesta conta. O 4º espera o Pix: "Confirmar Pix"
+                      dá a vaga paga e ele entra sozinho. */}
                   <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Unidades</p>
-                      {extrasDe(r) > 0 && (
-                        <p className="text-xs text-gray-600 text-right">
-                          {extrasDe(r)} extra(s) × R$ {fmtPreco(adicionalUnidade(r.produto))} ={' '}
-                          <strong>R$ {fmtPreco(extrasDe(r) * adicionalUnidade(r.produto))}/mês</strong>
-                        </p>
-                      )}
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Aparelhos</p>
+                      <p className="text-xs text-gray-600 text-right">
+                        {inclusos == null ? 'sem limite (Cozinha Pro)' : `${conectados} de ${inclusos + extras} conectados`}
+                      </p>
                     </div>
-                    {/* ⚠️ QUEM PAGA O ADICIONAL: esta conta (a principal), junto
-                        com o plano — a unidade não tem cobrança própria. Com
-                        contrato, vale a parcela (o painel oferece atualizar). */}
-                    <p className="text-xs text-gray-600">
-                      {extrasDe(r) > 0
-                        ? <>Tudo é pago nesta conta: plano R$ {fmtPreco(produtoDe(r.produto).precoMes)} + {extrasDe(r)} × R$ {fmtPreco(adicionalUnidade(r.produto))}
-                          {' '}= <strong>R$ {fmtPreco(mensalComUnidades(r.produto, extrasDe(r)))}/mês</strong>
-                          {Number(r.parcela_contrato) > 0 ? ` (contrato: parcela de R$ ${fmtPreco(r.parcela_contrato)})` : ''}.</>
-                        : <>Outra casa deste cliente, com outro CNPJ? Crie a unidade aqui — ela é paga nesta conta,
-                          R$ {fmtPreco(adicionalUnidade(r.produto))}/mês a mais (1/3 do plano).</>}
-                    </p>
+                    {inclusos != null && (
+                      <p className="text-xs text-gray-600">
+                        Inclui {inclusos}. A mais, pagos: <strong>{extras}</strong>
+                        {extras > 0 && <> × R$ {fmtPreco(ADICIONAL_APARELHO)} = <strong>R$ {fmtPreco(extras * ADICIONAL_APARELHO)}/mês</strong></>}
+                        {extras > 0 && Number(r.parcela_contrato) > 0 ? ` (contrato: parcela de R$ ${fmtPreco(r.parcela_contrato)})` : ''}.
+                      </p>
+                    )}
                     <ul className="space-y-1">
-                      <li className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
-                        <span className="min-w-0 text-xs text-gray-700">
-                          <strong className="text-polo-navy">{r.nome}</strong>
-                          {r.cnpj ? ` · CNPJ ${formatarCNPJ(r.cnpj)}` : ' · sem CNPJ'}
-                        </span>
-                        <span className="text-xs text-gray-600 flex-shrink-0">principal</span>
-                      </li>
-                      {(r.unidades || []).map(u => (
-                        <li key={u.id} className={`flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5 ${u.arquivada_em ? 'opacity-60' : ''}`}>
+                      {(r.aparelhos || []).map(a => (
+                        <li key={a.id} className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 ${a.pedido_em ? 'bg-polo-gold/15 border border-polo-gold/40' : 'bg-gray-50'}`}>
                           <span className="min-w-0 text-xs text-gray-700">
-                            <strong className="text-polo-navy">{u.nome}</strong>
-                            {` · CNPJ ${formatarCNPJ(u.cnpj)}`}
-                            {u.cidade ? ` · ${u.cidade}${u.uf ? `/${u.uf}` : ''}` : ''}
-                            {u.arquivada_em ? ' · arquivada' : ''}
-                            {u.catalogo_proprio ? ' · lista de itens própria' : ''}
+                            <strong className="text-polo-navy">{a.nome || 'Aparelho'}</strong>
+                            {a.situacao === 'aguardando' ? ' · esperando vaga' : ` · visto ${quandoFoiVisto(a.visto_em)}`}
+                            {a.pedido_em && <> · <strong>avisou o Pix</strong>{a.pagador ? ` (${a.pagador})` : ''} em {dataBRHora(a.pedido_em)}</>}
                           </span>
                           <span className="flex items-center gap-2 flex-shrink-0">
-                            {!u.arquivada_em && (
-                              <button onClick={() => abrirUnidade(r, u)}
-                                className="text-xs font-semibold text-polo-navy underline underline-offset-2">editar</button>
+                            {a.pedido_em ? (<>
+                              <button onClick={() => confirmarAparelho(r, a)}
+                                className="text-xs font-bold text-polo-gold bg-polo-navy rounded-lg px-2.5 min-h-11">Confirmar Pix</button>
+                              <button onClick={() => dispensarAparelho(r, a)}
+                                className="text-xs font-semibold text-gray-600 underline underline-offset-2 min-h-11">dispensar</button>
+                            </>) : (
+                              <button onClick={() => desconectarAparelho(r, a)}
+                                className="text-xs font-semibold text-red-700 underline underline-offset-2 min-h-11">desconectar</button>
                             )}
-                            {!u.arquivada_em && (
-                              <button onClick={() => mudarCatalogoDaUnidade(r, u, !u.catalogo_proprio)}
-                                className="text-xs font-semibold text-polo-navy underline underline-offset-2">
-                                {u.catalogo_proprio ? 'usar lista da conta' : 'lista própria'}
-                              </button>
-                            )}
-                            <button onClick={() => arquivarUnidade(r, u, !u.arquivada_em)}
-                              className={`text-xs font-semibold underline underline-offset-2 ${u.arquivada_em ? 'text-green-700' : 'text-red-700'}`}>
-                              {u.arquivada_em ? 'reativar' : 'arquivar'}
-                            </button>
                           </span>
                         </li>
                       ))}
+                      {!(r.aparelhos || []).length && <li className="text-xs text-gray-600">Nenhum aparelho conectado.</li>}
                     </ul>
-                    {r.nomesAntigos?.length > 0 && (
-                      <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
-                        Cozinha com nome antigo na etiqueta: <strong>{r.nomesAntigos.join(', ')}</strong>. Se for outra
-                        casa, crie a unidade com o CNPJ dela — hoje ela imprime com o CNPJ da principal.
-                      </p>
-                    )}
-                    {unidadeForm?.restId === r.id ? (
-                      <div className="bg-polo-beige border border-polo-gold/40 rounded-lg p-2.5 space-y-2">
-                        <p className="text-xs font-bold text-polo-navy">{unidadeForm.id ? 'Editar unidade' : 'Nova unidade'}</p>
-                        <input type="text" value={unidadeForm.nome} placeholder="Nome que sai na etiqueta" aria-label="Nome da unidade"
-                          onChange={e => setUnidadeForm(v => ({ ...v, nome: e.target.value }))}
-                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                        <input type="text" inputMode="numeric" value={unidadeForm.cnpj} placeholder="CNPJ da unidade" aria-label="CNPJ da unidade"
-                          onChange={e => setUnidadeForm(v => ({ ...v, cnpj: formatarCNPJ(e.target.value) }))}
-                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                        <input type="text" value={unidadeForm.endereco} placeholder="Endereço (rua, número)" aria-label="Endereço da unidade"
-                          onChange={e => setUnidadeForm(v => ({ ...v, endereco: e.target.value }))}
-                          className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                        <div className="flex gap-2">
-                          <input type="text" value={unidadeForm.cidade} placeholder="Cidade" aria-label="Cidade da unidade"
-                            onChange={e => setUnidadeForm(v => ({ ...v, cidade: e.target.value }))}
-                            className="flex-1 min-w-0 border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                          <select value={unidadeForm.uf} aria-label="UF da unidade"
-                            onChange={e => setUnidadeForm(v => ({ ...v, uf: e.target.value }))}
-                            className="w-20 border border-gray-200 rounded px-2 py-1.5 text-sm bg-white">
-                            {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
-                          </select>
-                          <input type="text" inputMode="numeric" value={unidadeForm.cep} placeholder="CEP" aria-label="CEP da unidade"
-                            onChange={e => setUnidadeForm(v => ({ ...v, cep: e.target.value }))}
-                            className="w-24 border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => setUnidadeForm(null)} disabled={salvandoUnidade}
-                            className="flex-1 text-xs font-semibold text-gray-600 border border-gray-200 rounded py-2 bg-white">Cancelar</button>
-                          <button onClick={() => salvarUnidade(r)} disabled={salvandoUnidade}
-                            className="flex-1 text-xs font-bold text-polo-gold bg-polo-navy rounded py-2 disabled:opacity-60">
-                            {salvandoUnidade ? 'Salvando…' : unidadeForm.id ? 'Salvar' : 'Criar unidade'}
-                          </button>
-                        </div>
+                    {inclusos != null && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600">Aparelhos a mais pagos:</span>
+                        <button onClick={() => mudarExtras(r, extras - 1)} disabled={extras <= 0}
+                          aria-label={`Um aparelho a mais a menos para ${r.nome}`}
+                          className="min-w-11 min-h-11 rounded-lg border border-gray-300 text-polo-navy font-bold disabled:opacity-40">−</button>
+                        <strong className="text-sm text-polo-navy tabular-nums w-6 text-center">{extras}</strong>
+                        <button onClick={() => mudarExtras(r, extras + 1)}
+                          aria-label={`Mais um aparelho a mais para ${r.nome}`}
+                          className="min-w-11 min-h-11 rounded-lg border border-gray-300 text-polo-navy font-bold">+</button>
                       </div>
-                    ) : (
-                      <button onClick={() => abrirUnidade(r)}
-                        className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
-                        + Nova unidade (outro CNPJ)
-                      </button>
                     )}
                   </div>
 
                   {/* ══ DESCONTO E COBRANÇA À PARTE (M54) ═══════════════
                       O desconto aparece para o cliente (preço cheio riscado) no
                       mensal, semestral e anual, e o Pix sai com ele. A cobrança
-                      à parte (ex.: unidade no meio de um período já pago)
+                      à parte (ex.: algo combinado fora do plano)
                       aparece em Planos e pagamento, com Pix próprio. */}
                   <div className="px-4 py-2.5 border-b border-gray-50 space-y-2">
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Desconto e cobrança à parte</p>
@@ -2186,7 +2004,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                         <p className="text-xs text-gray-700 min-w-0">
                           {descontoDe(r)
                             ? <>Desconto: <strong>{rotuloDesconto(descontoDe(r))}</strong>{r.desconto_ate ? ` até ${dataBR(r.desconto_ate)}` : ' sem prazo'}
-                                {' '}· mês de R$ {fmtPreco(mensalComUnidades(r.produto, extrasDe(r)))} por <strong>R$ {fmtPreco(precoPlano(planoPorId('mensal'), r.produto, extrasDe(r), descontoDe(r)))}</strong>
+                                {' '}· mês de R$ {fmtPreco(mensalComAparelhos(r.produto, extrasDe(r)))} por <strong>R$ {fmtPreco(precoPlano(planoPorId('mensal'), r.produto, extrasDe(r), descontoDe(r)))}</strong>
                                 {r.desconto_motivo ? ` · ${r.desconto_motivo}` : ''}</>
                             : r.desconto_tipo ? 'Desconto vencido (não vale mais).' : 'Sem desconto.'}
                         </p>
@@ -2251,7 +2069,6 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       <div key={i.id} className="bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 space-y-1">
                         <p className="text-xs text-gray-700">
                           <strong className="text-polo-navy">{i.parcelas} × R$ {fmtPreco(i.valor_parcela)}</strong> ({ROTULO_FORMA_IMP[i.forma]})
-                          {i.unidade_id ? ` · ${(r.unidades || []).find(u => u.id === i.unidade_id)?.nome || 'unidade'}` : ''}
                           {' '}· desde {dataBR(i.inicio)}
                           {' '}· {impressoraEmPagamento(i)
                             ? <>pagas {i.parcelas_pagas} de {i.parcelas} · falta <strong>R$ {fmtPreco(saldoDaImpressora(i))}</strong></>
@@ -2314,14 +2131,6 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             <input type="date" value={impForm.inicio} aria-label="Início do pagamento da impressora"
                               onChange={e => setImpForm(v => ({ ...v, inicio: e.target.value }))}
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                          </label>
-                          <label className="text-xs text-gray-600">Para qual unidade
-                            <select value={impForm.unidade} aria-label="Unidade da impressora"
-                              onChange={e => setImpForm(v => ({ ...v, unidade: e.target.value }))}
-                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white">
-                              <option value="">principal</option>
-                              {unidadesAtivas(r.unidades).map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
-                            </select>
                           </label>
                         </div>
                         <input type="text" value={impForm.obs} maxLength={200} placeholder="Observação (modelo, número de série; só a Aurum vê)" aria-label="Observação da impressora"
@@ -2549,7 +2358,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             Contrato pago <strong>à vista</strong> não precisa disto: basta registrar o pagamento
                             do plano anual em Financeiro.
                           </p>
-                          <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(mensalComUnidades(r.produto, extrasDe(r))) })}
+                          <button onClick={() => setParcelaEdit({ id: r.id, valor: fmtPreco(mensalComAparelhos(r.produto, extrasDe(r))) })}
                             className="text-xs font-bold text-polo-navy border border-polo-navy/30 rounded-lg px-3 py-1.5 min-h-11">
                             Registrar contrato parcelado
                           </button>
@@ -2675,23 +2484,11 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                               className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
                           </div>
                         </div>
-                        {/* ⚠️ O ADICIONAL POR CONTA DE EQUIPE NÃO TEM PREÇO NO
-                            CÓDIGO, de propósito: o valor ainda não foi definido
-                            e é negociado caso a caso. Quem digita é quem cobra. */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label htmlFor={`pg-ex-${r.id}`} className="block text-xs text-gray-600 mb-0.5">Contas extras</label>
-                            <input id={`pg-ex-${r.id}`} type="number" min="0" value={cobrando.extras} placeholder="0"
-                              onChange={e => setCobrando(v => ({ ...v, extras: e.target.value }))}
-                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                          </div>
-                          <div>
-                            <label htmlFor={`pg-exv-${r.id}`} className="block text-xs text-gray-600 mb-0.5">Valor das extras (R$)</label>
-                            <input id={`pg-exv-${r.id}`} type="text" inputMode="decimal" value={cobrando.valorExtras} placeholder="0"
-                              onChange={e => setCobrando(v => ({ ...v, valorExtras: e.target.value }))}
-                              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm bg-white" />
-                          </div>
-                        </div>
+                        {extrasDe(r) > 0 && (
+                          <p className="text-xs text-gray-600">
+                            O valor já inclui {extrasDe(r)} aparelho(s) a mais (R$ {fmtPreco(ADICIONAL_APARELHO)} cada, por mês).
+                          </p>
+                        )}
                         {encargos[r.id] && (
                           <label className="flex items-start gap-2 text-xs text-gray-700">
                             <input type="checkbox" checked={!!cobrando.incluiEncargo} className="mt-0.5"
@@ -2791,7 +2588,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                                 <span className="block text-gray-700">{dataBR(pg.pago_em)} · {pg.plano || '—'}</span>
                                 {(pg.observacao || pg.contas_extras > 0) && (
                                   <span className="block text-gray-500 truncate">
-                                    {pg.contas_extras > 0 ? `${pg.contas_extras} conta(s) extra · ` : ''}{pg.observacao || ''}
+                                    {pg.contas_extras > 0 ? `${pg.contas_extras} aparelho(s) a mais · ` : ''}{pg.observacao || ''}
                                   </span>
                                 )}
                               </span>
@@ -3055,15 +2852,10 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     </div>
                   </div>
 
-                  {/* VIP (limite de usuários) + bloqueio */}
-                  <div className="px-4 py-2.5 border-b border-gray-50 flex items-center justify-between gap-2">
-                    <label className="text-xs text-gray-600 flex items-center gap-1.5">
-                      Limite de usuários
-                      <select value={maxU} onChange={e => mudarMax(r, parseInt(e.target.value))}
-                        className="border border-gray-200 rounded-lg px-1.5 py-1 text-xs bg-white">
-                        {[3, 4, 5].map(n => <option key={n} value={n}>{n}{n === 3 ? ' (padrão)' : ' (VIP)'}</option>)}
-                      </select>
-                    </label>
+                  {/* Suspender / reativar. ⚠️ O "limite de usuários" (vagas de
+                      contas da equipe) saiu em 24/11/2026: login da casa, e o
+                      que se conta agora são os APARELHOS (bloco acima). */}
+                  <div className="px-4 py-2.5 border-b border-gray-50 flex items-center justify-end gap-2">
                     <button onClick={() => alternarBloqueio(r)}
                       className={`text-xs font-bold rounded-lg px-2.5 py-1.5 ${r.bloqueado ? 'bg-green-600 text-white' : 'bg-red-100 text-red-700'}`}>
                       {r.bloqueado ? 'Reativar conta' : 'Suspender conta'}

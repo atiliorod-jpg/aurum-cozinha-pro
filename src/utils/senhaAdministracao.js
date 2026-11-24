@@ -5,10 +5,10 @@
 //   • um LOGIN DA CASA, que entra em quantos aparelhos quiser;
 //   • os NOMES com senha de 2 números dizem quem imprimiu ou lançou;
 //   • uma SENHA DA ADMINISTRAÇÃO (de 4 a 8 números — "maior que só 4
-//     teclas", ele pediu) abre a Administração, Meus itens e os relatórios,
-//     em QUALQUER aparelho: o celular do dono também pede.
+//     teclas", ele pediu) abre a Administração e os relatórios, em
+//     QUALQUER aparelho: o celular do dono também pede.
 //  Ela fecha sozinha com 3 minutos sem uso, ou no botão "Fechar".
-//  Imprimir, lançar e REIMPRIMIR continuam livres para a cozinha.
+//  Imprimir, lançar, REIMPRIMIR e Meus itens (24/11/2026) são livres.
 //
 //  ⚠️ QUEM DECIDE É O BANCO (migração 62): enquanto a Administração está
 //  aberta NAQUELE aparelho (a sessão de login dele), `meu_cargo()` responde

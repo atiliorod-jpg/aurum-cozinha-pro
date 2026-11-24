@@ -3,14 +3,12 @@ import QRCode from 'qrcode';
 import Layout from '../components/Layout';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
-import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe, adicionalUnidade, descontoAtivo, rotuloDesconto, parcelaDasImpressoras } from '../utils/assinatura';
-import { useApp } from '../store/AppContext';
-import { unidadesAtivas } from '../utils/unidades';
+import { statusAssinatura, PLANOS, precoPlano, precoMensalEquivalente, economiaPlano, produtoDe, descontoAtivo, rotuloDesconto, parcelaDasImpressoras, aparelhosInclusos, ADICIONAL_APARELHO } from '../utils/assinatura';
 import { montarPixBRCode } from '../utils/pix';
 import { supabase } from '../lib/supabase';
 import { fmtData, isoLocal } from '../utils/formatters';
 import { useLocation } from 'react-router-dom';
-import { SecaoUnidades, SecaoContas, SecaoCozinhaPro, SecaoCobrancasAvulsas, SecaoImpressora } from '../components/PlanoExtras';
+import { SecaoCozinhaPro, SecaoCobrancasAvulsas, SecaoImpressora } from '../components/PlanoExtras';
 import { useMinhasImpressoras } from '../components/useMinhasImpressoras';
 import Icon from '../components/Icons';
 import { plural } from '../utils/formatters';
@@ -53,6 +51,8 @@ const RECURSOS_POR_PRODUTO = {
     // TELA DE PAGAMENTO um recurso que não existe é o pior lugar possível
     // para essa dívida ficar.
     'Itens abertos com data de abertura (ex.: leite, molho do dia)',
+    // M64 (24/11/2026): o plano inclui 3; o aparelho a mais é cobrado à parte
+    'Até 3 aparelhos conectados na mesma conta',
     'Funciona offline e sincroniza na nuvem',
   ],
   completo: [
@@ -64,13 +64,14 @@ const RECURSOS_POR_PRODUTO = {
     // o que existe é imprimir/salvar em PDF e a planilha-modelo de produtos.
     'Relatórios por período (imprimir ou salvar em PDF)',
     'Cadastro de produtos por planilha (Excel)',
-    'Usuários com permissões por função',
+    // desde 23/11/2026 não há mais cargos nem contas da equipe (login da casa)
+    'Nomes da equipe e senha da Administração',
     'Funciona offline e sincroniza na nuvem',
   ],
 };
 
 export default function Pagamento() {
-  const { sessao, avisarPagamento } = useAuth();
+  const { sessao, avisarPagamento, aparelho, conferirAparelho } = useAuth();
   const { toast } = useUI();
   const st = statusAssinatura(sessao);
 
@@ -78,19 +79,17 @@ export default function Pagamento() {
   // utils/assinatura.js), não de uma constante única. Sem isto o cliente do
   // plano menor veria — e pagaria — o valor do maior.
   const prod = produtoDe(sessao);
-  // ⚠️ UNIDADES ADICIONAIS (M46): cada unidade extra ativa soma 1/3 do plano
-  // por mês, e o QR já sai com a soma. Arquivada não cobra.
-  // ⚠️ E CONFERE NA REDE AO ABRIR: a lista do aparelho só se atualiza na
-  // troca de conta ou quando a tela volta a ficar visível. No computador do
-  // escritório, aberto o dia todo, uma unidade criada pela Aurum de manhã
-  // ficaria fora do QR à tarde — e o valor não bateria com o do painel.
-  const { unidades, recarregarUnidades } = useApp();
-  useEffect(() => { recarregarUnidades(); }, [recarregarUnidades]);
-  const extras = unidadesAtivas(unidades).length;
+  // ⚠️ APARELHOS A MAIS (M64, 24/11/2026): cada um soma R$ 20 por mês, e o
+  // QR já sai com a soma. As unidades (outro CNPJ) saíram do app no mesmo dia.
+  // ⚠️ CONFERE NA REDE AO ABRIR: uma vaga paga confirmada pela Aurum de manhã
+  // tem de estar no QR à tarde, senão o valor não bate com o do painel.
+  useEffect(() => { conferirAparelho(); }, [conferirAparelho]);
+  const extras = Number(aparelho?.extras) || 0;
+  const inclusos = aparelhosInclusos(prod.id);
   // desconto combinado com a Aurum (M54) — vale até a data, se houver
   const desconto = descontoAtivo(sessao?.desconto);
 
-  // '/pagamento#unidades' (do cartão Unidades e do Contas da equipe): rola até a seção
+  // '/pagamento#impressora' (e outros atalhos com #): rola até a seção
   const { hash } = useLocation();
   useEffect(() => {
     if (!hash) return;
@@ -233,8 +232,7 @@ export default function Pagamento() {
       <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-5 flex items-start gap-2">
         <span className="flex-shrink-0 text-amber-800" aria-hidden="true"><Icon name="relogio" size={18} /></span>
         <p className="text-xs text-amber-800">
-          <strong>Pague com 24h de antecedência.</strong> A confirmação do Pix e a reativação são feitas
-          pela equipe (em até 24h úteis) — não deixe para o último dia para não ficar sem o sistema.
+          <strong>Pague com 24h de antecedência:</strong> a equipe confirma o Pix em até 24h úteis.
         </p>
       </div>
 
@@ -307,9 +305,10 @@ export default function Pagamento() {
           );
         })}
       </div>
-      {extras > 0 && (
+      {inclusos != null && (
         <p className="text-xs text-gray-600 -mt-3 mb-5 px-1">
-          Inclui {plural(extras, 'unidade adicional', 'unidades adicionais')} nesta conta: {brl(adicionalUnidade(prod.id))} por unidade, por mês.
+          Inclui {inclusos} aparelhos conectados. Aparelho a mais: {brl(ADICIONAL_APARELHO)} por mês
+          {extras > 0 ? ` — esta conta tem ${plural(extras, 'a mais', 'a mais')}, já no valor` : ''}.
         </p>
       )}
       </>)}
@@ -399,10 +398,6 @@ export default function Pagamento() {
               </button>
             </div>
           )}
-          <p className="text-xs text-gray-600 text-center mt-1.5">
-            Ao confirmar, a equipe Aurum é avisada (com o nome e o horário) e o WhatsApp abre para você
-            anexar o comprovante. A ativação sai em até 24h úteis.
-          </p>
         </div>
       ) : (
         /* Sem chave Pix configurada ainda → só WhatsApp */
@@ -445,24 +440,11 @@ export default function Pagamento() {
         </ul>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-xs text-blue-700">
-        <p className="font-bold mb-1 flex items-center gap-1.5"><Icon name="info" size={14} />Como funciona</p>
-        {/* ⚠️ Dizia "todo restaurante novo tem 14 dias de teste grátis" — regra
-            que acabou em 03/09/2026 (M41): o teste deixou de ser automático e
-            passou a ser liberado pela Aurum, conta a conta. O dono achou a
-            frase velha na tela em 10/09. Esta caixa descreve só o que acontece
-            HOJE, sem prometer prazo de teste nenhum. */}
-        <p>Escolha o plano e pague por Pix. Depois toque em <strong>“Já paguei”</strong> e
-        mande o comprovante pelo WhatsApp. A equipe Aurum confirma o pagamento e ativa a sua
-        assinatura em até 24h úteis — você recebe a confirmação pelo WhatsApp.</p>
-      </div>
-
-      {/* ⚠️ O QUE A CONTA PODE TER A MAIS (27/09/2026): unidades, contas e o
-          Pro saíram da Administração e moram aqui, junto do dinheiro. */}
+      {/* ⚠️ A caixa "Como funciona" saiu (24/11/2026, pedido do dono: menos
+          texto) — repetia o aviso das 24h e os passos que o próprio Pix já
+          mostra. "Outro CNPJ" e "Contas da equipe" saíram no mesmo dia. */}
       <div className="mt-5">
         <SecaoImpressora impressoras={impressoras} />
-        <SecaoUnidades />
-        <SecaoContas />
         <SecaoCozinhaPro />
       </div>
 

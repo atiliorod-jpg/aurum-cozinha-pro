@@ -210,13 +210,10 @@ describe('Administração em cinco grupos', () => {
     expect(ler('../../pages/Producao.jsx')).toMatch(/to="\/administracao\/estoque"/);
   });
 
-  it('contas da equipe: uma lista só, senha de 8, botões de 44 px e o erro do banco aparece', () => {
+  // ⚠️ As contas da equipe, os cargos e a equipe por unidade saíram da tela
+  // em 23/11/2026 (login da casa) e do código em 24/11/2026.
+  it('as contas da equipe, os cargos e as unidades saíram do código dos cartões', () => {
     const c = ler('../../components/config/CartoesConfig.jsx');
-    const contas = c.slice(c.indexOf('export function CartaoContas'), c.indexOf('export function CartaoCargos'));
-    expect(contas).not.toMatch(/placeholder="[^"]*mín\. 6/);
-    expect(contas).toMatch(/Nova senha \(mín\. 8\)/);
-    expect(contas).not.toMatch(/mostrarLista/);
-    expect(contas).toMatch(/const erro = await desativarUsuario\(u\.id\);\s*if \(erro\) \{ toast\(erro, 'erro'\); return; \}/);
-    expect(contas).not.toMatch(/px-2 py-1/);
+    expect(c).not.toMatch(/export function (CartaoContas|CartaoCargos|CartaoUnidades|CartaoEquipeDasUnidades)\b/);
   });
 });

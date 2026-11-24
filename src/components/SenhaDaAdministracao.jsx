@@ -12,8 +12,9 @@ import {
 // =====================================================================
 //  A SENHA DA ADMINISTRAÇÃO NA TELA (23/11/2026, jeito do Magurō)
 //
-//  Meus itens, a Administração e os relatórios mostram ESTA tela até alguém
-//  digitar a senha — em qualquer aparelho, o celular do dono também. Ela tem
+//  A Administração e os relatórios mostram ESTA tela até alguém digitar a
+//  senha — em qualquer aparelho, o celular do dono também (Meus itens ficou
+//  livre em 24/11/2026, pedido do dono). Ela tem
 //  de 4 a 8 números (o dono quis poder usar mais que 4), então o teclado
 //  tem a tecla Entrar em vez de conferir sozinho no último número.
 //  O porquê do resto está em utils/senhaAdministracao.js.
@@ -230,8 +231,8 @@ export function CartaoSenhaDaAdministracao() {
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Senha da Administração</h2>
         <p className="text-xs text-gray-600 mt-0.5">
-          De {MIN_DIGITOS_ADM} a {MAX_DIGITOS_ADM} números. Abre a Administração, Meus itens e os relatórios em
-          qualquer aparelho, e fecha sozinha com {MINUTOS_PARADA_ADM} minutos sem uso. Imprimir e reimprimir não pedem senha.
+          De {MIN_DIGITOS_ADM} a {MAX_DIGITOS_ADM} números. Abre a Administração em qualquer aparelho e fecha
+          sozinha com {MINUTOS_PARADA_ADM} minutos sem uso.
         </p>
         {sessao?.demo && (
           <p className="text-xs text-gray-600 mt-1">Na demonstração ela começa {SENHA_DA_DEMO} e vale só neste aparelho.</p>

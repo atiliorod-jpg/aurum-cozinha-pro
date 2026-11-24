@@ -10,13 +10,14 @@ import { temRecurso } from '../utils/modulos';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 
 export const GRUPOS_ADMIN = [
-  { id: 'casa', titulo: 'A casa', icone: 'estabelecimento', desc: 'Nome, CNPJ e endereço da etiqueta; unidades e cozinhas',
-    descEtiquetas: 'Nome, CNPJ e endereço que saem na etiqueta; unidades' },
+  // ⚠️ sem "unidades" desde 24/11/2026: cada CNPJ é uma conta (pedido do dono)
+  { id: 'casa', titulo: 'A casa', icone: 'estabelecimento', desc: 'Nome, CNPJ e endereço da etiqueta; cozinhas',
+    descEtiquetas: 'Nome, CNPJ e endereço que saem na etiqueta' },
   { id: 'etiqueta', titulo: 'Etiqueta', icone: 'impressora', desc: 'Campos impressos, QR, armazenamentos e temperaturas',
     // o plano Etiquetas não tem QR nem cozinhas: a descrição não promete o que não há
     descEtiquetas: 'Campos impressos, armazenamentos e temperaturas' },
   // desde 23/11/2026: sem contas da equipe, cargos nem matriz (jeito do Magurō)
-  { id: 'equipe', titulo: 'Equipe', icone: 'equipe', desc: 'Nomes e senhas de quem imprime, e a senha da Administração' },
+  { id: 'equipe', titulo: 'Equipe', icone: 'equipe', desc: 'Nomes de quem imprime, senha da Administração e aparelhos conectados' },
   { id: 'estoque', titulo: 'Estoque', icone: 'mantimento', desc: 'Receitas, destinos de saída e de apara, mínimo e máximo, rendimento' },
   { id: 'conta', titulo: 'Conta', icone: 'cartao', desc: 'Plano e pagamento, minha senha, suporte remoto, cópia de segurança' },
 ];
@@ -44,7 +45,10 @@ export function useAcessosAdmin() {
   const a = {
     soEtiq, dono, sistema,
     estabelecimento: sistema,
-    unidades: dono,
+    // as cozinhas (Produção, Seco, Finalização) são só do Pro
+    cozinhas: !soEtiq && dono,
+    // aparelhos conectados (M64): ver e tirar é da Administração aberta
+    aparelhos: dono && !sessao?.eSuperAdmin,
     etiqueta: sistema,
     nomes: soEtiq ? sistema : gerente,
     contas: soEtiq ? dono : gerente,
@@ -57,9 +61,9 @@ export function useAcessosAdmin() {
     zonaPerigo: !soEtiq && dono,
   };
   a.grupos = {
-    casa: a.estabelecimento || a.unidades,
+    casa: a.estabelecimento || a.cozinhas,
     etiqueta: a.etiqueta,
-    equipe: a.nomes || a.contas || a.cargos,
+    equipe: a.nomes || a.contas || a.cargos || a.aparelhos,
     estoque: a.receitas || a.ajustesEstoque,
     // Instalar o app e Novidades valem para qualquer um que entra aqui
     conta: true,

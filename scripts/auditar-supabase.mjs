@@ -34,7 +34,9 @@ if (!URL_BASE || !ANON) { console.error('Faltam VITE_SUPABASE_URL / VITE_SUPABAS
 const TABELAS = ['admin_notas', 'admin_exclusoes', 'admin_log', 'convites', 'documentos',
   'documentos_historico', 'feedback', 'pagamentos', 'perfis', 'registros', 'restaurantes', 'sessoes',
   // M62 (24/11/2026): a senha da Administração (com hash) e quem está com ela aberta
-  'administracao_senha', 'administracao_aberta'];
+  'administracao_senha', 'administracao_aberta',
+  // M64 (24/11/2026): os aparelhos conectados de cada conta
+  'aparelhos'];
 const RPCS = [
   'aceitar_convite', 'alterar_cargo', 'ativar_assinatura', 'avisar_pagamento',
   'convite_valido', 'criar_restaurante', 'definir_bloqueio', 'definir_max_usuarios',
@@ -47,6 +49,9 @@ const RPCS = [
   'registrar_pagamento', 'pagamentos_do_restaurante', 'definir_regime', 'log_admin',
   // M62: a senha da Administração
   'tem_senha_administracao', 'abrir_administracao', 'renovar_administracao', 'fechar_administracao', 'definir_senha_administracao',
+  // M64: os aparelhos conectados (o 4º espera o Pix; só a Aurum dá a vaga paga)
+  'registrar_aparelho', 'sair_do_aparelho', 'meus_aparelhos', 'remover_aparelho', 'pedir_aparelho_extra',
+  'aparelhos_admin', 'confirmar_aparelho_extra', 'dispensar_pedido_de_aparelho', 'definir_aparelhos_extras',
 ];
 
 const req = (caminho, chave, opts = {}) =>

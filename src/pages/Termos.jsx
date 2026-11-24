@@ -38,8 +38,13 @@ import { useNavigate } from 'react-router-dom';
 // Saem a regra de "uma impressora por grupo econômico" e a devolução; entra
 // o saldo das parcelas cobrado conforme o contrato quando se encerra antes.
 // Versão nova porque muda o que se compra, não só como se escreve.
-export const TERMOS_VERSAO = '1.3';
-export const TERMOS_VIGENCIA = '30 de setembro de 2026';
+//
+// 1.4 (24/11/2026, decisão do dono) — saem as UNIDADES ADICIONAIS (outro CNPJ
+// na mesma conta): cada CNPJ passa a ser uma conta. Entram os APARELHOS
+// CONECTADOS (M64): o plano inclui até 3 aparelhos com a conta aberta; cada
+// aparelho a mais custa R$ 20 por mês, com o 1º mês pago antes de liberar.
+export const TERMOS_VERSAO = '1.4';
+export const TERMOS_VIGENCIA = '24 de novembro de 2026';
 
 function Clausula({ n, titulo, children }) {
   return (
@@ -147,28 +152,30 @@ export default function Termos() {
             </p>
             {/* ⚠️ 1.3 (30/09/2026): a impressora é VENDIDA em parcelas (M60),
                 não mais cedida. Os valores estão aqui porque são cobrados no
-                QR do sistema, como o das unidades adicionais. */}
+                QR do sistema, como o dos aparelhos a mais. */}
             <p>
               <strong>Impressora (opcional).</strong> A contratada vende a impressora térmica de
               etiquetas em parcelas, somadas à cobrança do sistema no primeiro ano:{' '}
               <strong>12 parcelas mensais de R$ 60,00, 2 parcelas semestrais de R$ 290,00 ou 1 parcela
               anual de R$ 560,00</strong>, conforme a forma de pagamento escolhida, que fica mantida
               enquanto houver parcela da impressora a pagar. Quitadas as parcelas, a impressora passa a
-              ser do contratante e a cobrança volta a ser somente a do sistema. Cada impressora a mais,
-              inclusive para unidade adicional, segue os mesmos valores. Se a contratação for encerrada
+              ser do contratante e a cobrança volta a ser somente a do sistema. Cada impressora a mais
+              segue os mesmos valores. Se a contratação for encerrada
               antes da quitação, <strong>o saldo das parcelas da impressora é cobrado conforme o
               contrato</strong>.
             </p>
-            {/* ⚠️ Complemento de 22/09/2026, ainda na 1.2 (pedido do dono): a
-                conta passou a aceitar mais de um estabelecimento (M46). O
-                valor está nos Termos porque é cobrado no QR do sistema. */}
+            {/* ⚠️ 1.4 (24/11/2026, pedido do dono): no lugar das unidades
+                adicionais (outro CNPJ na mesma conta, M46), os aparelhos
+                conectados (M64). O valor está nos Termos porque é cobrado no
+                QR do sistema. */}
             <p>
-              <strong>Unidades adicionais.</strong> A mesma conta pode reunir mais de um estabelecimento
-              do contratante, cada um com o seu CNPJ. Cada unidade adicional é incluída pela contratada, a
-              pedido do contratante, e acrescenta à assinatura <strong>1/3 (um terço) do valor mensal do
-              plano, por unidade, por mês</strong> — somado ao valor cobrado no sistema, com os mesmos
-              descontos dos planos semestral e anual. A unidade arquivada deixa de ser cobrada. Cada unidade
-              imprime a etiqueta com os próprios dados, e a conferência desses dados segue a cláusula 7.
+              <strong>Aparelhos conectados.</strong> Cada conta corresponde a um estabelecimento, com o
+              seu CNPJ. O plano Aurum Etiquetas inclui <strong>até 3 (três) aparelhos</strong> com a conta
+              aberta ao mesmo tempo. Cada aparelho a mais acrescenta <strong>R$ 20,00 (vinte reais) por
+              mês</strong> à assinatura: o primeiro mês é pago antes de o aparelho ser liberado, e os
+              seguintes entram no valor cobrado no sistema, com os mesmos descontos dos planos semestral
+              e anual. Sair da conta num aparelho libera a vaga dele; o aparelho sem uso por 30 (trinta)
+              dias também a libera.
             </p>
             <p>
               <strong>Indique e ganhe.</strong> O contratante que indicar outro estabelecimento ganha{' '}

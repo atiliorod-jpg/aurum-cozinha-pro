@@ -18,6 +18,14 @@ import { ehMudancaDePrefs, itensDePrefs, patchDoItem, aplicarPatches, subirPatch
 import { MODULO_PADRAO, moduloValido, chaveModulo, tipoModulo, lerTipo, ehTipoGlobal, catalogoDe, mesclarFixos, tipoBase, temRecurso, ehIdInstancia } from '../utils/modulos';
 import { listarEstoques, moduloUtilizavel, acharEstoque, locaisPadrao } from '../utils/instancias';
 import { cozinhaDeEtiquetas, acharUnidade, baseDoCatalogo, cozinhaDaFixa, cozinhasDaFixa } from '../utils/unidades';
+
+// ⚠️ SEM UNIDADES DESDE 24/11/2026 (pedido do dono): "outro CNPJ" saiu do app
+// inteiro — cada CNPJ é uma conta. A lista fica VAZIA, sempre, e todo o
+// código que separava casas (etiqueta, seletor, relatórios, balanço) cai no
+// caminho da conta de um estabelecimento só, que é o que sempre existiu
+// (utils/unidades.js: "conta sem unidade extra se comporta exatamente como
+// antes"). A tabela `unidades` continua no banco, sem uso — e sem linhas.
+const SEM_UNIDADES = [];
 import {
   ehChaveImpressas, cozinhaDaChaveImpressas, linhaParaEtiqueta, janelaDaLista, etiquetasDoDocumentoAntigo,
   juntarNaLista, aplicarLinhaNaLista, emLotes,
@@ -204,10 +212,8 @@ export function AppProvider({ children }) {
   const [estoquesDoc, setEstoquesDocRaw] = useState(CAT.estoques);
   const [senhasEquipe, setSenhasEquipeRaw] = useState(CAT.senhasEquipe);
   const [usoEquipe, setUsoEquipeRaw] = useState(CAT.usoEquipe);
-  // Unidades EXTRAS da conta (M46) — a principal é a própria conta e não entra
-  // aqui. Vêm da tabela `unidades` (só a Aurum escreve), com cache para a
-  // etiqueta sair certa também sem internet.
-  const [unidades,    setUnidadesRaw]    = useState([]);
+  // sem unidades (24/11/2026): ver SEM_UNIDADES lá em cima
+  const unidades = SEM_UNIDADES;
   // mín/máx DESTE estoque, sobrepostos ao catálogo compartilhado (Fase 3)
   const [metas,       setMetasRaw]       = useState({});
   const [prefs,       setPrefsRaw]       = useState(CAT.prefs);
@@ -290,9 +296,9 @@ export function AppProvider({ children }) {
   // hidratação: ligar a lista própria recarrega os catálogos na hora.
   const baseCatalogo = useMemo(() => baseDoCatalogo(estoques, unidades, moduloEfetivo), [estoques, unidades, moduloEfetivo]);
   const estoqueAtual = useMemo(() => acharEstoque(estoques, moduloEfetivo), [estoques, moduloEfetivo]);
-  // A unidade da cozinha aberta: a linha da extra, ou `null` (principal). É
-  // dela que a etiqueta tira nome, CNPJ e endereço.
-  const unidadeAtual = useMemo(() => acharUnidade(unidades, estoqueAtual?.unidade), [unidades, estoqueAtual]);
+  // A unidade da cozinha aberta: sempre a da própria conta (`null`) — é dela
+  // que a etiqueta tira nome, CNPJ e endereço.
+  const unidadeAtual = null;
 
   // ⚠️ NÃO colocar `estoques` nas deps do efeito de hidratação. Ele é um array
   // NOVO a cada mudança de `estoquesDoc`, e o próprio efeito grava esse estado
@@ -436,63 +442,6 @@ export function AppProvider({ children }) {
         .then(({ error }) => { if (error) enfileirar(); })
         .catch(enfileirar);
     }
-  }, []);
-
-  // ── Unidades (M46) ─────────────────────────────────────────
-  // ⚠️ SÓ LEITURA DAQUI: quem cria, renomeia e troca o CNPJ de uma unidade é a
-  // Aurum, pelo painel. O cliente só edita o endereço (ver abaixo).
-  //
-  // ⚠️ CACHE PRIMEIRO, rede depois — a etiqueta de uma unidade extra precisa
-  // sair com o CNPJ certo também sem internet. Falha de rede (ou banco sem a
-  // M46) mantém o cache em vez de zerar: zerar faria a unidade extra "sumir" e
-  // a etiqueta sair com o CNPJ da principal.
-  const recarregarUnidades = useCallback(async () => {
-    const r = nuvemDe(ridRef.current);
-    if (!r) return;
-    const { data, error } = await supabase.from('unidades')
-      .select('id, nome, cnpj, endereco, cidade, uf, cep, cozinha, arquivada_em, criada_em, catalogo_proprio')
-      .eq('restaurante_id', r).order('criada_em');
-    if (error || ridRef.current !== r) return;
-    setUnidadesRaw(data || []);
-    cacheSet(r, 'unidades', data || []);
-  }, []);
-
-  useEffect(() => {
-    const r = nuvemDe(rid);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- troca de conta: a lista é do cache da conta nova até a rede responder (mesmo padrão da hidratação)
-    setUnidadesRaw(r ? cacheGet(r, 'unidades', []) : []);
-    if (!r) return undefined;
-    recarregarUnidades();
-    // ⚠️ O tablet fica aberto por dias. Uma unidade que a Aurum criou hoje tem
-    // de aparecer sem ninguém fechar o app — então confere de novo quando a
-    // tela volta a ficar visível, no máximo a cada minuto.
-    let ultima = Date.now();
-    const aoVoltar = () => {
-      if (document.visibilityState !== 'visible' || Date.now() - ultima < 60000) return;
-      ultima = Date.now();
-      recarregarUnidades();
-    };
-    document.addEventListener('visibilitychange', aoVoltar);
-    return () => document.removeEventListener('visibilitychange', aoVoltar);
-  }, [rid, recarregarUnidades]);
-
-  // O dono edita o ENDEREÇO de uma unidade extra (o da principal continua em
-  // `prefs.estabelecimento`). Precisa de internet: é gravação no banco, com a
-  // trava de cargo lá dentro. Devolve a mensagem de erro, ou null.
-  const editarEnderecoUnidade = useCallback(async (id, { endereco, cidade, uf, cep }) => {
-    if (soLeituraRef.current) return 'Modo suporte é somente leitura.';
-    const { data, error } = await supabase.rpc('editar_endereco_unidade', {
-      p_id: id, p_endereco: endereco || null, p_cidade: cidade || null,
-      p_uf: uf || null, p_cep: cep || null,
-    });
-    if (error) return error.message || 'Não foi possível salvar.';
-    const r = ridRef.current;
-    setUnidadesRaw(prev => {
-      const nova = (prev || []).map(u => (u.id === id ? { ...u, ...data } : u));
-      if (r) cacheSet(r, 'unidades', nova);
-      return nova;
-    });
-    return null;
   }, []);
 
   // ── Catálogos (documentos JSONB, 1 linha por lista) ────────
@@ -2467,8 +2416,8 @@ export function AppProvider({ children }) {
       pendencias, online,
       mortos, retentarMortos, descartarMortos,
       registrarImpressoes,
-      // unidades extras da conta (M46) e a da cozinha aberta (null = principal)
-      unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,
+      // sem unidades desde 24/11/2026: lista vazia e a casa da conta (null)
+      unidades, unidadeAtual,
       // conta presa a uma unidade (M48) e as cozinhas que ela pode abrir
       unidadeFixa, estoquesPermitidos,
     }), [
@@ -2486,7 +2435,7 @@ export function AppProvider({ children }) {
     estoque, lotes, limparTudo, exportarBackup, importarBackup, soLeitura,
     rid, pendencias, online, mortos, retentarMortos, descartarMortos,
     registrarImpressoes,
-    unidades, unidadeAtual, recarregarUnidades, editarEnderecoUnidade,
+    unidades, unidadeAtual,
     unidadeFixa, estoquesPermitidos,
   ]);
 

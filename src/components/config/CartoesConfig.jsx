@@ -5,19 +5,13 @@
 // cartões. Desde o Lote 4 (14/10/2026) as duas viraram a Administração em
 // grupos (pages/AdministracaoGrupo.jsx), que usa estes cartões nos dois planos.
 import Chave from '../ui/Chave';
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import Botao from '../Botao';
 import { configEtiqueta } from '../../utils/etiquetas';
 import { listarArmazenamentos, MAX_FAIXA, ARMAZENAMENTOS_PADRAO } from '../../utils/armazenamento';
 import { listarEstados, ESTADOS_PADRAO, MAX_NOME_ESTADO, idDoEstado } from '../../utils/metodos';
-import { formatarCNPJ, formatarCEP } from '../../utils/documentos';
-import { CAPACIDADES, PERMISSOES_PADRAO, cargosDaCasa, capacidadesDoProduto } from '../../utils/permissoes';
-import { temUnidadesExtras, opcoesDeUnidade, acharUnidade } from '../../utils/unidades';
+import { formatarCNPJ } from '../../utils/documentos';
 import { useApp } from '../../store/AppContext';
-import { useAuth } from '../../store/AuthContext';
-import { useUI } from '../../store/UIContext';
-import { plural } from '../../utils/formatters';
 
 export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
   // eslint-disable-next-line react-hooks/purity -- a hora atual é insumo legítimo do prazo de 24h; recalcular a cada render é o comportamento desejado
@@ -381,10 +375,8 @@ export function CartaoEtiquetas({ prefs, setPref, toast, mostrarQR = true }) {
 
 /**
  * Dados do estabelecimento — o rodapé da etiqueta (Administração → A casa).
- * `key` pela unidade: trocar de unidade REMONTA o formulário (ver abaixo).
  */
 export function CartaoEstabelecimento({ prefs, setPref, toast, nomeRestaurante = '', cnpjDaConta = '' }) {
-  const { unidadeAtual } = useApp();
   return (
     <div className="cartao space-y-3">
       <div>
@@ -393,52 +385,29 @@ export function CartaoEstabelecimento({ prefs, setPref, toast, nomeRestaurante =
           Saem no rodapé da etiqueta: quem manipulou o alimento, para a fiscalização.
         </p>
       </div>
-      <DadosDoEstabelecimento key={unidadeAtual?.id || 'principal'} prefs={prefs} setPref={setPref}
+      <DadosDoEstabelecimento prefs={prefs} setPref={setPref}
         toast={toast} nomeRestaurante={nomeRestaurante} cnpjDaConta={cnpjDaConta} />
     </div>
   );
 }
 
 /**
- * Dados do estabelecimento — o rodapé da etiqueta, da UNIDADE deste aparelho.
- *
- * ⚠️ DUAS ORIGENS, UMA TELA (M46). Na unidade principal os dados continuam em
- * `prefs.estabelecimento`, como sempre, e qualquer um que abra este cartão
- * edita. Na unidade extra eles moram na linha da unidade, no banco: o
- * endereço só a conta dona altera (a função confere o cargo lá dentro), e
- * nome e CNPJ só a Aurum.
- *
- * ⚠️ `key` pela unidade (quem chama passa): trocar de unidade REMONTA o cartão,
- * senão o rascunho da unidade anterior ficaria na tela e seria salvo na outra.
+ * Dados do estabelecimento — o rodapé da etiqueta. Moram em
+ * `prefs.estabelecimento`; nome e CNPJ vêm do cadastro e só a Aurum muda.
+ * (As unidades extras da M46, com dados no banco, saíram em 24/11/2026.)
  */
 function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDaConta }) {
-  const { unidadeAtual: extra, unidades, editarEnderecoUnidade } = useApp();
-  const { sessao } = useAuth();
-  const variasUnidades = temUnidadesExtras(unidades);
-  const dono = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin;
-  const podeEditar = extra ? dono : true;
   // ⚠️ O QUE ESTÁ GRAVADO, ATÉ ALGUÉM MEXER (23/11/2026). O formulário
   // copiava os dados UMA vez, ao abrir: aberto antes de a nuvem responder (ou
   // sem internet, num aparelho sem cache), mostrava tudo em branco — e quem
   // via em branco digitava de novo. Agora mostra o gravado, que chega
   // depois, e só vira rascunho quando a pessoa digita.
-  const gravado = extra
-    ? { endereco: extra.endereco || '', cidade: extra.cidade || '', uf: extra.uf || '', cep: formatarCEP(extra.cep) }
-    : (prefs.estabelecimento || {});
+  const gravado = prefs.estabelecimento || {};
   const [rascunho, setRascunho] = useState(null);
   const local = rascunho ?? gravado;
   const setLocal = (mudar) => setRascunho(atual => mudar(atual ?? gravado));
-  const [salvando, setSalvando] = useState(false);
 
-  const salvar = async () => {
-    if (extra) {
-      setSalvando(true);
-      const erro = await editarEnderecoUnidade(extra.id, local);
-      setSalvando(false);
-      if (!erro) setRascunho(null);
-      toast(erro ? `Não salvou: ${erro}` : 'Endereço da unidade salvo.', erro ? 'erro' : 'sucesso');
-      return;
-    }
+  const salvar = () => {
     // ⚠️ O CNPJ SAI DAQUI NA GRAVAÇÃO. Contas que editaram esse campo quando
     // ele era livre têm um valor guardado; deixá-lo passar faria o número
     // antigo continuar indo para a etiqueta mesmo com o campo já travado.
@@ -449,18 +418,12 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
     toast('Dados do estabelecimento salvos.', 'sucesso');
   };
 
-  const nome = extra ? extra.nome : nomeRestaurante;
-  const cnpj = extra ? extra.cnpj : cnpjDaConta;
+  const nome = nomeRestaurante;
+  const cnpj = cnpjDaConta;
   const campo = 'w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs disabled:bg-gray-50';
 
   return (
     <div className="space-y-2">
-      {variasUnidades && (
-        <p className="text-xs text-polo-navy bg-polo-beige rounded-lg px-2.5 py-1.5">
-          São os dados da unidade <strong>{nome || '—'}</strong>, a deste aparelho. Para ver outra
-          unidade, troque de unidade no topo da tela.
-        </p>
-      )}
       {/* ⚠️ O NOME É SÓ LEITURA AQUI, de propósito. Ele identifica a conta no
           contrato, na cobrança e no painel de suporte — conta que se renomeia
           sozinha vira outra conta para quem atende. A troca existe, passa
@@ -469,14 +432,10 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
       <div className="bg-gray-50 rounded-lg px-3 py-2">
         <p className="text-xs text-gray-600">Nome do estabelecimento</p>
         <p className="text-sm font-semibold text-polo-navy">{nome || '—'}</p>
-        <p className="text-xs text-gray-600 mt-1">
-          Sai impresso na etiqueta. Para trocar, use <strong>Ajuda → Pedido</strong> no topo da
-          tela — a equipe Aurum confere e muda.
-        </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {/* ⚠️ CNPJ NÃO SE EDITA AQUI. Ele vem do cadastro (da conta, ou da
-            unidade) e é o que sai IMPRESSO no rodapé da etiqueta — o dado que
+        {/* ⚠️ CNPJ NÃO SE EDITA AQUI. Ele vem do cadastro da conta e é o que
+            sai IMPRESSO no rodapé da etiqueta — o dado que
             identifica quem manipulou o alimento para a fiscalização. Enquanto
             era um campo livre, um erro de digitação (ou uma troca por engano)
             circulava colado no pote, e ninguém tinha como saber que estava
@@ -489,618 +448,25 @@ function DadosDoEstabelecimento({ prefs, setPref, toast, nomeRestaurante, cnpjDa
         </div>
         <div>
           <label htmlFor="est-cep" className="block text-xs text-gray-500 mb-0.5">CEP</label>
-          <input id="est-cep" type="text" value={local.cep || ''} placeholder="00000-000" disabled={!podeEditar}
+          <input id="est-cep" type="text" value={local.cep || ''} placeholder="00000-000"
             onChange={e => setLocal(p => ({ ...p, cep: e.target.value }))} className={campo} />
         </div>
       </div>
-      <p className="text-xs text-gray-600">
-        O CNPJ vem do cadastro e não muda por aqui — ele identifica quem manipulou o alimento.
-        Para corrigir, use <strong>Ajuda → Pedido</strong>.
-      </p>
+      <p className="text-xs text-gray-600">Para trocar o nome ou o CNPJ: <strong>Ajuda → Pedido</strong>.</p>
       <div>
         <label htmlFor="est-end" className="block text-xs text-gray-500 mb-0.5">Endereço</label>
-        <input id="est-end" type="text" value={local.endereco || ''} placeholder="Rua, número" disabled={!podeEditar}
+        <input id="est-end" type="text" value={local.endereco || ''} placeholder="Rua, número"
           onChange={e => setLocal(p => ({ ...p, endereco: e.target.value }))} className={campo} />
       </div>
-      {extra ? (
-        // Na unidade extra cidade e UF são campos do banco, separados
-        <div className="grid grid-cols-[1fr_4.5rem] gap-2">
-          <div>
-            <label htmlFor="est-cid" className="block text-xs text-gray-500 mb-0.5">Cidade</label>
-            <input id="est-cid" type="text" value={local.cidade || ''} placeholder="Recife" disabled={!podeEditar}
-              onChange={e => setLocal(p => ({ ...p, cidade: e.target.value }))} className={campo} />
-          </div>
-          <div>
-            <label htmlFor="est-uf" className="block text-xs text-gray-500 mb-0.5">UF</label>
-            <input id="est-uf" type="text" value={local.uf || ''} placeholder="PE" maxLength={2} disabled={!podeEditar}
-              onChange={e => setLocal(p => ({ ...p, uf: e.target.value.toUpperCase() }))} className={campo} />
-          </div>
-        </div>
-      ) : (
-        <div>
-          <label htmlFor="est-cid" className="block text-xs text-gray-500 mb-0.5">Cidade - UF</label>
-          <input id="est-cid" type="text" value={local.cidade || ''} placeholder="Recife - PE"
-            onChange={e => setLocal(p => ({ ...p, cidade: e.target.value }))} className={campo} />
-        </div>
-      )}
-      {podeEditar ? (
-        <button onClick={salvar} disabled={salvando}
-          className="w-full min-h-12 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm disabled:opacity-60">
-          {salvando ? 'Salvando…' : 'Salvar dados do estabelecimento'}
-        </button>
-      ) : (
-        <p className="text-xs text-gray-600">Só a conta dona altera o endereço de uma unidade.</p>
-      )}
-    </div>
-  );
-}
-
-/**
- * Unidades da conta — a lista, com o CNPJ de cada uma (M46).
- *
- * ⚠️ É O MESMO RECORTE NOS DOIS PLANOS: no Etiquetas este cartão fica na
- * Administração; no completo a tela "Unidades e cozinhas" mostra as mesmas
- * unidades com as cozinhas de cada uma. A unidade nova não se cria aqui — o
- * CNPJ passa pela Aurum, que também combina o adicional antes.
- */
-export function CartaoUnidades() {
-  const { unidades, unidadeAtual } = useApp();
-  const { sessao, impersonando } = useAuth();
-  const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
-  const atual = unidadeAtual?.id || null;
-  // ⚠️ SÓ COM MAIS DE UMA UNIDADE (27/09/2026): com uma casa só, o cartão
-  // repetia o CNPJ da conta e servia de anúncio. O pedido de unidade nova
-  // mora em Planos e pagamento, com o preço e o passo a passo.
-  if (!temUnidadesExtras(unidades)) return null;
-
-  return (
-    <div className="cartao space-y-3">
       <div>
-        <h2 className="text-sm font-bold text-polo-navy">Unidades</h2>
-        <p className="text-xs text-gray-500 mt-0.5">
-          Cada unidade é um estabelecimento, com o seu CNPJ. A etiqueta sai com os dados da unidade
-          em que o aparelho está.
-        </p>
+        <label htmlFor="est-cid" className="block text-xs text-gray-500 mb-0.5">Cidade - UF</label>
+        <input id="est-cid" type="text" value={local.cidade || ''} placeholder="Recife - PE"
+          onChange={e => setLocal(p => ({ ...p, cidade: e.target.value }))} className={campo} />
       </div>
-      <ul className="space-y-1.5">
-        {opcoesDeUnidade(unidades, nomeConta).map(u => (
-          <li key={u.id || 'principal'} className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2">
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-polo-navy truncate">{u.nome}</span>
-              <span className="block text-xs text-gray-600">
-                {u.principal ? 'Unidade principal' : 'Unidade'}
-                {(u.principal ? sessao?.cnpj : u.cnpj) ? ` · CNPJ ${formatarCNPJ(u.principal ? sessao.cnpj : u.cnpj)}` : ''}
-              </span>
-            </span>
-            {u.id === atual && (
-              <span className="text-xs font-bold text-green-700 bg-green-100 rounded-full px-2 py-0.5 flex-shrink-0">este aparelho</span>
-            )}
-          </li>
-        ))}
-      </ul>
-      {!sessao?.eSuperAdmin && (
-        <Link to="/pagamento#unidades" className="block text-sm font-semibold text-polo-navy underline underline-offset-2 min-h-12 pt-2">
-          Mais uma unidade? Veja em Planos e pagamento
-        </Link>
-      )}
-    </div>
-  );
-}
-
-/**
- * Contas da equipe — o dono cria, entrega e continua no comando.
- *
- * ⚠️ SUBSTITUIU O CÓDIGO DE CONVITE. O convite obrigava a pessoa a ter e-mail
- * próprio, se cadastrar sozinha e escolher a própria senha — e o dono ficava
- * sem controle depois disso: não podia trocar a senha de quem esqueceu.
- *
- * ⚠️ A CONTA NÃO É UMA PESSOA, é um acesso. O dono pode criar "chef",
- * "cozinha", "noite" — e é comum que crie. Por isso não há campo de nome: o
- * usuário É o nome da conta. Pedir os dois obrigava a inventar um nome de
- * gente para um acesso que é de posto de trabalho.
- *
- * ⚠️ NÃO CONFUNDIR COM "RESPONSÁVEIS": aquele é o nome que sai IMPRESSO no
- * campo RESP. da etiqueta e não tem login.
- */
-export function CartaoContas({
-  sessao, usuarios, cargos, criarConta, trocarSenhaDe, removerConta,
-  desativarUsuario, reativarUsuario, definirApelido, toast, confirm,
-  // ⚠️ UMA LISTA SÓ NOS DOIS PLANOS (Lote 4 da auditoria, 14/10/2026). O Pro
-  // tinha a própria lista embaixo deste cartão, só para trocar o cargo — as
-  // mesmas pessoas apareciam em dois lugares da tela, com botões diferentes
-  // em cada um. A troca de cargo veio para cá; sem `alterarCargo` ela não
-  // aparece. `logAudit` deixa rastro no Histórico de mudanças.
-  alterarCargo = null, logAudit = null, permissoes = null,
-}) {
-  const [criando, setCriando] = useState(false);
-  const [form, setForm] = useState({ usuario: '', senha: '', cargo: 'cozinha' });
-  const [ocupado, setOcupado] = useState(false);
-  const [novaSenha, setNovaSenha] = useState(null); // { id, valor }
-
-  const ativos = (usuarios || []).filter(u => u.ativo !== false);
-  const max = sessao?.maxUsuarios || 3;
-  const vagas = Math.max(0, max - ativos.length);
-  const casa = sessao?.apelido || '';
-  const inputCls = 'campo';
-  const registrar = (acao, detalhe) => { if (logAudit) logAudit(acao, detalhe); };
-  // Nomes como a casa chama os cargos (o dono pode renomear "Cozinha")
-  const daCasa = cargosDaCasa(permissoes);
-  const nomeDoCargo = (id) => daCasa.find(c => c.id === id)?.nome || cargos.find(c => c.id === id)?.nome || id;
-  // ⚠️ `cargo_rotulo` guarda o NOME do cargo no dia da criação. Depois de uma
-  // troca de cargo ele ficava velho, e a lista dizia "Cozinha" para quem já era
-  // Gerência. O cargo de verdade é `cargo`; o rótulo só vale se for um cargo
-  // criado pela casa.
-  const rotuloDe = (u) => {
-    const proprio = u.cargo_rotulo && daCasa.find(c => c.id === u.cargo_rotulo && !c.fixo);
-    return proprio ? proprio.nome : nomeDoCargo(u.cargo);
-  };
-  // Ninguém dá um cargo acima do próprio (o banco confere em alterar_cargo), e
-  // diretoria não se dá por aqui: seria uma segunda conta dona, que esta lista
-  // não deixa mais mexer — o caminho de volta sumiria.
-  const nivel = (id) => cargos.find(c => c.id === id)?.nivel ?? 0;
-  const cargosAtribuiveis = cargos.filter(c => c.base !== 'diretoria'
-    && (sessao?.eSuperAdmin || c.nivel <= nivel(sessao?.cargo)));
-
-  const limpar = (t) => String(t || '').toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
-
-  // ⚠️ O APELIDO NÃO É PERGUNTADO. Ele saía como um campo a mais que o dono
-  // preenchia sem entender para quê — e escolhia mal. Vem do NOME DO
-  // RESTAURANTE que ele já cadastrou, que é o que ele reconhece.
-  //
-  // ⚠️ Só se ajusta enquanto NÃO HÁ conta de equipe: o apelido é a segunda
-  // metade do login de todo mundo, e mudá-lo depois invalidaria o acesso de
-  // quem já entra — sem aviso, no meio do serviço.
-  const semEquipe = (usuarios || []).every(u => u.cargo === 'diretoria');
-  const derivado = limpar(sessao?.restauranteNome).slice(0, 20);
-  useEffect(() => {
-    // Na demonstração nada fala com o banco: tentar salvar aqui gastaria
-    // quatro chamadas que falham em silêncio a cada abertura da tela.
-    if (sessao?.demo) return;
-    if (!derivado || derivado.length < 3) return;
-    if (casa === derivado) return;
-    if (!semEquipe) return;
-    let vivo = true;
-    (async () => {
-      // Nome de casa repetido existe (duas "Sabor Caseiro"): tenta variações
-      // antes de desistir, em vez de deixar o dono travado sem entender.
-      for (const tentativa of [derivado, `${derivado}2`, `${derivado}3`, `${derivado}4`]) {
-        const r = await definirApelido(tentativa);
-        if (!vivo || !r.erro) return;
-      }
-    })();
-    return () => { vivo = false; };
-  }, [derivado, casa, semEquipe, definirApelido, sessao?.demo]);
-
-  const criar = async () => {
-    const usuario = limpar(form.usuario);
-    // ⚠️ O texto dizia "mín. 6" e o servidor pede 8: a pessoa digitava 6,
-    // tocava em Criar e recebia um erro que contradizia a própria tela.
-    if ((form.senha || '').trim().length < 8) { toast('A senha precisa de ao menos 8 caracteres.', 'aviso'); return; }
-    setOcupado(true);
-    const r = await criarConta({
-      // O usuário serve de nome da conta: não há duas coisas para inventar.
-      nome: usuario, usuario, senha: form.senha, cargo: form.cargo,
-      cargoRotulo: cargos.find(c => c.id === form.cargo)?.nome || null,
-    });
-    setOcupado(false);
-    if (r.erro) { toast(r.erro, 'erro'); return; }
-    setCriando(false);
-    setForm({ usuario: '', senha: '', cargo: 'cozinha' });
-    registrar('criou conta', `${usuario} (${nomeDoCargo(form.cargo)})`);
-    toast(`Conta criada. Login: ${r.login}`, 'sucesso', { duracao: 9000 });
-  };
-
-  const trocar = async (u) => {
-    const senha = (novaSenha?.valor || '').trim();
-    if (senha.length < 8) { toast('A senha precisa de ao menos 8 caracteres.', 'aviso'); return; }
-    setOcupado(true);
-    const r = await trocarSenhaDe(u.id, senha);
-    setOcupado(false);
-    if (r.erro) { toast(r.erro, 'erro'); return; }
-    setNovaSenha(null);
-    registrar('trocou a senha da conta', u.usuario || u.nome);
-    toast(`Senha de ${u.usuario || u.nome} trocada. Avise quem usa.`, 'sucesso', { duracao: 8000 });
-  };
-
-  const remover = async (u) => {
-    const ok = await confirm({
-      titulo: `Apagar a conta ${u.usuario || u.nome}?`,
-      // ⚠️ Diz o que NÃO some. Sem isto, "apagar a conta" lê como "apagar o que
-      // ela fez" — e ninguém apaga, com medo de perder o histórico.
-      mensagem: 'O acesso acaba na hora. O que foi registrado e as etiquetas impressas continuam como estão.\n\nSe for afastamento temporário, use Bloquear.',
-      perigo: true, confirmar: 'Apagar conta',
-    });
-    if (!ok) return;
-    const r = await removerConta(u.id);
-    if (!r.erro) registrar('apagou conta', u.usuario || u.nome);
-    toast(r.erro || 'Conta apagada.', r.erro ? 'erro' : 'sucesso');
-  };
-
-  // ⚠️ O ERRO DO BANCO AGORA APARECE. A versão anterior ignorava a resposta e
-  // dizia "bloqueado" mesmo quando o servidor recusava (sem internet, sem
-  // permissão) — o dono ia embora achando que a conta estava fechada.
-  const alternarBloqueio = async (u) => {
-    const quem = u.usuario || u.nome;
-    if (u.ativo === false) {
-      const erro = await reativarUsuario(u.id);
-      if (erro) { toast(erro, 'erro'); return; }
-      registrar('liberou conta', quem);
-      toast(`${quem} liberado.`, 'sucesso');
-      return;
-    }
-    const ok = await confirm({
-      titulo: `Bloquear ${quem}?`,
-      mensagem: 'A conta para de entrar até você liberar. Nada é apagado, e a vaga continua ocupada.',
-      confirmar: 'Bloquear',
-    });
-    if (!ok) return;
-    const erro = await desativarUsuario(u.id);
-    if (erro) { toast(erro, 'erro'); return; }
-    registrar('bloqueou conta', quem);
-    toast(`${quem} bloqueado.`, 'sucesso');
-  };
-
-  const mudarCargo = async (u, novo) => {
-    const erro = await alterarCargo(u.id, novo);
-    if (erro) { toast(erro, 'erro'); return; } // o banco recusou — não registra
-    registrar('alterou cargo', `${u.usuario || u.nome} → ${nomeDoCargo(novo)}`);
-    toast(`Cargo de ${u.usuario || u.nome} alterado para ${nomeDoCargo(novo)}.`, 'sucesso');
-  };
-
-  const botao = 'min-h-12 px-3 rounded-lg text-sm font-semibold border';
-
-  return (
-    <div className="cartao space-y-3">
-      <div>
-        <h2 className="text-sm font-bold text-polo-navy">Contas da equipe</h2>
-        <p className="text-xs text-gray-600 mt-0.5">
-          Quem entra no app. Pode ser uma pessoa ou um posto — “chef”, “cozinha”, “noite”.
-        </p>
-      </div>
-
-      {casa && (
-        <p className="text-xs text-gray-600">
-          Os logins desta casa terminam em <strong className="text-polo-navy">.{casa}</strong>
-          {semEquipe ? '' : ' — não muda mais, para não derrubar quem já entra.'}
-        </p>
-      )}
-
-      <ul className="space-y-1.5">
-        {(usuarios || []).map(u => {
-          const ehEu = u.id === sessao?.usuarioId;
-          const dono = u.cargo === 'diretoria';
-          const quem = u.usuario || u.nome;
-          // a conta dona não se mexe por aqui: é quem paga e quem administra as
-          // outras. Uma casa sem ela fica sem comando.
-          const mexe = !dono && !ehEu;
-          return (
-            <li key={u.id} className={`border rounded-lg p-2.5 space-y-2 ${u.ativo === false ? 'bg-gray-50 border-gray-200' : 'border-gray-200'}`}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
-                    {quem}
-                    {ehEu && <span className="text-xs font-normal text-green-800"> · você</span>}
-                    {u.ativo === false && <span className="text-xs font-normal text-gray-600"> · bloqueado</span>}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {rotuloDe(u)}
-                    {u.usuario && casa ? ` · entra como ${u.usuario}.${casa}` : ''}
-                  </p>
-                </div>
-                {mexe && alterarCargo && cargosAtribuiveis.some(c => c.id === u.cargo) && (
-                  <select value={u.cargo} onChange={e => mudarCargo(u, e.target.value)}
-                    aria-label={`Cargo de ${quem}`}
-                    className="min-h-12 text-sm font-semibold text-polo-navy bg-polo-beige border border-polo-gold/40 rounded-xl px-2 flex-shrink-0 max-w-[45%]">
-                    {cargosAtribuiveis.map(c => <option key={c.id} value={c.id}>{nomeDoCargo(c.id)}</option>)}
-                  </select>
-                )}
-              </div>
-              {mexe && (
-                <div className="flex flex-wrap gap-1.5">
-                  <button onClick={() => setNovaSenha({ id: u.id, valor: '' })} aria-label={`Trocar a senha de ${quem}`}
-                    className={`${botao} text-polo-navy border-gray-300`}>Senha</button>
-                  <button onClick={() => alternarBloqueio(u)} aria-label={`${u.ativo === false ? 'Liberar' : 'Bloquear'} ${quem}`}
-                    className={`${botao} text-gray-700 border-gray-300`}>
-                    {u.ativo === false ? 'Liberar' : 'Bloquear'}
-                  </button>
-                  <button onClick={() => remover(u)} aria-label={`Apagar a conta ${quem}`}
-                    className={`${botao} text-red-700 border-red-200`}>Apagar</button>
-                </div>
-              )}
-              {novaSenha?.id === u.id && (
-                <div className="flex gap-2">
-                  <input type="text" value={novaSenha.valor} autoFocus minLength={8}
-                    onChange={e => setNovaSenha({ id: u.id, valor: e.target.value })}
-                    placeholder="Nova senha (mín. 8)" aria-label={`Nova senha de ${quem}`}
-                    className={`${inputCls} flex-1 min-w-0`} />
-                  <Botao onClick={() => trocar(u)} tamanho="sm" largura="auto" disabled={ocupado}>Trocar</Botao>
-                  <button onClick={() => setNovaSenha(null)} className="min-h-12 text-sm text-gray-600 px-2">Cancelar</button>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-
-      <div className="border-t border-gray-100 pt-3">
-        {!criando ? (<>
-          <Botao onClick={() => setCriando(true)} disabled={!casa || vagas <= 0} tamanho="sm">
-            + Criar conta {vagas > 0 ? `(${plural(vagas, 'vaga', 'vagas')})` : '— sem vagas'}
-          </Botao>
-          {/* sem vagas não é beco sem saída: o pedido (sem custo) mora em Planos e pagamento */}
-          {vagas <= 0 && !sessao?.eSuperAdmin && (
-            <Link to="/pagamento#contas" className="block text-sm font-semibold text-polo-navy underline underline-offset-2 min-h-12 pt-2">
-              Precisa de mais contas? Peça em Planos e pagamento
-            </Link>
-          )}
-        </>) : (
-          <div className="space-y-2">
-            <div>
-              <input value={form.usuario} onChange={e => setForm(f => ({ ...f, usuario: e.target.value }))}
-                placeholder="Usuário" aria-label="Usuário" className={inputCls} autoFocus />
-              {form.usuario && (
-                <p className="text-xs text-gray-600 mt-1">
-                  Entra como <strong className="text-polo-navy">{limpar(form.usuario)}.{casa}</strong>
-                </p>
-              )}
-            </div>
-            <input type="text" value={form.senha} onChange={e => setForm(f => ({ ...f, senha: e.target.value }))}
-              placeholder="Senha inicial (mín. 8)" aria-label="Senha inicial" className={inputCls} />
-            <select value={form.cargo} onChange={e => setForm(f => ({ ...f, cargo: e.target.value }))}
-              aria-label="Cargo" className={`${inputCls} bg-white`}>
-              {cargos.filter(c => c.base !== 'diretoria').map(c => (
-                <option key={c.id} value={c.id}>{nomeDoCargo(c.id)}</option>
-              ))}
-            </select>
-            {/* ⚠️ A senha aparece em texto: quem digita é o DONO, para outra
-                pessoa, e ele precisa anotar. Esconder aqui só faria ele errar
-                e não saber o que entregar. */}
-            <p className="text-xs text-gray-600">
-              Anote a senha antes de salvar — você entrega ela a quem vai usar, e depois só dá para trocar por outra.
-            </p>
-            <div className="flex gap-2">
-              <Botao onClick={criar} disabled={ocupado || !form.usuario.trim()} className="flex-1">
-                {ocupado ? 'Criando…' : 'Criar conta'}
-              </Botao>
-              <button onClick={() => setCriando(false)} className="min-h-12 text-sm text-gray-600 px-3">Cancelar</button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Cargos e acessos — quem pode o quê.
- *
- * ⚠️ O DONO INVENTA O NOME, MAS NÃO O NÍVEL. `cozinha`, `gerencia` e
- * `diretoria` estão numa trava da tabela de perfis e em mais de cem
- * verificações das regras de acesso do banco — são níveis de segurança. Cada
- * cargo criado aqui se apoia num deles, e é o NÍVEL que vai para o banco. Um
- * "Confeiteiro" apoiado em Cozinha não alcança nada que Cozinha não alcance,
- * por mais que a tela diga o contrário; por isso a escolha da base aparece na
- * hora de criar, e não como erro depois.
- *
- * ⚠️ DUAS PERMISSÕES SÃO DECIDIDAS PELO SERVIDOR (custos e valor da perda). Para
- * elas, quem manda é a exceção por CONTA — o banco não conhece cargo
- * inventado. Por isso, ao salvar, a tela grava a exceção de cada conta sempre
- * que o valor efetivo difere do que a base entrega. Sem isso o dono ligaria
- * "ver custos" num cargo criado por ele e o servidor continuaria recusando,
- * sem erro visível em lugar nenhum.
- */
-export function CartaoCargos({ permissoes, setPermissoes, usuarios, soEtiquetas = false, toast, confirm }) {
-  // ⚠️ Só o que EXISTE neste produto. A tela oferecia relatório, inventário e
-  // custos no plano Etiquetas — ligar não mudava nada, e o dono ficava
-  // procurando onde apareceria o relatório que acabou de liberar.
-  const caps = capacidadesDoProduto(soEtiquetas);
-  const [abrindo, setAbrindo] = useState('');      // id do cargo aberto
-  const [novoNome, setNovoNome] = useState('');
-  const [novaBase, setNovaBase] = useState('cozinha');
-  const [criando, setCriando] = useState(false);
-
-  const m = permissoes || {};
-  const cargos = cargosDaCasa(m);
-  const equipe = (usuarios || []).filter(u => u.cargo !== 'diretoria');
-  const inputCls = 'campo';
-
-  // Valor que vale hoje para um cargo, seguindo a mesma ordem do app.
-  const valorDoCargo = (cargo, cap) => {
-    if (cargo.base === 'diretoria') return true;
-    const doRotulo = m[cargo.id] || {};
-    if (doRotulo[cap] !== undefined) return !!doRotulo[cap];
-    const daBase = m[cargo.base] || {};
-    if (daBase[cap] !== undefined) return !!daBase[cap];
-    return !!(PERMISSOES_PADRAO[cargo.base] || {})[cap];
-  };
-  const valorDaConta = (u, cap) => {
-    const excecao = (m.porConta || {})[u.id] || {};
-    if (excecao[cap] !== undefined) return !!excecao[cap];
-    const cargo = cargos.find(c => c.id === (u.cargo_rotulo || u.cargo)) || { id: u.cargo, base: u.cargo };
-    return valorDoCargo(cargo, cap);
-  };
-
-  // ⚠️ Sincroniza as travas DURAS depois de qualquer mudança: para elas o
-  // servidor só olha a exceção por conta.
-  const comSincronia = (base) => {
-    const porConta = { ...(base.porConta || {}) };
-    const cargosAgora = cargosDaCasa(base);
-    for (const u of (usuarios || [])) {
-      if (u.cargo === 'diretoria') continue;
-      const cargo = cargosAgora.find(c => c.id === (u.cargo_rotulo || u.cargo)) || { id: u.cargo, base: u.cargo };
-      const atual = { ...(porConta[u.id] || {}) };
-      for (const cap of CAPACIDADES.filter(c => c.duro)) {
-        const doRotulo = base[cargo.id] || {};
-        const daBase = base[cargo.base] || {};
-        const efetivo = atual[cap.id] !== undefined ? !!atual[cap.id]
-          : doRotulo[cap.id] !== undefined ? !!doRotulo[cap.id]
-          : daBase[cap.id] !== undefined ? !!daBase[cap.id]
-          : !!(PERMISSOES_PADRAO[cargo.base] || {})[cap.id];
-        atual[cap.id] = efetivo;
-      }
-      porConta[u.id] = atual;
-    }
-    return { ...base, porConta };
-  };
-
-  const salvar = (patch) => setPermissoes(comSincronia({ ...m, ...patch }));
-
-  const mudarCargo = (cargo, cap, valor) =>
-    salvar({ [cargo.id]: { ...(m[cargo.id] || {}), [cap]: valor } });
-
-  const mudarConta = (u, cap, valor) =>
-    salvar({ porConta: { ...(m.porConta || {}), [u.id]: { ...((m.porConta || {})[u.id] || {}), [cap]: valor } } });
-
-  const limparConta = (u) => {
-    const porConta = { ...(m.porConta || {}) };
-    delete porConta[u.id];
-    salvar({ porConta });
-    toast('Exceções removidas — a conta volta a seguir o cargo.', 'sucesso');
-  };
-
-  const renomear = (cargo, nome) => {
-    const lista = Array.isArray(m.cargos) ? [...m.cargos] : [];
-    const i = lista.findIndex(c => c.id === cargo.id);
-    if (i >= 0) lista[i] = { ...lista[i], nome };
-    else lista.push({ id: cargo.id, nome, base: cargo.base });
-    salvar({ cargos: lista });
-  };
-
-  const criar = () => {
-    const nome = novoNome.trim();
-    if (nome.length < 2) { toast('Escreva o nome do cargo.', 'aviso'); return; }
-    const id = `c_${nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')}`;
-    if (cargos.some(c => c.id === id)) { toast('Já existe um cargo com esse nome.', 'aviso'); return; }
-    salvar({ cargos: [...(m.cargos || []), { id, nome, base: novaBase }] });
-    setNovoNome(''); setCriando(false);
-    toast(`Cargo "${nome}" criado.`, 'sucesso');
-  };
-
-  const apagar = async (cargo) => {
-    const usando = (usuarios || []).filter(u => u.cargo_rotulo === cargo.id).length;
-    const ok = await confirm({
-      titulo: `Apagar o cargo "${cargo.nome}"?`,
-      mensagem: usando
-        ? `${plural(usando, 'conta usa', 'contas usam')} este cargo e volta${usando === 1 ? '' : 'm'} para ${cargo.base === 'gerencia' ? 'Gerência' : 'Cozinha'}.`
-        : 'Nenhuma conta usa este cargo.',
-      perigo: true, confirmar: 'Apagar cargo',
-    });
-    if (!ok) return;
-    salvar({ cargos: (m.cargos || []).filter(c => c.id !== cargo.id) });
-  };
-
-  // (a chave da matriz era uma cópia local de 40×20 px; agora é a peça padrão)
-
-  return (
-    <div className="cartao space-y-3">
-      <div>
-        <h2 className="text-sm font-bold text-polo-navy">Cargos e acessos</h2>
-        <p className="text-xs text-gray-500 mt-0.5">
-          O que cada grupo alcança no app. Você pode renomear os cargos e criar outros.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        {cargos.filter(c => c.base !== 'diretoria').map(cargo => (
-          <div key={cargo.id} className="border border-gray-200 rounded-lg">
-            <div className="flex items-center gap-2 px-3 py-2">
-              <input value={cargo.nome} onChange={e => renomear(cargo, e.target.value)}
-                aria-label={`Nome do cargo ${cargo.nome}`}
-                className="flex-1 min-w-0 text-sm font-semibold text-polo-navy bg-transparent border-b border-transparent focus:border-gray-300 outline-none" />
-              {!cargo.fixo && (
-                <span className="text-xs text-gray-500 flex-shrink-0">
-                  nível {cargo.base === 'gerencia' ? 'Gerência' : 'Cozinha'}
-                </span>
-              )}
-              <button onClick={() => setAbrindo(abrindo === cargo.id ? '' : cargo.id)}
-                className="text-sm font-bold text-polo-navy border-2 border-polo-navy/15 rounded-xl px-3 min-h-12 flex-shrink-0">
-                {abrindo === cargo.id ? 'fechar' : 'acessos'}
-              </button>
-              {!cargo.fixo && (
-                <button onClick={() => apagar(cargo)}
-                  className="text-xs font-semibold text-red-700 px-1 flex-shrink-0">apagar</button>
-              )}
-            </div>
-            {abrindo === cargo.id && (
-              <div className="px-3 pb-3 space-y-1.5 border-t border-gray-100 pt-2">
-                {caps.map(cap => (
-                  <div key={cap.id} className="flex items-start justify-between gap-3">
-                    <span id={`${cargo.id}-${cap.id}`} className="min-w-0">
-                      <span className="block text-xs text-gray-800">{cap.label}</span>
-                      <span className="block text-xs text-gray-500 leading-tight">{cap.desc}</span>
-                    </span>
-                    <Chave rotuladoPor={`${cargo.id}-${cap.id}`} ligada={valorDoCargo(cargo, cap.id)}
-                      aoTrocar={() => mudarCargo(cargo, cap.id, !valorDoCargo(cargo, cap.id))} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {criando ? (
-        <div className="border border-gray-200 rounded-lg p-3 space-y-2">
-          <input value={novoNome} onChange={e => setNovoNome(e.target.value)} autoFocus
-            placeholder="Nome do cargo" aria-label="Nome do novo cargo" className={inputCls} />
-          <div>
-            <label htmlFor="cargo-base" className="block text-xs text-gray-600 mb-1">Nível de segurança</label>
-            <select id="cargo-base" value={novaBase} onChange={e => setNovaBase(e.target.value)}
-              className={`${inputCls} bg-white`}>
-              <option value="cozinha">Cozinha — operação do dia a dia</option>
-              <option value="gerencia">Gerência — também administra a equipe</option>
-            </select>
-            {/* ⚠️ Escrito ANTES de criar, não como erro depois: o nível é o
-                teto do que aquele cargo vai poder alcançar, e trocá-lo depois
-                obrigaria a recriar as contas que já usam o cargo. */}
-            <p className="text-xs text-gray-600 mt-1">
-              O nível é o teto: um cargo em Cozinha não alcança o que só Gerência alcança, mesmo
-              com a chave ligada.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Botao onClick={criar} tamanho="sm" className="flex-1">Criar cargo</Botao>
-            <button onClick={() => setCriando(false)} className="text-xs text-gray-600 px-3">Cancelar</button>
-          </div>
-        </div>
-      ) : (
-        <Botao onClick={() => setCriando(true)} tamanho="sm" variante="secundario">+ Criar cargo</Botao>
-      )}
-
-      {equipe.length > 0 && (
-        <div className="border-t border-gray-100 pt-3 space-y-2">
-          <p className="text-xs font-semibold text-gray-600">Exceções por conta</p>
-          <p className="text-xs text-gray-600">
-            Abre ou fecha algo só para uma conta, sem mexer no cargo dela.
-          </p>
-          {equipe.map(u => {
-            const quem = u.usuario || u.nome;
-            const excecoes = Object.keys((m.porConta || {})[u.id] || {}).length;
-            return (
-              <details key={u.id} className="border border-gray-200 rounded-lg">
-                <summary className="cursor-pointer px-3 min-h-12 flex items-center text-sm font-semibold text-gray-800">
-                  {quem}
-                  {excecoes > 0 && <span className="ml-1 font-normal text-gray-500">· com exceções</span>}
-                </summary>
-                <div className="px-3 pb-3 space-y-1.5 border-t border-gray-100 pt-2">
-                  {caps.map(cap => (
-                    <div key={cap.id} className="flex items-center justify-between gap-3">
-                      <span id={`${u.id}-${cap.id}`} className="text-xs text-gray-800 min-w-0">{cap.label}</span>
-                      <Chave rotuladoPor={`${u.id}-${cap.id}`} ligada={valorDaConta(u, cap.id)}
-                        aoTrocar={() => mudarConta(u, cap.id, !valorDaConta(u, cap.id))} />
-                    </div>
-                  ))}
-                  <button onClick={() => limparConta(u)}
-                    className="text-sm font-semibold text-gray-700 border-2 border-polo-navy/15 rounded-xl px-3 min-h-12 mt-1">
-                    Voltar a seguir o cargo
-                  </button>
-                </div>
-              </details>
-            );
-          })}
-        </div>
-      )}
+      <button onClick={salvar}
+        className="w-full min-h-12 bg-polo-navy text-polo-gold font-bold py-2.5 rounded-xl text-sm">
+        Salvar dados do estabelecimento
+      </button>
     </div>
   );
 }
@@ -1167,92 +533,6 @@ export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm
         </span>
       </label>
 
-    </div>
-  );
-}
-
-/**
- * Equipe por unidade (M48) — onde cada conta da equipe trabalha.
- *
- * ⚠️ PRESA A UMA UNIDADE, a conta só abre as cozinhas dela e a etiqueta sai
- * sempre com o CNPJ dela — o cozinheiro da casa do Centro não imprime mais,
- * nem por engano, com o CNPJ de outra casa. "Todas as unidades" é como sempre
- * foi. A diretoria não aparece: ela trabalha em todas.
- *
- * ⚠️ QUEM MUDA É A CONTA DONA, e o banco confere (a pessoa não se solta
- * sozinha). Precisa de internet. Aparece nos dois planos: na Administração do
- * Etiquetas e em "Unidades e cozinhas" do Pro.
- */
-export function CartaoEquipeDasUnidades() {
-  const { unidades } = useApp();
-  const { sessao, impersonando, usuarios, definirUnidadeDaConta } = useAuth();
-  const { toast } = useUI();
-  const [salvando, setSalvando] = useState('');
-  // presa a uma unidade que depois foi arquivada: a etiqueta fica travada
-  const arquivadaDe = (u) => !!(u.unidade_fixa && u.unidade_id && acharUnidade(unidades, u.unidade_id)?.arquivada_em);
-  // ⚠️ A ÚLTIMA UNIDADE EXTRA FOI ARQUIVADA com alguém preso nela: o cartão
-  // continua aparecendo — é o único lugar de soltar a conta, senão ela nunca
-  // mais imprime.
-  if (!temUnidadesExtras(unidades) && !(usuarios || []).some(arquivadaDe)) return null;
-
-  const nomeConta = impersonando?.restauranteNome || sessao?.restauranteNome;
-  const podeMudar = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && !impersonando;
-  const equipe = (usuarios || []).filter(u => u.ativo !== false && u.cargo !== 'diretoria');
-  const opcoes = opcoesDeUnidade(unidades, nomeConta);
-  const valorDe = (u) => (!u.unidade_fixa ? 'todas' : (u.unidade_id || 'principal'));
-
-  const mudar = async (u, valor) => {
-    setSalvando(u.id);
-    const erro = await definirUnidadeDaConta(u.id, valor);
-    setSalvando('');
-    toast(erro ? `Não salvou: ${erro}` : 'Unidade da conta atualizada.', erro ? 'erro' : 'sucesso');
-  };
-
-  return (
-    <div className="cartao space-y-3">
-      <div>
-        <h2 className="text-sm font-bold text-polo-navy">Equipe por unidade</h2>
-        <p className="text-xs text-gray-500 mt-0.5">
-          Presa a uma unidade, a conta só abre as cozinhas dela e a etiqueta sai sempre com o CNPJ
-          dela. A diretoria trabalha em todas.
-        </p>
-      </div>
-      {equipe.length === 0 ? (
-        <p className="text-xs text-gray-600">Ainda não há contas da equipe.</p>
-      ) : (
-        <ul className="space-y-2">
-          {equipe.map(u => (
-            <li key={u.id} className="bg-gray-50 rounded-lg px-3 py-2 space-y-1">
-              <label className="flex items-center justify-between gap-2">
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-polo-navy truncate">{u.nome || u.usuario}</span>
-                  {u.usuario && <span className="block text-xs text-gray-600 truncate">{u.usuario}</span>}
-                </span>
-                <select value={valorDe(u)} disabled={!podeMudar || salvando === u.id}
-                  onChange={e => mudar(u, e.target.value)}
-                  aria-label={`Unidade de ${u.nome || u.usuario}`}
-                  className="min-h-12 border-2 border-polo-navy/15 rounded-xl px-2 text-sm bg-white max-w-[55%] disabled:opacity-60">
-                  <option value="todas">Todas as unidades</option>
-                  {opcoes.map(o => (
-                    <option key={o.id || 'principal'} value={o.id || 'principal'}>Só {o.nome}</option>
-                  ))}
-                  {/* a arquivada não é opção nova, mas é o valor de hoje: sem ela
-                      a lista mostraria "Todas as unidades", que seria mentira */}
-                  {arquivadaDe(u) && (
-                    <option value={u.unidade_id}>Só {acharUnidade(unidades, u.unidade_id)?.nome} (arquivada)</option>
-                  )}
-                </select>
-              </label>
-              {arquivadaDe(u) && (
-                <p className="text-xs text-amber-900">
-                  A unidade desta conta foi arquivada: ela não imprime até você escolher outra.
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {!podeMudar && <p className="text-xs text-gray-600">Só a conta dona muda a unidade da equipe.</p>}
     </div>
   );
 }

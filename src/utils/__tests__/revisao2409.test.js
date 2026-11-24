@@ -166,9 +166,10 @@ describe('unidades: as correções', () => {
     expect(auth).toMatch(/from\('perfis'\)\.select\('cargo, unidade_fixa, unidade_id'\)\.eq\('id', s\.usuarioId\)/);
   });
 
-  it('o cartão aparece enquanto houver alguém preso numa unidade arquivada', () => {
+  // sem unidades desde 24/11/2026: o cartão "Equipe por unidade" saiu do app
+  it('o cartão da equipe por unidade não existe mais', () => {
     const cartao = ler('../../components/config/CartoesConfig.jsx');
-    expect(cartao).toMatch(/if \(!temUnidadesExtras\(unidades\) && !\(usuarios \|\| \[\]\)\.some\(arquivadaDe\)\) return null;/);
+    expect(cartao).not.toMatch(/export function CartaoEquipeDasUnidades/);
   });
 
   it('M52: promover a Diretoria solta; soltar a diretoria é aceito; relatório e impressão ignoram a trava dela', () => {

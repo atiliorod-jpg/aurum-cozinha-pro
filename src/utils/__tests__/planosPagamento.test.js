@@ -1,14 +1,15 @@
 // =====================================================================
 //  PLANOS E PAGAMENTO (27/09/2026) — pedido do dono: CNPJ inteiro na
-//  etiqueta; a Administração do cliente enxuta, com conta, unidades, contas a
-//  mais e o Pro em "Planos e pagamento"; e o painel mostrando onde criar a
-//  unidade de um cliente e quem paga o adicional.
+//  etiqueta; a Administração do cliente enxuta, com a conta e o Pro em
+//  "Planos e pagamento".
+//  ⚠️ 24/11/2026: saíram as unidades (outro CNPJ = outra conta) e as contas
+//  da equipe (login da casa); entrou o aparelho a mais (M64).
 // =====================================================================
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { etiquetaTSPL } from '../tspl';
-import { mensalComUnidades, adicionalUnidade } from '../assinatura';
+import { mensalComAparelhos } from '../assinatura';
 
 const ler = (caminho) => readFileSync(new URL(caminho, import.meta.url), 'utf8');
 
@@ -46,35 +47,24 @@ describe('Administração do cliente enxuta; conta e dinheiro em Planos e pagame
     expect(ajustes).not.toMatch(/Preciso de outra unidade/);
   });
 
-  it('o cartão Unidades só aparece com mais de uma unidade', () => {
-    const cartao = ler('../../components/config/CartoesConfig.jsx');
-    const unid = cartao.slice(cartao.indexOf('export function CartaoUnidades'), cartao.indexOf('export function CartaoContas'));
-    expect(unid).toMatch(/if \(!temUnidadesExtras\(unidades\)\) return null;/);
-  });
-
-  it('Planos e pagamento tem as três seções novas, nos dois planos', () => {
+  it('Planos e pagamento: impressora e Cozinha Pro; sem unidades e sem contas da equipe', () => {
     expect(pagamento).toMatch(/<Layout title="Planos e pagamento"/);
-    expect(pagamento).toMatch(/<SecaoUnidades \/>\s*<SecaoContas \/>\s*<SecaoCozinhaPro \/>/);
-    expect(ler('../../components/PlanoExtras.jsx')).toMatch(/Planos e pagamento<\/span>/);
-    // os links levam direto à seção
+    expect(pagamento).toMatch(/<SecaoImpressora impressoras=\{impressoras\} \/>\s*<SecaoCozinhaPro \/>/);
+    expect(pagamento).not.toMatch(/SecaoUnidades|SecaoContas/);
+    expect(extras).not.toMatch(/<section id="unidades"|<section id="contas"/);
+    expect(extras).toMatch(/Planos e pagamento<\/span>/);
     expect(pagamento).toMatch(/document\.getElementById\(hash\.slice\(1\)\)\?\.scrollIntoView/);
-    expect(extras).toMatch(/<section id="unidades"/);
-    expect(extras).toMatch(/<section id="contas"/);
   });
 
-  it('unidade: explica, mostra a conta pronta e o pedido chega com nome e CNPJ', () => {
-    expect(extras).toMatch(/mensalCombinado\(prod\.id, extras \+ 1, sessao\?\.desconto\)/);
-    expect(extras).toMatch(/começa na próxima cobrança depois disso, sem cobrar os dias quebrados/);
-    expect(extras).toMatch(/tipoPedido: 'unidade'/);
-    expect(extras).toMatch(/if \(!validarCNPJ\(form\.cnpj\)\)/);
-    expect(mensalComUnidades('etiquetas', 1)).toBe(199.87);
-    expect(adicionalUnidade('etiquetas')).toBe(49.97);
+  it('o plano diz quantos aparelhos inclui e quanto custa o aparelho a mais', () => {
+    expect(pagamento).toMatch(/Inclui \{inclusos\} aparelhos conectados\. Aparelho a mais: \{brl\(ADICIONAL_APARELHO\)\} por mês/);
+    expect(pagamento).toMatch(/'Até 3 aparelhos conectados na mesma conta'/);
+    expect(mensalComAparelhos('etiquetas', 1)).toBe(119.9);
   });
 
-  it('contas a mais: sem cobrança, a Aurum libera; e "sem vagas" leva até o pedido', () => {
-    expect(extras).toMatch(/tipoPedido: 'contas'/);
-    expect(extras).toMatch(/Peça aqui, sem custo/);
-    expect(ler('../../components/config/CartoesConfig.jsx')).toMatch(/vagas <= 0 && !sessao\?\.eSuperAdmin && \(\s*<Link to="\/pagamento#contas"/);
+  it('menos texto: sem a caixa "Como funciona" e sem o parágrafo repetido do Pix', () => {
+    expect(pagamento).not.toMatch(/Como funciona<\/p>/);
+    expect(pagamento).not.toMatch(/Ao confirmar, a equipe Aurum é avisada/);
   });
 
   it('o suporte da Aurum e a demonstração não mandam pedido pelo cliente', () => {
@@ -83,23 +73,16 @@ describe('Administração do cliente enxuta; conta e dinheiro em Planos e pagame
   });
 });
 
-describe('painel: onde criar a unidade e quem paga', () => {
+describe('painel: outro CNPJ é outra conta (24/11/2026)', () => {
   const admin = ler('../../pages/Admin.jsx');
 
-  it('"+ Unidade para um cliente" ao lado de "Abrir conta", e o aviso dentro do Abrir conta', () => {
-    expect(admin).toMatch(/\+ Unidade para um cliente \(outro CNPJ\)/);
-    expect(admin).toMatch(/irAoRestaurante\(r\.id\);\s*abrirUnidade\(r\);/);
-    expect(admin).toMatch(/Outra casa de um cliente que já existe\? Não abra conta nova/);
+  it('só "+ Abrir conta de cliente"; sem "+ Unidade para um cliente" nem o aviso de não abrir conta', () => {
+    expect(admin).toMatch(/\+ Abrir conta de cliente/);
+    expect(admin).not.toMatch(/\+ Unidade para um cliente|Outra casa de um cliente que já existe/);
   });
 
-  it('o pedido de unidade vira "Criar esta unidade" com o formulário preenchido', () => {
-    expect(admin).toMatch(/d\.tipoPedido === 'unidade' && fb\.restaurante_id/);
-    expect(admin).toMatch(/cnpj: formatarCNPJ\(d\.unidadeCnpj \|\| ''\)/);
-    expect(admin).toMatch(/d\.tipoPedido === 'contas' && fb\.restaurante_id/);
-  });
-
-  it('o cartão diz que o adicional é pago na conta principal, com o total', () => {
-    expect(admin).toMatch(/Tudo é pago nesta conta: plano R\$/);
-    expect(admin).toMatch(/mensalComUnidades\(r\.produto, extrasDe\(r\)\)/);
+  it('o pedido de unidade não vira mais formulário; o de impressora continua com atalho', () => {
+    expect(admin).not.toMatch(/d\.tipoPedido === 'unidade'/);
+    expect(admin).toMatch(/d\.tipoPedido === 'impressora' && fb\.restaurante_id/);
   });
 });

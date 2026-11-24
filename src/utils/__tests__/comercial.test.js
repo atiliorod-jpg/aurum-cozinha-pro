@@ -154,10 +154,11 @@ describe('planos de pagamento (Pix)', () => {
   // desmascara um erro no cálculo que "bate" com uma fórmula igualmente
   // errada. Se o preço mudar de novo, ajuste estes três — eles são a âncora.
   it('nos preços de hoje, as contas fecham', () => {
-    expect(PRODUTOS.etiquetas.precoMes).toBe(149.90);
+    // ⚠️ 99,90 desde 24/11/2026, com 3 aparelhos (decisão do dono)
+    expect(PRODUTOS.etiquetas.precoMes).toBe(99.90);
     expect(PRODUTOS.completo.precoMes).toBe(399);
-    expect(precoPlano(plano('anual'), 'etiquetas')).toBe(1618.92);   // 149,90×12×0,9
-    expect(precoPlano(plano('semestral'), 'etiquetas')).toBe(854.43);  // 149,90×6×0,95
+    expect(precoPlano(plano('anual'), 'etiquetas')).toBe(1078.92);   // 99,90×12×0,9
+    expect(precoPlano(plano('semestral'), 'etiquetas')).toBe(569.43);  // 99,90×6×0,95
     expect(precoPlano(plano('semestral'), 'completo')).toBe(2274.3);  // 399×6×0,95
   });
 
@@ -739,7 +740,7 @@ describe('statusAssinatura — leitura que falhou não bloqueia', () => {
 // `R$ {precoMes}` direto, com ponto e sem o zero final.
 describe('preço na tela', () => {
   it('sai com vírgula e dois decimais', () => {
-    expect(fmtPreco(PRODUTOS.etiquetas.precoMes)).toBe('149,90');
+    expect(fmtPreco(PRODUTOS.etiquetas.precoMes)).toBe('99,90');
     expect(fmtPreco(PRODUTOS.completo.precoMes)).toBe('399,00');
     expect(fmtPreco(undefined)).toBe('0,00');
   });

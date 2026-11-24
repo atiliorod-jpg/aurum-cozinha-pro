@@ -63,12 +63,13 @@ describe('lista de itens por unidade: de onde cada cozinha lê', () => {
     expect(app).toMatch(/const kc = useCallback\(\(chave\) => chaveModulo\(catalogoRef\.current, chave\), \[\]\);/);
     expect(app).toMatch(/\}, \[rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo, rodadaSync, releituraDaAdm, acompanharBrutos,\s*mostrarPrefsDoServidor, subirPrefs\]\);/);
     expect(app).toMatch(/baseCatalogo: baseDoCatalogo\(estoques, unidades, id\),/);
-    expect(app).toMatch(/cozinha, arquivada_em, criada_em, catalogo_proprio'\)/);
+    // sem unidades desde 24/11/2026: o app não lê mais a tabela
+    expect(app).not.toMatch(/from\('unidades'\)/);
   });
 
-  it('só a Aurum liga a lista própria, no painel', () => {
+  it('só a Aurum ligava a lista própria (o botão saiu do painel com as unidades, 24/11/2026)', () => {
     const adm = ler('../../pages/Admin.jsx');
-    expect(adm).toMatch(/supabase\.rpc\('definir_catalogo_da_unidade', \{ p_id: u\.id, p_proprio: proprio \}\)/);
+    expect(adm).not.toMatch(/definir_catalogo_da_unidade/);
     const sql = ler('../../lib/migration48_equipe_e_catalogo_por_unidade.sql');
     expect(sql).toMatch(/if not coalesce\(sou_super_admin\(\), false\) then\s*raise exception 'Apenas o administrador do sistema muda a lista de itens/);
     expect(sql).toMatch(/on conflict \(restaurante_id, chave\) do nothing;/);

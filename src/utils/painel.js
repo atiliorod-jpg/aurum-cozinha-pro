@@ -12,7 +12,6 @@
 // =====================================================================
 
 import { statusRestaurante, mensalCombinado, descontoDaLinha } from './assinatura';
-import { unidadesAtivas } from './unidades';
 
 // Aviso primeiro: é o único caso em que o CLIENTE está esperando resposta —
 // ele avisou que pagou e está olhando para uma conta que ainda não liberou.
@@ -24,7 +23,9 @@ import { unidadesAtivas } from './unidades';
 // ⚠️ ATRASO DE CONTRATO (M45) logo depois: é dinheiro vencido de quem assinou
 // contrato, e o prazo corre — com 10 dias o acesso cai, e o encargo lançado
 // só entra no QR do cliente depois do toque.
-const ORDEM = { aviso: 0, feedback: 1, atraso: 2, teste: 3, vencido: 4 };
+// ⚠️ O PIX DO APARELHO A MAIS (M64) junto do aviso de pagamento: há um
+// aparelho PARADO na tela de espera até a Aurum confirmar.
+const ORDEM = { aviso: 0, aparelho: 1, feedback: 2, atraso: 3, teste: 4, vencido: 5 };
 
 /** Quantos dias antes do fim do teste a conta entra na fila. */
 export const DIAS_TESTE_ACABANDO = 2;
@@ -68,6 +69,9 @@ export function filaDoPainel(restaurantes, agora = Date.now(), feedbacks = []) {
     if (r.aviso_pagamento_em) {
       itens.push({ r, tipo: 'aviso', quando: new Date(r.aviso_pagamento_em).getTime() });
     }
+    for (const a of r.aparelhos || []) {
+      if (a?.pedido_em) itens.push({ r, tipo: 'aparelho', quando: new Date(a.pedido_em).getTime(), aparelho: a });
+    }
     if (st.tipo === 'teste' && st.diasRestantes <= DIAS_TESTE_ACABANDO) {
       itens.push({ r, tipo: 'teste', quando: st.ate });
     }
@@ -100,10 +104,11 @@ export function numerosDoPainel(restaurantes, agora = Date.now()) {
     // ⚠️ Conta contada à parte e FORA da receita: somar cortesia inflaria o
     // faturamento exatamente onde não há dinheiro nenhum entrando.
     if (st.tipo === 'cortesia') { n.cortesia++; continue; }
-    // ⚠️ Com as unidades extras ATIVAS (M46): cada uma soma 1/3 do plano.
+    // ⚠️ Com os aparelhos a mais pagos (M64): R$ 20 cada. (Até 24/11/2026
+    // eram as unidades extras da M46, 1/3 do plano cada.)
     if (st.tipo === 'assinatura') {
       n.pagantes++;
-      n.mrr += mensalCombinado(r.produto, unidadesAtivas(r.unidades).length, descontoDaLinha(r));
+      n.mrr += mensalCombinado(r.produto, Number(r.aparelhos_extras) || 0, descontoDaLinha(r));
       continue;
     }
     if (st.tipo === 'teste') { n.teste++; continue; }
