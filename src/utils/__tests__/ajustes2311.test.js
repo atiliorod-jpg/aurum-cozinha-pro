@@ -195,8 +195,12 @@ describe('telas', () => {
     // 24/11/2026: a aba Impressas SAIU do relatório (reimprimir = link discreto, só as de hoje)
     const rel = ler('../../pages/RelatorioEtiquetas.jsx');
     expect(rel).not.toMatch(/ListaDeImpressas|\['impressas', 'Impressas'\]/);
-    expect(ler('../../pages/etiquetas/Impressas.jsx')).toMatch(/export function ListaDeImpressas\(\{ comTotais = true, soHoje = false \}\)/);
-    expect(ler('../../pages/Reimprimir.jsx')).toMatch(/<ListaDeImpressas comTotais=\{false\} soHoje \/>/);
+    // só as de hoje (24/11/2026): sem os totais e sem "Ver dias anteriores"
+    const lista = ler('../../pages/etiquetas/Impressas.jsx');
+    expect(lista).toMatch(/export function ListaDeImpressas\(\) \{/);
+    expect(lista).toMatch(/\.filter\(e => e\.impressoEm === hj\)/);
+    expect(lista).not.toMatch(/Ver dias anteriores|totaisImpressos/);
+    expect(ler('../../pages/Reimprimir.jsx')).toMatch(/<ListaDeImpressas \/>/);
     // e o REIMPRIMIR é livre, fora da Administração (23/11/2026, à noite)
     expect(ler('../../App.jsx')).toMatch(/<Route path="\/impressas"\s+element=\{can\('verImpressas'\) \? <Reimprimir \/> : <Navigate to="\/" replace \/>\} \/>/);
   });

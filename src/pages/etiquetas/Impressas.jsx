@@ -5,7 +5,7 @@ import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
 import { supabase } from '../../lib/supabase';
 import { hoje, fmtData } from '../../utils/formatters';
-import { medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
+import { medidaDoProduto } from '../../utils/etiquetas';
 import { prazosDoProduto } from '../../utils/armazenamento';
 import { casaBusca } from '../../utils/busca';
 import Esqueleto from '../../components/Esqueleto';
@@ -26,14 +26,12 @@ import Esqueleto from '../../components/Esqueleto';
  * impedir.
  */
 //
-// ⚠️ MORA DENTRO DO RELATÓRIO DE ETIQUETAS desde 23/11/2026 (pedido do dono):
-// era uma aba da barra de baixo; agora é a aba "Impressas" da tela
-// Administração → Relatório de etiquetas, e a barra ficou com Imprimir, Meus
-// itens e Administração. O endereço antigo (/impressas) leva para lá.
-// `comTotais` (23/11/2026): a tela livre de reimprimir mostra só a lista — os
-// totais do dia, da semana e do mês são do relatório, na Administração.
-// `soHoje` (24/11/2026): a tela de reimprimir mostra só as etiquetas de hoje.
-export function ListaDeImpressas({ comTotais = true, soHoje = false }) {
+// ⚠️ SÓ AS DE HOJE (24/11/2026, pedido do dono): etiqueta de outro dia não se
+// reimprime — imprime uma nova. A lista mora na tela Reimprimir (o link
+// discreto da tela Imprimir); os totais do dia, da semana e do mês são do
+// Relatório de etiquetas, na Administração. A aba "Impressas" (na barra, e
+// depois no relatório) não existe mais.
+export function ListaDeImpressas() {
   const { etiquetasImpressas, tirarEtiquetaDaLista, etiquetaAindaSubindo, produtos, rid, nuvemCarregada } = useApp();
   const { sessao } = useAuth();
   const { abrirEtiquetas, confirm, toast } = useUI();
@@ -44,41 +42,22 @@ export function ListaDeImpressas({ comTotais = true, soHoje = false }) {
   const podeApagar = sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin;
   const [apagando, setApagando] = useState('');
   const [busca, setBusca] = useState('');
-  // ⚠️ LEVE NO CELULAR (28/09/2026): a janela tem até 120 dias — uma cozinha
-  // que imprime 100 por dia punha ~12 mil linhas na tela de uma vez. Mostra 7
-  // dias e vai abrindo mais; a busca refaz a lista só quando a pessoa para de
-  // digitar (useDeferredValue).
-  const [diasVisiveis, setDiasVisiveis] = useState(7);
+  // a busca refaz a lista só quando a pessoa para de digitar (useDeferredValue)
   const buscaAdiada = useDeferredValue(busca);
 
   const hj = hoje();
+  const deHoje = useMemo(() => (etiquetasImpressas || []).filter(e => e.impressoEm === hj), [etiquetasImpressas, hj]);
 
-  // Mais recentes primeiro, agrupadas por dia. `impressoEm` é só a data (sem
-  // hora), então o dia é o agrupamento natural — e é como a cozinha procura:
-  // "aquela que eu fiz hoje de manhã".
-  const dias = useMemo(() => {
-    const lista = (etiquetasImpressas || [])
-      .filter(e => (!soHoje || e.impressoEm === hj) && casaBusca(buscaAdiada, e.nome, e.responsavel));
-    const porDia = new Map();
-    for (const e of lista) {
-      const d = e.impressoEm || '';
-      if (!porDia.has(d)) porDia.set(d, []);
-      porDia.get(d).push(e);
-    }
-    // ⚠️ Dentro do dia, a MAIS RECENTE primeiro. Quem abre esta tela quase
-    // sempre quer a última que saiu — foi ela que rasgou. Etiqueta antiga sem
-    // `impressoEmHora` (gravada antes de 10/09) cai para o fim do dia em vez
-    // de embaralhar as que têm hora.
-    for (const [, lista_] of porDia) {
-      lista_.sort((a, b) => (b.impressoEmHora || '').localeCompare(a.impressoEmHora || ''));
-    }
-    return [...porDia.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [etiquetasImpressas, buscaAdiada, soHoje, hj]);
+  // ⚠️ A MAIS RECENTE primeiro. Quem abre esta tela quase sempre quer a última
+  // que saiu — foi ela que rasgou. Sem `impressoEmHora` (gravada antes de
+  // 10/09) cai para o fim em vez de embaralhar as que têm hora.
+  const lista = useMemo(() => deHoje
+    .filter(e => casaBusca(buscaAdiada, e.nome, e.responsavel))
+    .sort((a, b) => (b.impressoEmHora || '').localeCompare(a.impressoEmHora || '')),
+  [deHoje, buscaAdiada]);
 
-  const totalDoDia = (lista) => lista.reduce((s, e) => s + (e.copias || 1), 0);
-
-  // A conta vive em utils/etiquetas.js, com teste — ver o porquê lá.
-  const totais = useMemo(() => totaisImpressos(etiquetasImpressas, hj), [etiquetasImpressas, hj]);
+  // o total do dia fica fora da busca: é o quanto a casa imprimiu hoje
+  const total = deHoje.reduce((s, e) => s + (e.copias || 1), 0);
 
   const reimprimir = (e) => {
     const p = e.produtoId ? produtos.find(x => x.id === e.produtoId) : null;
@@ -171,55 +150,31 @@ export function ListaDeImpressas({ comTotais = true, soHoje = false }) {
     toast('Etiqueta apagada da lista e do relatório.', 'sucesso');
   };
 
-  const vazio = !(etiquetasImpressas || []).some(e => !soHoje || e.impressoEm === hj);
+  const vazio = !deHoje.length;
 
   return (
     <>
       {vazio && !nuvemCarregada ? (
         <Esqueleto rotulo="Carregando as etiquetas impressas" />
       ) : vazio ? (
-        <Aviso tom="neutro">{soHoje ? 'Nenhuma etiqueta impressa hoje.' : 'Nada impresso ainda.'}</Aviso>
+        <Aviso tom="neutro">Nenhuma etiqueta impressa hoje.</Aviso>
       ) : (
         <div className="space-y-4">
-          {/* ⚠️ OS TOTAIS FICAM FORA DA BUSCA, de propósito: são o quanto a
-              casa imprimiu, não o quanto o filtro achou. Um número de controle
-              que muda quando se digita no campo de busca é um número em que
-              ninguém confia. */}
-          {comTotais && (<>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              ['Hoje', totais.hoje],
-              ['7 dias', totais.semana],
-              ['Este mês', totais.mes],
-            ].map(([rotulo, valor]) => (
-              <div key={rotulo} className="bg-white border border-gray-200 rounded-xl p-3 text-center">
-                <p className="text-xl font-bold text-polo-navy leading-none">{valor}</p>
-                <p className="text-xs text-gray-600 mt-1">{rotulo}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-gray-600 -mt-2">
-            Etiquetas de papel, contando as cópias. “Este mês” é o mês do calendário.
-          </p>
-          </>)}
-
           <input
             type="search" value={busca} onChange={ev => setBusca(ev.target.value)}
             placeholder="Procurar pelo nome do item" aria-label="Procurar etiqueta impressa"
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm" />
 
-          {!dias.length && (
+          {!lista.length && (
             <Aviso tom="neutro">Nenhuma etiqueta com esse nome.</Aviso>
           )}
 
-          {dias.slice(0, diasVisiveis).map(([dia, lista]) => (
-            <section key={dia} className="space-y-2">
+          {!!lista.length && (
+            <section className="space-y-2">
               <div className="flex items-baseline justify-between gap-2">
-                <h2 className="text-xs font-bold text-polo-navy uppercase">
-                  {dia === hj ? 'Hoje' : fmtData(dia)}
-                </h2>
+                <h2 className="text-xs font-bold text-polo-navy uppercase">Hoje</h2>
                 <span className="text-xs text-gray-600">
-                  {totalDoDia(lista)} {totalDoDia(lista) === 1 ? 'etiqueta' : 'etiquetas'}
+                  {total} {total === 1 ? 'etiqueta' : 'etiquetas'}
                 </span>
               </div>
 
@@ -277,13 +232,6 @@ export function ListaDeImpressas({ comTotais = true, soHoje = false }) {
                 })}
               </ul>
             </section>
-          ))}
-
-          {dias.length > diasVisiveis && (
-            <button onClick={() => setDiasVisiveis(n => n + 14)}
-              className="w-full min-h-12 rounded-xl border-2 border-polo-navy text-polo-navy text-sm font-bold">
-              Ver dias anteriores ({dias.length - diasVisiveis} {dias.length - diasVisiveis === 1 ? 'dia' : 'dias'})
-            </button>
           )}
         </div>
       )}

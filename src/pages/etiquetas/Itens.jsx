@@ -626,7 +626,7 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
                     {form.grupos.map(g => <option key={g} value={g}>{g}</option>)}
                   </select>
                   <p className="text-xs text-gray-600 mt-1">
-                    É nele que o item aparece nas listas. Nos outros, ele aparece quando você filtra pelo grupo.
+                    Nas listas, o item aparece neste grupo.
                   </p>
                 </div>
               ) : (
@@ -836,11 +836,8 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
               tudo. Agora o padrão é PREENCHER, e o vazio é a exceção nomeada. */}
           {semPrazo && (
             <Aviso tom="atencao" className="mt-2">
-              <strong>Sem prazo, a etiqueta sai sem data de vencimento.</strong> Quase todo item
-              precisa de um — inclusive os abertos. Deixe vazio só no que realmente não vence
-              depois de aberto (sal, açúcar, farinha): nesses a etiqueta sai <strong>sem
-              vencimento</strong>. Se quiser que ela mostre a validade da embalagem, ligue
-              “Validade original (fornecedor)” em Administração → Etiqueta.
+              <strong>Sem prazo, a etiqueta sai sem vencimento.</strong> Deixe vazio só no que
+              não vence depois de aberto (sal, açúcar, farinha).
             </Aviso>
           )}
         </div>

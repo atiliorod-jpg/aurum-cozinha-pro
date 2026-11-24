@@ -8,9 +8,9 @@ import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 //  LIVRE — sem a senha da Administração. A etiqueta rasga na mão de quem
 //  está no turno, e reimprimir só repete o que já saiu: as mesmas datas, o
 //  mesmo nome de quem assinou.
-//  A porta é o botão "Reimprimir" ao lado de "Imprimindo como Maria", na
-//  tela Imprimir. O Relatório de etiquetas (os totais e o Apagar) fica na
-//  Administração, com a senha.
+//  A porta é o link discreto "Reimprimir" da tela Imprimir. Os totais ficam
+//  no Relatório de etiquetas, na Administração; o Apagar aparece aqui só com
+//  a Administração aberta.
 // =====================================================================
 export default function Reimprimir() {
   const { sessao, impersonando } = useAuth();
@@ -20,7 +20,7 @@ export default function Reimprimir() {
       {/* ⚠️ SÓ AS DE HOJE (24/11/2026, pedido do dono): etiqueta de outro dia
           não se reimprime — imprime uma nova */}
       <p className="text-sm text-gray-600 px-1 mb-3">Só as de hoje. De outro dia, imprima uma nova.</p>
-      <ListaDeImpressas comTotais={false} soHoje />
+      <ListaDeImpressas />
     </Layout>
   );
 }

@@ -214,7 +214,7 @@ function SenhaDoNome({ nome, aoVoltar, compacto }) {
               <p className="text-center text-sm text-gray-600">Na demonstração, a senha de {nome} é {DEMO_COM_SENHA.senha}.</p>
             )}
             <p className="text-center text-sm text-gray-600">
-              Esqueceu a senha? Quem administra a conta zera em Administração, e você cria outra.
+              Esqueceu? A Administração zera, e você cria outra.
             </p>
           </div>
         )} />

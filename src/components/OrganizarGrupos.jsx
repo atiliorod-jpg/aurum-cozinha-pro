@@ -68,8 +68,7 @@ export default function OrganizarGrupos({ produtos, setProdutos, categorias, set
   return (
     <Dialogo aoFechar={aoFechar} titulo="Organizar grupos" forma="ficha" largura="lg" camada={70} classeCaixa="space-y-3">
       <p className="text-xs text-gray-600">
-        A ordem daqui é a ordem das listas. Para pôr um item num grupo, abra a ficha dele:
-        um item pode estar em mais de um grupo.
+        A ordem daqui é a das listas. Para pôr um item num grupo, abra a ficha dele.
       </p>
       <ul className="divide-y divide-gray-100 border-y border-gray-100">
         {lista.map((g, i) => {

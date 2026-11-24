@@ -191,8 +191,7 @@ export function CartaoImpressora() {
           </p>
         ) : (
           <p className="text-xs text-gray-700 mt-0.5">
-            Neste aparelho a etiqueta sai pela janela de impressão do navegador — a impressora é a
-            que estiver instalada nele.
+            Neste aparelho a etiqueta sai pela impressão do navegador.
           </p>
         )}
       </div>
@@ -210,7 +209,7 @@ export function CartaoImpressora() {
           Imprimir etiqueta de teste
         </button>
         <p className="text-xs text-gray-600 mt-1 px-1">
-          Para conferir o rolo e o alinhamento. Não entra no relatório nem na lista de impressas.
+          Não entra no relatório.
         </p>
       </div>
 
@@ -219,7 +218,7 @@ export function CartaoImpressora() {
           Copiar diagnóstico para o suporte
         </button>
         <p className="text-xs text-gray-600 mt-1 px-1">
-          Junta o que o suporte precisa saber (aparelho, versão do app, Bluetooth) e abre o WhatsApp do suporte: é só colar.
+          Abre o WhatsApp do suporte com os dados do aparelho: é só colar.
         </p>
         {diagnostico && (
           <a href={linkSuporte(`Olá! Preciso de ajuda com a impressora.

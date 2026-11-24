@@ -339,9 +339,6 @@ export default function BotaoFeedback() {
                     pote na mão — e quase sempre voltava vazio ou repetindo a
                     anterior. Ela virou parte da pergunta principal, que é onde
                     a pessoa já ia escrever isso naturalmente. */}
-                <p className="text-xs text-gray-500">
-                  Escreva do seu jeito. Quanto mais detalhe, mais rápido a gente resolve.
-                </p>
                 <label className="block">
                   <span className="text-xs font-semibold text-gray-600">Em que tela aconteceu</span>
                   <input className={campo} value={onde} onChange={e => setOnde(e.target.value)}
@@ -363,8 +360,7 @@ export default function BotaoFeedback() {
                  vai acontecer depois. */
               <div className="space-y-3">
                 <p className="text-xs text-gray-500">
-                  Alterações que dependem da equipe Aurum: nome do estabelecimento, mudança de
-                  plano, mais vagas de usuário, dados de cobrança.
+                  Nome do estabelecimento, plano ou dados de cobrança.
                 </p>
                 <label className="block">
                   <span className="text-xs font-semibold text-gray-600">O que você precisa</span>
@@ -372,10 +368,7 @@ export default function BotaoFeedback() {
                     onChange={e => setPedidoMotivo(e.target.value)}
                     placeholder="Descreva o pedido. Se for troca de nome, escreva exatamente como deve sair na etiqueta." />
                 </label>
-                <p className="text-xs text-gray-600">
-                  Seguem junto o nome atual do estabelecimento e os dados da conta — você não
-                  precisa repetir nada disso.
-                </p>
+                <p className="text-xs text-gray-600">Os dados da conta seguem junto.</p>
               </div>
             ) : (
               <div className="space-y-3">

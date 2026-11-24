@@ -64,8 +64,7 @@ export function CartaoSuporteRemoto({ prefs, setPrefs, toast }) {
       ) : (
         <>
           <p className="text-xs text-gray-500 mt-0.5">
-            Libera o suporte (Aurum) a acessar sua conta por 24h para ajudar com problemas.
-            Você escolhe se ele pode só olhar ou também corrigir dados por você.
+            Libera o suporte Aurum na sua conta por 24 h: só olhar, ou também corrigir.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button onClick={() => autorizar('ver')}
@@ -121,8 +120,7 @@ export function CartaoArmazenamentos({ prefs, setPref, toast, confirm }) {
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Armazenamento</h2>
         <p className="text-xs text-gray-500 mt-0.5">
-          Como os itens são guardados na sua casa. O nome e a faixa saem impressos na etiqueta,
-          e cada produto tem um prazo de validade por armazenamento.
+          O nome e a faixa saem na etiqueta; cada item tem um prazo em cada um.
         </p>
       </div>
 
@@ -234,8 +232,7 @@ export function CartaoEstados({ prefs, setPref, toast, confirm }) {
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Estados de conservação</h2>
         <p className="text-xs text-gray-500 mt-0.5">
-          O que acontece com o item dentro do armazenamento, como “pista fria”. Sai impresso junto
-          do armazenamento (RESFRIADO · PISTA FRIA), e cada item tem o prazo dele em cada estado.
+          Como “pista fria”: sai junto do armazenamento (RESFRIADO · PISTA FRIA).
         </p>
       </div>
       {lista.length === 0 && (
@@ -1150,7 +1147,7 @@ export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm
       <div>
         <h2 className="text-sm font-bold text-polo-navy">Meus dados</h2>
         <p className="text-xs text-gray-500 mt-0.5">
-          Seus itens, prazos, equipe e configurações. A cópia é um arquivo só, que fica com você.
+          Itens, prazos, equipe e configurações num arquivo só, que fica com você.
         </p>
       </div>
 
@@ -1170,10 +1167,6 @@ export function CartaoMeusDados({ exportarBackup, importarBackup, toast, confirm
         </span>
       </label>
 
-      <p className="text-xs text-gray-600">
-        Vale guardar uma cópia depois de cadastrar seus itens. Se trocar de aparelho ou
-        precisar voltar atrás, é por aqui que tudo volta.
-      </p>
     </div>
   );
 }

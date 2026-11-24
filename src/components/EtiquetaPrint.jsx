@@ -1630,9 +1630,8 @@ export default function EtiquetaPrint() {
           {semBluetooth && (
             <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
               {ehIOS()
-                ? <>No iPhone e no iPad nenhum navegador conecta na impressora — é limitação
-                    do sistema da Apple, e trocar de navegador não resolve. Use esta janela de
-                    impressão, ou um <strong>Android</strong> para a etiqueta sair direto.</>
+                ? <>No iPhone e no iPad a impressora não conecta (limite da Apple). Use esta
+                    janela, ou um <strong>Android</strong> para sair direto.</>
                 : <>Este navegador não conecta na impressora. No <strong>Chrome</strong> a
                     etiqueta sai direto, sem esta janela.</>}
             </p>

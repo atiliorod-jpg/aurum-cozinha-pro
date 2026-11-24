@@ -331,10 +331,9 @@ export default function RelatorioEtiquetas() {
                 ainda estava na lista de Impressas entrou, o resto não existe
                 mais. Um "mês de julho: 0" sem esta frase pareceria defeito. */}
             <p className="text-xs text-gray-600">
-              Conta etiquetas de papel, com as cópias e as reimpressões. O relatório começou em
-              setembro de 2026; o que foi impresso antes disso só aparece se ainda estava na aba Impressas.
+              Conta as etiquetas de papel, com cópias e reimpressões, desde setembro de 2026.
             </p>
-            {/* ⚠️ O relatório é somado; a etiqueta avulsa mora na aba Impressas.
+            {/* ⚠️ O relatório é somado; a etiqueta avulsa mora no Reimprimir.
                 O dono procurou o botão de apagar AQUI e não achou — então a tela
                 diz onde ele fica, em vez de ele concluir que não existe. */}
             {sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && (

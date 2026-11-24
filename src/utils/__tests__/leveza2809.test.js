@@ -74,10 +74,12 @@ describe('memória do aparelho cheia', () => {
 });
 
 describe('telas e instalação mais leves', () => {
-  it('Impressas mostra 7 dias e abre mais; a busca espera parar de digitar', () => {
+  // ⚠️ desde 24/11/2026 a lista do Reimprimir é SÓ DE HOJE (pedido do dono):
+  // os 120 dias que pesavam no celular não chegam mais à tela
+  it('a lista do Reimprimir só tem as de hoje; a busca espera parar de digitar', () => {
     const tela = ler('../../pages/etiquetas/Impressas.jsx');
-    expect(tela).toMatch(/useState\(7\)/);
-    expect(tela).toMatch(/dias\.slice\(0, diasVisiveis\)/);
+    expect(tela).toMatch(/\.filter\(e => e\.impressoEm === hj\)/);
+    expect(tela).not.toMatch(/diasVisiveis/);
     expect(tela).toMatch(/const buscaAdiada = useDeferredValue\(busca\);/);
   });
 
