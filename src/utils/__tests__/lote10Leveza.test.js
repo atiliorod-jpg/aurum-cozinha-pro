@@ -13,8 +13,9 @@ const ler = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 describe('o que não é a primeira tela carrega sob demanda', () => {
   const app = ler('../../App.jsx');
 
-  it('nova senha, pagamento, novidades, termos, Meus itens e Impressas são lazy', () => {
-    for (const nome of ['NovaSenha', 'Pagamento', 'Novidades', 'Termos', 'Itens', 'EtiquetasImpressas']) {
+  // (Impressas virou aba do Relatório de etiquetas, que é lazy, em 23/11/2026)
+  it('nova senha, pagamento, novidades, termos, Meus itens e o relatório de etiquetas são lazy', () => {
+    for (const nome of ['NovaSenha', 'Pagamento', 'Novidades', 'Termos', 'Itens', 'RelatorioEtiquetas']) {
       expect(app.includes(`const ${nome} = lazy(() => import(`), nome).toBe(true);
       expect(app.split(/\r?\n/).some(l => l.startsWith(`import ${nome} from`)), nome).toBe(false);
     }

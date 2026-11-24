@@ -65,14 +65,14 @@ describe('todo campo e todo botão tem nome para o leitor de tela', () => {
 });
 
 describe('toques e contraste nos pontos que importam', () => {
-  // desde 23/11/2026 (jeito do Magurō): − e + de 48 px, campos de 56 px com
-  // letra de 18 px, e o vencimento ainda maior
-  it('janela de imprimir: + e − de 48 px, campos de 18 px (sem zoom no iPhone), vencimento em destaque', () => {
+  // desde 23/11/2026 (jeito do Magurō, e a janela inteira na tela sem rolar):
+  // − e + de 44 px, campos de 48 px com letra de 18 px, a validade em destaque
+  it('janela de imprimir: + e − de 44 px, campos de 18 px (sem zoom no iPhone), validade em destaque', () => {
     const t = ler('../../components/EtiquetaPrint.jsx');
     expect(t).not.toMatch(/w-9 h-9 rounded-full/);
-    expect(t.match(/className="w-12 h-12 rounded-xl /g)).toHaveLength(2);
-    expect(t).toMatch(/const inputCls = 'w-full min-h-14 [^']*text-lg /);
-    expect(t).toMatch(/Vencimento na etiqueta: <strong className="text-xl font-black text-polo-navy">/);
+    expect(t.match(/className="w-11 h-11 rounded-xl /g)).toHaveLength(2);
+    expect(t).toMatch(/const inputCls = 'w-full min-h-12 [^']*text-lg /);
+    expect(t).toMatch(/Validade: <strong className="text-lg font-black text-polo-navy">/);
   });
 
   it('filtros e categorias com 44 px e aria-pressed', () => {

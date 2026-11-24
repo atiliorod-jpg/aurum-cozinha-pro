@@ -72,10 +72,14 @@ const FORMA = {
     fundo: 'fixed inset-0 bg-polo-navy/60 flex items-center justify-center p-4 print:hidden',
     caixa: 'bg-white rounded-3xl shadow-2xl w-full',
   },
-  // lista comprida (etiquetas): cartão no topo, com folga em cima e embaixo
+  // lista comprida (etiquetas): cartão no topo, com folga em cima e embaixo.
+  // ⚠️ No celular a janela encosta embaixo e tem 8 px de folga em cima (eram
+  // 48 em cima e 48 embaixo); no computador, 32: a janela de imprimir cabe
+  // inteira na tela sem rolar (pedido do dono, 23/11/2026). O rodapé fixo
+  // dela compensa o padding de baixo (`bottom-0 sm:-bottom-4`).
   rolo: {
-    fundo: 'fixed inset-0 bg-polo-navy/60 overflow-y-auto p-4 print:hidden',
-    caixa: 'bg-white rounded-3xl shadow-2xl w-full mx-auto my-8',
+    fundo: 'fixed inset-0 bg-polo-navy/60 overflow-y-auto px-2 pt-2 pb-0 sm:p-4 print:hidden',
+    caixa: 'bg-white rounded-3xl shadow-2xl w-full mx-auto my-0 sm:my-4',
   },
 };
 
@@ -85,6 +89,13 @@ const RESPIRO = { p5: 'p-5', p6: 'p-6' };
 const FAIXA = {
   p5: '-mx-5 -mt-5 mb-4 px-5',
   p6: '-mx-6 -mt-6 mb-5 px-6',
+};
+// ⚠️ A FAIXA BAIXA (23/11/2026): a janela de imprimir precisa caber inteira
+// na tela do celular, sem rolar — ali cada 4 px contam. Mesma cara, 60 px
+// em vez de 76, e o × com 44 px (o mínimo de toque do app).
+const FAIXA_COMPACTA = {
+  p5: '-mx-5 -mt-5 mb-3 px-5',
+  p6: '-mx-6 -mt-6 mb-4 px-6',
 };
 
 // Só o que a pessoa consegue alcançar com Tab. `offsetParent` de fora derruba
@@ -114,6 +125,7 @@ function focaveis(raiz) {
  * @param {boolean}  [props.cabecalho]     desenha título + × (padrão: sim)
  * @param {'p5'|'p6'} [props.respiro]
  * @param {string}   [props.classeCaixa]   extras do cartão (espaçamento interno)
+ * @param {boolean}  [props.faixaCompacta] faixa do título mais baixa (janela de imprimir)
  */
 export default function Dialogo({
   aoFechar,
@@ -126,6 +138,7 @@ export default function Dialogo({
   cabecalho = true,
   respiro = 'p6',
   classeCaixa = '',
+  faixaCompacta = false,
   children,
 }) {
   const painel = useRef(null);
@@ -215,7 +228,7 @@ export default function Dialogo({
         tabIndex={-1}
         className={`${f.caixa} ${LARGURA[largura]} ${RESPIRO[respiro]} focus:outline-none ${classeCaixa}`}>
         {cabecalho && (
-          <div className={`${FAIXA[respiro] || FAIXA.p6} py-3.5 bg-polo-navy text-white rounded-t-3xl flex items-center justify-between gap-3`}>
+          <div className={`${(faixaCompacta ? FAIXA_COMPACTA : FAIXA)[respiro] || FAIXA.p6} ${faixaCompacta ? 'py-2' : 'py-3.5'} bg-polo-navy text-white rounded-t-3xl flex items-center justify-between gap-3`}>
             <h2 id={tituloId} className="font-titulo font-extrabold text-lg sm:text-xl uppercase tracking-wide leading-tight break-words min-w-0">
               {titulo}
             </h2>
@@ -223,7 +236,7 @@ export default function Dialogo({
                 tamanhos diferentes de ×, e o da tela de impressão — a mais
                 usada de todas — era o menor deles. */}
             <button type="button" onClick={aoFechar} aria-label="Fechar"
-              className="w-12 h-12 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center flex-shrink-0 transition-colors">
+              className={`${faixaCompacta ? 'w-11 h-11' : 'w-12 h-12'} rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center flex-shrink-0 transition-colors`}>
               <Icon name="fechar" size={24} />
             </button>
           </div>

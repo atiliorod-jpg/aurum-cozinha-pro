@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { statusEstoque } from '../utils/calculos';
@@ -61,12 +61,8 @@ const NAV_ETIQUETAS = [
   // nova o vazio da tela de imprimir manda "Cadastrar itens" e apontava para
   // a mesma tela negada — um laço fechado.
   { to: '/itens',   icon: 'caixa',    label: 'Meus itens', cap: 'gerenciarProdutos' },
-  // ⚠️ MESMA CHAVE DA ROTA. Aba que aparece e leva a um redirecionamento
-  // silencioso é o defeito que o /itens já teve aqui: a pessoa toca, a tela
-  // pisca e ela volta sem entender. A capacidade nasce ligada para os dois
-  // cargos (ver utils/permissoes.js), então na prática ela aparece — a menos
-  // que o dono feche.
-  { to: '/impressas', icon: 'historico', label: 'Impressas', cap: 'verImpressas' },
+  // ⚠️ "IMPRESSAS" SAIU DA BARRA (23/11/2026, pedido do dono): a lista virou
+  // a aba Impressas do Relatório de etiquetas, dentro da Administração.
   // ⚠️ ERA `soDono` (só a diretoria) e virou CAPACIDADE, a pedido do dono: ele
   // quis poder liberar a Administração para outros cargos. O que é contrato e
   // chave da casa — assinatura, contas da equipe, matriz de acessos e suporte
@@ -78,7 +74,9 @@ const NAV_ETIQUETAS = [
   // ⚠️ /administracao, a MESMA do Pro desde o Lote 4 (era /ajustes, uma tela
   // só deste plano). Os grupos ficam em /administracao/..., e a aba continua
   // acesa dentro deles (NavLink sem `end`).
-  { to: '/administracao', icon: 'config', label: 'Administração', cap: 'configurarSistema' },
+  // `tambem`: o relatório de etiquetas é aberto da Administração — a aba
+  // continua acesa lá dentro.
+  { to: '/administracao', icon: 'config', label: 'Administração', cap: 'configurarSistema', tambem: ['/relatorio-etiquetas'] },
 ];
 
 export default function NavBar({ soEtiquetas = false }) {
@@ -140,6 +138,7 @@ export default function NavBar({ soEtiquetas = false }) {
 // etiquetas) usam esta — duas cópias divergiriam, que é o defeito já
 // registrado nas abas de Configurações.
 function BarraNav({ itens, badges = {} }) {
+  const { pathname } = useLocation();
   const listaDe = (to) => {
     const b = badges[to];
     if (!b) return [];
@@ -149,7 +148,10 @@ function BarraNav({ itens, badges = {} }) {
     <nav aria-label="Navegação principal"
       className="fixed bottom-0 left-0 right-0 z-50 bg-polo-navy/95 backdrop-blur-md border-t border-white/10 shadow-[0_-4px_20px_rgba(0,0,0,0.25)]">
       <div className="flex max-w-3xl mx-auto px-1">
-        {itens.map(({ to, icon, label }) => (
+        {itens.map(({ to, icon, label, tambem = [] }) => {
+          // acesa também nas telas que se abrem dela (`tambem`)
+          const tambemAqui = tambem.some(p => pathname === p || pathname.startsWith(`${p}/`));
+          return (
           <NavLink
             key={to}
             to={to}
@@ -157,10 +159,12 @@ function BarraNav({ itens, badges = {} }) {
             className={({ isActive }) =>
               `flex-1 flex flex-col items-center justify-center pt-1.5 pb-2 gap-1 text-xs font-semibold transition-all relative
                focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg
-               ${isActive ? 'text-polo-gold' : 'text-white/90 active:text-white'}`
+               ${isActive || tambemAqui ? 'text-polo-gold' : 'text-white/90 active:text-white'}`
             }
           >
-            {({ isActive }) => (
+            {({ isActive: acesa }) => {
+              const isActive = acesa || tambemAqui;
+              return (
               <>
                 <span className={`px-3 py-1.5 rounded-full transition-all duration-200 flex items-center justify-center
                   ${isActive ? 'bg-polo-gold/15 ring-1 ring-polo-gold/30 scale-110' : ''}`}>
@@ -175,9 +179,11 @@ function BarraNav({ itens, badges = {} }) {
                   </span>
                 ))}
               </>
-            )}
+              );
+            }}
           </NavLink>
-        ))}
+          );
+        })}
       </div>
     </nav>
   );

@@ -210,9 +210,11 @@ describe('o que existe no Etiquetas existe no Pro', () => {
     expect(faltando).toEqual([]);
   });
 
-  it('no Pro, a aba Impressas tem porta no hub Registrar, com as mesmas travas', () => {
+  // ⚠️ desde 23/11/2026 a lista mora SÓ na Administração (pedido do dono)
+  it('no Pro, a lista de impressas não tem mais porta no hub Registrar: é aba do relatório', () => {
     const hub = ler('../../pages/Registrar.jsx');
-    expect(hub).toMatch(/to: '\/impressas'[^}]*recurso: 'etiquetas'[^}]*cap: 'verImpressas'/);
+    expect(hub).not.toMatch(/to: '\/impressas'/);
+    expect(app).toMatch(/<Route path="\/impressas" element=\{<Navigate to=\{temRecurso\(modulo, 'etiquetas'\) && can\('verImpressas'\) \? '\/relatorio-etiquetas\?aba=impressas'/);
   });
 });
 

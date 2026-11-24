@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import { useUI } from '../store/UIContext';
@@ -11,7 +11,6 @@ import ResponsavelSelect from './ResponsavelSelect';
 import QuemImprime from './QuemImprime';
 import { useOperador } from '../store/OperadorContext';
 import { assinaturaDaJanela } from '../utils/senhaEquipe';
-import Botao from './Botao';
 import Dialogo from './Dialogo';
 import Icon from './Icons';
 import { CampoMedida } from './ui/TecladoNumerico';
@@ -283,6 +282,53 @@ export function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIV
       </div>
     </div>
   );
+}
+
+// ── A JANELA INTEIRA NA TELA, SEM ROLAR (23/11/2026, pedido do dono) ─────
+// "Queria que tudo aparecesse na tela de uma vez, sem ter que rolar." Os
+// campos ficaram justos e, se mesmo assim faltar altura (celular mais baixo,
+// barra do navegador aberta), a PRÉVIA encolhe só o necessário — até 60% do
+// tamanho real. Abaixo disso a etiqueta fica ilegível: aí a janela volta a
+// rolar (vários itens de uma entrada, por exemplo).
+// ⚠️ A conta não depende do zoom de agora (o que sobra é medido com ele e
+// dividido pela altura natural): um ajuste basta, não fica oscilando.
+// ⚠️ `zoom`, não `transform`: o zoom muda o espaço que a prévia ocupa; o
+// transform só a desenharia menor, deixando o buraco do tamanho original.
+// Só a TELA muda: o que vai para o papel é outra área (o portal lá embaixo).
+const MENOR_PREVIA = 0.6;
+function usePreviaQueCabe(caixaRef, ativa) {
+  const [zoom, setZoom] = useState(1);
+  useLayoutEffect(() => {
+    const caixa = caixaRef.current;
+    const painel = caixa?.closest('[role="dialog"]');
+    const fundo = painel?.parentElement;
+    if (!ativa || !caixa || !painel || !fundo) return undefined;
+    const px = (v) => parseFloat(v) || 0;
+    const ajustar = () => {
+      const rotulo = caixa.firstElementChild;
+      if (!rotulo) return;
+      const aplicado = px(rotulo.style.zoom) || 1;
+      const cc = getComputedStyle(caixa);
+      const atual = caixa.clientHeight - px(cc.paddingTop) - px(cc.paddingBottom);
+      if (atual <= 0) return;
+      const cp = getComputedStyle(painel);
+      const cf = getComputedStyle(fundo);
+      const ocupado = painel.offsetHeight + px(cp.marginTop) + px(cp.marginBottom) + px(cf.paddingTop) + px(cf.paddingBottom);
+      const sobra = fundo.clientHeight - ocupado;
+      const novo = Math.round(Math.min(1, Math.max(MENOR_PREVIA, (atual + sobra) / (atual / aplicado))) * 100) / 100;
+      if (Math.abs(novo - aplicado) >= 0.01) setZoom(novo);
+    };
+    ajustar();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    // no quadro seguinte: mudar de tamanho dentro do aviso do ResizeObserver
+    // vira o erro "ResizeObserver loop" no console
+    let quadro = 0;
+    const ro = new ResizeObserver(() => { cancelAnimationFrame(quadro); quadro = requestAnimationFrame(ajustar); });
+    ro.observe(painel);
+    ro.observe(fundo);
+    return () => { cancelAnimationFrame(quadro); ro.disconnect(); };
+  }, [caixaRef, ativa]);
+  return zoom;
 }
 
 export default function EtiquetaPrint() {
@@ -750,6 +796,10 @@ export default function EtiquetaPrint() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- camposDe lê só props estáveis + itens/responsavel (já na lista); qrs é lido só como cache
   }, [itens, config.incluirQR, responsavel]);
 
+  // a prévia que encolhe para a janela caber na tela (ver usePreviaQueCabe)
+  const previaRef = useRef(null);
+  const zoomPrevia = usePreviaQueCabe(previaRef, !!etiquetaState && itens.length > 0);
+
   if (!etiquetaState) return null;
 
   // Mantém um id por cópia: crescer a quantidade cria ids novos; diminuir
@@ -842,7 +892,8 @@ export default function EtiquetaPrint() {
   });
 
   // jeito do Magurō (23/11/2026): campo de 56 px, moldura de 3 px, letra grande
-  const inputCls = 'w-full min-h-14 border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-2xl px-3 text-lg text-polo-navy bg-white';
+  // 48 px (não 56) desde 23/11/2026: a janela inteira cabe na tela sem rolar
+  const inputCls = 'w-full min-h-12 border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-2xl px-3 text-lg text-polo-navy bg-white';
   const rotuloCls = 'text-xs font-bold uppercase tracking-wide text-gray-600';
 
   // Ao imprimir, cada cópia vira uma ETIQUETA FÍSICA registrada: é o que
@@ -1237,7 +1288,7 @@ export default function EtiquetaPrint() {
     <>
       {/* Modal on-screen (não imprime — print:hidden) */}
       <Dialogo aoFechar={fecharEtiquetas} titulo="Imprimir etiquetas"
-        forma="rolo" largura="md" camada={120} respiro="p5" classeCaixa="space-y-4">
+        forma="rolo" largura="md" camada={120} respiro="p5" classeCaixa="space-y-3" faixaCompacta>
         <>
           {/* ⚠️ A UNIDADE ANTES DE TUDO, quando a conta tem mais de uma casa:
               o tablet apontado para a unidade errada imprime o CNPJ errado, e
@@ -1267,11 +1318,11 @@ export default function EtiquetaPrint() {
               Entradas, Produção e "Mais usados" — sem isto, esses caminhos
               seriam o atalho para imprimir sem passar pelos nomes. */}
           {assinatura.regra === 'operador' && (faltaQuemImprime ? <QuemImprime dentroDaJanela /> : (
-            <div className="flex items-center justify-between gap-2 bg-polo-beige rounded-2xl pl-4 pr-1.5 py-1.5">
+            <div className="flex items-center justify-between gap-2 bg-polo-beige rounded-2xl pl-4 pr-1 py-0.5">
               <p className="text-sm text-gray-700 min-w-0 truncate">Assina: <strong className="text-polo-navy text-base">{responsavel}</strong></p>
               {!congelaAgora && (
                 <button type="button" onClick={trocarOperador}
-                  className="min-h-12 px-4 rounded-xl bg-white text-sm font-bold text-polo-navy flex-shrink-0">
+                  className="min-h-11 px-4 rounded-xl bg-white text-sm font-bold text-polo-navy flex-shrink-0">
                   Trocar
                 </button>
               )}
@@ -1282,100 +1333,32 @@ export default function EtiquetaPrint() {
             <Aviso tom="atencao">Escolha quem assina antes de imprimir.</Aviso>
           )}
 
-          {/* ⚠️ "COMO VAI SAIR" NO TOPO DA JANELA (23/11/2026, pedido do dono):
-              embaixo dos campos do item, num celular, a prévia ficava atrás dos
-              botões do rodapé e era preciso rolar para ver a etiqueta. Agora é a
-              primeira coisa depois de quem assina; quantidade, método, medida e
-              lote vêm logo abaixo, e a prévia acompanha cada mudança. */}
-          {/* ⚠️ PREVIEW em tamanho real. A área que de fato imprime é
-              visibility:hidden (index.css), então até aqui a pessoa só descobria
-              como a etiqueta ficou DEPOIS de gastar rolo — e o layout é
-              configurável (9 campos ligáveis + largura/altura), o que torna o
-              erro provavel. É a MESMA marcação da impressa, só que visível. */}
-          {/* <figure> com legenda: o leitor de tela anuncia "Como vai sair" */}
-          {itens[0] && (
-            <figure>
-              <figcaption className="text-xs font-semibold text-gray-700 mb-1.5">
-                Como vai sair — {config.larguraMm}×{config.alturaMm} mm
-              </figcaption>
-              {/* ⚠️ ANTES DE GASTAR ROLO. O corpo cresce de cima e o rodapé é
-                  ancorado embaixo: com val. original, marca, SIF e lote ligados
-                  ao mesmo tempo os dois se encontram, e o RESP. imprime EM CIMA
-                  do nome da casa — sem erro, sem aviso, direto no papel. A
-                  medida vem do mesmo desenho que vai para a impressora
-                  (medirEtiqueta), não de uma segunda conta. */}
-              {/* ⚠️ COM `estabelecimento`, senão a conta é de outra etiqueta.
-                  A impressão real usa `{ ...config, estabelecimento }` (o
-                  rodapé precisa dele) e esta medida usava `config` puro: o
-                  rodapé medido tinha só o nome da casa, o impresso tem até
-                  três linhas a mais. Media 12,9 mm de folga onde o papel
-                  tinha 2,4 — cega por mais do que a folga inteira.
-                  ⚠️ E mede TODOS os itens, não só o primeiro: quem estoura é
-                  sempre o de nome maior, que pode ser o terceiro da lista. */}
-              {desenhos.some(d => !d.cabe) && (
-                <Aviso tom="erro" className="mb-2">
-                  Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
-                  Em Administração → Etiqueta, desligue um campo (marca ou validade original).
-                </Aviso>
-              )}
-              {/* ⚠️ CADA APARELHO VÊ A PRÉVIA DO SEU PRÓPRIO PAPEL, e é isto
-                  que acaba com a família de defeitos "na tela aparece, no papel
-                  não". A etiqueta era desenhada duas vezes por códigos
-                  diferentes — HTML na tela, TSPL na impressora — e nada garantia
-                  que concordassem.
-
-                  No celular quem imprime é o TSPL: a prévia agora LÊ esse mesmo
-                  texto e o desenha (EtiquetaTSPL). No computador quem imprime é
-                  o diálogo do navegador, e o que sai no papel lá é exatamente o
-                  HTML abaixo — ali a prévia já era o próprio artefato impresso,
-                  e trocá-la por um SVG seria substituir uma prévia fiel por uma
-                  aproximação. Nada do que é IMPRESSO mudou nos dois casos. */}
-              <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
-                <div className="shadow-md flex-shrink-0">
-                  {mostrarDireto ? (
-                    <EtiquetaTSPL tspl={tsplDaPrevia} nomeImagem={nomeImagem} />
-                  ) : (
-                    <EtiquetaLabel
-                      campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}
-                      config={config}
-                      qr={qrs[payloadDe(itens[0], loteDaCopia(itens[0], 0))]}
-                      estabelecimento={estabelecimento}
-                      nivel={nivelDoItem(0)} />
-                  )}
-                </div>
-              </div>
-              {itens.length > 1 && (
-                <p className="text-xs text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
-              )}
-            </figure>
-          )}
-
           <div className="space-y-3">
             {itens.map((item, idx) => {
               const campos = camposDe(item);
               return (
-                <div key={idx} className="border-[3px] border-polo-navy/10 rounded-2xl p-3 space-y-3">
-                  {/* ⚠️ JEITO DO MAGURŌ (23/11/2026): o nome numa linha só dele
-                      (antes era cortado com "…" para caber a quantidade ao
-                      lado) e a quantidade embaixo, com − e + de 48 px. */}
-                  <p className="font-bold text-lg text-polo-navy leading-tight break-words">{item.nome}</p>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className={rotuloCls}>Etiquetas</span>
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                <div key={idx} className="border-[3px] border-polo-navy/10 rounded-2xl p-3 space-y-2">
+                  {/* ⚠️ O NOME E A QUANTIDADE NA MESMA LINHA (23/11/2026, para a
+                      janela caber na tela). O nome QUEBRA em vez de ser cortado
+                      com "…" — o corte foi o que fez o jeito do Magurō separar os
+                      dois. − e + de 44 px. */}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold text-lg text-polo-navy leading-tight break-words min-w-0">{item.nome}</p>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button type="button" aria-label={`Menos etiquetas de ${item.nome}`}
                         onClick={() => mudarQtd(idx, -1)}
-                        className="w-12 h-12 rounded-xl bg-gray-100 text-polo-navy flex items-center justify-center active:scale-95 transition-transform">
-                        <Icon name="menos" size={24} strokeWidth={2.5} />
+                        className="w-11 h-11 rounded-xl bg-gray-100 text-polo-navy flex items-center justify-center active:scale-95 transition-transform">
+                        <Icon name="menos" size={22} strokeWidth={2.5} />
                       </button>
                       <input type="number" min="0" max={MAX_COPIAS} inputMode="numeric" value={item.quantidade}
                         onChange={e => setItem(idx, { quantidade: e.target.value === '' ? '' : limitarCopias(e.target.value) })}
                         aria-label={`Quantidade de etiquetas de ${item.nome}`}
-                        className="w-16 h-12 text-center border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-xl text-2xl font-black text-polo-navy
+                        className="w-14 h-11 text-center border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-xl text-xl font-black text-polo-navy
                                    [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
                       <button type="button" aria-label={`Mais etiquetas de ${item.nome}`}
                         onClick={() => mudarQtd(idx, +1)}
-                        className="w-12 h-12 rounded-xl bg-polo-navy text-polo-gold flex items-center justify-center active:scale-95 transition-transform">
-                        <Icon name="mais" size={24} strokeWidth={2.5} />
+                        className="w-11 h-11 rounded-xl bg-polo-navy text-polo-gold flex items-center justify-center active:scale-95 transition-transform">
+                        <Icon name="mais" size={22} strokeWidth={2.5} />
                       </button>
                     </div>
                   </div>
@@ -1396,22 +1379,22 @@ export default function EtiquetaPrint() {
                   {comArmazenamento && item.armazenamento !== null && (() => {
                     const opcoes = opcoesDeConservacao(item);
                     const atual = valorDe(item.metodoId, item.armazenamento);
-                    const rotulo = metodosLigados(item).length
-                      ? 'Método de conservação — sai impresso na etiqueta'
-                      : 'Armazenamento — sai impresso na etiqueta';
-                    const classeRotulo = 'block text-xs font-bold text-polo-navy uppercase tracking-wide mb-1.5';
+                    // ⚠️ rótulo de UMA linha (23/11/2026): "— sai impresso na
+                    // etiqueta" quebrava em duas; a prévia logo abaixo mostra isso
+                    const rotulo = metodosLigados(item).length ? 'Método de conservação' : 'Armazenamento';
+                    const classeRotulo = 'block text-xs font-bold text-polo-navy uppercase tracking-wide mb-0.5';
                     return (
-                      <div className="border-[3px] border-polo-navy rounded-2xl bg-polo-beige px-3 py-2.5">
+                      <div className="border-[3px] border-polo-navy rounded-2xl bg-polo-beige px-3 py-1.5">
                         {opcoes.length <= 1 || reimpressao(item) ? (<>
                           <p className={classeRotulo}>{rotulo}</p>
-                          <p className="text-xl font-black text-polo-navy">{textoDaOpcao(item, atual)}</p>
+                          <p className="text-lg font-black text-polo-navy">{textoDaOpcao(item, atual)}</p>
                         </>) : (<>
                           <label htmlFor={`ep-armaz-${idx}`} className={classeRotulo}>{rotulo}</label>
                           {/* ⚠️ Trocar RESEMEIA o prazo (ver escolherConservacao). */}
                           <select id={`ep-armaz-${idx}`} value={atual}
                             onChange={e => escolherConservacao(idx, item, e.target.value)}
                             className="w-full bg-white border-[3px] border-polo-navy/40 rounded-xl px-3
-                                       text-base sm:text-lg font-bold text-polo-navy min-h-14">
+                                       text-base sm:text-lg font-bold text-polo-navy min-h-12">
                             {opcoes.map(v => <option key={v} value={v}>{textoDaOpcao(item, v)}</option>)}
                           </select>
                         </>)}
@@ -1436,7 +1419,7 @@ export default function EtiquetaPrint() {
                         sempre ("1,5 kg") — ver utils/medida.js. */}
                     <div>
                       <p className={`${rotuloCls} mb-1`}>Medida</p>
-                      <CampoMedida nome={item.nome} valor={item.medida} unidadeDoItem={item._unidade}
+                      <CampoMedida nome={item.nome} valor={item.medida} unidadeDoItem={item._unidade} compacto
                         aoMudar={(m) => setItem(idx, { medida: m })} />
                     </div>
                     {/* ⚠️ LOTE DO FABRICANTE, e ele mora AQUI e não no cadastro
@@ -1447,8 +1430,11 @@ export default function EtiquetaPrint() {
                         peça já virou dez porções. */}
                     {config.campos.lote !== false && <div>
                       <div className="mb-1">
+                        {/* "LOTE DO FABRICANTE" quebrava em duas linhas ao lado do
+                            "!": à vista fica "Lote"; o nome inteiro continua no
+                            leitor de tela e na dica */}
                         <label htmlFor={`ep-lote-${idx}`} className={rotuloCls}>
-                          Lote do fabricante
+                          Lote<span className="sr-only"> do fabricante</span>
                         </label>
                         <Dica texto="O número do lote impresso na caixa ou no rótulo do fornecedor. Só isso liga este pote ao recall do frigorífico depois de porcionar." />
                       </div>
@@ -1507,9 +1493,12 @@ export default function EtiquetaPrint() {
                       </button>
                     </Aviso>
                   )}
-                  <p className="text-base text-gray-700">
+                  {/* ⚠️ "Validade:" e não "Vencimento na etiqueta:" (23/11/2026):
+                      assim a data cabe numa linha só no celular — a mesma
+                      palavra que sai impressa no papel. */}
+                  <p className="text-sm text-gray-700">
                     {campos.validadeFmt
-                      ? <>Vencimento na etiqueta: <strong className="text-xl font-black text-polo-navy">{campos.validadeFmt}</strong></>
+                      ? <>Validade: <strong className="text-lg font-black text-polo-navy">{campos.validadeFmt}</strong></>
                       : 'Sem validade: etiqueta só de identificação.'}
                     {(item.marca || item.sif || item.lote) && <> · {item.marca}{item.sif ? ` · SIF ${item.sif}` : ''}{item.lote ? ` · lote ${item.lote}` : ''}</>}
                   </p>
@@ -1548,6 +1537,74 @@ export default function EtiquetaPrint() {
             })}
           </div>
 
+          {/* ⚠️ A PRÉVIA FICA DEPOIS DOS CAMPOS, E A JANELA CABE INTEIRA NA
+              TELA (23/11/2026, pedido do dono: "tudo aparecer de uma vez, sem
+              ter que rolar"). Subir a prévia para o topo foi tentado e
+              desfeito — ele não pediu outra ordem, pediu não rolar. Os campos
+              ficaram justos e a prévia encolhe o necessário (usePreviaQueCabe). */}
+          {/* ⚠️ PREVIEW em tamanho real. A área que de fato imprime é
+              visibility:hidden (index.css), então até aqui a pessoa só descobria
+              como a etiqueta ficou DEPOIS de gastar rolo — e o layout é
+              configurável (9 campos ligáveis + largura/altura), o que torna o
+              erro provavel. É a MESMA marcação da impressa, só que visível. */}
+          {/* <figure> com legenda: o leitor de tela anuncia "Como vai sair" */}
+          {itens[0] && (
+            <figure>
+              <figcaption className="text-xs font-semibold text-gray-700 mb-0.5">
+                Como vai sair — {config.larguraMm}×{config.alturaMm} mm
+              </figcaption>
+              {/* ⚠️ ANTES DE GASTAR ROLO. O corpo cresce de cima e o rodapé é
+                  ancorado embaixo: com val. original, marca, SIF e lote ligados
+                  ao mesmo tempo os dois se encontram, e o RESP. imprime EM CIMA
+                  do nome da casa — sem erro, sem aviso, direto no papel. A
+                  medida vem do mesmo desenho que vai para a impressora
+                  (medirEtiqueta), não de uma segunda conta. */}
+              {/* ⚠️ COM `estabelecimento`, senão a conta é de outra etiqueta.
+                  A impressão real usa `{ ...config, estabelecimento }` (o
+                  rodapé precisa dele) e esta medida usava `config` puro: o
+                  rodapé medido tinha só o nome da casa, o impresso tem até
+                  três linhas a mais. Media 12,9 mm de folga onde o papel
+                  tinha 2,4 — cega por mais do que a folga inteira.
+                  ⚠️ E mede TODOS os itens, não só o primeiro: quem estoura é
+                  sempre o de nome maior, que pode ser o terceiro da lista. */}
+              {desenhos.some(d => !d.cabe) && (
+                <Aviso tom="erro" className="mb-2">
+                  Não cabe no papel: as linhas de baixo vão sair por cima do rodapé.
+                  Em Administração → Etiqueta, desligue um campo (marca ou validade original).
+                </Aviso>
+              )}
+              {/* ⚠️ CADA APARELHO VÊ A PRÉVIA DO SEU PRÓPRIO PAPEL, e é isto
+                  que acaba com a família de defeitos "na tela aparece, no papel
+                  não". A etiqueta era desenhada duas vezes por códigos
+                  diferentes — HTML na tela, TSPL na impressora — e nada garantia
+                  que concordassem.
+
+                  No celular quem imprime é o TSPL: a prévia agora LÊ esse mesmo
+                  texto e o desenha (EtiquetaTSPL). No computador quem imprime é
+                  o diálogo do navegador, e o que sai no papel lá é exatamente o
+                  HTML abaixo — ali a prévia já era o próprio artefato impresso,
+                  e trocá-la por um SVG seria substituir uma prévia fiel por uma
+                  aproximação. Nada do que é IMPRESSO mudou nos dois casos. */}
+              <div ref={previaRef} className="bg-gray-100 rounded-xl p-1.5 flex justify-center overflow-x-auto">
+                <div className="shadow-md flex-shrink-0" style={zoomPrevia < 1 ? { zoom: zoomPrevia } : undefined}>
+                  {mostrarDireto ? (
+                    <EtiquetaTSPL tspl={tsplDaPrevia} nomeImagem={nomeImagem} />
+                  ) : (
+                    <EtiquetaLabel
+                      campos={camposDe(itens[0], loteDaCopia(itens[0], 0))}
+                      config={config}
+                      qr={qrs[payloadDe(itens[0], loteDaCopia(itens[0], 0))]}
+                      estabelecimento={estabelecimento}
+                      nivel={nivelDoItem(0)} />
+                  )}
+                </div>
+              </div>
+              {itens.length > 1 && (
+                <p className="text-xs text-gray-600 mt-1">Mostrando a primeira de {totalEtiquetas}.</p>
+              )}
+            </figure>
+          )}
+
           {/* ⚠️ CADA APARELHO VÊ SÓ O QUE SERVE PARA ELE.
               No celular não existe janela de impressão que valha: o Android
               precisaria de um app de terceiro no meio, e o resultado é pior que
@@ -1557,12 +1614,6 @@ export default function EtiquetaPrint() {
               Sobra um caso: celular SEM Bluetooth no navegador (iPhone, ou o
               app aberto dentro do WhatsApp). Aí o diálogo volta, porque é a
               única saída que resta — mas com uma linha dizendo por quê. */}
-          {mostrarDireto && (
-            <p className="text-xs text-gray-600 text-center">
-              Sai direto, no tamanho exato. Sem janela de impressão.
-            </p>
-          )}
-
           {/* ⚠️ NO IPHONE O CONSELHO É OUTRO, e o texto único que havia aqui
               era falso lá: dizia para abrir no Chrome, mas no iOS todo
               navegador é WebKit por imposição da Apple — o Chrome do iPhone
@@ -1579,38 +1630,25 @@ export default function EtiquetaPrint() {
             </p>
           )}
 
-          {/* ⚠️ RODAPÉ FIXO (23/09/2026): o resumo e os botões ficam sempre à
-              vista no fim da tela, enquanto o resto da janela rola por baixo.
-              `sticky` dentro do fundo que rola — os outros modais não mudam. */}
-          <div className="sticky -bottom-4 -mx-5 -mb-5 px-5 pb-5 pt-3 bg-white border-t border-gray-200 rounded-b-2xl space-y-2 z-10">
-          {resumoDoRodape && (
+          {/* ⚠️ RODAPÉ FIXO (23/09/2026): os botões ficam sempre à vista no fim
+              da tela. `sticky` dentro do fundo que rola — os outros modais não
+              mudam. ⚠️ DESDE 23/11/2026 é UMA LINHA nos dois caminhos —
+              [Fechar] [Imprimir] —, e o resumo só aparece com mais de um item:
+              com um, o método, a validade e a quantidade já estão logo acima,
+              e a janela inteira cabe na tela sem rolar (pedido do dono). */}
+          <div className="sticky bottom-0 sm:-bottom-4 -mx-5 -mb-5 px-5 pb-3 sm:pb-5 pt-3 bg-white border-t border-gray-200 rounded-b-2xl space-y-2 z-10">
+          {resumoDoRodape && itens.length > 1 && (
             <p className={`text-xs font-bold text-center ${resumoDoRodape.semVencimento ? 'text-amber-800' : 'text-polo-navy'}`}>
               {resumoDoRodape.partes.join(' · ')}
               {resumoDoRodape.semVencimento && <span className="block font-semibold">Sai sem vencimento — só identificação.</span>}
             </p>
           )}
-          {mostrarDireto && (
-            <div className="space-y-2">
-              <Botao tamanho="lg" onClick={imprimirDireto} disabled={totalEtiquetas === 0 || enviando || faltaResponsavel || !!bloqueioUnidade}>
-                {enviando
-                  ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
-                  : conectada ? 'Imprimir na impressora'
-                  : 'Conectar impressora e imprimir'}
-              </Botao>
-              {enviando && (
-                <button type="button" onClick={cancelarEnvio}
-                  className="w-full min-h-14 border-2 border-polo-navy/20 bg-white text-polo-navy font-bold text-lg rounded-2xl">
-                  Cancelar
-                </button>
-              )}
-              {/* ⚠️ ASSERTIVO, e é o único do arquivo que precisa ser. A pessoa
-                  acabou de tocar em imprimir; se a impressora recusou, ela tem
-                  de saber AGORA, não quando o leitor terminar a frase. Era o
-                  aviso mais silencioso do app: aparecia sem som nenhum e ela
-                  ficava tocando de novo. */}
-              {erroBLE && <Aviso tom={erroBLE.tom}>{erroBLE.texto}</Aviso>}
-            </div>
-          )}
+          {/* ⚠️ ASSERTIVO, e é o único do arquivo que precisa ser. A pessoa
+              acabou de tocar em imprimir; se a impressora recusou, ela tem
+              de saber AGORA, não quando o leitor terminar a frase. Era o
+              aviso mais silencioso do app: aparecia sem som nenhum e ela
+              ficava tocando de novo. */}
+          {mostrarDireto && erroBLE && <Aviso tom={erroBLE.tom}>{erroBLE.texto}</Aviso>}
 
           {naoSaiuPara === etiquetaState && !perguntaPapel && (
             <Aviso tom="atencao">
@@ -1636,10 +1674,29 @@ export default function EtiquetaPrint() {
             </div>
           ) : (
           <div className="flex gap-3">
-            <button onClick={fecharEtiquetas}
-              className={`${mostrarDialogo ? 'flex-1' : 'w-full'} min-h-14 border-2 border-polo-navy/20 bg-white text-polo-navy font-bold text-base sm:text-lg rounded-2xl leading-tight`}>
-              {mostrarDialogo ? 'Agora não' : 'Fechar'}
-            </button>
+            {/* enviando pelo Bluetooth, o da esquerda é a saída de emergência
+                (cancelarEnvio desconecta — é o que aborta o envio pendurado) */}
+            {enviando ? (
+              <button type="button" onClick={cancelarEnvio}
+                className="flex-1 min-h-14 border-2 border-polo-navy/20 bg-white text-polo-navy font-bold text-base sm:text-lg rounded-2xl leading-tight">
+                Cancelar
+              </button>
+            ) : (
+              <button onClick={fecharEtiquetas}
+                className="flex-1 min-h-14 border-2 border-polo-navy/20 bg-white text-polo-navy font-bold text-base sm:text-lg rounded-2xl leading-tight">
+                {mostrarDialogo ? 'Agora não' : 'Fechar'}
+              </button>
+            )}
+            {mostrarDireto && (
+              <button type="button" onClick={imprimirDireto}
+                disabled={totalEtiquetas === 0 || enviando || faltaResponsavel || !!bloqueioUnidade}
+                className="flex-[1.4] min-h-14 px-2 bg-polo-navy text-polo-gold font-black text-base sm:text-lg rounded-2xl leading-tight disabled:opacity-40">
+                {enviando
+                  ? (progresso ? `Enviando… ${progresso.feitos} de ${progresso.total}` : 'Enviando…')
+                  : conectada ? 'Imprimir na impressora'
+                  : 'Conectar impressora e imprimir'}
+              </button>
+            )}
             {mostrarDialogo && (
               <button onClick={imprimir} disabled={totalEtiquetas === 0 || qrPendente || faltaResponsavel || !!bloqueioUnidade}
                 className="flex-[1.4] min-h-14 px-2 bg-polo-navy text-polo-gold font-black text-base sm:text-lg rounded-2xl leading-tight disabled:opacity-40">

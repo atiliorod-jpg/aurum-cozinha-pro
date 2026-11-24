@@ -201,8 +201,9 @@ describe('janela de imprimir com o botão sempre visível', () => {
   const ep = ler('../../components/EtiquetaPrint.jsx');
 
   it('o rodapé com o resumo e os botões fica grudado no fim da tela', () => {
-    expect(ep).toMatch(/<div className="sticky -bottom-4 -mx-5 -mb-5 px-5 pb-5 pt-3 bg-white border-t/);
-    const rodape = ep.slice(ep.indexOf('<div className="sticky -bottom-4'));
+    // 23/11/2026: no celular a janela encosta embaixo (bottom-0); no computador, -bottom-4
+    expect(ep).toMatch(/<div className="sticky bottom-0 sm:-bottom-4 -mx-5 -mb-5 px-5 pb-3 sm:pb-5 pt-3 bg-white border-t/);
+    const rodape = ep.slice(ep.indexOf('<div className="sticky bottom-0'));
     // dentro do rodapé: o resumo, o botão direto, a pergunta do computador e os botões do diálogo
     expect(rodape.indexOf('resumoDoRodape.partes.join')).toBeGreaterThan(-1);
     expect(rodape.indexOf('onClick={imprimirDireto}')).toBeGreaterThan(-1);

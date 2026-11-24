@@ -28,7 +28,6 @@ import Etiquetas from './pages/Etiquetas';
 const Novidades = lazy(() => import('./pages/Novidades'));
 const Termos = lazy(() => import('./pages/Termos'));
 const Itens = lazy(() => import('./pages/etiquetas/Itens'));
-const EtiquetasImpressas = lazy(() => import('./pages/etiquetas/Impressas'));
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 import Icon from './components/Icons';
 import FaixaTopo from './components/FaixaTopo';
@@ -430,8 +429,10 @@ function Rotas() {
               plantão —, mas a tela também mostra quanto a casa imprimiu por
               dia, semana e mês, e isso é informação de gestão que o dono pode
               querer fechar. A trava por URL direta continua valendo. */}
-          <Route path="/impressas"  element={can('verImpressas') ? <EtiquetasImpressas /> : <Navigate to="/" replace />} />
-          <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') ? <RelatorioEtiquetas /> : <Navigate to="/" replace />} />
+          {/* ⚠️ DESDE 23/11/2026 a lista de impressas é uma aba do Relatório
+              de etiquetas (pedido do dono): o endereço antigo leva para ela. */}
+          <Route path="/impressas"  element={<Navigate to={can('verImpressas') ? '/relatorio-etiquetas?aba=impressas' : '/'} replace />} />
+          <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') || can('verImpressas') ? <RelatorioEtiquetas /> : <Navigate to="/" replace />} />
           {/* ⚠️ Estava SEM TRAVA: qualquer pessoa logada — inclusive o
               cozinheiro que entrou por convite — mudava temperatura, tamanho
               de etiqueta, dados do estabelecimento, suporte remoto e
@@ -517,14 +518,16 @@ function Rotas() {
           no cálculo do turno e corrompia a sobra apurada. */}
       <Route path="/inventario" element={temRecurso(modulo, 'inventario') && can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
       <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
-      <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') ? <RelatorioEtiquetas /> : <Navigate to="/administracao" replace />} />
+      <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') || (temRecurso(modulo, 'etiquetas') && can('verImpressas'))
+        ? <RelatorioEtiquetas /> : <Navigate to="/administracao" replace />} />
       {/* ⚠️ O ETIQUETAS É UM RECORTE DO PRO, e esta tela faltava aqui (15/09):
           reimprimir com as datas originais, totais, apagar a etiqueta que
           contou errado (M44) e a porta do relatório só existiam no plano
           menor. A lista é a mesma — mesmas chaves —, então quem sobe de plano
           encontra tudo. Mesma trava do plano Etiquetas (`verImpressas`), mais
           o recurso do estoque: no Seco não se imprime etiqueta. */}
-      <Route path="/impressas" element={temRecurso(modulo, 'etiquetas') && can('verImpressas') ? <EtiquetasImpressas /> : <Navigate to="/registrar" replace />} />
+      {/* desde 23/11/2026: a lista é a aba Impressas do Relatório de etiquetas */}
+      <Route path="/impressas" element={<Navigate to={temRecurso(modulo, 'etiquetas') && can('verImpressas') ? '/relatorio-etiquetas?aba=impressas' : '/registrar'} replace />} />
       <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
       {/* Administração é SEÇÃO, não estoque: tem rota própria e não mexe no
           módulo aberto. A regra de acesso vem de podeAbrirAdministracao — a

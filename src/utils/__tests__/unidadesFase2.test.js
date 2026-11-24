@@ -120,7 +120,8 @@ describe('equipe presa a uma unidade', () => {
     expect(ler('../../components/Layout.jsx')).toMatch(/\(soEtiq && \(!variasUnidades \|\| unidadeFixa\)\) \|\| semCozinhas/);
     const ep = ler('../../components/EtiquetaPrint.jsx');
     expect(ep).toMatch(/const bloqueioUnidade = bloqueioDaFixa\(unidadeFixa, unidades, unidadeAtual\?\.id \|\| null\);/);
-    expect(ep).toMatch(/faltaResponsavel \|\| !!bloqueioUnidade\}>/);
+    // os DOIS botões de imprimir (Bluetooth e janela do computador) travam
+    expect((ep.match(/faltaResponsavel \|\| !!bloqueioUnidade\}/g) || []).length).toBeGreaterThanOrEqual(2);
     expect(ler('../../pages/RelatorioEtiquetas.jsx')).toMatch(/const comUnidades = !unidadeFixa && /);
     expect(ler('../../pages/Balanco.jsx')).toMatch(/const variasUnidades = temUnidadesExtras\(unidades\) && !unidadeFixa;/);
     expect(ler('../../components/SeletorVisao.jsx')).toMatch(/estoquesAtivos\(estoquesPermitidos \|\| estoques\)/);

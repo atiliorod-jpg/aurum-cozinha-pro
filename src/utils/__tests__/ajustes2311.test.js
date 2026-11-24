@@ -168,12 +168,33 @@ describe('o AppContext usa a subida por chave', () => {
 });
 
 describe('telas', () => {
-  it('"Como vai sair" vem antes dos campos do item na janela de imprimir', () => {
+  // ⚠️ "Como vai sair" no topo foi tentado e DESFEITO no mesmo dia: o dono
+  // não queria outra ordem, queria a janela inteira na tela, sem rolar
+  it('"Como vai sair" fica depois dos campos, e a prévia encolhe para a janela caber na tela', () => {
     const ep = ler('../../components/EtiquetaPrint.jsx');
     const previa = ep.indexOf('Como vai sair — {config.larguraMm}');
     const itens = ep.indexOf('{itens.map((item, idx) => {');
-    expect(previa).toBeGreaterThan(0);
-    expect(itens).toBeGreaterThan(previa);
+    expect(itens).toBeGreaterThan(0);
+    expect(previa).toBeGreaterThan(itens);
+    expect(ep).toMatch(/const MENOR_PREVIA = 0\.6;/);
+    expect(ep).toMatch(/style=\{zoomPrevia < 1 \? \{ zoom: zoomPrevia \} : undefined\}/);
+    // rótulos de uma linha e botões numa linha só
+    expect(ep).toMatch(/const rotulo = metodosLigados\(item\)\.length \? 'Método de conservação' : 'Armazenamento';/);
+    expect(ep).toMatch(/Lote<span className="sr-only"> do fabricante<\/span>/);
+    expect(ep).not.toMatch(/Sai direto, no tamanho exato/);
+    expect(ler('../../components/Dialogo.jsx')).toMatch(/fundo: 'fixed inset-0 bg-polo-navy\/60 overflow-y-auto px-2 pt-2 pb-0 sm:p-4 print:hidden'/);
+  });
+
+  it('Impressas saiu da barra e mora no Relatório de etiquetas (Administração)', () => {
+    const nav = ler('../../components/NavBar.jsx');
+    const barraEtiquetas = nav.slice(nav.indexOf('const NAV_ETIQUETAS'), nav.indexOf('export default function NavBar'));
+    expect(barraEtiquetas).not.toMatch(/to: '\/impressas'/);
+    expect(barraEtiquetas).toMatch(/label: 'Administração', cap: 'configurarSistema', tambem: \['\/relatorio-etiquetas'\]/);
+    const rel = ler('../../pages/RelatorioEtiquetas.jsx');
+    expect(rel).toMatch(/\{aba === 'impressas' \? <ListaDeImpressas \/> : \(<>/);
+    expect(rel).toMatch(/verImpressas && \['impressas', 'Impressas'\]/);
+    expect(ler('../../pages/etiquetas/Impressas.jsx')).toMatch(/export function ListaDeImpressas\(\)/);
+    expect(ler('../../App.jsx')).toMatch(/<Route path="\/impressas"\s+element=\{<Navigate to=\{can\('verImpressas'\) \? '\/relatorio-etiquetas\?aba=impressas' : '\/'\} replace \/>\} \/>/);
   });
 
   it('Administração → Etiqueta não tem mais o cartão da impressora', () => {

@@ -1,11 +1,8 @@
 import { useDeferredValue, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '../../components/Layout';
 import Aviso from '../../components/Aviso';
 import { useApp } from '../../store/AppContext';
 import { useAuth } from '../../store/AuthContext';
 import { useUI } from '../../store/UIContext';
-import { pode } from '../../utils/permissoes';
 import { supabase } from '../../lib/supabase';
 import { hoje, fmtData } from '../../utils/formatters';
 import { medidaDoProduto, totaisImpressos } from '../../utils/etiquetas';
@@ -28,11 +25,15 @@ import Esqueleto from '../../components/Esqueleto';
  * sobre a própria idade — que é exatamente o que a etiqueta existe para
  * impedir.
  */
-export default function Impressas() {
-  const { etiquetasImpressas, tirarEtiquetaDaLista, etiquetaAindaSubindo, produtos, permissoes, rid, nuvemCarregada } = useApp();
+//
+// ⚠️ MORA DENTRO DO RELATÓRIO DE ETIQUETAS desde 23/11/2026 (pedido do dono):
+// era uma aba da barra de baixo; agora é a aba "Impressas" da tela
+// Administração → Relatório de etiquetas, e a barra ficou com Imprimir, Meus
+// itens e Administração. O endereço antigo (/impressas) leva para lá.
+export function ListaDeImpressas() {
+  const { etiquetasImpressas, tirarEtiquetaDaLista, etiquetaAindaSubindo, produtos, rid, nuvemCarregada } = useApp();
   const { sessao } = useAuth();
   const { abrirEtiquetas, confirm, toast } = useUI();
-  const verRelatorio = pode(sessao, permissoes, 'verRelatorioEtiquetas');
   // ⚠️ APAGAR É SÓ DA CONTA DONA, a pedido dele — e não é capacidade da
   // matriz, é CARGO: o relatório é o número com que ele cobra a equipe, e
   // quem pudesse apagar etiqueta mexeria nele. O banco confere de novo
@@ -170,17 +171,7 @@ export default function Impressas() {
   const vazio = !(etiquetasImpressas || []).length;
 
   return (
-    <Layout title="Impressas">
-      {/* ⚠️ FORA DO "vazio", de propósito: a lista abaixo é deste aparelho,
-          o relatório é da casa inteira. Um tablet novo, sem nada impresso
-          ainda, continua precisando chegar no relatório dos outros. */}
-      {verRelatorio && (
-        <Link to="/relatorio-etiquetas"
-          className="mb-4 flex items-center justify-between gap-2 bg-polo-navy text-polo-gold rounded-xl px-4 min-h-12 text-sm font-bold">
-          <span>Relatório por dia, semana e mês</span>
-          <span aria-hidden="true">→</span>
-        </Link>
-      )}
+    <>
       {vazio && !nuvemCarregada ? (
         <Esqueleto rotulo="Carregando as etiquetas impressas" />
       ) : vazio ? (
@@ -294,6 +285,6 @@ export default function Impressas() {
           )}
         </div>
       )}
-    </Layout>
+    </>
   );
 }

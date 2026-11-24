@@ -181,6 +181,36 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (23/11/2026, fim da noite) — JANELA SEM ROLAR; IMPRESSAS NO RELATÓRIO
+
+- **"Como vai sair" no topo foi DESFEITO** (o dono: "eu havia pedido apenas
+  para não ter que descer a tela, queria que tudo aparecesse de uma vez"). A
+  prévia voltou para depois dos campos e a janela cabe inteira na tela:
+  nome + − / + na mesma linha (o nome quebra, não corta), rótulos de uma linha
+  ("Método de conservação", "Lote" + sr-only "do fabricante"), "Validade:" no
+  lugar de "Vencimento na etiqueta:", campos de 48 px, botões numa linha só
+  ([Fechar] [Conectar impressora e imprimir] no Android também), resumo do
+  rodapé só com mais de um item, faixa do título baixa (`faixaCompacta` no
+  Dialogo), forma `rolo` encostada embaixo no celular. A PRÉVIA ENCOLHE o
+  necessário (`usePreviaQueCabe`, CSS `zoom`, mínimo 0,6). Medido: Android
+  360×740 → 0,83; 412×915 → 1; computador 1280×800 → 0,84; 360×680 ainda
+  rola 15 px. Robô `e2e/ajustes2311.pw.js` finge Android com Bluetooth
+  (`androidComBluetooth`) e confere que a janela não rola.
+- **Impressas saiu da barra**: a lista virou a aba "Impressas" do Relatório de
+  etiquetas (Administração). `ListaDeImpressas` em pages/etiquetas/Impressas.jsx;
+  `/impressas` redireciona para `/relatorio-etiquetas?aba=impressas`; o cartão
+  "Etiquetas impressas" do Registrar (Pro) saiu; a barra do plano Etiquetas
+  ficou Imprimir · Meus itens · Administração (`tambem` acende a aba no
+  relatório). Regras de acesso NÃO mudaram: a cozinha (sem Administração) fica
+  sem caminho para reimprimir até a reforma de cargos.
+- **Cargos e contas**: o dono pediu um PLANO para reformular tudo (não aplicar).
+  Proposta entregue no chat em 23/11: um login da casa por aparelho, sem sessão
+  única; nomes com senha de 2 números; Administração com senha de 4 números
+  CONFERIDA NO SERVIDOR (liberação curta; `meu_cargo()` passa a dizer
+  'diretoria' enquanto liberada, e as 72 regras do banco continuam valendo);
+  saem cargos, matriz, contas por pessoa, convites e vagas. Esperando as
+  decisões dele.
+
 ## Onde paramos (23/11/2026, noite) — AJUSTES DO DONO DEPOIS DO MAGURŌ
 
 Seis pedidos, todos feitos e publicados (sem migração):

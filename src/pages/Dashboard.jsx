@@ -15,7 +15,7 @@ import { turnoAberto } from '../utils/turno';
 import GuideTour from '../components/GuideTour';
 import BoasVindasCompleto from '../components/BoasVindasCompleto';
 import { temRecurso } from '../utils/modulos';
-import { pode } from '../utils/permissoes';
+import { pode, podeAbrirAdministracao } from '../utils/permissoes';
 import { ativoNoEstoque } from '../utils/itens';
 
 /**
@@ -102,7 +102,10 @@ export default function Dashboard() {
     .map(([u, q]) => `${fmtNum(q)} ${u}`).join(' · ');
 
   // quantas etiquetas saíram hoje (contando o papel), onde se imprime
+  // ⚠️ desde 23/11/2026 a lista mora na Administração (aba Impressas do
+  // Relatório de etiquetas): o atalho só aparece para quem abre a Administração
   const etiquetasHoje = temRecurso(modulo, 'etiquetas') && pode(sessao, permissoes, 'verImpressas')
+    && podeAbrirAdministracao(sessao, permissoes)
     ? totaisImpressos(etiquetasImpressas, dataHoje).hoje : null;
   // Finalização: o que está na bancada para contar no fechamento
   const naBancada = useMemo(() => (temRecurso(modulo, 'fecharTurno')
@@ -271,7 +274,7 @@ export default function Dashboard() {
 
       {/* Etiquetas que saíram hoje — o "últimas etiquetas" do plano */}
       {etiquetasHoje != null && (
-        <Link to="/impressas"
+        <Link to="/relatorio-etiquetas?aba=impressas"
           className="flex items-center justify-between gap-2 bg-white border-2 border-polo-navy/15 rounded-xl px-4 min-h-12 py-3 mb-4 active:scale-[0.99] transition-transform">
           <span className="text-sm font-semibold text-gray-800">Etiquetas impressas hoje</span>
           <span className="text-sm font-bold text-polo-navy">{etiquetasHoje} <span aria-hidden="true">›</span></span>
