@@ -39,7 +39,6 @@ export default function QuemRegistra({ manual, aoManual, rotulo = 'Responsável'
     );
   }
   return (
-    <QuemImprime dentroDaJanela titulo="Quem está registrando?"
-      texto="Toque no seu nome. O lançamento fica no seu nome." />
+    <QuemImprime dentroDaJanela titulo="Quem está registrando?" />
   );
 }

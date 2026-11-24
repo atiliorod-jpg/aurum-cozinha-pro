@@ -32,7 +32,8 @@ import Esqueleto from '../../components/Esqueleto';
 // itens e Administração. O endereço antigo (/impressas) leva para lá.
 // `comTotais` (23/11/2026): a tela livre de reimprimir mostra só a lista — os
 // totais do dia, da semana e do mês são do relatório, na Administração.
-export function ListaDeImpressas({ comTotais = true }) {
+// `soHoje` (24/11/2026): a tela de reimprimir mostra só as etiquetas de hoje.
+export function ListaDeImpressas({ comTotais = true, soHoje = false }) {
   const { etiquetasImpressas, tirarEtiquetaDaLista, etiquetaAindaSubindo, produtos, rid, nuvemCarregada } = useApp();
   const { sessao } = useAuth();
   const { abrirEtiquetas, confirm, toast } = useUI();
@@ -57,7 +58,7 @@ export function ListaDeImpressas({ comTotais = true }) {
   // "aquela que eu fiz hoje de manhã".
   const dias = useMemo(() => {
     const lista = (etiquetasImpressas || [])
-      .filter(e => casaBusca(buscaAdiada, e.nome, e.responsavel));
+      .filter(e => (!soHoje || e.impressoEm === hj) && casaBusca(buscaAdiada, e.nome, e.responsavel));
     const porDia = new Map();
     for (const e of lista) {
       const d = e.impressoEm || '';
@@ -72,7 +73,7 @@ export function ListaDeImpressas({ comTotais = true }) {
       lista_.sort((a, b) => (b.impressoEmHora || '').localeCompare(a.impressoEmHora || ''));
     }
     return [...porDia.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [etiquetasImpressas, buscaAdiada]);
+  }, [etiquetasImpressas, buscaAdiada, soHoje, hj]);
 
   const totalDoDia = (lista) => lista.reduce((s, e) => s + (e.copias || 1), 0);
 
@@ -170,17 +171,14 @@ export function ListaDeImpressas({ comTotais = true }) {
     toast('Etiqueta apagada da lista e do relatório.', 'sucesso');
   };
 
-  const vazio = !(etiquetasImpressas || []).length;
+  const vazio = !(etiquetasImpressas || []).some(e => !soHoje || e.impressoEm === hj);
 
   return (
     <>
       {vazio && !nuvemCarregada ? (
         <Esqueleto rotulo="Carregando as etiquetas impressas" />
       ) : vazio ? (
-        <Aviso tom="neutro">
-          Nada impresso ainda. O que sair no rolo aparece aqui, e dá para repetir
-          uma etiqueta que rasgou sem precisar montar tudo de novo.
-        </Aviso>
+        <Aviso tom="neutro">{soHoje ? 'Nenhuma etiqueta impressa hoje.' : 'Nada impresso ainda.'}</Aviso>
       ) : (
         <div className="space-y-4">
           {/* ⚠️ OS TOTAIS FICAM FORA DA BUSCA, de propósito: são o quanto a

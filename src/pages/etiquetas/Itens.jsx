@@ -9,7 +9,7 @@ import PlanilhaDeItens from '../../components/PlanilhaDeItens';
 import GuiaImpressora from '../../components/GuiaImpressora';
 import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
-import { BIBLIOTECA_ETIQUETAS, buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
+import { buscarNaBiblioteca, agruparPorCategoria } from '../../data/bibliotecaEtiquetas';
 import { armazenamentosAtivos, listarArmazenamentos, prazosDoProduto, comEspelhoDePrazos, temAlgumPrazo } from '../../utils/armazenamento';
 import { metodosDoProduto, normalizarMetodo, espelhoDosMetodos, metodosRepetidos, novoIdDeMetodo,
          temPrazo, prazoComHoras, listarEstados } from '../../utils/metodos';
@@ -303,11 +303,7 @@ export default function Itens() {
 
           {meus.length === 0 ? (
             <div className="bg-white rounded-xl p-6 text-center">
-              <p className="text-sm font-semibold text-polo-navy mb-1">Sua lista está vazia</p>
-              <p className="text-xs text-gray-600 mb-4">
-                O caminho rápido é a aba <strong>Adicionar prontos</strong>: {BIBLIOTECA_ETIQUETAS.length} itens
-                de cozinha já preenchidos, é só buscar, conferir e salvar.
-              </p>
+              <p className="text-sm font-semibold text-polo-navy mb-3">Sua lista está vazia</p>
               <Botao onClick={() => setAba('biblioteca')} largura="auto" tamanho="sm">Ver itens prontos</Botao>
             </div>
           ) : gruposMeus.length === 0 ? (
@@ -379,10 +375,6 @@ export default function Itens() {
         </>
       ) : (
         <div className="space-y-4">
-          <p className="text-xs text-gray-600 px-1">
-            Toque num item para abrir a ficha dele já preenchida — você confere o prazo e o
-            armazenamento da sua casa antes de salvar.
-          </p>
           {gruposBiblioteca.length === 0 ? (
             <p className="text-sm text-gray-600 text-center py-6">
               Nada encontrado para “{busca}”. Dá para cadastrar do zero na aba Meus itens.
@@ -707,11 +699,6 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-600 mt-1.5">
-            A conta é a mesma nos dois: a validade sai a partir de <strong>hoje</strong>.
-            Muda só a palavra impressa na etiqueta —{' '}
-            <strong>{form.tipoData === 'abertura' ? 'ABERTURA' : 'MANIPULAÇÃO'}</strong>.
-          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

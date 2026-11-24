@@ -309,13 +309,23 @@ function usePreviaQueCabe(caixaRef, ativa) {
       if (!rotulo) return;
       const aplicado = px(rotulo.style.zoom) || 1;
       const cc = getComputedStyle(caixa);
-      const atual = caixa.clientHeight - px(cc.paddingTop) - px(cc.paddingBottom);
+      // medidas com fração (getBoundingClientRect), não arredondadas
+      const atual = caixa.getBoundingClientRect().height - px(cc.paddingTop) - px(cc.paddingBottom);
       if (atual <= 0) return;
+      const natural = atual / aplicado;
       const cp = getComputedStyle(painel);
       const cf = getComputedStyle(fundo);
-      const ocupado = painel.offsetHeight + px(cp.marginTop) + px(cp.marginBottom) + px(cf.paddingTop) + px(cf.paddingBottom);
+      const ocupado = painel.getBoundingClientRect().height + px(cp.marginTop) + px(cp.marginBottom) + px(cf.paddingTop) + px(cf.paddingBottom);
       const sobra = fundo.clientHeight - ocupado;
-      const novo = Math.round(Math.min(1, Math.max(MENOR_PREVIA, (atual + sobra) / (atual / aplicado))) * 100) / 100;
+      // ⚠️ ZONA MORTA (24/11/2026, "a tela ao clicar em reimprimir está
+      // tremida"): num celular de densidade 3 o arredondamento de pixel fazia
+      // o zoom pular entre 0,79 e 0,80 A CADA QUADRO — a janela tremia.
+      // Agora só encolhe se passar da tela (deixando 2 px) e só cresce com
+      // mais de 16 px sobrando (deixando 8): no meio, fica como está.
+      let novo = aplicado;
+      if (sobra < 0) novo = (atual + sobra - 2) / natural;
+      else if (sobra > 16 && aplicado < 1) novo = (atual + sobra - 8) / natural;
+      novo = Math.floor(Math.min(1, Math.max(MENOR_PREVIA, novo)) * 100) / 100;
       if (Math.abs(novo - aplicado) >= 0.01) setZoom(novo);
     };
     ajustar();
@@ -1295,7 +1305,7 @@ export default function EtiquetaPrint() {
               isso é problema de fiscalização, não de tela. É a última chance
               de conferir antes de o rolo andar. */}
           {soTeste && (
-            <Aviso tom="neutro">Etiqueta de teste: serve para conferir o rolo e o alinhamento. Não entra no relatório nem na lista de impressas.</Aviso>
+            <Aviso tom="neutro">Etiqueta de teste: não entra no relatório.</Aviso>
           )}
           {variasUnidades && (
             <div className="border-2 border-polo-navy rounded-xl bg-polo-beige px-3 py-2">
@@ -1459,9 +1469,7 @@ export default function EtiquetaPrint() {
                       lê de onde veio e onde se cadastra o prazo certo. */}
                   {usandoSugestaoDeAbertura(item, item.diasOverride) && (
                     <p className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2">
-                      Sem prazo cadastrado para depois de aberto. A etiqueta sai com <strong>3 dias</strong>, o limite
-                      usual para produto aberto sob refrigeração. Se a embalagem disser outro prazo, peça para
-                      cadastrar em Meus itens.
+                      Sem prazo cadastrado: sai com <strong>3 dias</strong>, o usual para produto aberto.
                     </p>
                   )}
                   {/* ⚠️ O alerta que justifica o campo existir: prazo da casa

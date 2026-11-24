@@ -6,7 +6,6 @@ import { pode } from '../utils/permissoes';
 import { GRUPOS_ADMIN, useAcessosAdmin } from '../store/acessosAdmin';
 import { CartaoFilaComErro } from '../components/config/CartoesConta';
 import Icon from '../components/Icons';
-import { temRecurso } from '../utils/modulos';
 
 /**
  * Hub de ADMINISTRAÇÃO — o que é da CONTA, não de um estoque.
@@ -51,7 +50,7 @@ function CartaoLink({ to, icone, titulo, desc }) {
 
 export default function Administracao() {
   const { sessao } = useAuth();
-  const { permissoes, modulo } = useApp();
+  const { permissoes } = useApp();
   const acesso = useAcessosAdmin();
   const can = (cap) => pode(sessao, permissoes, cap);
 
@@ -63,11 +62,9 @@ export default function Administracao() {
     },
     // ⚠️ a lista de impressas (reimprimir) mora aqui desde 23/11/2026: era uma
     // aba da barra no plano Etiquetas e um cartão do menu no Pro
-    (can('verRelatorioEtiquetas') || (can('verImpressas') && (acesso.soEtiq || temRecurso(modulo, 'etiquetas')))) && {
+    can('verRelatorioEtiquetas') && {
       to: '/relatorio-etiquetas', icone: 'etiqueta', titulo: 'Relatório de etiquetas',
-      desc: can('verRelatorioEtiquetas')
-        ? 'Quantas saíram por dia, semana e mês, e a lista das impressas para reimprimir'
-        : 'A lista das etiquetas impressas, para reimprimir',
+      desc: 'Quantas saíram por dia, semana e mês',
     },
     !acesso.soEtiq && can('verFinanceiro') && {
       to: '/financeiro', icone: 'financeiro', titulo: 'Custos e valor do estoque', desc: 'Valor parado, curva ABC, consumo e perdas em R$',

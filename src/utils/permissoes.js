@@ -106,8 +106,10 @@ export const PERMISSOES_PADRAO = {
   cozinha: {
     // remover lançamentos é ação delicada — por padrão só gerência+; a diretoria
     // pode liberar para a cozinha na matriz de permissões (Config → Acessos).
+    // ⚠️ MEUS ITENS LIVRE (24/11/2026, pedido do dono): cadastrar item e
+    // mudar prazo não pede a senha da Administração (o banco: M63)
     removerRegistros: false, inventario: false, verRelatorio: false,
-    verAuditoria: false, gerenciarProdutos: false, configurarSistema: false,
+    verAuditoria: false, gerenciarProdutos: true, configurarSistema: false,
     // ⚠️ LIGADA por padrão nos dois cargos: repetir uma etiqueta que rasgou é
     // tarefa de quem está com o pote na mão. Sem isto, a cozinha teria de
     // chamar o dono no meio do serviço — ou remontar a etiqueta do zero, que

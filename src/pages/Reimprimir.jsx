@@ -17,10 +17,10 @@ export default function Reimprimir() {
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   return (
     <Layout title="Reimprimir etiqueta" voltar={soEtiq ? '/' : '/etiquetas'}>
-      <p className="text-sm text-gray-600 px-1 mb-3">
-        Toque em Reimprimir na etiqueta que rasgou: ela sai igual à original, com as mesmas datas.
-      </p>
-      <ListaDeImpressas comTotais={false} />
+      {/* ⚠️ SÓ AS DE HOJE (24/11/2026, pedido do dono): etiqueta de outro dia
+          não se reimprime — imprime uma nova */}
+      <p className="text-sm text-gray-600 px-1 mb-3">Só as de hoje. De outro dia, imprima uma nova.</p>
+      <ListaDeImpressas comTotais={false} soHoje />
     </Layout>
   );
 }

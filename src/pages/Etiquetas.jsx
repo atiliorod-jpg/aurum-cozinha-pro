@@ -24,13 +24,12 @@ import Icon from '../components/Icons';
 import QuemImprime, { FaixaOperador, ContinuarImprimindo } from '../components/QuemImprime';
 import BuscaPorVoz from '../components/BuscaPorVoz';
 import { useOperador, useTelaDeImprimir } from '../store/OperadorContext';
-import { faltasDoPrimeiroUso } from '../utils/primeiroUso';
 
 // Página de etiquetas: imprime etiqueta de QUALQUER produto do catálogo a
 // qualquer momento (sem precisar de entrada/produção) e mantém um catálogo
 // de etiquetas avulsas para itens fora do estoque (ex.: "Leite aberto").
 export default function Etiquetas() {
-  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes, nuvemCarregada, pessoas, prefsConhecidas } = useApp();
+  const { produtos, categorias, prefs, modulo, etiquetasImpressas, permissoes, nuvemCarregada } = useApp();
   const { abrirEtiquetas } = useUI();
   // ⚠️ "QUEM VAI IMPRIMIR?" ANTES DE TUDO (13/10/2026, pedido do dono, como
   // na Suflex): com a equipe cadastrada, a busca só aparece depois que a
@@ -39,9 +38,7 @@ export default function Etiquetas() {
   const { operador, comEquipe, trocar, expiracoes } = useOperador();
   const precisaEscolher = comEquipe && !operador;
 
-  const { sessao, impersonando, temPermissao } = useAuth();
-  // o aviso de equipe vazia não repete o PrimeiroUso, que já pede os nomes
-  const primeiroUsoNaTela = faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria: temPermissao('diretoria'), prefsConhecidas }).mostrar;
+  const { sessao, impersonando } = useAuth();
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   // reimprimir é livre para a cozinha (verImpressas nasce ligado)
   const podeReimprimir = pode(sessao, permissoes, 'verImpressas');
@@ -258,29 +255,20 @@ export default function Etiquetas() {
               </Link>
             )}
           </>) : (<>
-          {/* ⚠️ REIMPRIMIR AO LADO DO NOME (23/11/2026, pedido do dono): livre,
-              sem a senha da Administração — a lista mora em /impressas. */}
-          {comEquipe ? <FaixaOperador reimprimir={podeReimprimir ? '/impressas' : null} /> : (<>
-            {podeReimprimir && (
+          {comEquipe && <FaixaOperador />}
+          {/* ⚠️ REIMPRIMIR DISCRETO (24/11/2026, pedido do dono): um link
+              pequeno, livre (sem a senha da Administração), para as etiquetas
+              de HOJE — de outro dia, imprime uma nova.
+              ⚠️ Saíram as frases "toque em Imprimir no item…" e "cadastre a
+              equipe…": óbvias, só enchiam a tela (pedido do dono). */}
+          {podeReimprimir && (
+            <div className="flex justify-end -my-2">
               <Link to="/impressas"
-                className="min-h-12 rounded-2xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-base flex items-center justify-center gap-2">
-                <Icon name="historico" size={20} />Reimprimir etiqueta
+                className="min-h-11 px-2 inline-flex items-center gap-1.5 text-sm font-semibold text-polo-navy/80 underline-offset-2 hover:underline">
+                <Icon name="historico" size={16} />Reimprimir
               </Link>
-            )}
-            {!primeiroUsoNaTela && (
-              <p className="text-sm text-gray-600 px-1">
-                Cadastre a equipe em Administração para cada pessoa imprimir no próprio nome.
-              </p>
-            )}
-          </>)}
-          {/* ⚠️ gray-600, NÃO gray-500. Esta frase fica direto no fundo bege da
-              página (#F3EFE6), e ali o gray-500 dá 4,21 de contraste — abaixo
-              do mínimo de 4,5 para texto normal. Dentro dos cartões brancos o
-              gray-500 passa (4,83) e por isso continua lá; o que reprova é
-              justamente ESTA, a única instrução da tela principal. */}
-          <p className="text-sm text-gray-600 px-1">
-            Toque em Imprimir no item. A validade sai calculada pelo prazo que você cadastrou em Meus itens.
-          </p>
+            </div>
+          )}
           {/* ⚠️ BAIXA PELA ETIQUETA (M59): só no Pro, que imprime o QR. É a
               porta de quem está com a embalagem na mão — a de Validades é a
               da lista. */}
@@ -297,7 +285,7 @@ export default function Etiquetas() {
           {!buscando && catAtiva === '' && atalhos.length > 0 && (
             <section aria-label="Mais usados">
               <h2 className="font-titulo font-extrabold text-sm text-polo-navy uppercase tracking-wide px-1 mb-2">
-                Mais usados <span className="font-sans font-normal normal-case text-gray-600">· últimos 14 dias</span>
+                Mais usados
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {atalhos.map(p => (

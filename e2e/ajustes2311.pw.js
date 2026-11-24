@@ -6,8 +6,9 @@ import { entrarNaDemo, abrir, entrarComo, continuarImprimindo, digitarSenhaAdm }
 //  • a tela Imprimir é só etiquetar — a impressora foi para Meus itens;
 //  • a janela de imprimir cabe INTEIRA na tela, sem rolar (a prévia encolhe
 //    o necessário) — "Como vai sair" no topo foi tentado e desfeito;
-//  • Impressas saiu da barra: é a aba Impressas do Relatório de etiquetas,
-//    na Administração, e sem "válida / vencida";
+//  • Impressas saiu da barra e (24/11) também do Relatório de etiquetas:
+//    a lista é a do link discreto "Reimprimir" da tela Imprimir, só as de
+//    hoje, e sem "válida / vencida";
 //  • o texto dos métodos do item, curto.
 //  (os dados do estabelecimento que sumiam: utils/prefsDaConta.js e o teste
 //  ajustes2311.test.js — a demonstração não fala com o servidor)
@@ -52,7 +53,7 @@ test('Etiquetas: a barra tem Imprimir, Meus itens e Administração; a tela Impr
   await expect(page.getByLabel('Buscar item')).toHaveCount(0);
   // a etiqueta de teste continua saindo daqui
   await page.getByRole('button', { name: 'Imprimir etiqueta de teste' }).click();
-  await expect(page.getByRole('dialog').getByText(/Etiqueta de teste: serve para conferir o rolo/)).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('Etiqueta de teste: não entra no relatório.')).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
@@ -72,7 +73,7 @@ test('Pro: a tela Imprimir também é só etiquetar, e a impressora está em Meu
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
-test('Impressas: o relatório (com o Apagar) mora em Administração → Relatório de etiquetas, sem "válida / vencida"', async ({ page }) => {
+test('Impressas: o relatório sem a aba; a lista do Reimprimir sem "válida / vencida", com o Apagar só com a Administração aberta', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
   await entrarComo(page);
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
@@ -80,7 +81,7 @@ test('Impressas: o relatório (com o Apagar) mora em Administração → Relató
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
   await continuarImprimindo(page);
-  // pela barra: Administração (pede a senha) → Relatório de etiquetas → Impressas
+  // pela barra: Administração (pede a senha) → Relatório de etiquetas, SEM a aba Impressas (24/11/2026)
   await page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('link', { name: 'Administração' }).click();
   await digitarSenhaAdm(page);
   await page.getByRole('link', { name: /^Relatório de etiquetas/ }).click();
@@ -88,7 +89,10 @@ test('Impressas: o relatório (com o Apagar) mora em Administração → Relató
   // a aba Administração continua acesa dentro do relatório
   await expect(page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('link', { name: 'Administração' }))
     .toHaveClass(/text-polo-gold/);
-  await page.getByRole('button', { name: 'Impressas', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Impressas', exact: true })).toHaveCount(0);
+  // a lista para reimprimir: o link discreto da tela Imprimir — com a Administração aberta, com o Apagar
+  await abrir(page, '/');
+  await page.locator('main').getByRole('link', { name: 'Reimprimir' }).click();
   const linha = page.getByRole('listitem').filter({ hasText: 'Frango desfiado' }).first();
   await expect(linha).toBeVisible();
   await expect(linha).toContainText(/Validade \d{2}\/\d{2}/); // a data do papel continua

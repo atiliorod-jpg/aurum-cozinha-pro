@@ -1,12 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Aviso from '../components/Aviso';
 import Botao from '../components/Botao';
-import Abas from '../components/ui/Abas';
-import { ListaDeImpressas } from './etiquetas/Impressas';
-import { pode } from '../utils/permissoes';
-import { temRecurso } from '../utils/modulos';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
@@ -64,23 +59,12 @@ function Barra({ rotulo, valor, maximo }) {
  * filtro.
  */
 export default function RelatorioEtiquetas() {
-  const { rid, online, unidades, unidadeFixa, produtos, etiquetasImpressas, permissoes, modulo } = useApp();
+  const { rid, online, unidades, unidadeFixa, produtos, etiquetasImpressas } = useApp();
   const { sessao, impersonando } = useAuth();
   const { toast } = useUI();
   const soEtiquetas = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
-  // ⚠️ AS IMPRESSAS MORAM AQUI DESDE 23/11/2026 (pedido do dono): eram uma
-  // aba da barra de baixo. Cada aba com a SUA trava — o relatório é gestão
-  // (`verRelatorioEtiquetas`); a lista com o Reimprimir é `verImpressas` —,
-  // e com uma só não há barra de abas. A aba mora no ENDEREÇO
-  // (`?aba=impressas`): é para onde o antigo /impressas leva, e assim ele
-  // funciona também com o relatório já aberto.
-  const verRelatorio = pode(sessao, permissoes, 'verRelatorioEtiquetas');
-  const verImpressas = pode(sessao, permissoes, 'verImpressas') && (soEtiquetas || temRecurso(modulo, 'etiquetas'));
-  const abas = [verRelatorio && ['relatorio', 'Relatório'], verImpressas && ['impressas', 'Impressas']].filter(Boolean);
-  const [params, setParams] = useSearchParams();
-  const pedida = params.get('aba') === 'impressas' ? 'impressas' : 'relatorio';
-  const aba = abas.some(([v]) => v === pedida) ? pedida : (abas[0]?.[0] || 'relatorio');
-  const setAba = (v) => setParams(v === 'impressas' ? { aba: 'impressas' } : {}, { replace: true });
+  // ⚠️ A ABA IMPRESSAS SAIU (24/11/2026, pedido do dono): reimprimir é o link
+  // discreto da tela Imprimir, só com as etiquetas de hoje.
   const nomeCasa = impersonando?.restauranteNome || sessao?.restauranteNome || '';
   const hj = hoje();
 
@@ -108,8 +92,7 @@ export default function RelatorioEtiquetas() {
   const [resposta, setResposta] = useState({ chave: '', linhas: [], erro: '' });
 
   useEffect(() => {
-    // na aba Impressas o relatório não é lido (volta a ler ao trocar de aba)
-    if (semNuvem || aba !== 'relatorio') return undefined;
+    if (semNuvem) return undefined;
     let vivo = true;
     const fim = (linhas, erro) => { if (vivo) setResposta({ chave, linhas, erro }); };
     // `p_restaurante` só é ouvido pelo banco quando quem pede é o super-admin
@@ -118,7 +101,7 @@ export default function RelatorioEtiquetas() {
       .then(({ data, error }) => fim(error ? [] : (data || []), error ? (error.message || 'erro') : ''))
       .catch((e) => fim([], e?.message || 'erro'));
     return () => { vivo = false; };
-  }, [semNuvem, chave, anterior.de, periodo.ate, rid, aba]);
+  }, [semNuvem, chave, anterior.de, periodo.ate, rid]);
 
   const carregando = !semNuvem && resposta.chave !== chave;
   const todasAsLinhas = useMemo(
@@ -183,12 +166,7 @@ export default function RelatorioEtiquetas() {
   return (
     // no plano Etiquetas a barra de baixo fica (a Administração é uma aba
     // dela) e a volta vem pelo `voltar`, como nos grupos da Administração
-    <Layout title={verRelatorio ? 'Relatório de etiquetas' : 'Etiquetas impressas'}
-      {...(soEtiquetas ? { voltar: '/administracao' } : { area: 'admin' })}>
-      {abas.length > 1 && (
-        <Abas opcoes={abas} valor={aba} aoTrocar={setAba} className="mb-4 print:hidden" />
-      )}
-      {aba === 'impressas' ? <ListaDeImpressas /> : (<>
+    <Layout title="Relatório de etiquetas" {...(soEtiquetas ? { voltar: '/administracao' } : { area: 'admin' })}>
       <div className="relatorio-print-cabecalho mb-4">
         <p className="text-lg font-bold text-polo-navy">
           Relatório de etiquetas — {nomeCasa || 'Aurum'}
@@ -359,15 +337,14 @@ export default function RelatorioEtiquetas() {
             {/* ⚠️ O relatório é somado; a etiqueta avulsa mora na aba Impressas.
                 O dono procurou o botão de apagar AQUI e não achou — então a tela
                 diz onde ele fica, em vez de ele concluir que não existe. */}
-            {sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && verImpressas && (
+            {sessao?.cargo === 'diretoria' && !sessao?.eSuperAdmin && (
               <p className="text-xs text-gray-600 print:hidden">
-                Contou uma etiqueta que não saiu no papel? Apague na aba Impressas, aqui em cima: ela sai do relatório junto.
+                Contou uma etiqueta que não saiu no papel? Apague no mesmo dia, em Imprimir → Reimprimir.
               </p>
             )}
           </>
         )}
       </div>
-      </>)}
     </Layout>
   );
 }

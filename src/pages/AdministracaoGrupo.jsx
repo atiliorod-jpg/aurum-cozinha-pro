@@ -113,10 +113,7 @@ function GrupoEquipe({ a }) {
       {/* Os NOMES de quem registra e imprime, com a senha de cada um. Não são
           as contas de acesso: essas vêm logo abaixo. */}
       {a.nomes && (
-        <CartaoEquipe titulo="Nomes da equipe"
-          descricao={a.soEtiq
-            ? 'Quem imprime e assina a etiqueta. O nome sai impresso no campo RESP.'
-            : 'Quem aparece em “Quem está registrando?” e em “Quem vai imprimir?”. O nome sai no lançamento e no campo RESP. da etiqueta.'} />
+        <CartaoEquipe titulo="Nomes da equipe" />
       )}
       {/* ⚠️ JEITO DO MAGURŌ (23/11/2026, pedido do dono): saíram as contas da
           equipe, os cargos e a matriz de acessos. Um login da casa entra em

@@ -21,10 +21,10 @@ describe('SemItens', () => {
     expect(screen.getByRole('link', { name: 'Cadastrar itens' }).getAttribute('href')).toBe('/itens');
   });
 
-  it('a cozinha (sem a permissão) sabe a quem pedir', () => {
+  // ⚠️ desde 24/11/2026 Meus itens é livre (pedido do dono): a cozinha também cadastra
+  it('a cozinha também vai direto para Meus itens', () => {
     estado.sessao = { cargo: 'cozinha' };
     desenhar();
-    expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.getByText(/Peça a quem administra a conta/)).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Cadastrar itens' }).getAttribute('href')).toBe('/itens');
   });
 });

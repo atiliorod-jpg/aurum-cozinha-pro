@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useId, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { useOperador } from '../store/OperadorContext';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -315,11 +314,10 @@ export default function QuemImprime({ dentroDaJanela = false, titulo = 'Quem vai
       className={dentroDaJanela ? 'border-2 border-polo-navy/20 rounded-2xl p-3 space-y-3' : 'space-y-4'}>
       <div className={dentroDaJanela ? '' : 'px-1'}>
         <h2 id={idTitulo} className={`${dentroDaJanela ? 'text-base' : 'text-xl sm:text-2xl'} font-titulo font-black uppercase tracking-wide text-polo-navy`}>{titulo}</h2>
-        <p className={`${dentroDaJanela ? 'text-xs' : 'text-sm'} text-gray-600 mt-0.5`}>
-          {texto || (dentroDaJanela
-            ? 'Toque no seu nome para assinar estas etiquetas.'
-            : 'Toque no seu nome. A etiqueta sai assinada por você.')}
-        </p>
+        {/* ⚠️ sem "Toque no seu nome. A etiqueta sai assinada por você" (24/11/2026,
+            pedido do dono): o óbvio só enche a tela. Fica só o texto que quem
+            chama passar. */}
+        {texto && <p className={`${dentroDaJanela ? 'text-xs' : 'text-sm'} text-gray-600 mt-0.5`}>{texto}</p>}
       </div>
       {muitos && (
         <div className="space-y-2">
@@ -353,34 +351,17 @@ export default function QuemImprime({ dentroDaJanela = false, titulo = 'Quem vai
 }
 
 // "Imprimindo como Maria · Trocar" — acima da busca, na tela de Etiquetas.
-// ⚠️ `reimprimir` (23/11/2026, pedido do dono): o botão Reimprimir AO LADO do
-// nome, livre, sem a senha da Administração. Com ele, no celular, o nome
-// desce para baixo de "Imprimindo como" para os três caberem na linha.
-export function FaixaOperador({ reimprimir = null }) {
+// (o Reimprimir saiu daqui em 24/11/2026: virou um link discreto na tela)
+export function FaixaOperador() {
   const { operador, trocar } = useOperador();
   if (!operador) return null;
   return (
-    <div className="flex items-center justify-between gap-1.5 bg-polo-navy text-white rounded-2xl pl-4 pr-1.5 py-1.5">
-      {reimprimir ? (
-        <p className="min-w-0 leading-tight">
-          <span className="block text-xs text-white/80 sm:inline sm:text-base sm:text-white">Imprimindo como</span>{' '}
-          <strong className="block truncate text-base text-polo-gold sm:inline">{operador}</strong>
-        </p>
-      ) : (
-        <p className="text-base min-w-0 truncate">Imprimindo como <strong className="text-polo-gold">{operador}</strong></p>
-      )}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        {reimprimir && (
-          <Link to={reimprimir}
-            className="min-h-12 px-3 rounded-xl bg-polo-gold text-polo-navy text-sm font-bold flex items-center gap-1.5">
-            <Icon name="historico" size={16} />Reimprimir
-          </Link>
-        )}
-        <button type="button" onClick={trocar}
-          className="min-h-12 px-4 rounded-xl bg-white/10 text-white text-sm font-bold">
-          Trocar
-        </button>
-      </div>
+    <div className="flex items-center justify-between gap-2 bg-polo-navy text-white rounded-2xl pl-4 pr-1.5 py-1.5">
+      <p className="text-base min-w-0 truncate">Imprimindo como <strong className="text-polo-gold">{operador}</strong></p>
+      <button type="button" onClick={trocar}
+        className="min-h-12 px-4 rounded-xl bg-white/10 text-white text-sm font-bold flex-shrink-0">
+        Trocar
+      </button>
     </div>
   );
 }

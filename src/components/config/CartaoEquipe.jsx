@@ -90,14 +90,11 @@ export default function CartaoEquipe({ titulo = 'Equipe', descricao = '' }) {
       <div>
         <h2 className="text-base font-bold text-polo-navy">{titulo}</h2>
         {descricao && <p className="text-sm text-gray-600 mt-0.5">{descricao}</p>}
+        {/* ⚠️ TEXTO CURTO (24/11/2026, pedido do dono): saíram "não precisa ter
+            conta de acesso…" (as contas da equipe nem existem mais) e a
+            explicação longa dos dias de uso. */}
         <p className="text-sm text-gray-600 mt-1">
-          Não precisa ter conta de acesso: a conta pode ser de um posto (como “Produção”) e aqui entra
-          todo mundo que imprime. Cada pessoa cria a própria senha de {DIGITOS} números no primeiro toque
-          no nome. Esqueceu? Toque em Zerar senha, e ela cria outra.
-        </p>
-        <p className="text-sm text-gray-600 mt-1">
-          Quem fica {DIAS_SEM_USO} dias de uso sem entrar sai sozinho da lista. Só contam os dias em que a
-          cozinha usou o app: férias e folga geral não contam. O que a pessoa já imprimiu continua com o nome dela.
+          Cada um cria a própria senha de {DIGITOS} números. Quem fica {DIAS_SEM_USO} dias de uso sem entrar sai da lista.
         </p>
       </div>
 

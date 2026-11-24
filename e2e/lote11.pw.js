@@ -115,7 +115,7 @@ test('Estoque Seco: salvar a ficha não troca o pote aberto para congelado', asy
   const metodo = janela.getByLabel(/^Método de conservação/);
   await expect(metodo.locator('option:checked')).toContainText(/ambiente/i);
   await expect(metodo.locator('option:checked')).toContainText('3 dias (sugestão)');
-  await expect(janela.getByText(/Sem prazo cadastrado para depois de aberto/)).toBeVisible();
+  await expect(janela.getByText(/Sem prazo cadastrado: sai com/)).toBeVisible();
   await expect(janela.getByLabel('Dias', { exact: true })).toHaveCount(0);
   expect(erros, erros.join('\n')).toEqual([]);
 });

@@ -78,7 +78,9 @@ const FORMA = {
   // inteira na tela sem rolar (pedido do dono, 23/11/2026). O rodapé fixo
   // dela compensa o padding de baixo (`bottom-0 sm:-bottom-4`).
   rolo: {
-    fundo: 'fixed inset-0 bg-polo-navy/60 overflow-y-auto px-2 pt-2 pb-0 sm:p-4 print:hidden',
+    // `scrollbar-gutter`: a barra de rolagem do computador não muda a largura
+    // quando aparece — senão o texto quebra diferente e a prévia se reajusta
+    fundo: 'fixed inset-0 bg-polo-navy/60 overflow-y-auto [scrollbar-gutter:stable] px-2 pt-2 pb-0 sm:p-4 print:hidden',
     caixa: 'bg-white rounded-3xl shadow-2xl w-full mx-auto my-0 sm:my-4',
   },
 };

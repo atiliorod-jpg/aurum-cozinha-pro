@@ -63,9 +63,11 @@ describe('o que a cozinha pode sem a senha', () => {
   const fechada = { cargo: 'cozinha', cargoDaConta: 'diretoria', usuarioId: 'u1' };
   const aberta = { cargo: 'diretoria', cargoDaConta: 'diretoria', usuarioId: 'u1' };
 
-  it('fechada: imprimir, lançar e REIMPRIMIR; o resto pede a senha (a matriz não vale)', () => {
+  it('fechada: imprimir, lançar, REIMPRIMIR e Meus itens; o resto pede a senha (a matriz não vale)', () => {
     expect(pode(fechada, matrizGenerosa, 'verImpressas')).toBe(true);
-    for (const cap of ['gerenciarProdutos', 'configurarSistema', 'verFinanceiro', 'verRelatorio', 'verRelatorioEtiquetas', 'inventario', 'removerRegistros']) {
+    // Meus itens livre desde 24/11/2026 (pedido do dono; no banco, M63)
+    expect(pode(fechada, {}, 'gerenciarProdutos')).toBe(true);
+    for (const cap of ['configurarSistema', 'verFinanceiro', 'verRelatorio', 'verRelatorioEtiquetas', 'inventario', 'removerRegistros']) {
       expect(pode(fechada, matrizGenerosa, cap), cap).toBe(false);
     }
   });
@@ -77,8 +79,8 @@ describe('o que a cozinha pode sem a senha', () => {
   });
 
   it('banco sem a M62 (sessão sem cargoDaConta): a matriz de antes continua valendo', () => {
-    expect(pode({ cargo: 'cozinha', usuarioId: 'u2' }, matrizGenerosa, 'gerenciarProdutos')).toBe(true);
-    expect(pode({ cargo: 'cozinha', usuarioId: 'u2' }, {}, 'gerenciarProdutos')).toBe(false);
+    expect(pode({ cargo: 'cozinha', usuarioId: 'u2' }, matrizGenerosa, 'configurarSistema')).toBe(true);
+    expect(pode({ cargo: 'cozinha', usuarioId: 'u2' }, {}, 'configurarSistema')).toBe(false);
   });
 });
 
@@ -138,7 +140,8 @@ describe('o app usa a senha', () => {
     expect(app).toMatch(/<ComSenha liberado=\{admLiberada\} titulo="Administração"><Administracao \/><\/ComSenha>/);
     expect(app).toMatch(/<ComSenha liberado=\{can\('verRelatorioEtiquetas'\)\} titulo="Relatório de etiquetas">/);
     expect(app).toMatch(/can\('verImpressas'\) \? <Reimprimir \/>/);
-    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/<FaixaOperador reimprimir=\{podeReimprimir \? '\/impressas' : null\} \/>/);
+    // o reimprimir virou um link DISCRETO na tela Imprimir (24/11/2026)
+    expect(ler('../../pages/Etiquetas.jsx')).toMatch(/\{podeReimprimir && \([\s\S]{0,200}<Link to="\/impressas"/);
   });
 
   it('saíram as contas da equipe, os cargos e a matriz da Administração', () => {

@@ -182,7 +182,9 @@ describe('telas', () => {
     expect(ep).toMatch(/const rotulo = metodosLigados\(item\)\.length \? 'Método de conservação' : 'Armazenamento';/);
     expect(ep).toMatch(/Lote<span className="sr-only"> do fabricante<\/span>/);
     expect(ep).not.toMatch(/Sai direto, no tamanho exato/);
-    expect(ler('../../components/Dialogo.jsx')).toMatch(/fundo: 'fixed inset-0 bg-polo-navy\/60 overflow-y-auto px-2 pt-2 pb-0 sm:p-4 print:hidden'/);
+    expect(ler('../../components/Dialogo.jsx')).toMatch(/fundo: 'fixed inset-0 bg-polo-navy\/60 overflow-y-auto \[scrollbar-gutter:stable\] px-2 pt-2 pb-0 sm:p-4 print:hidden'/);
+    // a zona morta que acabou com a janela "tremida" (24/11/2026)
+    expect(ler('../../components/EtiquetaPrint.jsx')).toMatch(/if \(sobra < 0\) novo = \(atual \+ sobra - 2\) \/ natural;\s*else if \(sobra > 16 && aplicado < 1\) novo = \(atual \+ sobra - 8\) \/ natural;/);
   });
 
   it('Impressas saiu da barra e mora no Relatório de etiquetas (Administração)', () => {
@@ -190,10 +192,11 @@ describe('telas', () => {
     const barraEtiquetas = nav.slice(nav.indexOf('const NAV_ETIQUETAS'), nav.indexOf('export default function NavBar'));
     expect(barraEtiquetas).not.toMatch(/to: '\/impressas'/);
     expect(barraEtiquetas).toMatch(/label: 'Administração', cap: 'configurarSistema', tambem: \['\/relatorio-etiquetas'\]/);
+    // 24/11/2026: a aba Impressas SAIU do relatório (reimprimir = link discreto, só as de hoje)
     const rel = ler('../../pages/RelatorioEtiquetas.jsx');
-    expect(rel).toMatch(/\{aba === 'impressas' \? <ListaDeImpressas \/> : \(<>/);
-    expect(rel).toMatch(/verImpressas && \['impressas', 'Impressas'\]/);
-    expect(ler('../../pages/etiquetas/Impressas.jsx')).toMatch(/export function ListaDeImpressas\(\{ comTotais = true \}\)/);
+    expect(rel).not.toMatch(/ListaDeImpressas|\['impressas', 'Impressas'\]/);
+    expect(ler('../../pages/etiquetas/Impressas.jsx')).toMatch(/export function ListaDeImpressas\(\{ comTotais = true, soHoje = false \}\)/);
+    expect(ler('../../pages/Reimprimir.jsx')).toMatch(/<ListaDeImpressas comTotais=\{false\} soHoje \/>/);
     // e o REIMPRIMIR é livre, fora da Administração (23/11/2026, à noite)
     expect(ler('../../App.jsx')).toMatch(/<Route path="\/impressas"\s+element=\{can\('verImpressas'\) \? <Reimprimir \/> : <Navigate to="\/" replace \/>\} \/>/);
   });
