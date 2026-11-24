@@ -43,6 +43,8 @@ export default function Etiquetas() {
   // o aviso de equipe vazia não repete o PrimeiroUso, que já pede os nomes
   const primeiroUsoNaTela = faltasDoPrimeiroUso({ pessoas, prefs, ehDiretoria: temPermissao('diretoria'), prefsConhecidas }).mostrar;
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
+  // reimprimir é livre para a cozinha (verImpressas nasce ligado)
+  const podeReimprimir = pode(sessao, permissoes, 'verImpressas');
   const armazenamentos = armazenamentosAtivos(prefs);
   const estados = listarEstados(prefs);
   // Os métodos do item com prazo, num armazenamento que a casa ainda usa. Só
@@ -256,11 +258,21 @@ export default function Etiquetas() {
               </Link>
             )}
           </>) : (<>
-          {comEquipe ? <FaixaOperador /> : !primeiroUsoNaTela && (
-            <p className="text-sm text-gray-600 px-1">
-              Cadastre a equipe em Administração para cada pessoa imprimir no próprio nome.
-            </p>
-          )}
+          {/* ⚠️ REIMPRIMIR AO LADO DO NOME (23/11/2026, pedido do dono): livre,
+              sem a senha da Administração — a lista mora em /impressas. */}
+          {comEquipe ? <FaixaOperador reimprimir={podeReimprimir ? '/impressas' : null} /> : (<>
+            {podeReimprimir && (
+              <Link to="/impressas"
+                className="min-h-12 rounded-2xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-base flex items-center justify-center gap-2">
+                <Icon name="historico" size={20} />Reimprimir etiqueta
+              </Link>
+            )}
+            {!primeiroUsoNaTela && (
+              <p className="text-sm text-gray-600 px-1">
+                Cadastre a equipe em Administração para cada pessoa imprimir no próprio nome.
+              </p>
+            )}
+          </>)}
           {/* ⚠️ gray-600, NÃO gray-500. Esta frase fica direto no fundo bege da
               página (#F3EFE6), e ali o gray-500 dá 4,21 de contraste — abaixo
               do mínimo de 4,5 para texto normal. Dentro dos cartões brancos o

@@ -70,10 +70,12 @@ test('plano Pro, Produção: telas e janelas', async ({ page }) => {
     '/administracao/casa', '/administracao/etiqueta', '/administracao/equipe', '/administracao/estoque', '/administracao/conta',
     '/ler', '/pagamento',
   ], r, 'pro');
-  // a matriz de acessos de um cargo (fica fechada até tocar em "acessos")
+  // (a matriz de acessos saiu em 23/11/2026 — jeito do Magurō): a janela de
+  // trocar a senha da Administração
   await abrir(page, '/administracao/equipe');
-  await page.getByRole('button', { name: 'acessos', exact: true }).first().click();
-  r['matriz de acessos aberta'] = await medirAcessibilidade(page);
+  await page.getByRole('button', { name: 'Trocar a senha da Administração' }).click();
+  r['trocar a senha da Administração'] = await medirAcessibilidade(page, ['[role=dialog]']);
+  await page.keyboard.press('Escape');
   // a ficha do item do Pro (Lote 4), com as partes recolhidas abertas
   await abrir(page, '/itens');
   await page.getByRole('button', { name: /^Filé de Frango \(porção\)/ }).click();

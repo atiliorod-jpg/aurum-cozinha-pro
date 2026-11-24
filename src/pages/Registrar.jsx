@@ -101,8 +101,10 @@ const SECOES = [
 
 export default function Registrar() {
   const { modulo, permissoes } = useApp();
-  const { sessao } = useAuth();
-  const podeAcao = (a) => !a.cap || pode(sessao, permissoes, a.cap);
+  const { sessao, administracaoComSenha } = useAuth();
+  // ⚠️ com a senha da Administração (23/11/2026) o cartão aparece e a tela
+  // pede a senha; banco sem a M62, a trava de antes
+  const podeAcao = (a) => !a.cap || administracaoComSenha || pode(sessao, permissoes, a.cap);
   // esconde o que não existe no módulo aberto (o seco não tem receita nem apara)
   const noModulo = (a) => !a.recurso || temRecurso(modulo, a.recurso);
   // Variante do card quando o módulo não tem apara — título, ícone e descrição

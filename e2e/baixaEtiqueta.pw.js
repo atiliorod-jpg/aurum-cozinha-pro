@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo, entrarComo, trocarDeTela, porMedida } from './apoio';
+import { continuarImprimindo, entrarComo, trocarDeTela, liberarSeTravada, porMedida } from './apoio';
 
 // =====================================================================
 //  BAIXA PELA ETIQUETA (M59, 30/09/2026) — o caminho inteiro, na
@@ -33,6 +33,7 @@ async function entrarNoPro(page) {
 // a sessão da demonstração vive na memória: navega pelo histórico, sem recarregar
 async function abrir(page, rota) {
   await trocarDeTela(page, rota);
+  await liberarSeTravada(page); // a senha da Administração (1234 na demonstração)
 }
 
 async function codigosNaValidade(page) {

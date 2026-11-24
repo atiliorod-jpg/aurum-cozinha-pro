@@ -127,8 +127,10 @@ test('Cozinha Pro: a Administração tem cinco grupos, e o endereço antigo de C
   // favorito antigo: Configurações → Acessos cai em Equipe
   await abrir(page, '/configuracoes?secao=acessos');
   await expect(page.getByRole('heading', { name: 'Equipe', level: 1 })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Contas da equipe' })).toBeVisible();
+  // sem contas da equipe desde 23/11/2026 (jeito do Magurō): os nomes e a senha da Administração
+  await expect(page.getByRole('heading', { name: 'Contas da equipe' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Nomes da equipe' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Senha da Administração' })).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
 

@@ -157,7 +157,13 @@ export function pode(sessao, permissoes, cap) {
   if (!sessao) return false;
   if (sessao.eSuperAdmin) return true;
   const base = sessao.cargo;
-  if (base === 'diretoria') return true;        // dono do restaurante
+  if (base === 'diretoria') return true;        // Administração aberta (ou o dono, no banco sem a M62)
+  // ⚠️ SEM MATRIZ DESDE 23/11/2026 (jeito do Magurō, pedido do dono): com a
+  // M62 o cargo que chega aqui é o EFETIVO (utils/senhaAdministracao.js) —
+  // 'diretoria' com a Administração aberta, 'cozinha' fechada — e a cozinha
+  // tem o padrão de fábrica: imprimir, lançar e reimprimir. O resto pede a
+  // senha da Administração. A matriz abaixo só vale no banco sem a M62.
+  if (sessao.demo || sessao.cargoDaConta !== undefined) return !!(PERMISSOES_PADRAO[base] || {})[cap];
   const m = permissoes || {};
 
   const daConta = (m.porConta || {})[sessao.usuarioId] || {};
@@ -222,6 +228,9 @@ export function permissoesEfetivas(permissoes) {
 export function podeAbrirAdministracao(sessao, permissoes) {
   if (!sessao) return false;
   if (sessao.eSuperAdmin || sessao.cargo === 'diretoria' || sessao.cargo === 'gerencia') return true;
+  // ⚠️ JEITO DO MAGURŌ (23/11/2026): a porta aparece para todos, e a tela
+  // pede a senha da Administração (ver components/SenhaDaAdministracao).
+  if (sessao.demo || sessao.cargoDaConta !== undefined) return true;
   // cozinha só entra se a diretoria tiver liberado alguma capacidade de gestão
   // ⚠️ `verRelatorioEtiquetas` entra aqui porque, no plano completo, a porta
   // do relatório é um cartão da Administração: liberar o relatório para a

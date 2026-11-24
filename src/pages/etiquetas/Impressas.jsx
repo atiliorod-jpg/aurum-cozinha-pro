@@ -30,7 +30,9 @@ import Esqueleto from '../../components/Esqueleto';
 // era uma aba da barra de baixo; agora é a aba "Impressas" da tela
 // Administração → Relatório de etiquetas, e a barra ficou com Imprimir, Meus
 // itens e Administração. O endereço antigo (/impressas) leva para lá.
-export function ListaDeImpressas() {
+// `comTotais` (23/11/2026): a tela livre de reimprimir mostra só a lista — os
+// totais do dia, da semana e do mês são do relatório, na Administração.
+export function ListaDeImpressas({ comTotais = true }) {
   const { etiquetasImpressas, tirarEtiquetaDaLista, etiquetaAindaSubindo, produtos, rid, nuvemCarregada } = useApp();
   const { sessao } = useAuth();
   const { abrirEtiquetas, confirm, toast } = useUI();
@@ -185,6 +187,7 @@ export function ListaDeImpressas() {
               casa imprimiu, não o quanto o filtro achou. Um número de controle
               que muda quando se digita no campo de busca é um número em que
               ninguém confia. */}
+          {comTotais && (<>
           <div className="grid grid-cols-3 gap-2">
             {[
               ['Hoje', totais.hoje],
@@ -200,6 +203,7 @@ export function ListaDeImpressas() {
           <p className="text-xs text-gray-600 -mt-2">
             Etiquetas de papel, contando as cópias. “Este mês” é o mês do calendário.
           </p>
+          </>)}
 
           <input
             type="search" value={busca} onChange={ev => setBusca(ev.target.value)}

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo, passarPelaSenha, trocarDeTela } from './apoio';
+import { continuarImprimindo, passarPelaSenha, trocarDeTela, liberarSeTravada } from './apoio';
 
 // =====================================================================
 //  O robô entra na DEMONSTRAÇÃO (nada vai ao banco) e abre cada tela dos dois
@@ -68,6 +68,7 @@ async function abrirTela(page, rota) {
   // telas carregadas sob demanda: espera a tela nova de verdade (ver apoio.js)
   await trocarDeTela(page, rota);
   await expect(page.getByText('Esta tela travou')).toHaveCount(0);
+  await liberarSeTravada(page); // a senha da Administração (1234 na demonstração)
 }
 
 test('plano Etiquetas: todas as telas abrem sem travar', async ({ page }) => {

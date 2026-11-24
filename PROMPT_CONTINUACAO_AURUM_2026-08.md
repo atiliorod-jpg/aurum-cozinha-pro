@@ -181,6 +181,43 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (24/11/2026) — ACESSOS NO JEITO DO MAGURŌ (app no ar; BANCO ESPERANDO A M62)
+
+Decisões do dono: igual ao Magurō, mas a senha pode ser maior que 4 números;
+o celular dele também pede a senha; reimprimir é livre para a cozinha (botão
+ao lado de "Imprimindo como Maria"); Meus itens pede a senha; cobrança por
+aparelho ("depois redefinimos").
+- **Um login da casa** em quantos aparelhos quiser: a sessão única SAIU
+  (AuthContext não grava nem escuta `sessoes`).
+- **Senha da Administração, 4 a 8 números** (`utils/senhaAdministracao.js`,
+  `components/SenhaDaAdministracao.jsx`: TecladoVariavel com Entrar,
+  `ComSenha` nas rotas, `CartaoSenhaDaAdministracao` em Equipe). Trava:
+  /itens, /administracao*, /relatorio*, /financeiro, /balanco, /auditoria,
+  /estoques, /inventario, /pagamento. Fecha no cadeado dourado do cabeçalho
+  ou com 3 min sem toque (renova no banco a cada minuto de uso). Demonstração:
+  1234, no aparelho. Primeira senha e "esqueci": a CONTA DONA confirma a senha
+  do LOGIN (signInWithPassword) e cria.
+- **Sessão efetiva**: AuthContext entrega `sessao.cargo` = 'diretoria' com a
+  Administração aberta, 'cozinha' fechada (`cargoDaConta` = o gravado).
+  `pode()` sem matriz nesse modo. Banco SEM a M62 (RPC ausente): tudo como
+  antes (cargo gravado, sem senha) — por isso o app já está no ar.
+- **Saíram**: CartaoContas, CartaoCargos (matriz), CartaoEquipeDasUnidades;
+  a barra do Etiquetas mostra as 3 abas para todos; cartões com `cap` no
+  Registrar aparecem (a tela pede a senha). /impressas = tela LIVRE
+  `pages/Reimprimir.jsx` (sem totais, sem Apagar); o relatório com a aba
+  Impressas (Apagar) é da Administração.
+- **M62** (`src/lib/migration62_administracao_com_senha.sql`, NÃO APLICADA —
+  o token do Supabase continua inválido, 401): tabelas administracao_senha /
+  administracao_aberta (por `session_id` do token), `meu_cargo()` segue a
+  Administração aberta, pode_na_conta / pode_ver_financeiro só abertos, RPCs
+  abrir/renovar/fechar/definir/tem_senha, espera 30 s→10 min a cada 5 erros.
+  Depois de aplicar: `node scripts/pentest-administracao.mjs` (+ pentest-limpar).
+  ⚠️ Ao aplicar, TODOS os aparelhos viram "cozinha" até o dono criar a senha
+  (Meus itens/Administração → confirmar a senha do login → criar).
+- Robô: `e2e/apoio.js` digita 1234 quando a tela trava (`liberarSeTravada`,
+  sinal = o campo "Senha da Administração"); `e2e/administracaoSenha.pw.js`.
+  1147 testes de unidade, 88 cenários.
+
 ## Onde paramos (23/11/2026, fim da noite) — JANELA SEM ROLAR; IMPRESSAS NO RELATÓRIO
 
 - **"Como vai sair" no topo foi DESFEITO** (o dono: "eu havia pedido apenas

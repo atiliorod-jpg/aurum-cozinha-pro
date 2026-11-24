@@ -214,7 +214,8 @@ describe('o que existe no Etiquetas existe no Pro', () => {
   it('no Pro, a lista de impressas não tem mais porta no hub Registrar: é aba do relatório', () => {
     const hub = ler('../../pages/Registrar.jsx');
     expect(hub).not.toMatch(/to: '\/impressas'/);
-    expect(app).toMatch(/<Route path="\/impressas" element=\{<Navigate to=\{temRecurso\(modulo, 'etiquetas'\) && can\('verImpressas'\) \? '\/relatorio-etiquetas\?aba=impressas'/);
+    // desde 23/11/2026 /impressas é a tela LIVRE de reimprimir (a porta é o botão na tela Imprimir)
+    expect(app).toMatch(/<Route path="\/impressas" element=\{temRecurso\(modulo, 'etiquetas'\) && can\('verImpressas'\) \? <Reimprimir \/>/);
   });
 });
 

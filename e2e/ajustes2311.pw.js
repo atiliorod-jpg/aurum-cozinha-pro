@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { entrarNaDemo, abrir, entrarComo, continuarImprimindo } from './apoio';
+import { entrarNaDemo, abrir, entrarComo, continuarImprimindo, digitarSenhaAdm } from './apoio';
 
 // =====================================================================
 //  AJUSTES DE 23/11/2026 (pedido do dono)
@@ -72,7 +72,7 @@ test('Pro: a tela Imprimir também é só etiquetar, e a impressora está em Meu
   expect(erros, erros.join('\n')).toEqual([]);
 });
 
-test('Impressas: mora em Administração → Relatório de etiquetas, sem "válida / vencida"', async ({ page }) => {
+test('Impressas: o relatório (com o Apagar) mora em Administração → Relatório de etiquetas, sem "válida / vencida"', async ({ page }) => {
   const erros = await entrarNaDemo(page, 'Aurum Etiquetas');
   await entrarComo(page);
   await page.getByRole('button', { name: 'Imprimir etiqueta de Frango desfiado' }).click();
@@ -80,8 +80,9 @@ test('Impressas: mora em Administração → Relatório de etiquetas, sem "váli
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();
   await continuarImprimindo(page);
-  // pela barra: Administração → Relatório de etiquetas → Impressas
+  // pela barra: Administração (pede a senha) → Relatório de etiquetas → Impressas
   await page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('link', { name: 'Administração' }).click();
+  await digitarSenhaAdm(page);
   await page.getByRole('link', { name: /^Relatório de etiquetas/ }).click();
   await expect(page.getByRole('heading', { name: 'Relatório de etiquetas', level: 1 })).toBeVisible();
   // a aba Administração continua acesa dentro do relatório
@@ -93,9 +94,8 @@ test('Impressas: mora em Administração → Relatório de etiquetas, sem "váli
   await expect(linha).toContainText(/Validade \d{2}\/\d{2}/); // a data do papel continua
   await expect(page.getByRole('main')).not.toContainText(/Válida|Vencida|Consumida|Descartada/);
   await expect(linha.getByRole('button', { name: 'Reimprimir etiqueta de Frango desfiado' })).toBeVisible();
-  // o endereço antigo leva para a mesma aba
-  await abrir(page, '/impressas');
-  await expect(page.getByRole('button', { name: 'Impressas', pressed: true })).toBeVisible();
+  // com a Administração aberta, o Apagar (é da conta dona)
+  await expect(linha.getByRole('button', { name: 'Apagar etiqueta de Frango desfiado' })).toBeVisible();
   expect(erros, erros.join('\n')).toEqual([]);
 });
 

@@ -193,8 +193,9 @@ describe('telas', () => {
     const rel = ler('../../pages/RelatorioEtiquetas.jsx');
     expect(rel).toMatch(/\{aba === 'impressas' \? <ListaDeImpressas \/> : \(<>/);
     expect(rel).toMatch(/verImpressas && \['impressas', 'Impressas'\]/);
-    expect(ler('../../pages/etiquetas/Impressas.jsx')).toMatch(/export function ListaDeImpressas\(\)/);
-    expect(ler('../../App.jsx')).toMatch(/<Route path="\/impressas"\s+element=\{<Navigate to=\{can\('verImpressas'\) \? '\/relatorio-etiquetas\?aba=impressas' : '\/'\} replace \/>\} \/>/);
+    expect(ler('../../pages/etiquetas/Impressas.jsx')).toMatch(/export function ListaDeImpressas\(\{ comTotais = true \}\)/);
+    // e o REIMPRIMIR é livre, fora da Administração (23/11/2026, à noite)
+    expect(ler('../../App.jsx')).toMatch(/<Route path="\/impressas"\s+element=\{can\('verImpressas'\) \? <Reimprimir \/> : <Navigate to="\/" replace \/>\} \/>/);
   });
 
   it('Administração → Etiqueta não tem mais o cartão da impressora', () => {

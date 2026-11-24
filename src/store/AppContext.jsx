@@ -1835,6 +1835,11 @@ export function AppProvider({ children }) {
           else { // catálogo ainda não existe na nuvem → semeia (versionado)
             setRaw(def); cacheSet(rid, chave, def);
             if (soLeituraRef.current) return; // modo suporte: não escreve na conta do cliente
+            // ⚠️ O CADASTRO SÓ COM A ADMINISTRAÇÃO ABERTA (M56/M62): sem ela o
+            // banco recusa a semente e ela morreria na fila, com aviso de erro.
+            // Fica o padrão na tela; a primeira gravação de quem abrir a
+            // Administração cria o documento.
+            if (/(^|::)(produtos|categorias|fichas)$/.test(chave) && !podeCatalogoRef.current) return;
             salvarDocNuvem(rid, chave, def, (dadosSrv) => { setRaw(dadosSrv); cacheSet(rid, chave, dadosSrv); });
           }
         };

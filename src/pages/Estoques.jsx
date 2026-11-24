@@ -9,7 +9,6 @@ import { MODULOS, gerarIdInstancia } from '../utils/modulos';
 import { salvarEstoque } from '../utils/instancias';
 import { nomeDaUnidade, cidadeUf } from '../utils/unidades';
 import { formatarCNPJ } from '../utils/documentos';
-import { CartaoEquipeDasUnidades } from '../components/config/CartoesConfig';
 
 /**
  * UNIDADES E COZINHAS — onde a conta trabalha (era "Estoques da conta").
@@ -251,8 +250,8 @@ export default function Estoques() {
           );
         })}
 
-        {/* quem trabalha em cada unidade (M48) — só aparece com mais de uma */}
-        <CartaoEquipeDasUnidades />
+        {/* "quem trabalha em cada unidade" saiu com as contas da equipe
+            (23/11/2026, jeito do Magurō): um login da casa só */}
 
         {/* ⚠️ A UNIDADE NOVA NÃO SE CRIA AQUI: o CNPJ é o que identifica quem
             manipulou o alimento, e passa pela Aurum — que também combina o

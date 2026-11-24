@@ -29,7 +29,7 @@ const LOGO = `${import.meta.env.BASE_URL}logo-aurum.png`;
  * Etiquetas (Lote 4), onde a Administração é uma aba da barra.
  */
 export default function Layout({ title, children, actions, area = 'estoque', voltar = null }) {
-  const { sessao, logout, impersonando } = useAuth();
+  const { sessao, logout, impersonando, administracaoAberta, fecharAdministracao } = useAuth();
   const { pendencias, online, estoqueAtual, unidades, unidadeAtual, unidadeFixa } = useApp();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -90,7 +90,11 @@ export default function Layout({ title, children, actions, area = 'estoque', vol
     : semCozinhas ? 'Painel Aurum'
     : soEtiq ? (variasUnidades ? `Unidade: ${nomeUnidade}` : (sessao?.restauranteNome || ''))
     : [variasUnidades ? nomeUnidade : '', mod.label].filter(Boolean).join(' · ');
-  const cargoLegivel = sessao?.cargoRotulo || ({ diretoria: 'Diretoria', gerencia: 'Gerência', cozinha: 'Cozinha' }[sessao?.cargo]) || '';
+  // ⚠️ SEM CARGO NA TELA com a senha da Administração (23/11/2026): o login é
+  // da casa, e o cargo só diz se a Administração está aberta neste aparelho
+  const cargoLegivel = sessao?.cargoDaConta !== undefined
+    ? (administracaoAberta ? 'Login da casa · Administração aberta' : 'Login da casa')
+    : (sessao?.cargoRotulo || ({ diretoria: 'Diretoria', gerencia: 'Gerência', cozinha: 'Cozinha' }[sessao?.cargo]) || '');
 
   // Nome de exibição: o super-admin não tem perfil (nome null) → "Administrador".
   const nomeExibicao = sessao?.nome || (sessao?.eSuperAdmin ? 'Administrador' : 'sua conta');
@@ -189,6 +193,18 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           {actions}
           {sessao && (
             <div className="flex items-center gap-1.5">
+              {/* ⚠️ A ADMINISTRAÇÃO ESTÁ ABERTA NESTE APARELHO (23/11/2026): o
+                  cadeado dourado fica à vista em qualquer tela, e um toque
+                  fecha na hora — sem esperar os 3 minutos parada. */}
+              {administracaoAberta && (
+                <button type="button" onClick={fecharAdministracao} aria-label="Fechar a Administração"
+                  title="Administração aberta — toque para fechar"
+                  className="min-h-11 min-w-11 pl-2.5 pr-3 rounded-full bg-polo-gold text-polo-navy text-xs font-black flex items-center justify-center gap-1.5 flex-shrink-0
+                             active:scale-95 transition-transform focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+                  <Icon name="cadeado" size={16} />
+                  <span className="hidden sm:inline">Fechar</span>
+                </button>
+              )}
               <BotaoFeedback />
               {/* A Auditoria saiu daqui: virou cartão dentro de Administração,
                   junto do resto que é da CONTA (equipe, assinatura, relatórios).

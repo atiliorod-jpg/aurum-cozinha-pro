@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useId, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useOperador } from '../store/OperadorContext';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
@@ -352,16 +353,34 @@ export default function QuemImprime({ dentroDaJanela = false, titulo = 'Quem vai
 }
 
 // "Imprimindo como Maria · Trocar" — acima da busca, na tela de Etiquetas.
-export function FaixaOperador() {
+// ⚠️ `reimprimir` (23/11/2026, pedido do dono): o botão Reimprimir AO LADO do
+// nome, livre, sem a senha da Administração. Com ele, no celular, o nome
+// desce para baixo de "Imprimindo como" para os três caberem na linha.
+export function FaixaOperador({ reimprimir = null }) {
   const { operador, trocar } = useOperador();
   if (!operador) return null;
   return (
-    <div className="flex items-center justify-between gap-2 bg-polo-navy text-white rounded-2xl pl-4 pr-1.5 py-1.5">
-      <p className="text-base min-w-0 truncate">Imprimindo como <strong className="text-polo-gold">{operador}</strong></p>
-      <button type="button" onClick={trocar}
-        className="min-h-12 px-4 rounded-xl bg-white/10 text-white text-sm font-bold flex-shrink-0">
-        Trocar
-      </button>
+    <div className="flex items-center justify-between gap-1.5 bg-polo-navy text-white rounded-2xl pl-4 pr-1.5 py-1.5">
+      {reimprimir ? (
+        <p className="min-w-0 leading-tight">
+          <span className="block text-xs text-white/80 sm:inline sm:text-base sm:text-white">Imprimindo como</span>{' '}
+          <strong className="block truncate text-base text-polo-gold sm:inline">{operador}</strong>
+        </p>
+      ) : (
+        <p className="text-base min-w-0 truncate">Imprimindo como <strong className="text-polo-gold">{operador}</strong></p>
+      )}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {reimprimir && (
+          <Link to={reimprimir}
+            className="min-h-12 px-3 rounded-xl bg-polo-gold text-polo-navy text-sm font-bold flex items-center gap-1.5">
+            <Icon name="historico" size={16} />Reimprimir
+          </Link>
+        )}
+        <button type="button" onClick={trocar}
+          className="min-h-12 px-4 rounded-xl bg-white/10 text-white text-sm font-bold">
+          Trocar
+        </button>
+      </div>
     </div>
   );
 }

@@ -6,7 +6,11 @@ import { desvioDoRelogio, horaConfiavel } from '../utils/semInternet';
 import { unidadeFixaDe } from '../utils/unidades';
 import { enviarPendentes, definirUsuarioDosErros } from '../lib/relatarErro';
 import { statusAssinatura } from '../utils/assinatura';
-import { FALHA_DE_REDE, textoDaFalhaDeRede } from '../utils/conexao';
+import { FALHA_DE_REDE, textoDaFalhaDeRede, ehFalhaDeRede } from '../utils/conexao';
+import {
+  cargoEfetivo, senhaAdmValida, ehFuncaoAusente, textoDaRecusa, SENHA_DA_DEMO, MINUTOS_PARADA_ADM,
+  ERROS_ANTES_DE_ESPERAR, SEGUNDOS_DE_ESPERA_DEMO, MIN_DIGITOS_ADM, MAX_DIGITOS_ADM,
+} from '../utils/senhaAdministracao';
 
 // ⚠️ SERVIDOR FORA DO AR (03/11/2026): com o projeto pausado ou acordando
 // (502/503/504) o Supabase devolve a mensagem "{}". Vira falha de rede, e a
@@ -209,26 +213,21 @@ export function AuthProvider({ children }) {
   // Cadastro que confirmou o e-mail mas a criação do restaurante falhou
   // (ex.: o CNPJ foi tomado no intervalo). Guarda o motivo para a tela explicar.
   const [cadastroPendenteErro, setCadastroPendenteErro] = useState(null);
-  const [derrubado, setDerrubado] = useState(false); // a conta foi aberta em outro aparelho
-  const tokenRef = useRef(null); // token desta sessão (sessão única por conta)
-  const registradoEmRef = useRef(null); // quando ESTA sessão se registrou
+  // ⚠️ A SESSÃO ÚNICA SAIU (23/11/2026, jeito do Magurō): o LOGIN DA CASA
+  // entra em quantos aparelhos quiser, e quem imprime é dito pelos nomes.
+  // Antes, cada conta só ficava aberta num aparelho — e a casa precisava de
+  // uma conta (e uma vaga) por tablet. `derrubado` fica sempre falso; o
+  // estado continua só para quem ainda o lê.
+  const [derrubado, setDerrubado] = useState(false);
 
-  // Registra esta sessão como a ativa (sessão única): grava um token novo em
-  // `sessoes`. Outros aparelhos da mesma conta veem o token mudar (realtime) e
-  // se deslogam. Falha em silêncio se a tabela ainda não existe no banco.
-  const registrarSessaoAtiva = useCallback(async (userId) => {
-    const token = (crypto?.randomUUID?.() || `t_${Date.now()}_${Math.random().toString(36).slice(2)}`);
-    const agora = new Date().toISOString();
-    tokenRef.current = token;
-    registradoEmRef.current = agora;
-    // O Supabase NÃO lança em erro PostgREST normal — retorna { error }. Por isso
-    // checamos o retorno (o catch só pega falha de rede/exceção).
-    try {
-      const { error } = await supabase.from('sessoes').upsert({ user_id: userId, token, updated_at: agora });
-      if (error) console.warn('[sessão única] não foi possível registrar a sessão ativa:', error.message);
-    }
-    catch { /* tabela sessoes ainda não criada — recurso fica inerte */ }
-  }, []);
+  // ── A ADMINISTRAÇÃO COM SENHA (23/11/2026) — ver utils/senhaAdministracao.js ──
+  // Aberta POR APARELHO: a sessão de login deste aparelho (no banco, a M62
+  // guarda a sessão). Muda a conta, fecha sozinha — é derivado de quem abriu.
+  const [admAbertaDe, setAdmAbertaDe] = useState(null);
+  // O banco tem a M62? Lido do servidor (e guardado para abrir sem internet).
+  const [admInfo, setAdmInfo] = useState({ uid: null });
+  // Na demonstração a senha mora no aparelho (começa 1234, como no Magurō)
+  const demoAdmRef = useRef({ senha: SENHA_DA_DEMO, erros: 0, esperaAte: 0 });
 
   // Carrega o perfil do banco e monta a sessão
   // Semeia prefs.estabelecimento com os dados do cadastro. Esses campos saem
@@ -437,10 +436,9 @@ export function AuthProvider({ children }) {
       setSessao({ usuarioId: userId, email, nome: null, cargo: null, restauranteId: null, eSuperAdmin: email === 'atiliopinpolho@gmail.com', ts: Date.now() });
       setUsuarios([]);
     }
-    registrarSessaoAtiva(userId); // marca este aparelho como o ativo
     setCarregando(false);
     return true;
-  }, [registrarSessaoAtiva, semearEstabelecimento, confirmarAgora, entrarSemInternet]);
+  }, [semearEstabelecimento, confirmarAgora, entrarSemInternet]);
 
   // A conta dona prende (ou solta) uma conta da equipe numa unidade (M48).
   // Devolve a mensagem de erro, ou null. `unidade`: 'todas' | 'principal' | id.
@@ -542,36 +540,6 @@ export function AuthProvider({ children }) {
       document.removeEventListener('visibilitychange', aoVoltar);
     };
   }, [sessao?.usuarioId, sessao?.demo, reconfirmar]);
-
-  // Sessão única: escuta o token desta conta. Se mudar (outro aparelho logou),
-  // este aparelho cai e mostra a mensagem. (Demo não toca o Supabase.)
-  useEffect(() => {
-    const uid = sessao?.usuarioId;
-    if (!uid || sessao?.demo) return;
-    const canal = supabase.channel(`sessao-${uid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessoes', filter: `user_id=eq.${uid}` },
-        (p) => {
-          const novoToken = p.new?.token;
-          if (!novoToken || !tokenRef.current || novoToken === tokenRef.current) return;
-          // Só cai se o outro registro for MAIS NOVO que o nosso. Sem esta
-          // comparação, recarregar a página logo depois de entrar derrubava o
-          // usuário: a aba antiga ainda estava gravando o token dela e a nova,
-          // já assinada no realtime, lia aquilo como "abriram em outro
-          // aparelho". Aparecia um aviso de segurança assustador num reload.
-          const quando = p.new?.updated_at;
-          if (quando && registradoEmRef.current && quando <= registradoEmRef.current) return;
-          setDerrubado(true);
-          // ⚠️ O cache local precisa morrer aqui também. limparCacheLocal() só
-          // era chamado no botão Sair; numa queda por sessão única — que é
-          // JUSTAMENTE o caso de "abriram minha conta em outro aparelho" — os
-          // dados do restaurante ficavam no tablet, lisíveis pelo DevTools sem
-          // senha nenhuma.
-          limparCacheLocal();
-          supabase.auth.signOut();
-        })
-      .subscribe();
-    return () => supabase.removeChannel(canal);
-  }, [sessao?.usuarioId, sessao?.demo]);
 
   // Escuta mudanças de sessão do Supabase Auth.
   // IMPORTANTE: não chamar o banco DENTRO do callback do onAuthStateChange
@@ -1091,11 +1059,160 @@ export function AuthProvider({ children }) {
     return null;
   }, [sessao, carregarPerfil]);
 
-  const temPermissao = useCallback((cargoMinimo) => {
-    if (sessao?.eSuperAdmin) return true; // super-admin acessa tudo (inclusive em modo suporte)
-    if (!sessao?.cargo) return false;
-    return nivelDoCargo(sessao.cargo) >= nivelDoCargo(cargoMinimo);
+  // ── Administração com senha: o que vale AGORA neste aparelho ───────────
+  const idDaSessao = sessao ? (sessao.demo ? 'demo' : sessao.usuarioId) : null;
+  const admAberta = !!idDaSessao && admAbertaDe === idDaSessao;
+  // a conta real (não a demonstração, não o super-admin) que pergunta ao banco
+  const uidAdm = sessao && !sessao.demo && !sessao.eSuperAdmin && sessao.restauranteId ? sessao.usuarioId : null;
+  const infoAdm = admInfo.uid === uidAdm ? admInfo : ((uidAdm && cacheGet('_adm', uidAdm, null)) || {});
+  const admNoServidor = uidAdm ? (infoAdm.servidor ?? null) : null;
+  const temSenhaAdm = sessao?.demo ? true : (infoAdm.temSenha ?? null);
+  // a Administração pede senha neste aparelho? (banco sem a M62: não, como antes)
+  const comSenhaAdm = !!sessao && !sessao.eSuperAdmin && !!sessao.cargo && (!!sessao.demo || admNoServidor !== false);
+
+  useEffect(() => {
+    if (!uidAdm) return undefined;
+    let vivo = true;
+    supabase.rpc('tem_senha_administracao').then(({ data, error }) => {
+      if (!vivo) return;
+      if (error) {
+        // banco sem a M62: segue como antes; erro de rede: fica o guardado
+        if (ehFuncaoAusente(error)) {
+          const v = { uid: uidAdm, servidor: false, temSenha: null };
+          setAdmInfo(v); cacheSet('_adm', uidAdm, v);
+        }
+        return;
+      }
+      const v = { uid: uidAdm, servidor: true, temSenha: !!data };
+      setAdmInfo(v); cacheSet('_adm', uidAdm, v);
+    }, () => { /* sem internet: fica o guardado */ });
+    return () => { vivo = false; };
+  }, [uidAdm]);
+
+  const abrirAdministracao = useCallback(async (senha) => {
+    if (!sessao) return { ok: false, motivo: 'erro' };
+    if (sessao.demo) {
+      const d = demoAdmRef.current;
+      const agora = Date.now();
+      if (d.esperaAte > agora) return { ok: false, motivo: 'espera', segundos: Math.ceil((d.esperaAte - agora) / 1000) };
+      if (senha !== d.senha) {
+        d.erros += 1;
+        if (d.erros % ERROS_ANTES_DE_ESPERAR === 0) {
+          d.esperaAte = agora + SEGUNDOS_DE_ESPERA_DEMO * 1000;
+          return { ok: false, motivo: 'espera', segundos: SEGUNDOS_DE_ESPERA_DEMO };
+        }
+        return { ok: false, motivo: 'senha', restantes: ERROS_ANTES_DE_ESPERAR - (d.erros % ERROS_ANTES_DE_ESPERAR) };
+      }
+      d.erros = 0;
+      setAdmAbertaDe('demo');
+      return { ok: true };
+    }
+    try {
+      const { data, error } = await supabase.rpc('abrir_administracao', { p_senha: senha });
+      if (error) {
+        if (ehFuncaoAusente(error)) return { ok: false, motivo: 'sem_servidor' };
+        return { ok: false, motivo: ehFalhaDeRede(error) ? 'rede' : 'erro', mensagem: error.message };
+      }
+      if (data?.ok) { setAdmAbertaDe(sessao.usuarioId); return { ok: true }; }
+      if (data?.motivo === 'sem_senha') setAdmInfo({ uid: sessao.usuarioId, servidor: true, temSenha: false });
+      return data || { ok: false, motivo: 'erro' };
+    } catch (e) {
+      return { ok: false, motivo: 'rede', mensagem: e?.message };
+    }
   }, [sessao]);
+
+  // Fecha neste aparelho — e avisa o banco (fecha lá também; se a internet
+  // falhar, o banco fecha sozinho em minutos)
+  const fecharAdministracao = useCallback(() => {
+    setAdmAbertaDe(null);
+    if (sessao && !sessao.demo && !sessao.eSuperAdmin) supabase.rpc('fechar_administracao').then(() => {}, () => {});
+  }, [sessao]);
+
+  // Enquanto alguém mexe, o banco segura a Administração aberta mais um pouco
+  const renovarAdministracao = useCallback(() => {
+    if (!sessao || sessao.demo) return;
+    supabase.rpc('renovar_administracao').then(({ data, error }) => {
+      if (!error && data && data.ok === false) setAdmAbertaDe(null); // o banco já tinha fechado
+    }, () => {});
+  }, [sessao]);
+
+  // ⚠️ FECHA SOZINHA com MINUTOS_PARADA_ADM sem ninguém tocar na tela — no
+  // aparelho da cozinha, quem abriu pode ter saído de perto. Tocando, a cada
+  // minuto o banco ganha mais prazo.
+  useEffect(() => {
+    if (!admAberta) return undefined;
+    let ultimoToque = Date.now();
+    let renovadoEm = Date.now();
+    const tocou = () => { ultimoToque = Date.now(); };
+    const conferir = () => {
+      const agora = Date.now();
+      if (agora - ultimoToque >= MINUTOS_PARADA_ADM * 60_000) { fecharAdministracao(); return; }
+      if (agora - renovadoEm >= 60_000 && agora - ultimoToque < 60_000) { renovadoEm = agora; renovarAdministracao(); }
+    };
+    window.addEventListener('pointerdown', tocou, true);
+    window.addEventListener('keydown', tocou, true);
+    document.addEventListener('visibilitychange', conferir);
+    const relogio = setInterval(conferir, 5_000);
+    return () => {
+      window.removeEventListener('pointerdown', tocou, true);
+      window.removeEventListener('keydown', tocou, true);
+      document.removeEventListener('visibilitychange', conferir);
+      clearInterval(relogio);
+    };
+  }, [admAberta, fecharAdministracao, renovarAdministracao]);
+
+  // A primeira senha, e o "esqueci a senha": quem prova que é o dono digitando
+  // a senha do LOGIN desta conta. O banco confere que esse login acabou de
+  // acontecer (M62) antes de aceitar a senha nova.
+  const confirmarSenhaDoLogin = useCallback(async (senhaLogin) => {
+    if (!sessao || sessao.demo) return 'Indisponível na demonstração.';
+    if (sessao.cargo !== 'diretoria') return 'Só a conta dona cria ou troca a senha da Administração.';
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const email = u?.user?.email;
+      if (!email) return 'Sua sessão expirou. Entre de novo.';
+      const { error } = await supabase.auth.signInWithPassword({ email, password: senhaLogin });
+      if (!error) return null;
+      return /invalid login|invalid credentials/i.test(error.message || '')
+        ? 'Senha do login errada.' : (ehFalhaDeRede(error) ? await textoDaFalhaDeRede() : (error.message || 'Não consegui conferir.'));
+    } catch {
+      return textoDaFalhaDeRede();
+    }
+  }, [sessao]);
+
+  const definirSenhaAdministracao = useCallback(async (nova) => {
+    if (!senhaAdmValida(nova)) return `A senha da Administração tem de ${MIN_DIGITOS_ADM} a ${MAX_DIGITOS_ADM} números.`;
+    if (!sessao) return 'Sem sessão.';
+    if (sessao.demo) { demoAdmRef.current = { senha: nova, erros: 0, esperaAte: 0 }; return null; }
+    try {
+      const { error } = await supabase.rpc('definir_senha_administracao', { p_nova: nova });
+      if (error) {
+        if (ehFuncaoAusente(error)) return textoDaRecusa({ motivo: 'sem_servidor' });
+        return ehFalhaDeRede(error) ? await textoDaFalhaDeRede() : (error.message || 'Não salvou.');
+      }
+    } catch {
+      return textoDaFalhaDeRede();
+    }
+    const v = { uid: sessao.usuarioId, servidor: true, temSenha: true };
+    setAdmInfo(v); cacheSet('_adm', sessao.usuarioId, v);
+    return null;
+  }, [sessao]);
+
+  // ⚠️ A SESSÃO QUE O APP ENXERGA: com a senha da Administração ligada, o
+  // `cargo` é o EFETIVO ('diretoria' aberta, 'cozinha' fechada) e o gravado
+  // na conta vai em `cargoDaConta`. Toda trava da tela (pode, temPermissao,
+  // acessosAdmin) segue sozinha, sem saber que existe senha. Banco sem a M62:
+  // a sessão de sempre.
+  const sessaoEfetiva = useMemo(() => {
+    if (!comSenhaAdm) return sessao;
+    return { ...sessao, cargo: cargoEfetivo({ sessao, aberta: admAberta, noServidor: admNoServidor }), cargoDaConta: sessao.cargo, cargoRotulo: null };
+  }, [sessao, comSenhaAdm, admAberta, admNoServidor]);
+
+  const temPermissao = useCallback((cargoMinimo) => {
+    if (sessaoEfetiva?.eSuperAdmin) return true; // super-admin acessa tudo (inclusive em modo suporte)
+    if (!sessaoEfetiva?.cargo) return false;
+    return nivelDoCargo(sessaoEfetiva.cargo) >= nivelDoCargo(cargoMinimo);
+  }, [sessaoEfetiva]);
 
   // ⚠️ MEMOIZADO pelo mesmo motivo do AppContext: este provider fica DENTRO do
   // UIProvider, que guarda os toasts. Cada toast o re-renderizava e, sem o
@@ -1103,7 +1220,8 @@ export function AuthProvider({ children }) {
   // re-render sem nenhuma mudança de sessão. Toda chave vai nas dependências;
   // o eslint confere.
   const valor = useMemo(() => ({
-      sessao, carregando, usuarios, recuperando, erroDoLink: erroNaURL,
+      // ⚠️ a sessão EFETIVA (ver sessaoEfetiva): o cargo segue a Administração
+      sessao: sessaoEfetiva, carregando, usuarios, recuperando, erroDoLink: erroNaURL,
       convites, carregarConvites, revogarConvite,
       login, logout, entrarDemo, esqueceuSenha, atualizarSenha,
       criarPrimeiroAdmin, reenviarConfirmacao, cadastroPendenteErro,
@@ -1114,17 +1232,21 @@ export function AuthProvider({ children }) {
       impersonando, verComoRestaurante, sairImpersonacao,
       derrubado, limparDerrubado,
       confirmacao, reconfirmar, definirUnidadeDaConta, nivelLogin, verificarNivel,
+      // a Administração com senha (23/11/2026)
+      administracaoComSenha: comSenhaAdm, administracaoAberta: admAberta, temSenhaAdministracao: temSenhaAdm,
+      abrirAdministracao, fecharAdministracao, confirmarSenhaDoLogin, definirSenhaAdministracao,
     }), [
     // `erroNaURL` fica de fora de propósito: é constante de MÓDULO, lida uma
     // vez do endereço quando o arquivo carrega. Pôr uma variável de fora do
     // componente na lista não faz o memo recalcular — só engana quem lê.
-    sessao, carregando, usuarios, recuperando,
+    sessaoEfetiva, carregando, usuarios, recuperando,
     convites, carregarConvites, revogarConvite, login, logout,
     entrarDemo, esqueceuSenha, atualizarSenha, criarPrimeiroAdmin, reenviarConfirmacao,
     cadastroPendenteErro, criarConvite, usarConvite, alterarCargo, desativarUsuario,
     reativarUsuario, avisarPagamento, criarConta, trocarSenhaDe, removerConta,
     definirApelido, temPermissao, impersonando, verComoRestaurante, sairImpersonacao,
     derrubado, limparDerrubado, confirmacao, reconfirmar, definirUnidadeDaConta, nivelLogin, verificarNivel,
+    comSenhaAdm, admAberta, temSenhaAdm, abrirAdministracao, fecharAdministracao, confirmarSenhaDoLogin, definirSenhaAdministracao,
   ]);
 
   return (

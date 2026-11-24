@@ -21,7 +21,8 @@ test('Pro: Imprimir na barra, cozinha escrita no cabeçalho e conta num menu', a
   // o nome abre a conta; sair é dentro do menu
   await page.getByRole('button', { name: /^Conta de/ }).click();
   const conta = page.getByRole('dialog', { name: 'Sua conta' });
-  await expect(conta).toContainText('Diretoria');
+  // sem cargo desde 23/11/2026 (jeito do Magurō): o login é da casa
+  await expect(conta).toContainText('Login da casa');
   await expect(conta.getByRole('button', { name: 'Sair da conta' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);

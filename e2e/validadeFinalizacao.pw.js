@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo, entrarComo, trocarDeTela, porMedida } from './apoio';
+import { continuarImprimindo, entrarComo, trocarDeTela, liberarSeTravada, porMedida } from './apoio';
 
 // =====================================================================
 //  2ª ETAPA, LOTE A (01/10/2026) — na demonstração do Cozinha Pro:
@@ -32,6 +32,7 @@ async function entrarNoPro(page) {
 // a sessão da demonstração vive na memória: navega pelo histórico, sem recarregar
 async function abrir(page, rota) {
   await trocarDeTela(page, rota);
+  await liberarSeTravada(page); // a senha da Administração (1234 na demonstração)
 }
 
 const FRANGO = 'Filé de Frango (porção)';

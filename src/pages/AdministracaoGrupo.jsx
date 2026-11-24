@@ -2,14 +2,15 @@ import { Link, Navigate, useParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Icon from '../components/Icons';
 import { useApp } from '../store/AppContext';
-import { useAuth, CARGOS } from '../store/AuthContext';
+import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { GRUPOS_ADMIN, useAcessosAdmin } from '../store/acessosAdmin';
 import { temRecurso } from '../utils/modulos';
 import {
-  CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEstados, CartaoEtiquetas, CartaoEstabelecimento, CartaoContas,
-  CartaoCargos, CartaoMeusDados, CartaoUnidades, CartaoEquipeDasUnidades,
+  CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEstados, CartaoEtiquetas, CartaoEstabelecimento,
+  CartaoMeusDados, CartaoUnidades,
 } from '../components/config/CartoesConfig';
+import { CartaoSenhaDaAdministracao } from '../components/SenhaDaAdministracao';
 import CartaoMinhaSenha from '../components/config/CartaoMinhaSenha';
 import CartaoEquipe from '../components/config/CartaoEquipe';
 import { ResumoDoPlano } from '../components/PlanoExtras';
@@ -76,11 +77,10 @@ function GrupoCasa({ a }) {
           arquivar cozinha). No plano Etiquetas não há cozinha para criar: só a
           lista de unidades e onde cada conta trabalha — e os dois cartões
           somem com uma unidade só. */}
+      {/* ⚠️ "Onde cada conta trabalha" (CartaoEquipeDasUnidades) saiu com as
+          contas da equipe (23/11/2026): um login da casa só. */}
       {a.unidades && (a.soEtiq ? (
-        <>
-          <CartaoUnidades />
-          <CartaoEquipeDasUnidades />
-        </>
+        <CartaoUnidades />
       ) : (
         <LinkCartao to="/estoques" icone="estabelecimento" titulo="Unidades e cozinhas"
           desc="Cada unidade com o seu CNPJ, as cozinhas de cada uma e onde cada conta trabalha" />
@@ -108,10 +108,6 @@ function GrupoEtiqueta({ a }) {
 }
 
 function GrupoEquipe({ a }) {
-  const { permissoes, setPermissoes, logAudit } = useApp();
-  const { sessao, usuarios, criarConta, trocarSenhaDe, removerConta, desativarUsuario,
-          reativarUsuario, definirApelido, alterarCargo } = useAuth();
-  const { toast, confirm } = useUI();
   return (
     <>
       {/* Os NOMES de quem registra e imprime, com a senha de cada um. Não são
@@ -122,23 +118,11 @@ function GrupoEquipe({ a }) {
             ? 'Quem imprime e assina a etiqueta. O nome sai impresso no campo RESP.'
             : 'Quem aparece em “Quem está registrando?” e em “Quem vai imprimir?”. O nome sai no lançamento e no campo RESP. da etiqueta.'} />
       )}
-      {/* ⚠️ O plano Etiquetas não tinha COMO colocar ninguém para dentro: a
-          tela de acessos morava só no Pro. Quem etiqueta no dia a dia não é
-          quem assina o contrato. */}
-      {a.contas && (
-        <CartaoContas sessao={sessao} usuarios={usuarios} cargos={CARGOS}
-          criarConta={criarConta} trocarSenhaDe={trocarSenhaDe} removerConta={removerConta}
-          desativarUsuario={desativarUsuario} reativarUsuario={reativarUsuario}
-          definirApelido={definirApelido} alterarCargo={alterarCargo} logAudit={logAudit}
-          permissoes={permissoes} toast={toast} confirm={confirm} />
-      )}
-      {/* ⚠️ Logo depois das contas: criar o acesso e decidir o que ele alcança
-          são a mesma tarefa. E A MATRIZ NUNCA É DELEGADA: quem pudesse
-          editá-la se daria qualquer outra permissão. */}
-      {a.cargos && (
-        <CartaoCargos permissoes={permissoes} setPermissoes={setPermissoes}
-          usuarios={usuarios} soEtiquetas={a.soEtiq} toast={toast} confirm={confirm} />
-      )}
+      {/* ⚠️ JEITO DO MAGURŌ (23/11/2026, pedido do dono): saíram as contas da
+          equipe, os cargos e a matriz de acessos. Um login da casa entra em
+          todos os aparelhos; os nomes acima dizem quem fez; e a senha abaixo
+          abre a Administração, Meus itens e os relatórios. */}
+      <CartaoSenhaDaAdministracao />
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { continuarImprimindo, entrarComo, digitarNumeros, trocarDeTela, SENHA_DO_ROBO } from './apoio';
+import { continuarImprimindo, entrarComo, digitarNumeros, trocarDeTela, liberarSeTravada, SENHA_DO_ROBO } from './apoio';
 
 // =====================================================================
 //  "QUEM VAI IMPRIMIR?" (13/10/2026; jeito do Magurō desde 23/11/2026) —
@@ -34,6 +34,7 @@ async function entrarNaDemo(page, plano) {
 
 async function abrir(page, rota) {
   await trocarDeTela(page, rota);
+  await liberarSeTravada(page); // a senha da Administração (1234 na demonstração)
 }
 
 const nomes = (page) => page.getByRole('heading', { name: 'Quem vai imprimir?' });

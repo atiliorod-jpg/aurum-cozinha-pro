@@ -15,7 +15,8 @@ export const GRUPOS_ADMIN = [
   { id: 'etiqueta', titulo: 'Etiqueta', icone: 'impressora', desc: 'Campos impressos, QR, armazenamentos e temperaturas',
     // o plano Etiquetas não tem QR nem cozinhas: a descrição não promete o que não há
     descEtiquetas: 'Campos impressos, armazenamentos e temperaturas' },
-  { id: 'equipe', titulo: 'Equipe', icone: 'equipe', desc: 'Nomes e senhas de quem imprime, contas de acesso, o que cada cargo pode' },
+  // desde 23/11/2026: sem contas da equipe, cargos nem matriz (jeito do Magurō)
+  { id: 'equipe', titulo: 'Equipe', icone: 'equipe', desc: 'Nomes e senhas de quem imprime, e a senha da Administração' },
   { id: 'estoque', titulo: 'Estoque', icone: 'mantimento', desc: 'Receitas, destinos de saída e de apara, mínimo e máximo, rendimento' },
   { id: 'conta', titulo: 'Conta', icone: 'cartao', desc: 'Plano e pagamento, minha senha, suporte remoto, cópia de segurança' },
 ];

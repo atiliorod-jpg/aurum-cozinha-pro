@@ -31,6 +31,7 @@ const Itens = lazy(() => import('./pages/etiquetas/Itens'));
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from './utils/produto';
 import Icon from './components/Icons';
 import FaixaTopo from './components/FaixaTopo';
+import { ComSenha } from './components/SenhaDaAdministracao';
 // Páginas pesadas carregam sob demanda (code-split): primeiro load menor no tablet
 // ⚠️ AS TELAS DO PLANO COMPLETO SÓ BAIXAM QUANDO ALGUÉM ABRE UMA DELAS.
 // Elas eram importadas direto, então o cliente do Aurum Etiquetas — que nunca
@@ -60,13 +61,17 @@ const Estoques = lazy(() => import('./pages/Estoques'));
 const Balanco = lazy(() => import('./pages/Balanco'));
 // Os dois planos usam a mesma tela; ela só baixa quando alguém abre.
 const RelatorioEtiquetas = lazy(() => import('./pages/RelatorioEtiquetas'));
+// reimprimir é LIVRE (23/11/2026): a porta é o botão na tela Imprimir
+const Reimprimir = lazy(() => import('./pages/Reimprimir'));
 // Baixa pela etiqueta (M59): só o Pro imprime QR, então só o Pro tem a tela
 const LerEtiquetas = lazy(() => import('./pages/LerEtiquetas'));
 
 // Rota restrita a um cargo mínimo (gerencia/diretoria)
-function Restrito({ cargo = 'gerencia', children }) {
+// ⚠️ DESDE 23/11/2026 quem não pode vê a SENHA DA ADMINISTRAÇÃO (ComSenha),
+// e não é mais mandado de volta: com a senha, a tela abre ali mesmo.
+function Restrito({ cargo = 'gerencia', titulo = 'Administração', children }) {
   const { temPermissao } = useAuth();
-  return temPermissao(cargo) ? children : <Navigate to="/" replace />;
+  return <ComSenha liberado={temPermissao(cargo)} titulo={titulo}>{children}</ComSenha>;
 }
 
 // Tela de carregamento (enquanto verifica a sessão na nuvem)
@@ -174,7 +179,7 @@ function BloqueioAssinatura({ podeAssinar, bloqueado, aguardando, eraAssinante =
 
 function Rotas() {
   const { sessao, carregando, logout, recuperando, impersonando, sairImpersonacao, derrubado, limparDerrubado, temPermissao, cadastroPendenteErro,
-          confirmacao, reconfirmar, nivelLogin, verificarNivel } = useAuth();
+          confirmacao, reconfirmar, nivelLogin, verificarNivel, administracaoComSenha } = useAuth();
   // marca de que este aparelho já escolheu o estoque de trabalho
   const [escolheuModulo, setEscolheuModulo] = useState(() => {
     try { return !!localStorage.getItem('pe::modulo'); } catch { return true; }
@@ -188,6 +193,9 @@ function Rotas() {
   // Capacidade configurável (matriz de permissões da diretoria) — diretoria e
   // super-admin sempre podem; cozinha/gerência seguem permissoes.
   const can = (cap) => pode(sessao, permissoes, cap);
+  // A Administração abre? Com a senha ligada (M62 ou demonstração): só com ela
+  // aberta neste aparelho. Banco sem a M62: a regra de antes.
+  const admLiberada = administracaoComSenha ? temPermissao('diretoria') : podeAbrirAdministracao(sessao, permissoes);
 
   // Boas-vindas (flag gravada no cadastro/aceite de convite, antes da sessão montar)
   useEffect(() => {
@@ -422,17 +430,21 @@ function Rotas() {
               (link antigo, favorito) e leva para o mesmo lugar. */}
           <Route path="/"           element={<Etiquetas />} />
           <Route path="/etiquetas"  element={<Navigate to="/" replace />} />
-          <Route path="/itens"      element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
+          {/* ⚠️ JEITO DO MAGURŌ (23/11/2026): Meus itens, a Administração e o
+              relatório pedem a SENHA DA ADMINISTRAÇÃO (ComSenha) — em vez de
+              mandar de volta, a tela trava ali e abre com a senha. */}
+          <Route path="/itens"      element={<ComSenha liberado={can('gerenciarProdutos')} titulo="Meus itens"><Itens /></ComSenha>} />
           {/* ⚠️ Por CAPACIDADE (`verImpressas`), como as demais telas: quem
               decide é o dono, na matriz de acessos. Ela nasce LIGADA para
               cozinha e gerência — a etiqueta rasga na mão de quem está de
               plantão —, mas a tela também mostra quanto a casa imprimiu por
               dia, semana e mês, e isso é informação de gestão que o dono pode
               querer fechar. A trava por URL direta continua valendo. */}
-          {/* ⚠️ DESDE 23/11/2026 a lista de impressas é uma aba do Relatório
-              de etiquetas (pedido do dono): o endereço antigo leva para ela. */}
-          <Route path="/impressas"  element={<Navigate to={can('verImpressas') ? '/relatorio-etiquetas?aba=impressas' : '/'} replace />} />
-          <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') || can('verImpressas') ? <RelatorioEtiquetas /> : <Navigate to="/" replace />} />
+          {/* ⚠️ REIMPRIMIR É LIVRE (23/11/2026, pedido do dono): a lista do que
+              saiu, sem senha — a porta é o botão ao lado de "Imprimindo como".
+              O relatório (totais, Apagar) é da Administração, com a senha. */}
+          <Route path="/impressas"  element={can('verImpressas') ? <Reimprimir /> : <Navigate to="/" replace />} />
+          <Route path="/relatorio-etiquetas" element={<ComSenha liberado={can('verRelatorioEtiquetas')} titulo="Relatório de etiquetas"><RelatorioEtiquetas /></ComSenha>} />
           {/* ⚠️ Estava SEM TRAVA: qualquer pessoa logada — inclusive o
               cozinheiro que entrou por convite — mudava temperatura, tamanho
               de etiqueta, dados do estabelecimento, suporte remoto e
@@ -442,13 +454,13 @@ function Rotas() {
           {/* ⚠️ Por CAPACIDADE, não por cargo — o dono passou a poder delegar a
               Administração. A trava por URL direta continua existindo: quem
               não tem a chave é mandado de volta, como sempre. */}
-          <Route path="/administracao" element={can('configurarSistema') ? <Administracao /> : <Navigate to="/" replace />} />
-          <Route path="/administracao/:grupo" element={can('configurarSistema') ? <AdministracaoGrupo /> : <Navigate to="/" replace />} />
+          <Route path="/administracao" element={<ComSenha liberado={admLiberada} titulo="Administração"><Administracao /></ComSenha>} />
+          <Route path="/administracao/:grupo" element={<ComSenha liberado={admLiberada} titulo="Administração"><AdministracaoGrupo /></ComSenha>} />
           {/* ⚠️ ERA A ADMINISTRAÇÃO DESTE PLANO (Ajustes). Virou a mesma
               Administração do Pro, em grupos (Lote 4, 14/10/2026); o endereço
               antigo continua chegando nela. */}
           <Route path="/ajustes"    element={<Navigate to="/administracao" replace />} />
-          <Route path="/pagamento"  element={<Restrito><Pagamento /></Restrito>} />
+          <Route path="/pagamento"  element={<Restrito titulo="Planos e pagamento"><Pagamento /></Restrito>} />
           {/* ⚠️ O PAINEL PRECISA EXISTIR AQUI TAMBÉM. Esta tabela de rotas
               manda `*` para `/`, então sem esta linha o /admin simplesmente
               não existia no plano Etiquetas — e um super-admin cuja própria
@@ -509,42 +521,40 @@ function Rotas() {
           gerenciarProdutos, a mesma capacidade que protege Config → Produtos —
           senão o cozinheiro editaria o catálogo por aqui, que é o buraco que
           esse tipo de tela nova costuma abrir. */}
-      <Route path="/itens" element={can('gerenciarProdutos') ? <Itens /> : <Navigate to="/" replace />} />
+      <Route path="/itens" element={<ComSenha liberado={can('gerenciarProdutos')} titulo="Meus itens"><Itens /></ComSenha>} />
       <Route path="/desperdicio" element={<Navigate to="/aparas" replace />} />
       <Route path="/fichas" element={<Navigate to="/compras" replace />} />
       {/* Contagem física NÃO existe na Finalização: lá o número de fechamento
           vem de Fechar Turno. Antes esta rota olhava só a permissão, então
           bastava o atalho de Configurações para gravar um ajuste que entrava
           no cálculo do turno e corrompia a sobra apurada. */}
-      <Route path="/inventario" element={temRecurso(modulo, 'inventario') && can('inventario') ? <Inventario /> : <Navigate to="/" replace />} />
-      <Route path="/relatorio" element={can('verRelatorio') ? <Relatorio /> : <Navigate to="/" replace />} />
-      <Route path="/relatorio-etiquetas" element={can('verRelatorioEtiquetas') || (temRecurso(modulo, 'etiquetas') && can('verImpressas'))
-        ? <RelatorioEtiquetas /> : <Navigate to="/administracao" replace />} />
+      <Route path="/inventario" element={temRecurso(modulo, 'inventario')
+        ? <ComSenha liberado={can('inventario')} titulo="Contagem física"><Inventario /></ComSenha> : <Navigate to="/" replace />} />
+      <Route path="/relatorio" element={<ComSenha liberado={can('verRelatorio')} titulo="Relatórios"><Relatorio /></ComSenha>} />
+      <Route path="/relatorio-etiquetas" element={<ComSenha liberado={can('verRelatorioEtiquetas')} titulo="Relatório de etiquetas"><RelatorioEtiquetas /></ComSenha>} />
       {/* ⚠️ O ETIQUETAS É UM RECORTE DO PRO, e esta tela faltava aqui (15/09):
           reimprimir com as datas originais, totais, apagar a etiqueta que
           contou errado (M44) e a porta do relatório só existiam no plano
           menor. A lista é a mesma — mesmas chaves —, então quem sobe de plano
           encontra tudo. Mesma trava do plano Etiquetas (`verImpressas`), mais
           o recurso do estoque: no Seco não se imprime etiqueta. */}
-      {/* desde 23/11/2026: a lista é a aba Impressas do Relatório de etiquetas */}
-      <Route path="/impressas" element={<Navigate to={temRecurso(modulo, 'etiquetas') && can('verImpressas') ? '/relatorio-etiquetas?aba=impressas' : '/registrar'} replace />} />
-      <Route path="/auditoria" element={can('verAuditoria') ? <Auditoria /> : <Navigate to="/" replace />} />
+      {/* reimprimir é livre (23/11/2026): a porta é o botão na tela Imprimir */}
+      <Route path="/impressas" element={temRecurso(modulo, 'etiquetas') && can('verImpressas') ? <Reimprimir /> : <Navigate to="/registrar" replace />} />
+      <Route path="/auditoria" element={<ComSenha liberado={can('verAuditoria')} titulo="Histórico de mudanças"><Auditoria /></ComSenha>} />
       {/* Administração é SEÇÃO, não estoque: tem rota própria e não mexe no
           módulo aberto. A regra de acesso vem de podeAbrirAdministracao — a
           MESMA que a barra inferior e o seletor usam, para não divergirem. */}
-      <Route path="/administracao" element={
-        podeAbrirAdministracao(sessao, permissoes) ? <Administracao /> : <Navigate to="/" replace />} />
-      <Route path="/administracao/:grupo" element={
-        podeAbrirAdministracao(sessao, permissoes) ? <AdministracaoGrupo /> : <Navigate to="/" replace />} />
+      <Route path="/administracao" element={<ComSenha liberado={admLiberada} titulo="Administração"><Administracao /></ComSenha>} />
+      <Route path="/administracao/:grupo" element={<ComSenha liberado={admLiberada} titulo="Administração"><AdministracaoGrupo /></ComSenha>} />
       {/* A rota existe para quem tem a capacidade; a própria tela explica o
           bloqueio para quem chega sem ela (o servidor já não manda os custos). */}
-      <Route path="/financeiro" element={can('verFinanceiro') ? <Financeiro /> : <Navigate to="/administracao" replace />} />
+      <Route path="/financeiro" element={<ComSenha liberado={can('verFinanceiro')} titulo="Custos e valor do estoque"><Financeiro /></ComSenha>} />
       {/* Criar/renomear/arquivar estoque muda o que TODA a equipe enxerga — a
           tela explica o bloqueio, e a migração 22 recusa a escrita de quem não
           for diretoria (não é trava de tela). */}
-      <Route path="/estoques" element={podeAbrirAdministracao(sessao, permissoes) ? <Estoques /> : <Navigate to="/" replace />} />
-      <Route path="/balanco" element={can('verRelatorio') ? <Balanco /> : <Navigate to="/administracao" replace />} />
-      <Route path="/pagamento" element={<Restrito><Pagamento /></Restrito>} />
+      <Route path="/estoques" element={<ComSenha liberado={admLiberada} titulo="Unidades e cozinhas"><Estoques /></ComSenha>} />
+      <Route path="/balanco" element={<ComSenha liberado={can('verRelatorio')} titulo="Balanço da conta"><Balanco /></ComSenha>} />
+      <Route path="/pagamento" element={<Restrito titulo="Planos e pagamento"><Pagamento /></Restrito>} />
       <Route path="/configuracoes" element={<DeConfiguracoes />} />
       <Route path="/admin" element={sessao?.eSuperAdmin ? <Admin /> : <Navigate to="/" replace />} />
       {/* Sem isto, qualquer URL desconhecida renderizava TELA BRANCA — nenhuma

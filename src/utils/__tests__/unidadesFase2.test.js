@@ -127,9 +127,12 @@ describe('equipe presa a uma unidade', () => {
     expect(ler('../../components/SeletorVisao.jsx')).toMatch(/estoquesAtivos\(estoquesPermitidos \|\| estoques\)/);
   });
 
-  it('a conta dona escolhe a unidade de cada conta, nos dois planos', () => {
-    expect(ler('../../pages/AdministracaoGrupo.jsx')).toMatch(/<CartaoEquipeDasUnidades \/>/);
-    expect(ler('../../pages/Estoques.jsx')).toMatch(/<CartaoEquipeDasUnidades \/>/);
+  // ⚠️ 23/11/2026 (jeito do Magurō): sem contas da equipe, o cartão "onde cada
+  // conta trabalha" saiu das telas. A trava da conta presa continua no
+  // AuthContext — vale para contas antigas que já estavam presas.
+  it('a trava da conta presa a uma unidade continua; o cartão das contas saiu', () => {
+    expect(ler('../../pages/AdministracaoGrupo.jsx')).not.toMatch(/<CartaoEquipeDasUnidades \/>/);
+    expect(ler('../../pages/Estoques.jsx')).not.toMatch(/<CartaoEquipeDasUnidades \/>/);
     const auth = ler('../../store/AuthContext.jsx');
     expect(auth).toMatch(/supabase\.rpc\('definir_unidade_da_conta'/);
     expect(auth).toMatch(/unidadeFixa:\s+unidadeFixaDe\(perfil\)/);

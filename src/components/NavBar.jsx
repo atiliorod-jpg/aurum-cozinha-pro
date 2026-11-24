@@ -81,7 +81,7 @@ const NAV_ETIQUETAS = [
 
 export default function NavBar({ soEtiquetas = false }) {
   const { produtos, estoque, producoes, permissoes, modulo } = useApp();
-  const { sessao, temPermissao } = useAuth();
+  const { sessao, temPermissao, administracaoComSenha } = useAuth();
   // ⚠️ Os badges de estoque ficam FORA do ramo de etiquetas: além de serem
   // sempre 0 lá (não há entrada nem saída), rodavam dois .filter sobre o
   // catálogo inteiro a cada render, de graça.
@@ -108,8 +108,11 @@ export default function NavBar({ soEtiquetas = false }) {
     // CAPACIDADE que o dono pode ligar para a cozinha na matriz de acessos.
     // Usar cargo para as duas tiraria do dono a chance de liberar o cadastro
     // de itens para quem ele quiser.
-    return <BarraNav itens={NAV_ETIQUETAS.filter(n =>
-      (!n.soDono || temPermissao('diretoria')) && (!n.cap || pode(sessao, permissoes, n.cap)),
+    // ⚠️ COM A SENHA DA ADMINISTRAÇÃO (23/11/2026) as três abas aparecem para
+    // todos, como a engrenagem do Magurō: Meus itens e Administração pedem a
+    // senha na própria tela. Banco sem a M62: a trava de antes.
+    return <BarraNav itens={NAV_ETIQUETAS.filter(n => administracaoComSenha
+      || ((!n.soDono || temPermissao('diretoria')) && (!n.cap || pode(sessao, permissoes, n.cap))),
     )} />;
   }
 

@@ -67,6 +67,27 @@ export async function trocarDeTela(page, rota) {
 export async function abrir(page, rota) {
   await trocarDeTela(page, rota);
   await expect(page.getByText('Esta tela travou')).toHaveCount(0);
+  await liberarSeTravada(page);
+}
+
+// ⚠️ A SENHA DA ADMINISTRAÇÃO (23/11/2026, jeito do Magurō): Meus itens, a
+// Administração e os relatórios abrem travados até alguém digitar a senha —
+// na demonstração, 1234. O robô digita quando a tela pede (abrir faz isso
+// sozinho); quem testa a própria trava chama digitarSenhaAdm direto.
+export const SENHA_ADM_DEMO = '1234';
+export async function digitarSenhaAdm(page, senha = SENHA_ADM_DEMO) {
+  const tela = page.locator('main');
+  for (const d of senha) await tela.getByRole('button', { name: d, exact: true }).click();
+  await tela.getByRole('button', { name: 'Entrar', exact: true }).click();
+}
+// ⚠️ o SINAL é o campo da senha da tela travada — o cartão de trocar a senha
+// (Administração → Equipe) tem um título igual e não pode ser confundido
+export const telaTravada = (page) => page.getByRole('textbox', { name: 'Senha da Administração', exact: true });
+export async function liberarSeTravada(page) {
+  const trava = telaTravada(page);
+  if (!(await trava.isVisible().catch(() => false))) return;
+  await digitarSenhaAdm(page);
+  await expect(trava).toHaveCount(0);
 }
 
 // ⚠️ SENHA OBRIGATÓRIA DESDE 23/11/2026 (jeito do Magurō): todo nome pede
