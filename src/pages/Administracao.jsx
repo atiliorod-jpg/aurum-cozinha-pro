@@ -95,7 +95,7 @@ export default function Administracao() {
           <span className="flex items-center justify-between gap-3">
             <span>
               <span className="block text-sm font-bold text-polo-gold">Painel super-admin</span>
-              <span className="block text-xs text-white/80 mt-0.5">Ver restaurantes, usuários e suporte ativo.</span>
+              <span className="block text-xs text-white/80 mt-0.5">Ver restaurantes, aparelhos, pagamentos e suporte.</span>
             </span>
             <span className="text-polo-gold text-lg" aria-hidden="true">→</span>
           </span>

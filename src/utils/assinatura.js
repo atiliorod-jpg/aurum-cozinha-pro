@@ -61,7 +61,7 @@ export const PRODUTOS = {
     // produto de propósito — ele imprime a data na etiqueta, não monitora
     // vencimento. Quem quer acompanhamento compra o completo. Prometer aqui é
     // vender tela que a conta não tem, na hora exata da decisão de compra.
-    resumo: 'Imprime as etiquetas de validade: cadastro de itens, prazo por armazenamento e biblioteca pronta.',
+    resumo: 'Imprime as etiquetas de validade: cadastro de itens, prazo por armazenamento e biblioteca pronta. Até 3 aparelhos.',
   },
   completo: {
     id: 'completo',

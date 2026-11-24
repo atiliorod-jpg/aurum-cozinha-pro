@@ -186,6 +186,13 @@ describe('o painel da Aurum', () => {
     expect(fila[1].aparelho.pagador).toBe('Ana');
   });
 
+  it('revisão do painel (24/11/2026): login da casa, sem contas da equipe, caminhos de hoje', () => {
+    expect(adm).toMatch(/\{u\.cargo === 'diretoria' \? 'login da casa' : 'conta antiga'\}/);
+    expect(adm).toMatch(/Logins ativos:/);
+    expect(adm).not.toMatch(/limite de contas|Contas extras|Configurações → Sistema → Suporte remoto/);
+    expect(adm).toMatch(/Administração → Conta → Suporte remoto/);
+  });
+
   it('a receita estimada soma os aparelhos a mais', () => {
     const agora = Date.now();
     const r = { id: 'r1', produto: 'etiquetas', assinatura_ate: new Date(agora + 86400000 * 20).toISOString(), aparelhos_extras: 1 };

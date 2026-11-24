@@ -403,7 +403,7 @@ Se não houver teste nem cortesia em dia, a conta perde o acesso na hora.`,
     const dias = parseInt(c.dias, 10) || 0;
     // ⚠️ OS APARELHOS A MAIS (M64) JÁ ESTÃO NO VALOR — é a conta do QR do
     // cliente. O número deles vai junto só para o histórico dizer quantos.
-    // (Os campos "Contas extras" saíram com as contas da equipe, 24/11/2026.)
+    // (Os campos de contas a mais saíram com as contas da equipe, 24/11/2026.)
     const extras = extrasDe(r);
     const valorExtras = 0;
     if (valor <= 0) { toast('Digite o valor recebido.', 'aviso'); return; }
@@ -931,8 +931,8 @@ O login e a recuperação de senha passam a usar o e-mail novo. A senha continua
   const apagarRestaurante = async (r) => {
     const digitado = window.prompt(
       `APAGAR DEFINITIVAMENTE "${r.nome}"?\n\n`
-      + 'Some tudo: itens, lançamentos, etiquetas, histórico, feedback e as contas '
-      + 'de acesso da equipe. Não tem desfazer.\n\n'
+      + 'Some tudo: itens, lançamentos, etiquetas, histórico, feedback, o login '
+      + 'e os aparelhos. Não tem desfazer.\n\n'
       + 'Uma cópia dos dados será baixada antes.\n\n'
       + 'Para confirmar, digite o nome do restaurante:',
     );
@@ -1580,7 +1580,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                           {fb.status !== 'resolvido' && d.tipoPedido === 'contas' && fb.restaurante_id && (
                             <button onClick={() => irAoRestaurante(fb.restaurante_id)}
                               className="text-xs font-bold bg-polo-navy text-polo-gold rounded-lg px-2.5 py-1">
-                              Abrir o cliente (limite de contas)
+                              Abrir o cliente
                             </button>
                           )}
                           <button onClick={() => setRespondendo({ id: fb.id, texto: '' })}
@@ -2231,10 +2231,14 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                     </div>
                   </div>
 
-                  {/* Usuários (com e-mail quando a migração 9 está no banco) */}
+                  {/* O LOGIN DA CASA (23/11/2026, jeito do Magurō): uma conta de
+                      acesso por cliente, aberta nos aparelhos dele (bloco
+                      Aparelhos, acima). Contas de equipe antigas ainda podem
+                      aparecer aqui, marcadas como "conta antiga". */}
                   <div className="px-4 py-2.5 border-b border-gray-50">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Login</p>
                     {r.usuarios.length === 0 ? (
-                      <p className="text-xs text-gray-600 italic">Sem usuários</p>
+                      <p className="text-xs text-gray-600 italic">Sem login</p>
                     ) : (
                       <div className="space-y-1">
                         {r.usuarios.map(u => (
@@ -2251,18 +2255,17 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                                   trocar e-mail
                                 </button>
                               )}
-                              {/* ⚠️ SÓ PARA QUEM TEM CAIXA DE ENTRADA. As contas de
-                                  equipe são `maria.polobeer@contas.aurum.app`,
+                              {/* ⚠️ SÓ PARA QUEM TEM CAIXA DE ENTRADA. As contas
+                                  antigas de equipe são `maria.polobeer@contas.aurum.app`,
                                   endereço interno que não recebe nada — o botão ali
-                                  seria um e-mail para o vazio. A senha delas quem
-                                  troca é o dono, em Administração → Contas. */}
+                                  seria um e-mail para o vazio. */}
                               {temCaixaDeEntrada(u.email) && (
                                 <button onClick={() => mandarLinkSenha(r, u)} disabled={enviandoSenha === u.id}
                                   className="text-xs font-semibold text-polo-navy underline underline-offset-2 disabled:opacity-50">
                                   {enviandoSenha === u.id ? 'enviando…' : 'nova senha'}
                                 </button>
                               )}
-                              <span className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full">{u.cargo}</span>
+                              <span className="text-xs text-gray-600 bg-gray-50 px-2 py-0.5 rounded-full">{u.cargo === 'diretoria' ? 'login da casa' : 'conta antiga'}</span>
                             </span>
                           </div>
                           {trocaEmail?.id === u.id && (
@@ -2667,7 +2670,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                             <span>Itens cadastrados: <strong>{uso.dados.itens ?? 0}</strong></span>
                             <span>Etiquetas impressas: <strong>{uso.dados.etiquetas ?? 0}</strong></span>
                             <span>Lançamentos: <strong>{uso.dados.registros ?? 0}</strong></span>
-                            <span>Contas ativas: <strong>{uso.dados.usuarios_ativos ?? 0}/{uso.dados.usuarios ?? 0}</strong></span>
+                            <span>Logins ativos: <strong>{uso.dados.usuarios_ativos ?? 0}/{uso.dados.usuarios ?? 0}</strong></span>
                           </div>
                         )}
                       </div>
@@ -2876,8 +2879,8 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       </summary>
                       <div className="mt-2 bg-red-50 border border-red-200 rounded-lg p-2.5 space-y-2">
                         <p className="text-xs text-red-800">
-                          Some tudo: itens, lançamentos, etiquetas, histórico, feedback e as
-                          contas da equipe. Uma cópia é baixada antes, e você precisa digitar
+                          Some tudo: itens, lançamentos, etiquetas, histórico, feedback, o login e
+                          os aparelhos. Uma cópia é baixada antes, e você precisa digitar
                           o nome do restaurante para confirmar.
                         </p>
                         <button onClick={() => apagarRestaurante(r)}
@@ -2910,7 +2913,7 @@ O que está lá agora é guardado antes, então dá para desfazer. Os tablets do
                       </button>
                     ) : (
                       <p className="text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                        Para ver os dados deste restaurante, peça que ele autorize o suporte em Configurações → Sistema → Suporte remoto.
+                        Para ver os dados deste restaurante, peça que ele autorize o suporte em Administração → Conta → Suporte remoto.
                       </p>
                     )}
                   </div>
