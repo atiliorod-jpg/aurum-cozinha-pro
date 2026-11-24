@@ -7,7 +7,8 @@ import { describe, it, expect } from 'vitest';
 import {
   conferirDescarte, somarPorGrupo, somarPorItem, somarPorMotivo, totais, itensForaDaLista, registroForaDaLista,
   turnoDe, turnosDaCasa, motivosDaCasa, MOTIVOS_PADRAO, TURNOS_PADRAO, unidadeDoItem, fmtQtd, resumoRegistro,
-  planilhaDoDesperdicio, fmtPeso, fmtSoma, mudancaDoRegistro, UNIDADES_DESCARTE,
+  planilhaDoDesperdicio, fmtPeso, fmtSoma, mudancaDoRegistro, UNIDADES_DESCARTE, UNIDADES_NA_JANELA,
+  somarPorTurno, somarPorPessoa, fmtPesoEUnid,
 } from '../desperdicio';
 
 const r = (item_nome, quantidade, motivo, unidade = 'kg', item_id = null) => ({ item_nome, quantidade, motivo, unidade, item_id });
@@ -68,14 +69,40 @@ describe('as somas do relatório (iguais às do Magurō)', () => {
     expect(totais([r('Sal', 2.5, 'V', 'g')]).kg).toBe(0.0025);
   });
 
-  it('a soma aparece em gramas abaixo de 1 kg; o registro, como foi feito', () => {
+  it('⚠️ O PESO NO TAMANHO CERTO, sozinho: abaixo de 1 kg em gramas, senão em kg', () => {
     expect(fmtPeso(0.25)).toBe('250 g');
     expect(fmtPeso(0.0025)).toBe('2,5 g');
     expect(fmtPeso(1.25)).toBe('1,25 kg');
     expect(fmtPeso(0)).toBe('0 kg');
     expect(fmtSoma(4, 'unid')).toBe('4 unid');
     expect(fmtSoma(0.51, 'kg')).toBe('510 g');
+    // o registro: 0,010 kg (da balança) e 10 g (antigo, ou da voz) dizem o mesmo
+    expect(fmtQtd(0.01, 'kg')).toBe('10 g');
     expect(fmtQtd(10, 'g')).toBe('10 g');
+    expect(fmtQtd(1500, 'g')).toBe('1,5 kg');
+    expect(fmtPesoEUnid(1.5, 3)).toBe('1,5 kg + 3 unid');
+    expect(fmtPesoEUnid(0.25, 0)).toBe('250 g');
+    expect(fmtPesoEUnid(0, 3)).toBe('3 unid');
+  });
+
+  it('POR TURNO (Manhã × Noite) e POR PESSOA: peso com os gramas, unidades à parte', () => {
+    const regs = [
+      { ...r('Frango', 1.5, 'Vencido'), turno: 'Noite', responsavel: 'Ana' },
+      { ...r('Arroz', 250, 'Sobra', 'g'), turno: 'Manhã', responsavel: 'João' },
+      { ...r('Pão', 3, 'Queimado', 'unid'), turno: 'Manhã', responsavel: 'ana ' },
+      { ...r('Molho', 0.5, 'Vencido'), turno: '', responsavel: '' },
+    ];
+    expect(somarPorTurno(regs, TURNOS_PADRAO)).toEqual([
+      { turno: 'Manhã', kg: 0.25, unid: 3, vezes: 2 },
+      { turno: 'Noite', kg: 1.5, unid: 0, vezes: 1 },
+      { turno: 'Sem turno', kg: 0.5, unid: 0, vezes: 1 },
+    ]);
+    // "Ana" e "ana " são a mesma pessoa; quem mais descartou em peso primeiro
+    expect(somarPorPessoa(regs)).toEqual([
+      { pessoa: 'Ana', kg: 1.5, unid: 3, vezes: 2 },
+      { pessoa: 'Sem responsável', kg: 0.5, unid: 0, vezes: 1 },
+      { pessoa: 'João', kg: 0.25, unid: 0, vezes: 1 },
+    ]);
   });
 
   it('⚠️ a letra "s" não vira espaço (o defeito do Magurō): "Massa" e "Maa" são itens diferentes', () => {
@@ -95,19 +122,19 @@ describe('o registro', () => {
     expect(conferirDescarte({ itemNome: 'x', quantidade: 1, unidade: 'unid', motivo: 'm' })).toBe(true);
   });
 
-  it('a unidade de costume vem do item: unid; g (e mL) em gramas; kg para o resto', () => {
+  it('a unidade de costume vem do item: unid, ou peso (kg) para todo o resto', () => {
     expect(unidadeDoItem({ unidade: 'unid' })).toBe('unid');
     expect(unidadeDoItem({ unidade: 'Un' })).toBe('unid');
     expect(unidadeDoItem({ unidade: 'kg' })).toBe('kg');
-    expect(unidadeDoItem({ unidade: 'g' })).toBe('g');
-    expect(unidadeDoItem({ unidade: 'gramas' })).toBe('g');
-    expect(unidadeDoItem({ unidade: 'mL' })).toBe('g');
+    expect(unidadeDoItem({ unidade: 'g' })).toBe('kg');
+    expect(unidadeDoItem({ unidade: 'mL' })).toBe('kg');
     expect(unidadeDoItem({ unidade: 'L' })).toBe('kg');
   });
 
-  it('a quantidade na tela: vírgula, até 3 casas', () => {
+  it('⚠️ a janela só tem kg e unid: com a balança, os números tocados já são os gramas', () => {
+    expect(UNIDADES_NA_JANELA).toEqual(['kg', 'unid']);
     expect(fmtQtd(1.5, 'kg')).toBe('1,5 kg');
-    expect(fmtQtd(0.125, 'kg')).toBe('0,125 kg');
+    expect(fmtQtd(0.125, 'kg')).toBe('125 g');
     expect(fmtQtd(3, 'unid')).toBe('3 unid');
   });
 });
@@ -151,9 +178,11 @@ describe('a planilha', () => {
     const regs = [{ ...r('Frango', 2, 'Sobra de produção', 'kg', 'f'), dia: '2026-11-24', hora: '10:00', turno: 'Manhã', responsavel: 'Maria',
       editado_em: '2026-11-24T14:00:00Z', original: { item_nome: 'Frango', quantidade: 1.5, unidade: 'kg', motivo: 'Vencido' } }];
     const abas = planilhaDoDesperdicio(regs, [{ id: 'f', nome: 'Frango' }], { de: '2026-11-24', ate: '2026-11-24' });
-    expect(abas.map(a => a[0])).toEqual(['Soma por item', 'Por grupo', 'Por motivo', 'Um por um']);
-    expect(abas[3][1][0]).toEqual(['Data', 'Hora', 'Turno', 'Item', 'Quantidade', 'Unidade', 'Peso (kg)', 'Motivo', 'Responsável', 'Mudou depois']);
-    expect(abas[3][1][1]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Frango', 2, 'kg', 2, 'Sobra de produção', 'Maria',
+    expect(abas.map(a => a[0])).toEqual(['Soma por item', 'Por grupo', 'Por turno', 'Por pessoa', 'Por motivo', 'Um por um']);
+    expect(abas[2][1]).toEqual([['Turno', 'Peso (kg)', 'Unidades', 'Vezes'], ['Manhã', 2, 0, 1]]);
+    expect(abas[3][1]).toEqual([['Pessoa', 'Peso (kg)', 'Unidades', 'Vezes'], ['Maria', 2, 0, 1]]);
+    expect(abas[5][1][0]).toEqual(['Data', 'Hora', 'Turno', 'Item', 'Quantidade', 'Unidade', 'Peso (kg)', 'Motivo', 'Responsável', 'Mudou depois']);
+    expect(abas[5][1][1]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Frango', 2, 'kg', 2, 'Sobra de produção', 'Maria',
       'Corrigido (antes: Frango · 1,5 kg · Vencido)']);
     expect(resumoRegistro(null)).toBe('');
   });
@@ -165,9 +194,9 @@ describe('a planilha', () => {
         original: { item_nome: 'Pão', quantidade: 30, unidade: 'unid', motivo: 'Queimado' } }];
     const abas = planilhaDoDesperdicio(regs, [], { de: '2026-11-24', ate: '2026-11-24' });
     expect(abas[0][1].slice(3)).toEqual([['Bolinho', 1.3, 'kg', 2, 'Vencido (1,3 kg)'], ['Pão', 3, 'unid', 1, 'Queimado (3 unid)']]);
-    expect(abas[2][1]).toEqual([['Motivo', 'Total (kg)'], ['Vencido', 1.3]]);
-    expect(abas[3][1][1]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Bolinho', 300, 'g', 0.3, 'Vencido', 'Ana', '']);
-    expect(abas[3][1][3]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Pão', 3, 'unid', '', 'Queimado', 'Ana',
+    expect(abas[4][1]).toEqual([['Motivo', 'Total (kg)'], ['Vencido', 1.3]]);
+    expect(abas[5][1][1]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Bolinho', 300, 'g', 0.3, 'Vencido', 'Ana', '']);
+    expect(abas[5][1][3]).toEqual(['24/11/2026', '10:00', 'Manhã', 'Pão', 3, 'unid', '', 'Queimado', 'Ana',
       'Alterado na hora (antes: Pão · 30 unid · Queimado)']);
   });
 
@@ -239,6 +268,19 @@ describe('ligado no app (o Etiquetas com o desperdício)', () => {
     const janela = ler('../../components/JanelaDescarte.jsx');
     expect(janela).toMatch(/setMotivo\(motivoDaFala\(alternativas, motivos\)\)/);
     expect(janela).toMatch(/aria-label=\{mic\.ouvindo \? 'Parar de ouvir' : 'Falar o motivo'\}/);
+  });
+
+  it('o pedido do dono (24/11, noite): sem o botão do topo, responsável sem equipe, balança no kg, turno e pessoa', () => {
+    const tela = ler('../../pages/Desperdicio.jsx');
+    expect(tela).not.toMatch(/<Icon name="mais" size=\{20\} \/>Item fora da lista/);
+    expect(tela).toMatch(/pedirResponsavel=\{!comEquipe\}/);
+    const janela = ler('../../components/JanelaDescarte.jsx');
+    expect(janela).toMatch(/casasFixas=\{unidade === 'kg' \? 3 : 0\}/);
+    expect(janela).toMatch(/if \(pedeNome && !resp\.trim\(\)\) \{ setErro\('Falta o responsável\.'\); return; \}/);
+    expect(janela).toMatch(/\{UNIDADES_NA_JANELA\.map\(u => \(/);
+    const rel = ler('../../pages/RelatorioDesperdicio.jsx');
+    expect(rel).toMatch(/\{ id: 'turno', rotulo: 'Por turno' \}/);
+    expect(rel).toMatch(/\{ id: 'pessoa', rotulo: 'Por pessoa' \}/);
   });
 
   it('o banco recusou sem erro (conta sem liberação): a tela não diz "registrado"', () => {

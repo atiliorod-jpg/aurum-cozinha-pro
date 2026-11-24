@@ -212,10 +212,21 @@ planilha; auditar etiquetas + desperdício. Tudo no ar (commit 9cb3b81 + o da au
   para tudo); turno sem horário não salva; pentest usa o "hoje" de Recife.
 - Robô: `e2e/desperdicio.pw.js` (7 cenários) e `e2e/relatorioEtiquetas.pw.js` (planilha
   baixada e ABERTA com o pacote xlsx). O microfone de mentira mora em `e2e/apoio.js`.
-- **Esperando o dono** (`AUDITORIA_ETIQUETAS_DESPERDICIO_2026-11-24.md`, seção 3): 1
-  minuto parado com a janela aberta (pesar) → 3 min?; responsável sem equipe; tirar o
-  botão "Item fora da lista"; tirar a linha Data/Hora/Turno; "Mais descartados"; relatório
-  por turno e por pessoa; menos motivos de fábrica.
+- **Decisões do dono (mesma noite, no ar):** 1 minuto parado FICA; responsável
+  obrigatório (sem equipe: campo de texto "Responsável", lembra em `prefs.responsavel`
+  — NÃO o ResponsavelSelect, que sem equipe só deixa a Administração cadastrar);
+  sem o botão "Item fora da lista" do topo; relatório e planilha **por turno** e **por
+  pessoa** (`somarPorTurno`, `somarPorPessoa`, `fmtPesoEUnid`; planilha com 6 abas);
+  **kg como na balança** (`CampoNumerico casasFixas={3}` + `TecladoNumerico` modo
+  balança: dígitos pela direita, tecla 000, "= 250 g" no visor; no computador o campo
+  também enche pela direita; helpers `digitosDaBalanca/teclarBalanca/textoDaBalanca` em
+  utils/medida.js) e, por isso, **sem botão "g"** (`UNIDADES_NA_JANELA = ['kg','unid']`;
+  `fmtQtd`/`fmtPeso` mostram "250 g"/"1,5 kg" sozinhos; g da voz e de registro antigo
+  abre convertido para kg; o banco continua aceitando g).
+- Ainda esperando o dono (seção 3 do doc): tirar a linha Data/Hora/Turno da janela;
+  "Mais descartados"; menos motivos de fábrica.
+- ⚠️ `SenhaDaAdministracao`: `vivo` agora liga no efeito (no dev, StrictMode deixava
+  falso e a senha errada travava em "Conferindo…").
 
 ## Onde paramos (24/11/2026, manhã) — REGISTRO DE DESPERDÍCIO NO ETIQUETAS (M65 APLICADA)
 

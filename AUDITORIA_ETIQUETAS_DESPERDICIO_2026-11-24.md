@@ -30,10 +30,27 @@ registrar, conferir relatório e planilha, e auditar etiquetas + desperdício.
 5. **Campo da quantidade apertado no celular** (98 px com os três botões de
    unidade; "1,250" não cabia). Agora 132 px num celular de 375 e 117 px num de
    360 — e a janela inteira cabe sem rolar nos dois.
+6. **Senha da Administração travando em "Conferindo…"** depois de uma senha
+   errada — só no modo de desenvolvimento (o computador de programar), não no
+   app publicado. Corrigido do mesmo jeito.
 
 ## 3. Melhorias e simplificações — para você decidir
 
-Nada disto foi aplicado. Diga quais quer.
+**Decidido pelo dono na mesma noite (e já no ar):**
+
+- **1 minuto parado:** fica como está, também no desperdício.
+- **Responsável:** o desperdício pede. Com equipe, é quem entrou pelo nome;
+  sem equipe, a janela tem o campo "Responsável" (obrigatório, lembra o último).
+- **Botão "Item fora da lista" do topo:** saiu. A busca ("Registrar 'X' assim
+  mesmo") e a voz fazem isso.
+- **Relatório por turno (Manhã × Noite) e por pessoa:** feito, na tela e na
+  planilha (que agora tem 6 abas).
+- **A vírgula do kg:** teclado **como na balança** — os números entram pela
+  direita com 3 casas (1-5-0-0 = 1,500 kg; 2 e 000 = 2,000 kg), sem tecla de
+  vírgula. E, com isso, **o botão "g" saiu**: os números tocados já são os
+  gramas; o app mostra o peso no tamanho certo sozinho ("250 g", "1,5 kg").
+
+Abaixo, a lista original; os itens 4, 5 e 7 continuam esperando.
 
 1. **Pesar leva mais de 1 minuto.** Com a janela do desperdício aberta, 1 minuto
    sem tocar na tela volta para os nomes e perde o que foi digitado (quem foi
@@ -74,8 +91,9 @@ Nada disto foi aplicado. Diga quais quer.
 
 - Testes das regras: 1.211 (inclusive 16 frases faladas de verdade e o jeito
   que o GitHub roda, sem as chaves do banco).
-- Robô (Playwright): 96 cenários. Novos hoje: 4 do desperdício (gramas +
-  Alterar, só quem registrou vê o Alterar, voz, planilha baixada e aberta) e 1
+- Robô (Playwright): 98 cenários, todos passando. Novos hoje: 6 do
+  desperdício (Alterar, só quem registrou vê o Alterar, voz, planilha baixada
+  e aberta, responsável sem equipe, teclado da balança tocado com o dedo) e 1
   do relatório de etiquetas (planilha baixada e aberta).
 - Banco de verdade: teste de segurança do desperdício **35/35** (outro aparelho
   da mesma conta não altera; passou de 15 min não altera; depois da correção da

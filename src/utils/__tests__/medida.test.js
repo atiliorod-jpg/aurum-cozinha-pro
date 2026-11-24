@@ -78,3 +78,29 @@ describe('as teclas', () => {
     expect(teclar('1', 'x')).toBe('1');
   });
 });
+
+// ── O TECLADO DA BALANÇA (24/11/2026, escolha do dono para o kg do desperdício)
+import { digitosDaBalanca, teclarBalanca, textoDaBalanca, MAX_DIGITOS_BALANCA } from '../medida';
+
+describe('teclado da balança: os números entram pela direita, 3 casas fixas', () => {
+  const tocar = (...teclas) => teclas.reduce((d, t) => teclarBalanca(d, t), '');
+  it('1-5-0-0 é 1,500; 2-5-0 é 0,250; 2 e 000 é 2,000', () => {
+    expect(textoDaBalanca(tocar('1', '5', '0', '0'))).toBe('1,500');
+    expect(textoDaBalanca(tocar('2', '5', '0'))).toBe('0,250');
+    expect(textoDaBalanca(tocar('2', '000'))).toBe('2,000');
+    expect(textoDaBalanca(tocar('1', '0'))).toBe('0,010');
+  });
+  it('zero à esquerda não conta; vírgula não é tecla; tem limite', () => {
+    expect(tocar('0', '0', '5')).toBe('5');
+    expect(teclarBalanca('15', ',')).toBe('15');
+    expect(tocar('9', '9', '9', '9', '9', '9', '9', '9', '9')).toHaveLength(MAX_DIGITOS_BALANCA);
+    expect(textoDaBalanca('')).toBe('');
+  });
+  it('o valor que já existe abre nos dígitos certos', () => {
+    expect(digitosDaBalanca('1,5')).toBe('1500');
+    expect(digitosDaBalanca('1.5')).toBe('1500');
+    expect(digitosDaBalanca(0.25)).toBe('250');
+    expect(digitosDaBalanca('')).toBe('');
+    expect(digitosDaBalanca('0')).toBe('');
+  });
+});

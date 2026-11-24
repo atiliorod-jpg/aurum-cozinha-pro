@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useId } from 'react';
 import Dialogo from '../Dialogo';
 import Icon from '../Icons';
-import { UNIDADES_DA_MEDIDA, lerMedida, textoDaMedida, unidadeParaAbrir, teclar } from '../../utils/medida';
+import {
+  UNIDADES_DA_MEDIDA, lerMedida, textoDaMedida, unidadeParaAbrir, teclar,
+  digitosDaBalanca, teclarBalanca, textoDaBalanca, MAX_DIGITOS_BALANCA,
+} from '../../utils/medida';
 
 // =====================================================================
 //  TECLADO NUMÉRICO GRANDE (23/11/2026, jeito do Magurō, pedido do dono)
@@ -15,6 +18,10 @@ import { UNIDADES_DA_MEDIDA, lerMedida, textoDaMedida, unidadeParaAbrir, teclar 
 //  ⚠️ AS TECLAS DO COMPUTADOR VALEM (números, vírgula, apagar, Enter, Esc) —
 //  ouvidas na janela, na fase de CAPTURA: a janela de imprimir que está
 //  embaixo também ouve o Esc, e só esta deve fechar.
+//  ⚠️ MODO BALANÇA (`casasFixas`, 24/11/2026, escolha do dono para o kg do
+//  desperdício): os números entram pela direita com as casas fixas, como no
+//  visor da balança — 1-5-0-0 é 1,500 kg. No lugar da vírgula, a tecla 000
+//  (o quilo inteiro). Ver utils/medida.js.
 // =====================================================================
 
 const teclaBase = 'h-16 rounded-2xl text-3xl font-black active:scale-95 transition-transform disabled:opacity-30';
@@ -30,14 +37,16 @@ const teclaBase = 'h-16 rounded-2xl text-3xl font-black active:scale-95 transiti
  * @param {boolean} [props.permitirLivre]  mostra "Outra medida" (texto livre)
  * @param {string} [props.rotuloVazio]     botão que deixa SEM valor (ex.: "Sem medida")
  * @param {boolean} [props.aceitaZero]     o zero vale (contagem: "contei zero")
+ * @param {number} [props.casasFixas]      o modo balança: 3 = "1-5-0-0" vira 1,500
  * @param {Function} props.aoConfirmar     ({ numero, unidade, livre }) — numero '' = vazio
  * @param {Function} props.aoFechar
  */
 export function TecladoNumerico({
   titulo, numeroInicial = '', unidades = null, unidadeInicial = '', decimal = true,
-  livreInicial = '', permitirLivre = false, rotuloVazio = '', aceitaZero = false, aoConfirmar, aoFechar,
+  livreInicial = '', permitirLivre = false, rotuloVazio = '', aceitaZero = false, casasFixas = 0, aoConfirmar, aoFechar,
 }) {
-  const [numero, setNumero] = useState(numeroInicial);
+  const balanca = casasFixas > 0;
+  const [numero, setNumero] = useState(() => (balanca ? digitosDaBalanca(numeroInicial, casasFixas) : numeroInicial));
   // o 1º toque substitui o sugerido
   const [novo, setNovo] = useState(true);
   const [unidade, setUnidade] = useState(unidadeInicial || unidades?.[0] || '');
@@ -45,13 +54,19 @@ export function TecladoNumerico({
   const [modoLivre, setModoLivre] = useState(permitirLivre && !!livreInicial);
   const idUnidades = useId();
 
+  // no modo balança, `numero` guarda só os dígitos tocados ("1500")
   const valido = modoLivre ? livre.trim().length > 0
-    : aceitaZero ? /^\d/.test(numero) : textoDaMedida(numero, '') !== '';
-  const tocar = (t) => { setNumero(n => teclar(novo ? '' : n, t, { decimal })); setNovo(false); };
+    : balanca ? numero !== ''
+      : aceitaZero ? /^\d/.test(numero) : textoDaMedida(numero, '') !== '';
+  const tocar = (t) => {
+    setNumero(n => (balanca ? teclarBalanca(novo ? '' : n, t) : teclar(novo ? '' : n, t, { decimal })));
+    setNovo(false);
+  };
   const apagar = () => { setNumero(n => (novo ? '' : n.slice(0, -1))); setNovo(false); };
   const confirmar = () => {
     if (!valido) return;
-    aoConfirmar(modoLivre ? { numero: '', unidade: '', livre: livre.trim() } : { numero, unidade, livre: '' });
+    aoConfirmar(modoLivre ? { numero: '', unidade: '', livre: livre.trim() }
+      : { numero: balanca ? textoDaBalanca(numero, casasFixas) : numero, unidade, livre: '' });
   };
 
   // as teclas do computador — ver o ⚠️ do topo. O que a pessoa digita NUM
@@ -76,7 +91,10 @@ export function TecladoNumerico({
     return () => window.removeEventListener('keydown', naTecla, true);
   }, []);
 
-  const mostrado = numero || '0';
+  const mostrado = balanca ? textoDaBalanca(numero || '0', casasFixas) : (numero || '0');
+  // ⚠️ O PESO NO TAMANHO CERTO: o visor mostra como a balança ("0,250"); abaixo
+  // de 1 kg, embaixo, quanto é em gramas — os dígitos tocados são os gramas
+  const gramas = balanca && casasFixas === 3 && unidade === 'kg' && numero && Number(numero) < 1000 ? Number(numero) : null;
   return (
     <Dialogo aoFechar={aoFechar} titulo={titulo} forma="caixa" largura="sm" camada={130} respiro="p5" classeCaixa="space-y-3">
       {modoLivre ? (
@@ -90,11 +108,13 @@ export function TecladoNumerico({
       ) : (
         // ⚠️ o número fica "apagado" (cinza) enquanto ainda é o sugerido:
         // a pessoa vê que o próximo toque troca tudo
-        <output aria-live="polite" aria-label={`Valor: ${textoDaMedida(numero, unidade) || 'vazio'}`}
+        <output aria-live="polite"
+          aria-label={`Valor: ${balanca ? (numero ? `${mostrado} ${unidade}`.trim() : 'vazio') : (textoDaMedida(numero, unidade) || 'vazio')}`}
           className={`block rounded-2xl border-4 px-4 py-2 text-right tabular-nums
             ${novo ? 'border-polo-gold' : 'border-polo-navy'}`}>
           <span className={`text-5xl font-black ${novo ? 'text-gray-500' : 'text-polo-navy'}`}>{mostrado}</span>
           {unidade && <span className="text-2xl font-bold text-gray-600 ml-2">{unidade}</span>}
+          {gramas !== null && <span className="block text-base font-bold text-gray-600">= {gramas} g</span>}
         </output>
       )}
 
@@ -129,8 +149,14 @@ export function TecladoNumerico({
           {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(t => (
             <button key={t} type="button" onClick={() => tocar(t)} className={`${teclaBase} bg-gray-100 text-polo-navy`}>{t}</button>
           ))}
-          <button type="button" onClick={() => tocar(',')} disabled={!decimal} aria-label="Vírgula"
-            className={`${teclaBase} bg-gray-100 text-polo-navy`}>,</button>
+          {balanca ? (
+            <button type="button" onClick={() => tocar('000')} aria-label="Três zeros"
+              disabled={numero.length + 3 > MAX_DIGITOS_BALANCA}
+              className={`${teclaBase} bg-gray-100 text-polo-navy`}>000</button>
+          ) : (
+            <button type="button" onClick={() => tocar(',')} disabled={!decimal} aria-label="Vírgula"
+              className={`${teclaBase} bg-gray-100 text-polo-navy`}>,</button>
+          )}
           <button type="button" onClick={() => tocar('0')} className={`${teclaBase} bg-gray-100 text-polo-navy`}>0</button>
           <button type="button" onClick={apagar} aria-label="Apagar"
             className={`${teclaBase} bg-gray-200 text-polo-navy flex items-center justify-center`}>
@@ -165,12 +191,40 @@ const tocaComDedo = () => {
 };
 const SEM_SETAS = '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
 
+// ⚠️ `casasFixas` (o modo balança): o campo mostra "1,500" e, no computador,
+// também enche pela direita (digitar 1500 dá 1,500; apagar tira o último
+// número). Grava o número com PONTO ("1.5"), como sempre.
 export function CampoNumerico({
-  valor, aoMudar, rotulo, titulo = '', unidade = '', decimal = true, placeholder = '0', className = 'campo', ...resto
+  valor, aoMudar, rotulo, titulo = '', unidade = '', decimal = true, placeholder = '0', className = 'campo',
+  casasFixas = 0, ...resto
 }) {
   const [comDedo] = useState(tocaComDedo);
   const [aberto, setAberto] = useState(false);
   const texto = valor === null || valor === undefined ? '' : String(valor);
+  if (casasFixas > 0) {
+    const dosDigitos = (d) => (d ? String(Number(d) / 10 ** casasFixas) : '');
+    return (
+      <>
+        <input type="text" {...resto}
+          inputMode={comDedo ? 'none' : 'numeric'} readOnly={comDedo}
+          value={textoDaBalanca(digitosDaBalanca(texto, casasFixas), casasFixas)}
+          placeholder={textoDaBalanca('0', casasFixas)} aria-label={rotulo}
+          onChange={e => aoMudar(dosDigitos(e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_DIGITOS_BALANCA)))}
+          onClick={comDedo ? () => setAberto(true) : undefined}
+          onKeyDown={comDedo ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAberto(true); } } : undefined}
+          className={className} />
+        {aberto && (
+          <TecladoNumerico titulo={titulo || rotulo} numeroInicial={texto}
+            unidadeInicial={unidade} casasFixas={casasFixas} rotuloVazio="Limpar"
+            aoFechar={() => setAberto(false)}
+            aoConfirmar={({ numero }) => {
+              aoMudar(numero ? String(Number(numero.replace(',', '.'))) : '');
+              setAberto(false);
+            }} />
+        )}
+      </>
+    );
+  }
   return (
     <>
       <input type="number" min="0" step="any" {...resto}

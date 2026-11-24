@@ -30,7 +30,10 @@ export function TecladoVariavel({
   const [erro, setErro] = useState('');
   const campoRef = useRef(null);
   const vivo = useRef(true);
-  useEffect(() => () => { vivo.current = false; }, []);
+  // ⚠️ LIGA DE NOVO AO MONTAR (auditoria 24/11/2026): só desligar na saída
+  // deixava `vivo` falso para sempre no modo de desenvolvimento (o React monta,
+  // desmonta e monta de novo) — senha errada travava em "Conferindo…"
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false; }; }, []);
 
   // ⚠️ SÓ COM MOUSE: no celular, focar o campo abriria o teclado do sistema
   // por cima deste. No computador, dá para digitar os números direto.

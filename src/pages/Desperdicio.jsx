@@ -147,10 +147,8 @@ export default function Desperdicio() {
               </button>
             </div>
           )}
-          <button type="button" onClick={() => abrir({ livre: true, nome: busca.trim() })}
-            className="w-full min-h-12 rounded-2xl bg-polo-gold text-polo-navy font-bold text-base inline-flex items-center justify-center gap-2">
-            <Icon name="mais" size={20} />Item fora da lista
-          </button>
+          {/* ⚠️ SEM O BOTÃO "ITEM FORA DA LISTA" NO TOPO (24/11/2026, pedido do
+              dono): a busca ("Registrar 'X' assim mesmo") e a voz já fazem isso */}
           <BuscaPorVoz produtos={ativos} vocabulario={[]} aviso={avisoDaVoz} aoAvisar={setAvisoDaVoz}
             interpretar={(alternativas) => acharDescartePorVoz(alternativas, ativos, motivos)}
             descreverPedido={descreverPedido} opcaoForaDaLista={opcaoForaDaLista}
@@ -171,7 +169,9 @@ export default function Desperdicio() {
             {visiveis.length === 0 && !buscando && !nuvemCarregada && <Esqueleto rotulo="Carregando os itens" />}
             {visiveis.length === 0 && (buscando || nuvemCarregada) && (
               <div className="text-center py-8 px-4 space-y-3">
-                <p className="text-sm text-gray-600">{buscando ? `Não achei “${busca.trim()}”.` : 'Você ainda não tem itens cadastrados.'}</p>
+                <p className="text-sm text-gray-600">{buscando
+                  ? `Não achei “${busca.trim()}”.`
+                  : 'Você ainda não tem itens cadastrados. Digite o nome do item na busca para registrar.'}</p>
                 {buscando && (
                   <button type="button" onClick={() => abrir({ livre: true, nome: busca.trim() })}
                     className="min-h-12 px-5 rounded-2xl bg-polo-navy text-polo-gold font-bold text-base">
@@ -202,7 +202,8 @@ export default function Desperdicio() {
       {aberto && (
         <JanelaDescarte key={aberto.alterando ? `alterar-${aberto.alterando.id}` : 'novo'}
           inicial={aberto} alterando={aberto.alterando || null} produtos={ativos}
-          responsavel={responsavel} aoFechar={() => setAberto(null)} aoRegistrar={registrou} />
+          responsavel={responsavel} pedirResponsavel={!comEquipe}
+          aoFechar={() => setAberto(null)} aoRegistrar={registrou} />
       )}
       {perguntar && comEquipe && operador && (
         <ContinuarImprimindo nome={operador} pergunta={`Registrar outro desperdício, ${operador}?`}

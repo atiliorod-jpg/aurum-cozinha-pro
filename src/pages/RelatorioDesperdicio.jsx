@@ -11,8 +11,9 @@ import { useUI } from '../store/UIContext';
 import { produtoAtivo, soEtiquetas as ehSoEtiquetas } from '../utils/produto';
 import { fmtData, hoje } from '../utils/formatters';
 import {
-  somarPorItem, somarPorGrupo, somarPorMotivo, totais, itensForaDaLista, fmtQtd, fmtSoma, fmtPeso, resumoRegistro,
-  mudancaDoRegistro, planilhaDoDesperdicio, motivosDaCasa, conferirDescarte, UNIDADES_DESCARTE,
+  somarPorItem, somarPorGrupo, somarPorMotivo, somarPorTurno, somarPorPessoa, totais, itensForaDaLista, fmtQtd, fmtSoma,
+  fmtPeso, fmtPesoEUnid, resumoRegistro, mudancaDoRegistro, planilhaDoDesperdicio, motivosDaCasa, turnosDaCasa,
+  conferirDescarte, UNIDADES_NA_JANELA,
 } from '../utils/desperdicio';
 import {
   listarDescartes, corrigirDescarte, voltarDescarteOriginal, apagarDescarte, apagarDescartesDoPeriodo,
@@ -39,17 +40,21 @@ const PERIODOS = [
   { id: '7', rotulo: '7 dias', de: () => somarDias(hoje(), -6), ate: () => hoje() },
   { id: 'mes', rotulo: 'Este mês', de: () => `${hoje().slice(0, 8)}01`, ate: () => hoje() },
 ];
+// ⚠️ POR TURNO E POR PESSOA (24/11/2026, pedido do dono): o turno e quem
+// registrou já eram gravados; agora o relatório soma por eles
 const VISOES = [
   { id: 'item', rotulo: 'Soma por item' },
   { id: 'grupo', rotulo: 'Por grupo' },
-  { id: 'lista', rotulo: 'Um por um' },
+  { id: 'turno', rotulo: 'Por turno' },
+  { id: 'pessoa', rotulo: 'Por pessoa' },
   { id: 'motivo', rotulo: 'Por motivo' },
+  { id: 'lista', rotulo: 'Um por um' },
 ];
 const botaoFiltro = (sel) => `min-h-11 px-4 rounded-xl font-bold text-sm border-[3px]
   ${sel ? 'bg-polo-navy text-polo-gold border-polo-navy' : 'bg-white text-polo-navy border-polo-navy/15'}`;
 
 export default function RelatorioDesperdicio() {
-  const { produtos } = useApp();
+  const { produtos, prefs } = useApp();
   const { sessao, impersonando } = useAuth();
   const { toast, confirm } = useUI();
   const navigate = useNavigate();
@@ -88,6 +93,9 @@ export default function RelatorioDesperdicio() {
   const porItem = useMemo(() => somarPorItem(regs, produtos), [regs, produtos]);
   const porGrupo = useMemo(() => somarPorGrupo(regs, produtos), [regs, produtos]);
   const porMotivo = useMemo(() => somarPorMotivo(regs), [regs]);
+  const turnos = useMemo(() => turnosDaCasa(prefs), [prefs]);
+  const porTurno = useMemo(() => somarPorTurno(regs, turnos), [regs, turnos]);
+  const porPessoa = useMemo(() => somarPorPessoa(regs), [regs]);
   const paraCadastrar = useMemo(() => itensForaDaLista(fora, produtos), [fora, produtos]);
   const t = totais(regs);
   const mudaram = regs.filter(l => mudancaDoRegistro(l)).length;
@@ -98,7 +106,7 @@ export default function RelatorioDesperdicio() {
     try {
       const XLSX = await import('xlsx');
       const wb = XLSX.utils.book_new();
-      for (const [nome, aba] of planilhaDoDesperdicio(regs, produtos, { de, ate })) {
+      for (const [nome, aba] of planilhaDoDesperdicio(regs, produtos, { de, ate }, turnos)) {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aba), nome);
       }
       XLSX.writeFile(wb, `desperdicio_${de}_a_${ate}.xlsx`);
@@ -211,6 +219,18 @@ export default function RelatorioDesperdicio() {
               <span className="font-black text-polo-navy whitespace-nowrap">{fmtSoma(g.total, g.unidade)}</span>
             </li>
           ))}
+          {visao === 'turno' && porTurno.map(t => (
+            <li key={t.turno} className="px-4 py-3 flex items-baseline justify-between gap-3">
+              <span className="font-bold text-polo-navy">{t.turno} <span className="text-xs font-normal text-gray-600">· {t.vezes}×</span></span>
+              <span className="font-black text-polo-navy whitespace-nowrap">{fmtPesoEUnid(t.kg, t.unid)}</span>
+            </li>
+          ))}
+          {visao === 'pessoa' && porPessoa.map(p => (
+            <li key={p.pessoa} className="px-4 py-3 flex items-baseline justify-between gap-3">
+              <span className="font-bold text-polo-navy break-words">{p.pessoa} <span className="text-xs font-normal text-gray-600">· {p.vezes}×</span></span>
+              <span className="font-black text-polo-navy whitespace-nowrap">{fmtPesoEUnid(p.kg, p.unid)}</span>
+            </li>
+          ))}
           {visao === 'motivo' && porMotivo.map(m => (
             <li key={m.motivo} className="px-4 py-3 flex items-baseline justify-between gap-3">
               <span className="font-bold text-polo-navy break-words">{m.motivo}</span>
@@ -270,8 +290,9 @@ function JanelaCorrigir({ registro, aoFechar, aoSalvar, onde }) {
   const { toast } = useUI();
   const id = useId();
   const [nome, setNome] = useState(registro.item_nome);
-  const [qtd, setQtd] = useState(String(registro.quantidade));
-  const [unidade, setUnidade] = useState(registro.unidade);
+  // ⚠️ peso como na balança, só kg e unid (24/11/2026): o registro em g abre em kg
+  const [qtd, setQtd] = useState(String(registro.unidade === 'g' ? Number(registro.quantidade) / 1000 : registro.quantidade));
+  const [unidade, setUnidade] = useState(registro.unidade === 'unid' ? 'unid' : 'kg');
   const [motivo, setMotivo] = useState(registro.motivo);
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -306,11 +327,12 @@ function JanelaCorrigir({ registro, aoFechar, aoSalvar, onde }) {
       <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
         <div>
           <p className="text-xs font-bold uppercase text-gray-600 mb-1">Quantidade</p>
-          <CampoNumerico valor={qtd} aoMudar={(v) => { setQtd(v); setErro(''); }} rotulo="Quantidade" unidade={unidade} decimal={unidade === 'kg'}
+          <CampoNumerico valor={qtd} aoMudar={(v) => { setQtd(v); setErro(''); }} rotulo="Quantidade" unidade={unidade}
+            decimal={false} casasFixas={unidade === 'kg' ? 3 : 0}
             className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 px-3 text-xl font-extrabold text-polo-navy" />
         </div>
         <div className="flex gap-1.5" role="radiogroup" aria-label="Unidade">
-          {UNIDADES_DESCARTE.map(u => (
+          {UNIDADES_NA_JANELA.map(u => (
             <button key={u} type="button" role="radio" aria-checked={unidade === u} onClick={() => setUnidade(u)}
               className={`min-h-12 min-w-11 px-3 rounded-xl font-bold border-[3px] ${unidade === u ? 'bg-polo-navy border-polo-navy text-polo-gold' : 'bg-white border-polo-navy/15 text-polo-navy'}`}>{u}</button>
           ))}

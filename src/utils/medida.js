@@ -72,3 +72,31 @@ export function teclar(numero, tecla, { decimal = true } = {}) {
   if (decimais !== undefined && decimais.length >= MAX_DECIMAIS) return atual;
   return atual + tecla;
 }
+
+// =====================================================================
+//  O TECLADO DA BALANÇA (24/11/2026, escolha do dono): em kg os números
+//  entram PELA DIREITA, com 3 casas fixas, como no visor da balança e na
+//  maquininha de cartão — 1-5-0-0 é 1,500 kg; 2-5-0 é 0,250 kg; 2 e 000 é
+//  2,000 kg. Ninguém procura a vírgula. `digitos` é só o que foi tocado
+//  ("1500"); a tela mostra textoDaBalanca.
+// =====================================================================
+export const MAX_DIGITOS_BALANCA = 8; // até 99999,999 (o banco aceita até 100000)
+
+/** O valor que já existe ("1,5", "1.5", 1.5) em dígitos da balança ("1500"). */
+export function digitosDaBalanca(valor, casas = 3) {
+  const n = Number(String(valor ?? '').trim().replace(',', '.'));
+  if (!String(valor ?? '').trim() || !Number.isFinite(n) || n <= 0) return '';
+  return String(Math.round(n * 10 ** casas)).slice(0, MAX_DIGITOS_BALANCA);
+}
+
+/** Um toque: '0' a '9' ou '000' (o quilo inteiro). Zero à esquerda não conta. */
+export function teclarBalanca(digitos, tecla) {
+  if (!/^(\d|000)$/.test(tecla)) return digitos;
+  const novo = `${digitos}${tecla}`.replace(/^0+/, '');
+  return novo.length > MAX_DIGITOS_BALANCA ? digitos : novo;
+}
+
+/** "1500" → "1,500"; "" → "" (vazio). */
+export const textoDaBalanca = (digitos, casas = 3) => (digitos
+  ? (Number(digitos) / 10 ** casas).toLocaleString('pt-BR', { minimumFractionDigits: casas, maximumFractionDigits: casas, useGrouping: false })
+  : '');

@@ -10,8 +10,9 @@ import { fmtData, isoLocal } from '../utils/formatters';
 import { casaBusca, normalizarBusca } from '../utils/busca';
 import { vozDisponivel } from '../utils/voz';
 import { motivoDaFala } from '../utils/vozDoDescarte';
+import { digitosDaBalanca } from '../utils/medida';
 import {
-  conferirDescarte, fmtQtd, motivosDaCasa, turnoDe, turnosDaCasa, MAX_MOTIVO, UNIDADES_DESCARTE,
+  conferirDescarte, fmtQtd, motivosDaCasa, turnoDe, turnosDaCasa, MAX_MOTIVO, UNIDADES_NA_JANELA,
 } from '../utils/desperdicio';
 import { alterarMeuDescarte, novoIdDeDescarte, registrarDescarte } from '../lib/descartes';
 
@@ -25,22 +26,37 @@ import { alterarMeuDescarte, novoIdDeDescarte, registrarDescarte } from '../lib/
 //  `alterando`: o registro feito agora há pouco — o "Alterar" de quem anotou
 //  errado (M66): mesma janela, com o que foi registrado, e dá para trocar o
 //  item (`produtos`, os da lista).
+//  ⚠️ PESO COMO NA BALANÇA (24/11/2026, escolha do dono): em kg o número
+//  entra pela direita com 3 casas (1-5-0-0 = 1,500 kg), e o app mostra no
+//  tamanho certo ("10 g", "1,5 kg"). Sem botão "g": os dígitos já são os
+//  gramas. Quantidade em g (voz, registro antigo) abre convertida para kg.
+//  ⚠️ `pedirResponsavel` (sem equipe cadastrada, pedido do dono): o nome de
+//  quem registra é obrigatório — e fica lembrado para a próxima. Campo de
+//  texto, e NÃO o seletor da etiqueta: sem equipe, aquele seletor só deixa a
+//  Administração cadastrar nomes, e a cozinha ficaria sem conseguir registrar.
 // =====================================================================
 const horaDe = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-// acima disto em kg, a janela pergunta se não era em gramas
-const MUITO_KG = 30;
+const qtdInicial = (q, unidade) => {
+  const n = Number(q) || 0;
+  if (!n) return '';
+  return String(unidade === 'g' ? n / 1000 : n);
+};
 
-export default function JanelaDescarte({ inicial, alterando = null, produtos = [], responsavel, aoFechar, aoRegistrar }) {
-  const { prefs, rid } = useApp();
+export default function JanelaDescarte({
+  inicial, alterando = null, produtos = [], responsavel, pedirResponsavel = false, aoFechar, aoRegistrar,
+}) {
+  const { prefs, rid, setPref } = useApp();
   const { sessao } = useAuth();
   const { toast } = useUI();
   const id = useId();
   const [item, setItem] = useState(() => (inicial.livre
     ? { id: null, nome: inicial.nome || '', livre: true }
     : { id: inicial.id, nome: inicial.nome, livre: false }));
-  const [qtd, setQtd] = useState(inicial.quantidade ? String(inicial.quantidade) : '');
-  const [unidade, setUnidade] = useState(UNIDADES_DESCARTE.includes(inicial.unidade) ? inicial.unidade : 'kg');
+  const [qtd, setQtd] = useState(() => qtdInicial(inicial.quantidade, inicial.unidade));
+  const [unidade, setUnidade] = useState(inicial.unidade === 'unid' ? 'unid' : 'kg');
   const [motivo, setMotivo] = useState(inicial.motivo || '');
+  const [resp, setResp] = useState(responsavel || '');
+  const pedeNome = pedirResponsavel && !alterando;
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [trocandoItem, setTrocandoItem] = useState(false);
@@ -68,8 +84,16 @@ export default function JanelaDescarte({ inicial, alterando = null, produtos = [
   const linhaDeDados = [
     ['Data', fmtData(isoLocal(quando))], ['Hora', horaDe(quando)],
     ['Turno', alterando ? (alterando.turno || '—') : turnoDe(agora, turnos)],
-    ['Responsável', (alterando ? alterando.responsavel : responsavel) || '—'],
+    // sem equipe, o nome é pedido logo abaixo
+    ...(pedeNome ? [] : [['Responsável', (alterando ? alterando.responsavel : responsavel) || '—']]),
   ];
+  // ⚠️ TROCOU A UNIDADE DEPOIS DE DIGITAR: valem os números tocados. "3" em kg
+  // é 0,003 kg; quem queria 3 unidades toca em unid e fica 3 unid.
+  const trocarUnidade = (u) => {
+    if (u === unidade) return;
+    if (qtd) setQtd(u === 'unid' ? String(Number(digitosDaBalanca(qtd)) || '') : String(Math.round(Number(qtd) || 0) / 1000 || ''));
+    setUnidade(u);
+  };
 
   const achadosItem = useMemo(() => {
     const t = buscaItem.trim();
@@ -82,6 +106,7 @@ export default function JanelaDescarte({ inicial, alterando = null, produtos = [
     try {
       conferirDescarte({ itemNome: item.nome, quantidade, unidade, motivo });
     } catch (e) { setErro(e.message); return; }
+    if (pedeNome && !resp.trim()) { setErro('Falta o responsável.'); return; }
     setSalvando(true);
     const q = Math.round(quantidade * 1000) / 1000;
     const campos = { item_id: item.livre ? null : item.id, item_nome: item.nome.trim(), quantidade: q, unidade, motivo: motivo.trim() };
@@ -100,7 +125,7 @@ export default function JanelaDescarte({ inicial, alterando = null, produtos = [
     const agoraMesmo = new Date();
     const linha = {
       id: novoIdDeDescarte(), quando: agoraMesmo.toISOString(), turno: turnoDe(agoraMesmo, turnos),
-      ...campos, responsavel: responsavel || '',
+      ...campos, responsavel: (pedeNome ? resp.trim() : responsavel) || '',
     };
     const r = await registrarDescarte({ rid, demo: !!sessao?.demo }, linha);
     if (r.recusado) {
@@ -108,6 +133,8 @@ export default function JanelaDescarte({ inicial, alterando = null, produtos = [
       setSalvando(false);
       return;
     }
+    // quem registrou vira o nome da próxima vez (como na etiqueta)
+    if (pedeNome && resp.trim() !== (prefs.responsavel || '')) setPref('responsavel', resp.trim());
     toast(r.enviado
       ? `Descarte registrado: ${linha.item_nome} · ${fmtQtd(linha.quantidade, unidade)}`
       : `Sem internet: ${linha.item_nome} · ${fmtQtd(linha.quantidade, unidade)} ficou guardado e vai sozinho quando a conexão voltar.`,
@@ -175,26 +202,29 @@ export default function JanelaDescarte({ inicial, alterando = null, produtos = [
       )}
 
       {!trocandoItem && (<>
+        {pedeNome && (
+          <div>
+            <label htmlFor={`${id}-resp`} className="block text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Responsável</label>
+            <input id={`${id}-resp`} value={resp} onChange={e => { setResp(e.target.value); setErro(''); }} maxLength={80}
+              placeholder="Quem está registrando" autoComplete="off"
+              className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-base text-polo-navy" />
+          </div>
+        )}
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1" aria-hidden="true">Quantidade descartada</p>
           <div className="grid grid-cols-[1fr_auto] gap-2 items-stretch">
             <CampoNumerico valor={qtd} aoMudar={(v) => { setQtd(v); setErro(''); }} rotulo="Quantidade descartada"
-              titulo={`Quantidade — ${item.nome || 'descarte'}`} unidade={unidade} decimal={unidade === 'kg'}
+              titulo={`Quantidade — ${item.nome || 'descarte'}`} unidade={unidade} decimal={false}
+              casasFixas={unidade === 'kg' ? 3 : 0}
               className="w-full min-h-14 rounded-2xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-3 text-2xl font-extrabold text-polo-navy" />
-            {/* ⚠️ GRAMAS (24/11/2026, pedido do dono): "10 g" sem fazer conta.
-                Botões justos (44 px): com três, o número ficava com 98 px no
-                celular de 375 e "1,250" não cabia */}
             <div className="flex gap-1.5" role="radiogroup" aria-label="Unidade">
-              {UNIDADES_DESCARTE.map(u => (
-                <button key={u} type="button" role="radio" aria-checked={unidade === u} onClick={() => setUnidade(u)}
-                  className={`min-h-14 min-w-11 px-2 rounded-xl font-bold text-base border-[3px]
+              {UNIDADES_NA_JANELA.map(u => (
+                <button key={u} type="button" role="radio" aria-checked={unidade === u} onClick={() => trocarUnidade(u)}
+                  className={`min-h-14 min-w-14 px-3 rounded-xl font-bold text-base border-[3px]
                     ${unidade === u ? 'bg-polo-navy border-polo-navy text-polo-gold' : 'bg-white border-polo-navy/15 text-polo-navy'}`}>{u}</button>
               ))}
             </div>
           </div>
-          {unidade === 'kg' && quantidade >= MUITO_KG && (
-            <p className="mt-1 text-sm font-bold text-polo-navy">{fmtQtd(quantidade, 'kg')} é muita coisa. Se for em gramas, toque em g.</p>
-          )}
         </div>
 
         <div>

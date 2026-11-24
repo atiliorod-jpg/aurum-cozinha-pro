@@ -13,10 +13,15 @@ import { fmtNum, fmtData } from './formatters';
 import { gruposDoProduto } from './grupos';
 import { normalizarUnidade } from './itens';
 
-// ⚠️ GRAMAS (24/11/2026, pedido do dono, M66): "10 g de bolinho" sem fazer
-// conta. Cada registro guarda a unidade como foi digitada; nas SOMAS, g vira
-// kg e soma junto com o kg (e abaixo de 1 kg a soma aparece em gramas).
+// ⚠️ GRAMAS (24/11/2026, pedido do dono, M66): o banco aceita kg, g e unid.
+// ⚠️ MAS A JANELA SÓ TEM kg E unid (mesmo dia, pergunta do dono: "a grama
+// ainda tem utilidade?"). Com o teclado da balança, os números tocados JÁ SÃO
+// os gramas (1-0 = 0,010 kg = 10 g) — um botão "g" seria só mais um jeito de
+// errar. O app mostra o peso no tamanho certo sozinho (fmtPeso): "10 g",
+// "1,5 kg". O "g" continua valendo para os registros já feitos e para a voz
+// ("10 gramas"), que a janela converte para kg.
 export const UNIDADES_DESCARTE = ['kg', 'g', 'unid'];
+export const UNIDADES_NA_JANELA = ['kg', 'unid'];
 
 // os motivos que o Magurō usa; a casa muda na Administração → Desperdício
 export const MOTIVOS_PADRAO = ['Vencido', 'Estragado', 'Queimado', 'Sobra de produção', 'Caiu no chão',
@@ -66,16 +71,8 @@ export function turnoDe(data, turnos = TURNOS_PADRAO) {
   return r;
 }
 
-/**
- * A unidade de costume do item no descarte: unid; g para o item em g (e em
- * mL, que na cozinha pesa quase o mesmo); kg para todo o resto. A pessoa
- * troca na janela se precisar.
- */
-export function unidadeDoItem(p) {
-  const u = normalizarUnidade(p?.unidade);
-  if (u === 'unid') return 'unid';
-  return u === 'g' || u === 'mL' ? 'g' : 'kg';
-}
+/** A unidade de costume do item no descarte: unid, ou peso (kg) para todo o resto. */
+export const unidadeDoItem = (p) => (normalizarUnidade(p?.unidade) === 'unid' ? 'unid' : 'kg');
 
 /** Peso ou unidade? g e kg são peso (somam juntos); unid é à parte. */
 export const tipoDaUnidade = (unidade) => (unidade === 'unid' ? 'unid' : 'kg');
@@ -83,11 +80,11 @@ export const tipoDaUnidade = (unidade) => (unidade === 'unid' ? 'unid' : 'kg');
 /** A quantidade para as somas: g vira kg; unid fica como está. */
 export const paraSomar = (quantidade, unidade) => (unidade === 'g' ? Number(quantidade) / 1000 : Number(quantidade)) || 0;
 
-/** "1,5 kg", "250 g", "3 unid" — como foi registrado. */
-export const fmtQtd = (n, unidade) => `${fmtNum(n, 3)} ${UNIDADES_DESCARTE.includes(unidade) ? unidade : 'kg'}`;
-
-/** Uma SOMA de peso (em kg): abaixo de 1 kg aparece em gramas ("250 g"). */
+/** Um peso (em kg) no tamanho certo: abaixo de 1 kg em gramas ("250 g"), senão "1,5 kg". */
 export const fmtPeso = (kg) => (Number(kg) > 0 && Number(kg) < 1 ? `${fmtNum(Number(kg) * 1000, 1)} g` : `${fmtNum(kg, 3)} kg`);
+
+/** Uma quantidade registrada: "3 unid"; peso (kg ou g) no tamanho certo — "10 g", "1,5 kg". */
+export const fmtQtd = (n, unidade) => (unidade === 'unid' ? `${fmtNum(n, 3)} unid` : fmtPeso(paraSomar(n, unidade)));
 
 /** Uma soma do relatório: peso (`tipo` 'kg', em kg) ou unidades. */
 export const fmtSoma = (total, tipo) => (tipo === 'unid' ? fmtQtd(total, 'unid') : fmtPeso(total));
@@ -179,6 +176,58 @@ export function somarPorGrupo(registros, itensAtuais = []) {
   return [...grupos.values()].sort((a, b) => (a.unidade === b.unidade ? 0 : a.unidade === 'kg' ? -1 : 1) || b.total - a.total);
 }
 
+/**
+ * Soma de quem registrou ou de cada turno: peso (em kg, com os gramas) e
+ * unidades à parte, e quantas vezes.
+ */
+function somarPor(registros, chaveDe) {
+  const m = new Map();
+  for (const r of registros || []) {
+    const [chave, nome] = chaveDe(r);
+    const g = m.get(chave) || { nome, kg: 0, unid: 0, vezes: 0 };
+    if (tipoDaUnidade(r.unidade) === 'unid') g.unid = arred(g.unid + Number(r.quantidade));
+    else g.kg = arredKg(g.kg + paraSomar(r.quantidade, r.unidade));
+    g.vezes += 1;
+    m.set(chave, g);
+  }
+  return [...m.values()];
+}
+
+/**
+ * POR TURNO (24/11/2026, pedido do dono: Manhã × Noite). Na ordem dos turnos
+ * da casa; o turno que saiu da lista vem depois, e o registro sem turno em
+ * "Sem turno". Devolve [{ turno, kg, unid, vezes }].
+ */
+export function somarPorTurno(registros, turnos = TURNOS_PADRAO) {
+  const ordem = (turnos || []).map(t => chaveDoNome(t.nome));
+  const pos = (nome) => { const i = ordem.indexOf(chaveDoNome(nome)); return i < 0 ? ordem.length : i; };
+  return somarPor(registros, (r) => {
+    const nome = String(r.turno || '').trim() || 'Sem turno';
+    return [chaveDoNome(nome), nome];
+  })
+    .map(({ nome, ...resto }) => ({ turno: nome, ...resto }))
+    .sort((a, b) => pos(a.turno) - pos(b.turno) || a.turno.localeCompare(b.turno, 'pt-BR'));
+}
+
+/**
+ * POR PESSOA (24/11/2026, pedido do dono): quem registrou, quem mais descartou
+ * (em peso) primeiro. Devolve [{ pessoa, kg, unid, vezes }].
+ */
+export function somarPorPessoa(registros) {
+  return somarPor(registros, (r) => {
+    const nome = String(r.responsavel || '').trim() || 'Sem responsável';
+    return [chaveDoNome(nome), nome];
+  })
+    .map(({ nome, ...resto }) => ({ pessoa: nome, ...resto }))
+    .sort((a, b) => b.kg - a.kg || b.unid - a.unid || a.pessoa.localeCompare(b.pessoa, 'pt-BR'));
+}
+
+/** "1,5 kg + 3 unid", "250 g", "3 unid". */
+export function fmtPesoEUnid(kg, unid) {
+  if (kg > 0 && unid > 0) return `${fmtPeso(kg)} + ${fmtQtd(unid, 'unid')}`;
+  return unid > 0 ? fmtQtd(unid, 'unid') : fmtPeso(kg);
+}
+
 /** O registro é de um item que não está na lista hoje? */
 export function registroForaDaLista(registro, itensAtuais = []) {
   if (registro.item_id && (itensAtuais || []).some(i => i.id === registro.item_id)) return false;
@@ -204,12 +253,13 @@ export function mudancaDoRegistro(r) {
 }
 
 /**
- * As abas da planilha (xlsx): soma por item, por grupo, por motivo e um por
- * um. ⚠️ AS SOMAS SÃO NÚMERO EM kg (gramas convertidos) ou em unid, com a
- * unidade ao lado — dá para somar no Excel. No "Um por um" fica a quantidade
- * como foi registrada e, ao lado, o peso em kg.
+ * As abas da planilha (xlsx): soma por item, por grupo, por turno, por pessoa,
+ * por motivo e um por um. ⚠️ AS SOMAS SÃO NÚMERO EM kg (gramas convertidos)
+ * ou em unid, com a unidade ao lado — dá para somar no Excel. No "Um por um"
+ * fica a quantidade como foi registrada e, ao lado, o peso em kg.
+ * `turnos`: os da casa, para a ordem da aba "Por turno".
  */
-export function planilhaDoDesperdicio(registros, itensAtuais, periodo) {
+export function planilhaDoDesperdicio(registros, itensAtuais, periodo, turnos = TURNOS_PADRAO) {
   const titulo = periodo.de === periodo.ate ? fmtData(periodo.de) : `${fmtData(periodo.de)} a ${fmtData(periodo.ate)}`;
   const mudou = (r) => {
     const m = mudancaDoRegistro(r);
@@ -222,6 +272,10 @@ export function planilhaDoDesperdicio(registros, itensAtuais, periodo) {
         g.motivos.map(m => `${m.motivo} (${fmtSoma(m.total, g.unidade)})`).join(', ')])]],
     ['Por grupo', [['Grupo', 'Total', 'Unidade', 'Vezes'],
       ...somarPorGrupo(registros, itensAtuais).map(g => [g.grupo, g.total, g.unidade, g.vezes])]],
+    ['Por turno', [['Turno', 'Peso (kg)', 'Unidades', 'Vezes'],
+      ...somarPorTurno(registros, turnos).map(t => [t.turno, t.kg, t.unid, t.vezes])]],
+    ['Por pessoa', [['Pessoa', 'Peso (kg)', 'Unidades', 'Vezes'],
+      ...somarPorPessoa(registros).map(p => [p.pessoa, p.kg, p.unid, p.vezes])]],
     ['Por motivo', [['Motivo', 'Total (kg)'], ...somarPorMotivo(registros).map(m => [m.motivo, m.total])]],
     ['Um por um', [['Data', 'Hora', 'Turno', 'Item', 'Quantidade', 'Unidade', 'Peso (kg)', 'Motivo', 'Responsável', 'Mudou depois'],
       ...(registros || []).map(r => [fmtData(r.dia), r.hora, r.turno, r.item_nome, Number(r.quantidade), r.unidade,
