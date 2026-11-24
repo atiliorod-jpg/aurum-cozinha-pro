@@ -181,7 +181,17 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
-## Onde paramos (24/11/2026) — ACESSOS NO JEITO DO MAGURŌ (app no ar; BANCO ESPERANDO A M62)
+## Onde paramos (24/11/2026) — ACESSOS NO JEITO DO MAGURŌ (app no ar; M62 APLICADA)
+
+**M62 aplicada em 24/11** (o dono renovou o token do Supabase): conferida no catálogo
+(11 funções sem acesso anônimo, `meu_cargo()` segue a Administração, tabelas com RLS
+e sem leitura direta), `pentest-administracao.mjs` 18/18 (com CONTROLE: a cozinha grava
+documento comum; só o cadastro é recusado — o restaurante de teste é liberado com
+`teste_ate`, e a conta nasce confirmada pela service role), `auditar-supabase.mjs` 45/45
+(as tabelas e RPCs novas entraram na lista). O app relê os documentos quando a
+Administração abre ou fecha (`releituraDaAdm`): os custos (`precos`) só vêm com ela aberta.
+Falta o DONO criar a senha: reabrir o app, Meus itens/Administração → confirmar a senha
+do login → criar (4 a 8 números).
 
 Decisões do dono: igual ao Magurō, mas a senha pode ser maior que 4 números;
 o celular dele também pede a senha; reimprimir é livre para a cozinha (botão

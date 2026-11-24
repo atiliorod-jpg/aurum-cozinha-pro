@@ -32,7 +32,9 @@ if (!URL_BASE || !ANON) { console.error('Faltam VITE_SUPABASE_URL / VITE_SUPABAS
 // quem foi apagado — as duas seriam ótimas para um curioso, e nenhuma estava
 // sendo conferida até 02/09.
 const TABELAS = ['admin_notas', 'admin_exclusoes', 'admin_log', 'convites', 'documentos',
-  'documentos_historico', 'feedback', 'pagamentos', 'perfis', 'registros', 'restaurantes', 'sessoes'];
+  'documentos_historico', 'feedback', 'pagamentos', 'perfis', 'registros', 'restaurantes', 'sessoes',
+  // M62 (24/11/2026): a senha da Administração (com hash) e quem está com ela aberta
+  'administracao_senha', 'administracao_aberta'];
 const RPCS = [
   'aceitar_convite', 'alterar_cargo', 'ativar_assinatura', 'avisar_pagamento',
   'convite_valido', 'criar_restaurante', 'definir_bloqueio', 'definir_max_usuarios',
@@ -43,6 +45,8 @@ const RPCS = [
   // Estas seis nasceram entre 31/08 e 02/09 e nenhuma estava sendo conferida.
   'uso_do_restaurante', 'apagar_restaurante', 'exclusoes_admin',
   'registrar_pagamento', 'pagamentos_do_restaurante', 'definir_regime', 'log_admin',
+  // M62: a senha da Administração
+  'tem_senha_administracao', 'abrir_administracao', 'renovar_administracao', 'fechar_administracao', 'definir_senha_administracao',
 ];
 
 const req = (caminho, chave, opts = {}) =>

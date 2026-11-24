@@ -175,7 +175,7 @@ function comPrazo(promessa, ms) {
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  const { sessao, impersonando } = useAuth() || {};
+  const { sessao, impersonando, administracaoAberta } = useAuth() || {};
   // Produto contratado — decide se o catalogo nasce vazio (plano Etiquetas).
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
   // Em modo suporte, o super-admin carrega o restaurante impersonado em SOMENTE
@@ -1444,6 +1444,11 @@ export function AppProvider({ children }) {
   // de 2 minutos fora (ou quando a internet volta), a leitura é refeita. Com
   // o "só o que mudou" (M53/M57) isso custa quase nada.
   const [rodadaSync, setRodadaSync] = useState(0);
+  // ⚠️ A ADMINISTRAÇÃO ABRIU OU FECHOU (M62, 24/11/2026): o banco passa a
+  // entregar — ou a esconder — o que é de dono (os custos, `precos`). A
+  // leitura dos documentos é refeita (só o que mudou, como na volta do
+  // aparelho). Na demonstração não há banco: nada a reler.
+  const releituraDaAdm = !!rid && rid !== 'demo' && !!administracaoAberta;
   useEffect(() => {
     if (!rid || rid === 'demo') return undefined;
     let escondidoEm = 0;
@@ -2252,7 +2257,7 @@ export function AppProvider({ children }) {
     // `moduloEfetivo` nas deps: trocar de estoque re-hidrata tudo daquele
     // estoque. É o EFETIVO, não o do localStorage: um id arquivado precisa
     // hidratar a raiz, não continuar carregando o estoque escondido.
-  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo, rodadaSync, acompanharBrutos,
+  }, [rid, salvarDocNuvem, moduloEfetivo, chaveDestinos, k, kc, baseCatalogo, rodadaSync, releituraDaAdm, acompanharBrutos,
       mostrarPrefsDoServidor, subirPrefs]);
   /* eslint-enable react-hooks/set-state-in-effect */
 

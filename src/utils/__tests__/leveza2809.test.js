@@ -33,7 +33,7 @@ describe('o aparelho fica em dia', () => {
   it('acordou depois de 2 minutos, ou a internet voltou: refaz a leitura', () => {
     expect(app).toMatch(/Date\.now\(\) - escondidoEm > 2 \* 60 \* 1000\) setRodadaSync\(n => n \+ 1\)/);
     expect(app).toMatch(/window\.addEventListener\('online', aoVoltarRede\)/);
-    expect(app).toMatch(/baseCatalogo, rodadaSync, acompanharBrutos,\s*mostrarPrefsDoServidor, subirPrefs\]\);/);
+    expect(app).toMatch(/baseCatalogo, rodadaSync, releituraDaAdm, acompanharBrutos,\s*mostrarPrefsDoServidor, subirPrefs\]\);/);
   });
 
   it('relatórios, financeiro e balanço veem o que foi lançado depois da abertura', () => {
