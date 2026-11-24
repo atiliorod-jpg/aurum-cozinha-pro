@@ -7,6 +7,15 @@ const estado = vi.hoisted(() => ({ auth: {} }));
 vi.mock('../../store/AuthContext', () => ({ useAuth: () => estado.auth }));
 vi.mock('../../store/UIContext', () => ({ useUI: () => ({ toast: vi.fn() }) }));
 vi.mock('qrcode', () => ({ default: { toDataURL: () => Promise.resolve('') } }));
+// ⚠️ O TECLADO DA SENHA mora num arquivo que importa o Layout (e, por ele, o
+// app inteiro e o cliente do Supabase). No GitHub os testes rodam SEM o
+// endereço do banco e o import quebrava a suíte inteira (24/11/2026). Aqui
+// basta um teclado de mentira que diga o título e chame aoEnviar.
+vi.mock('../SenhaDaAdministracao', () => ({
+  TecladoVariavel: ({ titulo, subtitulo, rodape }) => (
+    <div><h2>{titulo}</h2>{subtitulo && <p>{subtitulo}</p>}{rodape}</div>
+  ),
+}));
 
 import AparelhoAMais from '../AparelhoAMais';
 
