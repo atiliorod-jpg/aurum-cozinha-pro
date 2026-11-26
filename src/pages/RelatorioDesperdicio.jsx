@@ -133,20 +133,25 @@ export default function RelatorioDesperdicio() {
   return (
     <Layout title="Relatório de desperdício" {...(soEtiq ? { voltar: '/administracao' } : { area: 'admin' })}>
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2 print:hidden" role="group" aria-label="Período">
-          {PERIODOS.map(p => (
-            <button key={p.id} type="button" onClick={() => escolherPeriodo(p)} aria-pressed={periodo === p.id} className={botaoFiltro(periodo === p.id)}>{p.rotulo}</button>
-          ))}
-        </div>
+        {/* ⚠️ REDESIGN (26/11/2026): o período e as datas na mesma faixa (as datas
+            à direita no computador); os quatro números lado a lado; as visões num
+            controle segmentado; as somas com barras */}
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <label className="text-sm text-gray-600">De
-            <input type="date" value={de} onChange={e => { setPeriodo('livre'); setDe(e.target.value); }}
-              className="ml-2 min-h-11 rounded-xl border-[3px] border-polo-navy/15 px-2 text-polo-navy" />
-          </label>
-          <label className="text-sm text-gray-600">até
-            <input type="date" value={ate} onChange={e => { setPeriodo('livre'); setAte(e.target.value); }}
-              className="ml-2 min-h-11 rounded-xl border-[3px] border-polo-navy/15 px-2 text-polo-navy" />
-          </label>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Período">
+            {PERIODOS.map(p => (
+              <button key={p.id} type="button" onClick={() => escolherPeriodo(p)} aria-pressed={periodo === p.id} className={botaoFiltro(periodo === p.id)}>{p.rotulo}</button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 md:ml-auto">
+            <label className="text-sm text-polo-tinta">De
+              <input type="date" value={de} onChange={e => { setPeriodo('livre'); setDe(e.target.value); }}
+                className="ml-2 min-h-11 rounded-xl border-2 border-polo-linha px-2 text-polo-navy" />
+            </label>
+            <label className="text-sm text-polo-tinta">até
+              <input type="date" value={ate} onChange={e => { setPeriodo('livre'); setAte(e.target.value); }}
+                className="ml-2 min-h-11 rounded-xl border-2 border-polo-linha px-2 text-polo-navy" />
+            </label>
+          </div>
         </div>
 
         {paraCadastrar.length > 0 && podeMexer && (
@@ -167,30 +172,20 @@ export default function RelatorioDesperdicio() {
           </section>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <Resumo rotulo="Total descartado" valor={fmtPeso(t.kg)} extra={t.unid ? `+ ${fmtQtd(t.unid, 'unid')}` : ''} />
           <Resumo rotulo="Registros" valor={linhas ? String(t.registros) : '…'} />
           <Resumo rotulo="Item que mais saiu" valor={porItem[0]?.item || '—'} extra={porItem[0] ? fmtSoma(porItem[0].total, porItem[0].unidade) : ''} />
           <Resumo rotulo="Motivo mais comum" valor={porMotivo[0]?.motivo || '—'} extra={porMotivo[0] ? fmtPeso(porMotivo[0].total) : ''} />
         </div>
 
-        <div className="flex flex-wrap gap-2 print:hidden" role="group" aria-label="Como ver">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-1 p-1.5 bg-white border-2 border-polo-linha rounded-2xl print:hidden" role="group" aria-label="Como ver">
           {VISOES.map(v => (
-            <button key={v.id} type="button" onClick={() => setVisao(v.id)} aria-pressed={visao === v.id} className={botaoFiltro(visao === v.id)}>{v.rotulo}</button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2 print:hidden">
-          <button type="button" onClick={() => window.print()} className="min-h-11 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-sm inline-flex items-center gap-2">
-            <Icon name="impressora" size={18} />Imprimir
-          </button>
-          <button type="button" onClick={baixarPlanilha} disabled={!regs.length} className="min-h-11 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-sm inline-flex items-center gap-2 disabled:opacity-80">
-            <Icon name="lista" size={18} />Planilha
-          </button>
-          {podeMexer && regs.length > 0 && (
-            <button type="button" onClick={apagarPeriodo} className="min-h-11 px-4 rounded-xl border-[3px] border-red-200 bg-white text-red-700 font-bold text-sm inline-flex items-center gap-2">
-              <Icon name="apagar" size={18} />Apagar todos deste período
+            <button key={v.id} type="button" onClick={() => setVisao(v.id)} aria-pressed={visao === v.id}
+              className={`min-h-11 px-1 rounded-xl text-sm font-bold leading-tight ${visao === v.id ? 'bg-polo-navy text-polo-gold' : 'text-polo-navy hover:bg-polo-beige'}`}>
+              {v.rotulo}
             </button>
-          )}
+          ))}
         </div>
 
         <p className="hidden print:block text-polo-navy font-bold">
@@ -201,41 +196,29 @@ export default function RelatorioDesperdicio() {
         )}
         {erro && <Aviso tom="erro">{erro}</Aviso>}
 
-        <ul className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100">
+        <ul className="bg-white rounded-2xl border-2 border-polo-linha divide-y divide-polo-linha/60">
           {linhas === null && <li className="p-4 text-sm text-gray-600">Carregando…</li>}
           {linhas !== null && !regs.length && !erro && <li className="p-4 text-sm text-gray-600">Nenhum descarte neste período.</li>}
           {visao === 'item' && porItem.map(g => (
-            <li key={`${g.item}|${g.unidade}`} className="px-4 py-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="font-bold text-polo-navy break-words">{g.item}</span>
-                <span className="font-black text-polo-navy whitespace-nowrap">{fmtSoma(g.total, g.unidade)}</span>
-              </div>
-              <p className="text-xs text-gray-600 mt-0.5">{g.vezes}× · {g.motivos.map(m => `${m.motivo} (${fmtSoma(m.total, g.unidade)})`).join(' · ')}</p>
-            </li>
+            <LinhaComBarra key={`${g.item}|${g.unidade}`} rotulo={g.item} texto={fmtSoma(g.total, g.unidade)}
+              fracao={g.total / (maximoDe(porItem.filter(x => x.unidade === g.unidade), x => x.total) || 1)}
+              detalhe={`${g.vezes}× · ${g.motivos.map(m => `${m.motivo} (${fmtSoma(m.total, g.unidade)})`).join(' · ')}`} />
           ))}
           {visao === 'grupo' && porGrupo.map(g => (
-            <li key={`${g.grupo}|${g.unidade}`} className="px-4 py-3 flex items-baseline justify-between gap-3">
-              <span className="font-bold text-polo-navy">{g.grupo} <span className="text-xs font-normal text-gray-600">· {g.vezes}×</span></span>
-              <span className="font-black text-polo-navy whitespace-nowrap">{fmtSoma(g.total, g.unidade)}</span>
-            </li>
+            <LinhaComBarra key={`${g.grupo}|${g.unidade}`} rotulo={g.grupo} texto={fmtSoma(g.total, g.unidade)} vezes={g.vezes}
+              fracao={g.total / (maximoDe(porGrupo.filter(x => x.unidade === g.unidade), x => x.total) || 1)} />
           ))}
           {visao === 'turno' && porTurno.map(t => (
-            <li key={t.turno} className="px-4 py-3 flex items-baseline justify-between gap-3">
-              <span className="font-bold text-polo-navy">{t.turno} <span className="text-xs font-normal text-gray-600">· {t.vezes}×</span></span>
-              <span className="font-black text-polo-navy whitespace-nowrap">{fmtPesoEUnid(t.kg, t.unid)}</span>
-            </li>
+            <LinhaComBarra key={t.turno} rotulo={t.turno} texto={fmtPesoEUnid(t.kg, t.unid)} vezes={t.vezes}
+              fracao={fracaoPesoOuUnid(t, porTurno)} />
           ))}
           {visao === 'pessoa' && porPessoa.map(p => (
-            <li key={p.pessoa} className="px-4 py-3 flex items-baseline justify-between gap-3">
-              <span className="font-bold text-polo-navy break-words">{p.pessoa} <span className="text-xs font-normal text-gray-600">· {p.vezes}×</span></span>
-              <span className="font-black text-polo-navy whitespace-nowrap">{fmtPesoEUnid(p.kg, p.unid)}</span>
-            </li>
+            <LinhaComBarra key={p.pessoa} rotulo={p.pessoa} texto={fmtPesoEUnid(p.kg, p.unid)} vezes={p.vezes}
+              fracao={fracaoPesoOuUnid(p, porPessoa)} />
           ))}
           {visao === 'motivo' && porMotivo.map(m => (
-            <li key={m.motivo} className="px-4 py-3 flex items-baseline justify-between gap-3">
-              <span className="font-bold text-polo-navy break-words">{m.motivo}</span>
-              <span className="font-black text-polo-navy whitespace-nowrap">{fmtPeso(m.total)}</span>
-            </li>
+            <LinhaComBarra key={m.motivo} rotulo={m.motivo} texto={fmtPeso(m.total)}
+              fracao={m.total / (maximoDe(porMotivo, x => x.total) || 1)} />
           ))}
           {visao === 'lista' && regs.map(l => (
             <li key={l.id} className="px-4 py-3 flex items-start justify-between gap-3">
@@ -266,6 +249,19 @@ export default function RelatorioDesperdicio() {
             </li>
           ))}
         </ul>
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <button type="button" onClick={() => window.print()} className="min-h-11 px-4 rounded-xl border-2 border-polo-linha bg-white text-polo-navy font-bold text-sm inline-flex items-center gap-2">
+            <Icon name="impressora" size={18} />Imprimir
+          </button>
+          <button type="button" onClick={baixarPlanilha} disabled={!regs.length} className="min-h-11 px-4 rounded-xl border-2 border-polo-linha bg-white text-polo-navy font-bold text-sm inline-flex items-center gap-2 disabled:opacity-60">
+            <Icon name="relatorio" size={18} />Baixar planilha
+          </button>
+          {podeMexer && regs.length > 0 && (
+            <button type="button" onClick={apagarPeriodo} className="min-h-11 px-4 rounded-xl border-2 border-perigo/40 bg-white text-perigo font-bold text-sm inline-flex items-center gap-2 md:ml-auto">
+              <Icon name="apagar" size={18} />Apagar todos deste período
+            </button>
+          )}
+        </div>
       </div>
       {corrigindo && (
         <JanelaCorrigir registro={corrigindo} aoFechar={() => setCorrigindo(null)}
@@ -276,12 +272,36 @@ export default function RelatorioDesperdicio() {
 }
 
 const Resumo = ({ rotulo, valor, extra }) => (
-  <div className="rounded-2xl bg-white border-2 border-polo-navy/10 p-3">
-    <p className="text-xs font-bold uppercase text-gray-600">{rotulo}</p>
+  <div className="rounded-2xl bg-white border-2 border-polo-linha p-3">
+    <p className="text-xs font-bold uppercase tracking-wide text-polo-tinta">{rotulo}</p>
     <p className="text-xl font-black text-polo-navy leading-tight break-words">{valor}</p>
-    {extra && <p className="text-xs text-gray-600">{extra}</p>}
+    {extra && <p className="text-xs text-polo-tinta">{extra}</p>}
   </div>
 );
+
+// ── as barras das somas (redesign, 26/11/2026) ─────────────────────────
+const maximoDe = (lista, valor) => Math.max(0, ...lista.map(valor));
+// turno e pessoa: a barra é pelo peso; sem peso nenhum no período, pelas unidades
+function fracaoPesoOuUnid(x, lista) {
+  const maxKg = maximoDe(lista, y => y.kg);
+  if (maxKg > 0) return x.kg / maxKg;
+  const maxUnid = maximoDe(lista, y => y.unid);
+  return maxUnid > 0 ? x.unid / maxUnid : 0;
+}
+function LinhaComBarra({ rotulo, texto, fracao, vezes = 0, detalhe = '' }) {
+  return (
+    <li className="px-4 py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-bold text-polo-navy break-words">{rotulo}{vezes > 0 && <span className="text-xs font-normal text-polo-tinta"> · {vezes}×</span>}</span>
+        <span className="font-black text-polo-navy whitespace-nowrap">{texto}</span>
+      </div>
+      <div className="mt-1.5 h-2.5 rounded-full bg-polo-beige overflow-hidden" aria-hidden="true">
+        <div className="h-full rounded-full bg-polo-navy" style={{ width: `${Math.max(fracao > 0 ? 3 : 0, Math.min(1, fracao) * 100)}%` }} />
+      </div>
+      {detalhe && <p className="text-xs text-polo-tinta mt-1">{detalhe}</p>}
+    </li>
+  );
+}
 
 // Corrigir um registro feito errado: item, quantidade, unidade ou motivo.
 // Data, hora, turno e responsável não mudam (o banco nem aceita).
