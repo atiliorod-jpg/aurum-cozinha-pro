@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useApp } from '../store/AppContext';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
+import Icon from './Icons';
 import {
   caminhosDeImpressao, impressoraConectada, nomeImpressora, aoMudarConexao, versaoDaConexao,
   reconectarSePuder, escolherImpressora, desconectar, bleDisponivel, bluetoothLigado,
@@ -177,12 +178,17 @@ export function CartaoImpressora() {
     }
   };
 
-  const botao = 'w-full min-h-11 rounded-xl text-sm font-bold px-3 py-2.5';
+  const botao = 'w-full min-h-12 rounded-xl text-sm font-bold px-3 py-2.5 inline-flex items-center justify-center gap-2';
 
+  // redesign (26/11/2026): cartão com ícone; teste em navy, diagnóstico em contorno
   return (
-    <div className="bg-white rounded-xl p-4 space-y-3">
-      <div>
-        <p className="text-sm font-bold text-polo-navy">Sua impressora</p>
+    <div className="bg-white border-2 border-polo-linha rounded-2xl p-4 space-y-3 h-full">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="w-11 h-11 rounded-xl bg-polo-navy text-polo-gold flex items-center justify-center flex-shrink-0">
+          <Icon name="impressora" size={22} />
+        </span>
+        <div className="min-w-0">
+        <p className="titulo-secao">Sua impressora</p>
         {direto ? (
           <p className="text-xs text-gray-700 mt-0.5">
             {conectada
@@ -194,6 +200,7 @@ export function CartaoImpressora() {
             Neste aparelho a etiqueta sai pela impressão do navegador.
           </p>
         )}
+        </div>
       </div>
 
       {direto && (
@@ -205,8 +212,8 @@ export function CartaoImpressora() {
       {erro && <p className="text-xs text-amber-900">{erro}</p>}
 
       <div>
-        <button onClick={testar} className={`${botao} border-2 border-polo-navy text-polo-navy`}>
-          Imprimir etiqueta de teste
+        <button onClick={testar} className={`${botao} bg-polo-navy text-polo-gold`}>
+          <Icon name="impressora" size={18} />Imprimir etiqueta de teste
         </button>
         <p className="text-xs text-gray-600 mt-1 px-1">
           Não entra no relatório.
@@ -214,8 +221,8 @@ export function CartaoImpressora() {
       </div>
 
       <div>
-        <button onClick={copiarDiagnostico} className={`${botao} bg-gray-100 text-gray-700`}>
-          Copiar diagnóstico para o suporte
+        <button onClick={copiarDiagnostico} className={`${botao} border-2 border-polo-linha bg-white text-polo-navy`}>
+          <Icon name="relatorio" size={18} />Copiar diagnóstico para o suporte
         </button>
         <p className="text-xs text-gray-600 mt-1 px-1">
           Abre o WhatsApp do suporte com os dados do aparelho: é só colar.

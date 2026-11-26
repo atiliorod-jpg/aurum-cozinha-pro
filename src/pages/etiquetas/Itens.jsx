@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useId } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Abas from '../../components/ui/Abas';
+import Filtros from '../../components/ui/Filtros';
 import Chave from '../../components/ui/Chave';
 import Layout from '../../components/Layout';
 import Botao from '../../components/Botao';
@@ -116,6 +117,10 @@ export default function Itens() {
 
   const jaTenho = useMemo(() => new Set(meus.map(p => (p.nome || '').toLowerCase())), [meus]);
   const gruposBiblioteca = useMemo(() => agruparPorCategoria(buscarNaBiblioteca(busca)), [busca]);
+  // redesign (26/11/2026): os grupos da biblioteca em pílulas, para achar sem rolar
+  const gruposDaBiblioteca = useMemo(() => agruparPorCategoria(buscarNaBiblioteca('')).map(([c]) => c), []);
+  const [grupoBib, setGrupoBib] = useState('');
+  const gruposBibVisiveis = grupoBib && !busca.trim() ? gruposBiblioteca.filter(([c]) => c === grupoBib) : gruposBiblioteca;
   const subgruposExistentes = useMemo(
     () => [...new Set(produtos.map(p => (p.subgrupo || '').trim()).filter(Boolean))].sort(),
     [produtos]);
@@ -411,29 +416,44 @@ export default function Itens() {
         </>
       ) : (
         <div className="space-y-4">
-          {gruposBiblioteca.length === 0 ? (
-            <p className="text-sm text-gray-600 text-center py-6">
+          {/* ⚠️ REDESIGN (26/11/2026): os grupos em pílulas (somem enquanto busca);
+              "Já tenho" em verde e "+ Adicionar" com cara de botão. Sem voz aqui
+              (decisão do dono: adicionar pronto é coisa de quem cuida do cadastro) */}
+          {!busca.trim() && (
+            <Filtros rotulo="Grupo da biblioteca" valor={grupoBib} aoTrocar={setGrupoBib} opcoes={gruposDaBiblioteca} />
+          )}
+          {gruposBibVisiveis.length === 0 ? (
+            <p className="text-sm text-polo-tinta text-center py-6">
               Nada encontrado para “{busca}”. Dá para cadastrar do zero na aba Meus itens.
             </p>
-          ) : gruposBiblioteca.map(([cat, itens]) => (
+          ) : gruposBibVisiveis.map(([cat, itens]) => (
             <div key={cat}>
               <p className="titulo-secao mb-1.5 px-1">{cat}</p>
-              <div className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100 overflow-hidden">
+              <div className="bg-white rounded-2xl border-2 border-polo-linha divide-y divide-polo-linha/60 overflow-hidden">
                 {itens.map(item => {
                   const tem = jaTenho.has(item.nome.toLowerCase());
                   return (
                     <button key={item.id} onClick={() => abrirDaBiblioteca(item)} disabled={tem}
-                      className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50 disabled:opacity-50">
+                      aria-label={tem ? `${item.nome} — Já tenho` : `${item.nome} — Adicionar`}
+                      className={`w-full text-left px-4 py-3 min-h-14 flex items-center gap-3 ${tem ? 'bg-polo-beige/50' : 'active:bg-polo-beige'}`}>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-bold text-base text-polo-navy truncate">{item.nome}</span>
-                        <span className="block text-xs text-gray-600">
-                          {item.unidade}
-                          {item.tipoData === 'abertura' && ' · data de abertura'}
+                        <span className={`block font-bold text-base break-words ${tem ? 'text-polo-tinta' : 'text-polo-navy'}`}>{item.nome}</span>
+                        <span className="flex flex-wrap gap-1.5 mt-1">
+                          <span className="rounded-md px-2 py-0.5 text-xs font-semibold bg-polo-beige text-polo-tinta ring-1 ring-inset ring-polo-linha">{item.unidade}</span>
+                          {item.tipoData === 'abertura' && (
+                            <span className="rounded-md px-2 py-0.5 text-xs font-semibold bg-amber-100 text-amber-900">Abertura</span>
+                          )}
                         </span>
                       </span>
-                      <span className={`text-xs flex-shrink-0 ${tem ? 'text-gray-600' : 'font-bold text-polo-navy'}`}>
-                        {tem ? 'já tenho' : 'Adicionar ›'}
-                      </span>
+                      {tem ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-ok-suave text-ok-tinta px-3 py-1 text-xs font-bold flex-shrink-0">
+                          <Icon name="check" size={14} />Já tenho
+                        </span>
+                      ) : (
+                        <span aria-hidden="true" className="inline-flex items-center gap-1.5 min-h-11 px-3 rounded-xl border-2 border-polo-navy text-polo-navy text-sm font-bold flex-shrink-0">
+                          <Icon name="mais" size={16} />Adicionar
+                        </span>
+                      )}
                     </button>
                   );
                 })}
