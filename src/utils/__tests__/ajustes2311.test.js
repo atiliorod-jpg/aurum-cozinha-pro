@@ -177,14 +177,17 @@ describe('telas', () => {
     expect(itens).toBeGreaterThan(0);
     expect(previa).toBeGreaterThan(itens);
     expect(ep).toMatch(/const MENOR_PREVIA = 0\.6;/);
-    expect(ep).toMatch(/style=\{zoomPrevia < 1 \? \{ zoom: zoomPrevia \} : undefined\}/);
+    // desde 26/11/2026 a prévia também CRESCE quando sobra espaço (até 1,4×)
+    expect(ep).toMatch(/style=\{zoomPrevia !== 1 \? \{ zoom: zoomPrevia \} : undefined\}/);
+    expect(ep).toMatch(/const MAIOR_PREVIA = 1\.4;/);
     // rótulos de uma linha e botões numa linha só
     expect(ep).toMatch(/const rotulo = metodosLigados\(item\)\.length \? 'Método de conservação' : 'Armazenamento';/);
     expect(ep).toMatch(/Lote<span className="sr-only"> do fabricante<\/span>/);
     expect(ep).not.toMatch(/Sai direto, no tamanho exato/);
     expect(ler('../../components/Dialogo.jsx')).toMatch(/fundo: 'fixed inset-0 bg-polo-navy\/60 overflow-y-auto \[scrollbar-gutter:stable\] px-2 pt-2 pb-0 sm:p-4 print:hidden'/);
     // a zona morta que acabou com a janela "tremida" (24/11/2026)
-    expect(ler('../../components/EtiquetaPrint.jsx')).toMatch(/if \(sobra < 0\) novo = \(atual \+ sobra - 2\) \/ natural;\s*else if \(sobra > 16 && aplicado < 1\) novo = \(atual \+ sobra - 8\) \/ natural;/);
+    // (desde 26/11/2026 o teto é `maximo` — até 1,4×, cabendo na largura)
+    expect(ler('../../components/EtiquetaPrint.jsx')).toMatch(/if \(sobra < 0\) novo = \(atual \+ sobra - 2\) \/ natural;\s*else if \(sobra > 16 && aplicado < maximo\) novo = \(atual \+ sobra - 8\) \/ natural;/);
   });
 
   it('Impressas saiu da barra e mora no Relatório de etiquetas (Administração)', () => {

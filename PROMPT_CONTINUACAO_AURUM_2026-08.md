@@ -214,6 +214,11 @@ uma vez, exceto os cartões de método na janela de imprimir (a caixa em destaqu
 - Administração: cartões em 2 colunas (md), ícone 56 px navy/dourado claro; senha com
   cadeado, teclas 64/72 px, Apagar tracejado. `.campo` 56 px, `.rotulo` em maiúsculas
   pequenas, `.titulo-secao` em dourado escuro.
+- **Prévia maior (26/11, pedido do dono)**: `usePreviaQueCabe` também CRESCE quando sobra
+  espaço (`MAIOR_PREVIA = 1.4`, limitado pela largura da caixa); no computador (lg) a
+  janela fica larga (`Dialogo largura="imprimir"` = max-w-md lg:max-w-4xl) e a prévia vai
+  para o LADO dos campos; "Assina Fulano · Trocar" mora debaixo do nome do 1º item (na
+  largura toda). Medido: 360×740 → 0,94 (era 0,78); 412×915 → 1,4; 1280×720 → 1,4 ao lado.
 - Testes ajustados de propósito: tamanhos (lote1Auditoria, visual2809), "Assina Maria"
   sem dois-pontos, "4 h", aba acesa `bg-polo-gold`, botão do desperdício desligado.
 

@@ -233,7 +233,8 @@ describe('travas no código', () => {
     const ep = ler('../../components/EtiquetaPrint.jsx');
     expect(ep).toMatch(/assinaturaDaJanela\(\{ itens, comEquipe, operador, manual: respManual \}\)/);
     expect(ep).toMatch(/\|\| faltaQuemImprime;/);
-    expect(ep).toMatch(/faltaQuemImprime \? <QuemImprime dentroDaJanela \/>/);
+    // desde 26/11/2026 o "Assina Fulano · Trocar" mora debaixo do nome do item
+    expect(ep).toMatch(/assinatura\.regra === 'operador' && faltaQuemImprime && <QuemImprime dentroDaJanela \/>/);
     // o nome não troca no meio da pergunta "Saiu no papel?" nem do Bluetooth
     expect(ep).toMatch(/\(perguntaPara === etiquetaState \|\| enviando\)/);
   });

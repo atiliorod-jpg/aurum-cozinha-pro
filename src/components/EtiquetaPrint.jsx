@@ -8,7 +8,7 @@ import { dadosDaEtiqueta, temUnidadesExtras, bloqueioDaFixa } from '../utils/uni
 import { formatarCNPJ } from '../utils/documentos';
 import { erroEmPortugues } from '../utils/erros';
 import ResponsavelSelect from './ResponsavelSelect';
-import QuemImprime, { PILULA } from './QuemImprime';
+import QuemImprime from './QuemImprime';
 import { useOperador } from '../store/OperadorContext';
 import { assinaturaDaJanela } from '../utils/senhaEquipe';
 import Dialogo from './Dialogo';
@@ -295,7 +295,11 @@ export function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIV
 // ⚠️ `zoom`, não `transform`: o zoom muda o espaço que a prévia ocupa; o
 // transform só a desenharia menor, deixando o buraco do tamanho original.
 // Só a TELA muda: o que vai para o papel é outra área (o portal lá embaixo).
+// ⚠️ E CRESCE QUANDO SOBRA ESPAÇO (26/11/2026, pedido do dono: "a prévia da
+// etiqueta poderia estar um pouco maior"): até 1,4 vez o tamanho real, sem
+// passar da largura da janela. Parava no tamanho real, pequeno em tela grande.
 const MENOR_PREVIA = 0.6;
+const MAIOR_PREVIA = 1.4;
 function usePreviaQueCabe(caixaRef, ativa) {
   const [zoom, setZoom] = useState(1);
   useLayoutEffect(() => {
@@ -313,6 +317,12 @@ function usePreviaQueCabe(caixaRef, ativa) {
       const atual = caixa.getBoundingClientRect().height - px(cc.paddingTop) - px(cc.paddingBottom);
       if (atual <= 0) return;
       const natural = atual / aplicado;
+      // o teto: 1,4× ou o que couber na largura da caixa
+      const larguraNatural = rotulo.getBoundingClientRect().width / aplicado;
+      const larguraLivre = caixa.clientWidth - px(cc.paddingLeft) - px(cc.paddingRight);
+      const maximo = larguraNatural > 0
+        ? Math.max(MENOR_PREVIA, Math.min(MAIOR_PREVIA, larguraLivre / larguraNatural))
+        : 1;
       const cp = getComputedStyle(painel);
       const cf = getComputedStyle(fundo);
       const ocupado = painel.getBoundingClientRect().height + px(cp.marginTop) + px(cp.marginBottom) + px(cf.paddingTop) + px(cf.paddingBottom);
@@ -324,8 +334,8 @@ function usePreviaQueCabe(caixaRef, ativa) {
       // mais de 16 px sobrando (deixando 8): no meio, fica como está.
       let novo = aplicado;
       if (sobra < 0) novo = (atual + sobra - 2) / natural;
-      else if (sobra > 16 && aplicado < 1) novo = (atual + sobra - 8) / natural;
-      novo = Math.floor(Math.min(1, Math.max(MENOR_PREVIA, novo)) * 100) / 100;
+      else if (sobra > 16 && aplicado < maximo) novo = (atual + sobra - 8) / natural;
+      novo = Math.floor(Math.min(maximo, Math.max(MENOR_PREVIA, novo)) * 100) / 100;
       if (Math.abs(novo - aplicado) >= 0.01) setZoom(novo);
     };
     ajustar();
@@ -1298,7 +1308,7 @@ export default function EtiquetaPrint() {
     <>
       {/* Modal on-screen (não imprime — print:hidden) */}
       <Dialogo aoFechar={fecharEtiquetas} titulo="Imprimir etiquetas"
-        forma="rolo" largura="md" camada={120} respiro="p5" classeCaixa="space-y-3" faixaCompacta>
+        forma="rolo" largura="imprimir" camada={120} respiro="p5" classeCaixa="space-y-3" faixaCompacta>
         <>
           {/* ⚠️ A UNIDADE ANTES DE TUDO, quando a conta tem mais de uma casa:
               o tablet apontado para a unidade errada imprime o CNPJ errado, e
@@ -1327,23 +1337,20 @@ export default function EtiquetaPrint() {
           {/* ⚠️ SEM NINGUÉM ESCOLHIDO, A JANELA PERGUNTA. Ela também abre por
               Entradas, Produção e "Mais usados" — sem isto, esses caminhos
               seriam o atalho para imprimir sem passar pelos nomes. */}
-          {/* ⚠️ REDESIGN (25/11/2026): "Assina Fulano" numa linha pequena, com a
-              pílula Trocar (a proposta tirava o Trocar daqui; ele ficou) */}
-          {assinatura.regra === 'operador' && (faltaQuemImprime ? <QuemImprime dentroDaJanela /> : (
-            <div className="flex items-center gap-2">
-              <p className="text-base text-polo-tinta min-w-0 truncate">Assina <strong className="text-polo-navy">{responsavel}</strong></p>
-              {!congelaAgora && (
-                <button type="button" onClick={trocarOperador} className={PILULA}>
-                  <Icon name="equipe" size={18} />Trocar
-                </button>
-              )}
-            </div>
-          ))}
+          {/* ⚠️ "ASSINA FULANO · TROCAR" MORA DEBAIXO DO NOME DO ITEM (26/11/2026,
+              como na proposta do redesign): a linha separada tirava ~50 px da
+              prévia no celular. Aqui fica só o "Quem vai imprimir?". */}
+          {assinatura.regra === 'operador' && faltaQuemImprime && <QuemImprime dentroDaJanela />}
           {bloqueioUnidade && <Aviso tom="atencao">{bloqueioUnidade}</Aviso>}
           {faltaResponsavel && !faltaQuemImprime && (
             <Aviso tom="atencao">Escolha quem assina antes de imprimir.</Aviso>
           )}
 
+          {/* ⚠️ NO COMPUTADOR, A PRÉVIA AO LADO DOS CAMPOS (26/11/2026, pedido do
+              dono: "a prévia poderia estar um pouco maior"). Com 720 px de
+              altura, embaixo dos campos ela encolhia até o mínimo; ao lado, cresce
+              até 1,4× o tamanho real. No celular continua embaixo. */}
+          <div className="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start space-y-3 lg:space-y-0">
           <div className="space-y-3">
             {itens.map((item, idx) => {
               const campos = camposDe(item);
@@ -1373,6 +1380,19 @@ export default function EtiquetaPrint() {
                       </button>
                     </div>
                   </div>
+                  {/* quem assina (uma vez, debaixo do primeiro item, na largura
+                      toda); o "Trocar" tem 44 px de toque sem engordar a linha */}
+                  {idx === 0 && assinatura.regra === 'operador' && !faltaQuemImprime && (
+                    <div className="flex items-center gap-1 text-sm text-polo-tinta -mt-1">
+                      <p className="min-w-0 truncate">Assina <strong className="text-polo-navy">{responsavel}</strong></p>
+                      {!congelaAgora && (
+                        <button type="button" onClick={trocarOperador}
+                          className="-my-2.5 min-h-11 px-2 inline-flex items-center gap-1 font-bold text-polo-navy underline underline-offset-2 flex-shrink-0">
+                          <Icon name="equipe" size={16} />Trocar
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {/* ⚠️ O ARMAZENAMENTO SAIU DO MEIO DA GRADE E VIROU o campo
                       principal do item, a pedido do dono: ele imprimiu um lote
                       inteiro como RESFRIADO num item que era CONGELADO, por
@@ -1608,7 +1628,7 @@ export default function EtiquetaPrint() {
                   e trocá-la por um SVG seria substituir uma prévia fiel por uma
                   aproximação. Nada do que é IMPRESSO mudou nos dois casos. */}
               <div ref={previaRef} className="bg-gray-100 rounded-xl p-1.5 flex justify-center overflow-x-auto">
-                <div className="shadow-md flex-shrink-0" style={zoomPrevia < 1 ? { zoom: zoomPrevia } : undefined}>
+                <div className="shadow-md flex-shrink-0" style={zoomPrevia !== 1 ? { zoom: zoomPrevia } : undefined}>
                   {mostrarDireto ? (
                     <EtiquetaTSPL tspl={tsplDaPrevia} nomeImagem={nomeImagem} />
                   ) : (
@@ -1626,6 +1646,7 @@ export default function EtiquetaPrint() {
               )}
             </figure>
           )}
+          </div>
 
           {/* ⚠️ CADA APARELHO VÊ SÓ O QUE SERVE PARA ELE.
               No celular não existe janela de impressão que valha: o Android

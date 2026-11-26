@@ -52,6 +52,9 @@ const LARGURA = {
   sm: 'max-w-sm',
   md: 'max-w-md',
   lg: 'max-w-lg',
+  // a janela de imprimir: estreita no celular, larga no computador (a prévia
+  // vai para o lado dos campos — ver EtiquetaPrint)
+  imprimir: 'max-w-md lg:max-w-4xl',
 };
 
 // As quatro formas que os modais de hoje já tinham. Desde 23/11/2026, com o
@@ -121,7 +124,7 @@ function focaveis(raiz) {
  * @param {string}   [props.titulo]        título visível; vira o nome do diálogo
  * @param {string}   [props.rotulo]        nome do diálogo quando não há título visível
  * @param {'ficha'|'folha'|'caixa'|'rolo'} [props.forma]
- * @param {'sm'|'md'|'lg'} [props.largura]
+ * @param {'sm'|'md'|'lg'|'imprimir'} [props.largura]
  * @param {number}   [props.camada]        z-index (ver CAMADA)
  * @param {boolean}  [props.fecharNoFundo] clicar fora fecha (padrão: sim)
  * @param {boolean}  [props.cabecalho]     desenha título + × (padrão: sim)
