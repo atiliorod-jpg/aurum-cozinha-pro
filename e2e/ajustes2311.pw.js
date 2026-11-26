@@ -88,7 +88,7 @@ test('Impressas: o relatório sem a aba; a lista do Reimprimir sem "válida / ve
   await expect(page.getByRole('heading', { name: 'Relatório de etiquetas', level: 1 })).toBeVisible();
   // a aba Administração continua acesa dentro do relatório
   await expect(page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('link', { name: 'Administração' }))
-    .toHaveClass(/text-polo-gold/);
+    .toHaveClass(/bg-polo-gold/); // redesign: a aba acesa é um bloco dourado
   await expect(page.getByRole('button', { name: 'Impressas', exact: true })).toHaveCount(0);
   // a lista para reimprimir: o link discreto da tela Imprimir — com a Administração aberta, com o Apagar
   await abrir(page, '/');
@@ -129,7 +129,7 @@ for (const [largura, altura, minimo] of [[360, 740, 0.75], [412, 915, 1]]) {
       const janela = page.getByRole('dialog');
       await expect(janela.getByRole('button', { name: 'Conectar impressora e imprimir' })).toBeInViewport();
       await expect(janela.getByRole('button', { name: 'Fechar', exact: true }).last()).toBeInViewport();
-      await expect(janela.getByText(/^Validade:/)).toBeInViewport();
+      await expect(janela.getByText('Validade', { exact: true })).toBeInViewport();
       expect(erros, erros.join('\n')).toEqual([]);
     });
   });

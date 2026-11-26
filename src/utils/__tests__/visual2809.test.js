@@ -67,12 +67,15 @@ describe('todo campo e todo botão tem nome para o leitor de tela', () => {
 describe('toques e contraste nos pontos que importam', () => {
   // desde 23/11/2026 (jeito do Magurō, e a janela inteira na tela sem rolar):
   // − e + de 44 px, campos de 48 px com letra de 18 px, a validade em destaque
-  it('janela de imprimir: + e − de 44 px, campos de 18 px (sem zoom no iPhone), validade em destaque', () => {
+  // redesign (25/11/2026): − e + de 48 px no celular e 56 em tela maior; a
+  // validade numa faixa verde-clara, em letra grande
+  it('janela de imprimir: + e − de 44 px (56 em tela alta), campos de 18 px (sem zoom no iPhone), validade em destaque', () => {
     const t = ler('../../components/EtiquetaPrint.jsx');
     expect(t).not.toMatch(/w-9 h-9 rounded-full/);
-    expect(t.match(/className="w-11 h-11 rounded-xl /g)).toHaveLength(2);
+    expect(t.match(/className="w-11 h-11 alto:w-14 alto:h-14 rounded-xl /g)).toHaveLength(2);
     expect(t).toMatch(/const inputCls = 'w-full min-h-12 [^']*text-lg /);
-    expect(t).toMatch(/Validade: <strong className="text-lg font-black text-polo-navy">/);
+    expect(t).toMatch(/bg-ok-suave text-ok-tinta px-3 py-1 alto:py-2/);
+    expect(t).toMatch(/<strong className="font-black text-lg whitespace-nowrap alto:font-titulo alto:text-2xl alto:block">\{campos\.validadeFmt\}<\/strong>/);
   });
 
   it('filtros e categorias com 44 px e aria-pressed', () => {
@@ -81,7 +84,8 @@ describe('toques e contraste nos pontos que importam', () => {
     // tamanho e o contraste são medidos pelo robô em todas as telas.
     const f = ler('../../components/ui/Filtros.jsx');
     expect(f).toMatch(/aria-pressed=\{valor === v\}/);
-    expect(f).toMatch(/min-h-12 px-4 rounded-xl/);
+    // redesign (25/11/2026): pílula redonda de 44 px
+    expect(f).toMatch(/min-h-11 px-4 rounded-full/);
     // "Grupo" desde o Lote 11, parte 2 (os grupos da casa)
     expect(ler('../../pages/Etiquetas.jsx')).toMatch(/<Filtros rotulo="Grupo" valor=\{catAtiva\} aoTrocar=\{setCatAtiva\}/);
     expect(ler('../../pages/Validades.jsx')).toMatch(/aria-pressed=\{filtro === v\}/);

@@ -161,7 +161,7 @@ export default function Desperdicio() {
               </span>
               <input type="text" value={busca} onChange={e => { setBusca(e.target.value); setPedidoDaVoz(null); }}
                 placeholder="O que vai ser descartado?" aria-label="Buscar item para descartar"
-                className="w-full h-14 bg-white border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-2xl pl-12 pr-4 text-lg text-polo-navy" />
+                className="w-full h-14 sm:h-16 bg-white border-2 border-polo-linha focus:border-polo-navy rounded-2xl pl-12 pr-4 text-lg text-polo-navy" />
             </div>
           </BuscaPorVoz>
           {!buscando && <Filtros rotulo="Grupo" valor={catAtiva} aoTrocar={setCatAtiva} opcoes={gruposEmUso} />}
@@ -182,14 +182,16 @@ export default function Desperdicio() {
             )}
             {grupos.map(([categoria, itens]) => (
               <div key={categoria}>
-                <h2 className="sticky top-0 z-10 bg-polo-beige/95 backdrop-blur px-4 py-2 font-titulo font-extrabold text-sm text-polo-navy uppercase tracking-wide border-b border-gray-200">
+                <h2 className="sticky top-0 z-10 bg-polo-beige/95 backdrop-blur px-4 py-2 font-titulo font-extrabold text-sm text-polo-gold-700 uppercase tracking-[0.08em] border-b border-polo-linha">
                   {categoria}
                 </h2>
                 {itens.map((p, i, arr) => (
                   <div key={p.id} className={`flex items-center px-4 py-3 gap-3 min-h-[72px] ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
-                    <div className="flex-1 min-w-0 font-bold text-base text-polo-navy leading-tight break-words">{p.nome}</div>
+                    <div className="flex-1 min-w-0 font-bold text-lg text-polo-navy leading-tight break-words">{p.nome}</div>
+                    {/* ⚠️ CONTORNO VERMELHO (redesign, 25/11/2026): o bloco vinho
+                        cheio parecia botão desligado */}
                     <button type="button" onClick={() => abrir(p)} aria-label={`Descartar ${p.nome}`}
-                      className="bg-red-700 text-white font-bold text-base pl-3 pr-4 min-h-12 rounded-xl flex-shrink-0 inline-flex items-center gap-2 active:scale-95 transition-transform">
+                      className="bg-white border-2 border-perigo text-perigo font-bold text-base pl-3 pr-4 min-h-14 rounded-xl flex-shrink-0 inline-flex items-center gap-2 active:scale-95 transition-transform">
                       <Icon name="perda" size={20} />Descartar
                     </button>
                   </div>

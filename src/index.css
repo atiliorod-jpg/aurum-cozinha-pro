@@ -4,6 +4,19 @@
 
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
 
+/* ⚠️ REDESIGN (25/11/2026): as cores e medidas da marca como variáveis — as
+   mesmas do tailwind.config.js (polo-*, ok-*, perigo-*). Alvos de toque: 44 px
+   para pílula, 56 px para ação de lista e botão, 72 px para o botão principal
+   de janela (56 px no celular, para a janela caber sem rolar). */
+:root {
+  --navy-900: #1b2a41; --navy-700: #2b3f5e; --gold-500: #c9a24b; --gold-700: #7a5c16; --gold-100: #f3e7c8;
+  --beige-100: #f3efe6; --surface: #ffffff; --ink-muted: #4a5568; --line: #d9d2c3;
+  --ok: #1e6b43; --ok-soft: #ddefe4; --ok-ink: #14532e;
+  --danger: #a4161a; --danger-soft: #fbe3e1; --danger-ink: #7f1215;
+  --radius-sm: 8px; --radius-md: 16px; --radius-lg: 24px;
+  --touch-compact: 44px; --touch-min: 56px; --touch-primary: 72px;
+}
+
 body {
   margin: 0;
   /* Inter, guardada no app (main.jsx). A etiqueta tem a letra dela. */
@@ -46,7 +59,8 @@ button, a, input, select, textarea, label { touch-action: manipulation; }
    anel é desenhado FORA do controle, encostado no fundo da página, então quem
    decide a cor certa é o fundo — não o botão. */
 :focus-visible {
-  outline: 2px solid #14243A;
+  /* redesign (25/11/2026): anel de 3 px, navy; dourado onde o fundo é navy */
+  outline: 3px solid #1b2a41;
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -67,15 +81,18 @@ select {
    moldura de 1 px. Campo com 48 px e letra de 16 px (o iPhone não dá zoom
    ao tocar), moldura de 2 px; títulos em Montserrat maiúsculo. */
 @layer components {
+  /* redesign (25/11/2026): campo de 56 px, borda na cor de linha; rótulo em
+     maiúsculas pequenas; cartão opaco com a mesma borda */
   .campo {
-    @apply w-full min-h-12 border-2 border-polo-navy/15 rounded-xl px-3 py-2 text-base text-gray-900 bg-white transition-colors;
+    @apply w-full min-h-14 border-2 border-polo-linha rounded-xl px-3 py-2 text-base text-gray-900 bg-white transition-colors;
   }
   .campo:focus { @apply border-polo-navy; }
-  .cartao { @apply bg-white border-2 border-polo-navy/10 rounded-2xl p-4 mb-4 shadow-sm; }
-  .rotulo { @apply block text-sm font-semibold text-gray-700 mb-1; }
-  .titulo-secao { @apply font-titulo font-extrabold text-sm uppercase tracking-wide text-polo-navy; }
+  .cartao { @apply bg-white border-2 border-polo-linha rounded-2xl p-4 mb-4 shadow-sm; }
+  .rotulo { @apply block text-xs font-bold uppercase tracking-wide text-polo-tinta mb-1; }
+  /* redesign (25/11/2026): o título de grupo em dourado escuro, legível sobre bege */
+  .titulo-secao { @apply font-titulo font-extrabold text-sm uppercase tracking-[0.08em] text-polo-gold-700; }
   .busca-grande {
-    @apply w-full h-14 bg-white border-[3px] border-polo-navy/15 rounded-2xl px-4 text-lg text-polo-navy transition-colors;
+    @apply w-full h-14 sm:h-16 bg-white border-2 border-polo-linha rounded-2xl px-4 text-lg text-polo-navy transition-colors;
   }
   .busca-grande:focus { @apply border-polo-navy; }
 }

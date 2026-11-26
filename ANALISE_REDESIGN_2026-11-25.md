@@ -50,7 +50,18 @@ dono — os pontos da seção 2 precisam de ajuste.
 1. **Método de conservação em cartões** na janela de imprimir — decisão do dono
    (25/11): fica como está; a caixa em destaque evita erro entre congelado e resfriado.
 
-## 4. Esperando o dono
+## 4. Aplicado em 25–26/11/2026 (decisão do dono: tudo de uma vez)
+
+Tudo das seções 1 e 2, com: faixa "Imprimindo como" no jeito da proposta (texto +
+pílula Trocar + Reimprimir na mesma linha); prazos da LISTA como etiquetas coloridas
+com cor própria por armazenamento (os da casa ganham cores de uma paleta, o estado
+ganha moldura) — `utils/coresDeConservacao.js` + `components/PrazosDoItem.jsx`; a
+caixa do método na janela de imprimir FICOU como estava. Tamanhos grandes (72 px,
+teclas de 56) só em tela alta (`alto:` = altura ≥ 1000 px): no celular e no notebook
+de 720 px as janelas de imprimir e de desperdício voltavam a rolar. A validade fica
+numa linha no celular e empilhada em tela alta.
+
+## 5. Esperando o dono (antes da aplicação)
 
 - Aplicar em 4 lotes (base visual · Imprimir + Desperdício · Meus itens · Administração
   e telas restantes), um por vez, com print do celular antes do próximo?

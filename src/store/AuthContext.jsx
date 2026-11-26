@@ -1237,13 +1237,18 @@ export function AuthProvider({ children }) {
   // ⚠️ FECHA SOZINHA com MINUTOS_PARADA_ADM sem ninguém tocar na tela — no
   // aparelho da cozinha, quem abriu pode ter saído de perto. Tocando, a cada
   // minuto o banco ganha mais prazo.
+  // ⚠️ O ÚLTIMO TOQUE MORA NUM REF (redesign, 25/11/2026): o cabeçalho lê para
+  // mostrar "Fecha em 0:45" no último minuto (admFechaEm).
+  const ultimoToqueAdmRef = useRef(0);
+  const admFechaEm = useCallback(() => (admAberta ? ultimoToqueAdmRef.current + MINUTOS_PARADA_ADM * 60_000 : 0), [admAberta]);
   useEffect(() => {
     if (!admAberta) return undefined;
-    let ultimoToque = Date.now();
+    ultimoToqueAdmRef.current = Date.now();
     let renovadoEm = Date.now();
-    const tocou = () => { ultimoToque = Date.now(); };
+    const tocou = () => { ultimoToqueAdmRef.current = Date.now(); };
     const conferir = () => {
       const agora = Date.now();
+      const ultimoToque = ultimoToqueAdmRef.current;
       if (agora - ultimoToque >= MINUTOS_PARADA_ADM * 60_000) { fecharAdministracao(); return; }
       if (agora - renovadoEm >= 60_000 && agora - ultimoToque < 60_000) { renovadoEm = agora; renovarAdministracao(); }
     };
@@ -1334,7 +1339,7 @@ export function AuthProvider({ children }) {
       aparelho, conferirAparelho, listarAparelhos, removerAparelho, pedirAparelhoExtra,
       // a Administração com senha (23/11/2026)
       administracaoComSenha: comSenhaAdm, administracaoAberta: admAberta, temSenhaAdministracao: temSenhaAdm,
-      abrirAdministracao, fecharAdministracao, confirmarSenhaDoLogin, definirSenhaAdministracao,
+      abrirAdministracao, fecharAdministracao, confirmarSenhaDoLogin, definirSenhaAdministracao, admFechaEm,
     }), [
     // `erroNaURL` fica de fora de propósito: é constante de MÓDULO, lida uma
     // vez do endereço quando o arquivo carrega. Pôr uma variável de fora do
@@ -1347,7 +1352,7 @@ export function AuthProvider({ children }) {
     definirApelido, temPermissao, impersonando, verComoRestaurante, sairImpersonacao,
     derrubado, limparDerrubado, confirmacao, reconfirmar, definirUnidadeDaConta, nivelLogin, verificarNivel,
     aparelho, conferirAparelho, listarAparelhos, removerAparelho, pedirAparelhoExtra,
-    comSenhaAdm, admAberta, temSenhaAdm, abrirAdministracao, fecharAdministracao, confirmarSenhaDoLogin, definirSenhaAdministracao,
+    comSenhaAdm, admAberta, temSenhaAdm, abrirAdministracao, fecharAdministracao, admFechaEm, confirmarSenhaDoLogin, definirSenhaAdministracao,
   ]);
 
   return (

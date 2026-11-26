@@ -87,7 +87,7 @@ export default function BuscaPorVoz({
             enquanto ouve */}
         <button type="button" onClick={ouvir}
           aria-label={ouvindo ? 'Parar de ouvir' : 'Buscar falando'} aria-pressed={ouvindo}
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors
+          className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors
             ${ouvindo ? 'bg-red-700 text-white animate-pulse' : 'bg-polo-gold text-polo-navy'}`}>
           <Icon name="microfone" size={26} />
         </button>

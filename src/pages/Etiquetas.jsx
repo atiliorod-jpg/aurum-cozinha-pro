@@ -11,7 +11,7 @@ import { hoje } from '../utils/formatters';
 import { etiquetaComArmazenamento, produtoParaEtiqueta } from '../utils/modulos';
 import { armazenamentosAtivos, prazosDoProduto } from '../utils/armazenamento';
 import { armazenamentoInicial } from '../utils/etiquetas';
-import { metodosDoProduto, metodoInicial, rotuloDoMetodo, prazoCurto, temPrazo, listarEstados, textoDoPrazo } from '../utils/metodos';
+import { metodosDoProduto, metodoInicial, rotuloDoMetodo, temPrazo, listarEstados, textoDoPrazo } from '../utils/metodos';
 import { vocabularioDeMetodos, escolherMetodoFalado } from '../utils/voz';
 import { gruposDoProduto, estaNoGrupo, ordemDosGrupos } from '../utils/grupos';
 import { medidaDoProduto, maisUsados } from '../utils/etiquetas';
@@ -21,7 +21,8 @@ import { casaBusca } from '../utils/busca';
 import { pode } from '../utils/permissoes';
 import Esqueleto from '../components/Esqueleto';
 import Icon from '../components/Icons';
-import QuemImprime, { FaixaOperador, ContinuarImprimindo } from '../components/QuemImprime';
+import QuemImprime, { FaixaOperador, ContinuarImprimindo, PILULA } from '../components/QuemImprime';
+import PrazosDoItem from '../components/PrazosDoItem';
 import BuscaPorVoz from '../components/BuscaPorVoz';
 import { useOperador, useTelaDeImprimir } from '../store/OperadorContext';
 import TrocaEtiquetaDesperdicio from '../components/TrocaEtiquetaDesperdicio';
@@ -45,19 +46,8 @@ export default function Etiquetas() {
   const podeReimprimir = pode(sessao, permissoes, 'verImpressas');
   const armazenamentos = armazenamentosAtivos(prefs);
   const estados = listarEstados(prefs);
-  // Os métodos do item com prazo, num armazenamento que a casa ainda usa. Só
-  // os preenchidos: listar "0d" para os quatro estados enche a linha de ruído.
-  const prazosVisiveis = (p) => metodosDoProduto(p)
-    .filter(m => temPrazo(m) && armazenamentos.some(a => a.id === m.armazenamento))
-    .map(m => ({ nome: rotuloDoMetodo(m, armazenamentos, estados), prazo: prazoCurto(m) }));
-
-  // Uma linha só quando todos os estados dão o mesmo número.
-  const resumoDePrazos = (p) => {
-    const v = prazosVisiveis(p);
-    if (!v.length) return 'sem prazo cadastrado — etiqueta só de identificação';
-    if (v.length > 1 && v.every(x => x.prazo === v[0].prazo)) return `${v[0].prazo} em qualquer estado`;
-    return v.map(x => `${x.nome} ${x.prazo}`).join(' · ');
-  };
+  // ⚠️ OS PRAZOS EM ETIQUETAS COLORIDAS (redesign, 25/11/2026): cada
+  // armazenamento com a sua cor — ver components/PrazosDoItem.
 
   const [busca, setBusca] = useState('');
   const [catAtiva, setCatAtiva] = useState('');
@@ -263,20 +253,14 @@ export default function Etiquetas() {
               </Link>
             )}
           </>) : (<>
-          {comEquipe && <FaixaOperador />}
-          {/* ⚠️ REIMPRIMIR DISCRETO (24/11/2026, pedido do dono): um link
-              pequeno, livre (sem a senha da Administração), para as etiquetas
-              de HOJE — de outro dia, imprime uma nova.
-              ⚠️ Saíram as frases "toque em Imprimir no item…" e "cadastre a
-              equipe…": óbvias, só enchiam a tela (pedido do dono). */}
-          {podeReimprimir && (
-            <div className="flex justify-end -my-2">
-              <Link to="/impressas"
-                className="min-h-11 px-2 inline-flex items-center gap-1.5 text-sm font-semibold text-polo-navy/80 underline-offset-2 hover:underline">
-                <Icon name="historico" size={16} />Reimprimir
-              </Link>
-            </div>
-          )}
+          {/* ⚠️ REIMPRIMIR DISCRETO (24/11/2026, pedido do dono): livre (sem a
+              senha da Administração), para as etiquetas de HOJE. Desde o
+              redesign (25/11/2026) é uma pílula na linha de quem imprime. */}
+          <FaixaOperador extra={podeReimprimir && (
+            <Link to="/impressas" className={PILULA}>
+              <Icon name="historico" size={18} />Reimprimir
+            </Link>
+          )} />
           {/* ⚠️ BAIXA PELA ETIQUETA (M59): só no Pro, que imprime o QR. É a
               porta de quem está com a embalagem na mão — a de Validades é a
               da lista. */}
@@ -302,7 +286,7 @@ export default function Etiquetas() {
                     className="min-h-[72px] text-left bg-white border-[3px] border-polo-navy/15 hover:border-polo-gold rounded-2xl px-3 py-2
                                shadow-sm active:scale-[0.97] transition-transform flex flex-col justify-center">
                     <span className="text-base font-bold text-polo-navy leading-tight line-clamp-2">{p.nome}</span>
-                    <span className="text-xs text-gray-600 truncate mt-0.5">{resumoDePrazos(p)}</span>
+                    <PrazosDoItem produto={p} armazenamentos={armazenamentos} estados={estados} max={2} />
                   </button>
                 ))}
               </div>
@@ -320,7 +304,7 @@ export default function Etiquetas() {
               </span>
               <input type="text" value={busca} onChange={e => { setBusca(e.target.value); setPedidoDaVoz(null); }}
                 placeholder="Buscar produto..." aria-label="Buscar produto"
-                className="w-full h-14 bg-white border-[3px] border-polo-navy/15 focus:border-polo-navy rounded-2xl pl-12 pr-4 text-lg text-polo-navy" />
+                className="w-full h-14 sm:h-16 bg-white border-2 border-polo-linha focus:border-polo-navy rounded-2xl pl-12 pr-4 text-lg text-polo-navy" />
             </div>
           </BuscaPorVoz>
           {/* ⚠️ SÓ AS CATEGORIAS QUE TÊM ITEM. A lista vinha inteira da
@@ -358,14 +342,14 @@ export default function Etiquetas() {
                     tela e a pessoa perde de vista em que ala está. Ele fica
                     colado no topo da lista enquanto aquele grupo passa. */}
                 <h2 className="sticky top-0 z-10 bg-polo-beige/95 backdrop-blur px-4 py-2
-                               font-titulo font-extrabold text-sm text-polo-navy uppercase tracking-wide
-                               border-b border-gray-200">
+                               font-titulo font-extrabold text-sm text-polo-gold-700 uppercase tracking-[0.08em]
+                               border-b border-polo-linha">
                   {categoria}
                 </h2>
             {itensDaCategoria.map((p, i, arr) => (
               <div key={p.id} className={`flex items-center px-4 py-3 gap-3 min-h-[72px] ${i < arr.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-base text-polo-navy leading-tight break-words">{p.nome}</div>
+                  <div className="font-bold text-lg text-polo-navy leading-tight break-words">{p.nome}</div>
                   {/* ⚠️ Esta linha lia `valCongelado`/`valResfriado` com ícones
                       fixos de floco e gelo — os DOIS campos antigos, de quando
                       só existiam dois estados. Depois que o armazenamento virou
@@ -379,12 +363,10 @@ export default function Etiquetas() {
                       aberto virava "Congelado 3d · Refrigerado 3d · Resfriado
                       3d · Temperatura ambiente 3d" — quatro vezes o mesmo
                       número, e o olho tem que ler tudo para descobrir isso. */}
-                  <div className="text-sm text-gray-600 mt-0.5">
-                    {resumoDePrazos(p)}
-                  </div>
+                  <PrazosDoItem produto={p} armazenamentos={armazenamentos} estados={estados} />
                 </div>
                 <button onClick={() => imprimirProduto(p)} aria-label={`Imprimir etiqueta de ${p.nome}`}
-                  className="bg-polo-navy text-polo-gold font-bold text-base pl-3 pr-4 min-h-12 rounded-xl flex-shrink-0
+                  className="bg-polo-navy text-polo-gold font-bold text-base pl-3 pr-4 min-h-14 rounded-xl flex-shrink-0
                              inline-flex items-center gap-2 active:scale-95 transition-transform">
                   <Icon name="etiqueta" size={20} />Imprimir
                 </button>

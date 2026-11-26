@@ -181,6 +181,42 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (26/11/2026) — REDESIGN APLICADO (o app inteiro)
+
+O dono aprovou a proposta (ver `ANALISE_REDESIGN_2026-11-25.md`) para aplicar TUDO de
+uma vez, exceto os cartões de método na janela de imprimir (a caixa em destaque FICA).
+- **Cores**: tailwind `polo-navy-700`, `polo-gold-700` (#7A5C16, título de grupo),
+  `polo-gold-100`, `polo-tinta` (#4A5568), `polo-linha` (#D9D2C3), `polo-desligado` /
+  `polo-desligado-tinta` (botão desligado bege legível), `ok-*`, `perigo-*`; as mesmas
+  em variáveis CSS no `:root` (index.css). Foco: anel navy de 3 px.
+- **`alto:`** (tailwind screens raw `(min-height: 1000px)`): os tamanhos grandes (botão
+  72 px, − e + de 56, validade empilhada) SÓ em tela alta — no celular de 360×740 e no
+  notebook de 720 px as janelas de imprimir/desperdício voltavam a rolar (robô
+  `ajustes2311` mede: prévia ≥ 0,75 no 360, = 1 no 412×915, e sem rolar no computador).
+- Peças: `Botao` (variantes `contorno`, `perigoContorno`; `lg` 56/72; desligado bege),
+  `Abas` 56 px, `Filtros` pílula redonda 44 px, `NavBar` aba acesa = bloco dourado,
+  `Layout` sem a pílula fixa "Aurum Etiquetas" (no Pro o botão de área fica), sem marca
+  d'água, `FechaEm` ("Fecha em 0:45" só no último minuto; `admFechaEm` no AuthContext),
+  `TrocaEtiquetaDesperdicio` segmentado (as duas em navy), `FaixaOperador` = texto +
+  pílula Trocar + `extra` (Reimprimir) — `PILULA` exportada de QuemImprime.
+- **Prazos coloridos**: `utils/coresDeConservacao.js` (`corDoArmazenamento`,
+  `etiquetasDePrazo`) + `components/PrazosDoItem.jsx` — congelado azul, refrigerado
+  verde, resfriado ciano, ambiente âmbar; os da casa numa paleta pela ordem; estado =
+  moldura; prazo por extenso ("4 h", "30 dias"). Na lista Imprimir, "Mais usados" e Meus itens.
+- Janela de imprimir: "Assina Fulano" + pílula Trocar; nome maior; validade na faixa
+  verde (uma linha no celular); "Agora não" → "Cancelar" em contorno; ícone de impressora.
+- Desperdício: linha de contexto pequena ("25/11/2026 · 23:57  Turno Noite  Resp. Maria"),
+  kg/unid segmentado, motivos 2 col (4 em tela ≥ 640 px), microfone dentro do "Outro
+  motivo", botão desligado DIZENDO o que falta ("Informe a quantidade para registrar"),
+  "Descartar" da lista em contorno vermelho.
+- Meus itens: busca + "Novo item" (era "+ Cadastrar item do zero"); Planilha e Organizar
+  grupos em pílula; grupo "BOVINOS · 4 ITENS"; "Picanha · 200 g · marca X" (era "kg · 200g").
+- Administração: cartões em 2 colunas (md), ícone 56 px navy/dourado claro; senha com
+  cadeado, teclas 64/72 px, Apagar tracejado. `.campo` 56 px, `.rotulo` em maiúsculas
+  pequenas, `.titulo-secao` em dourado escuro.
+- Testes ajustados de propósito: tamanhos (lote1Auditoria, visual2809), "Assina Maria"
+  sem dois-pontos, "4 h", aba acesa `bg-polo-gold`, botão do desperdício desligado.
+
 ## Onde paramos (25/11/2026) — ANÁLISE DE UMA PROPOSTA DE REDESIGN (nada aplicado)
 
 O dono mandou `Downloads/aurum-redesign-prompt.zip` (PROMPT.md de outra IA + capturas

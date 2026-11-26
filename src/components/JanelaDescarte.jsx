@@ -81,11 +81,13 @@ export default function JanelaDescarte({
 
   // o "quando" de quem altera é o do registro, não o de agora
   const quando = alterando ? new Date(alterando.quando) : agora;
+  // redesign (25/11/2026): uma linha só, pequena — "24/11/2026 · 21:06  Turno
+  // Noite  Resp. Maria"
   const linhaDeDados = [
-    ['Data', fmtData(isoLocal(quando))], ['Hora', horaDe(quando)],
+    ['', `${fmtData(isoLocal(quando))} · ${horaDe(quando)}`],
     ['Turno', alterando ? (alterando.turno || '—') : turnoDe(agora, turnos)],
     // sem equipe, o nome é pedido logo abaixo
-    ...(pedeNome ? [] : [['Responsável', (alterando ? alterando.responsavel : responsavel) || '—']]),
+    ...(pedeNome ? [] : [['Resp.', (alterando ? alterando.responsavel : responsavel) || '—']]),
   ];
   // ⚠️ TROCOU A UNIDADE DEPOIS DE DIGITAR: valem os números tocados. "3" em kg
   // é 0,003 kg; quem queria 3 unidades toca em unid e fica 3 unid.
@@ -142,25 +144,34 @@ export default function JanelaDescarte({
     aoRegistrar(linha);
   };
 
-  // ⚠️ CABE NA TELA SEM ROLAR (regra do dono): os motivos em duas colunas,
-  // e data, hora, turno e responsável numa linha só
-  const chip = (sel) => `min-h-11 px-2 rounded-xl font-bold text-sm leading-tight border-[3px]
-    ${sel ? 'bg-polo-gold border-polo-gold text-polo-navy' : 'bg-white border-polo-navy/15 text-polo-navy'}`;
+  // ⚠️ CABE NA TELA SEM ROLAR (regra do dono). REDESIGN (25/11/2026): a linha
+  // de data, hora, turno e responsável pequena (sem a caixa bege); os motivos
+  // em grade — 2 colunas no celular, 4 em tela larga —, o escolhido em dourado
+  // claro com moldura navy; o "Outro motivo" com o microfone dentro.
+  const chip = (sel) => `min-h-12 alto:min-h-16 px-2 rounded-xl font-bold text-sm leading-tight border-2
+    ${sel ? 'bg-polo-gold-100 border-polo-navy text-polo-navy' : 'bg-white border-polo-linha text-polo-navy'}`;
   const titulo = alterando ? 'Alterar registro' : (inicial.livre ? 'Item fora da lista' : inicial.nome);
+  // ⚠️ O BOTÃO DIZ O QUE FALTA (redesign): desligado e explicando, em vez de
+  // dar erro depois do toque
+  const acao = alterando ? 'salvar' : 'registrar';
+  const falta = !String(item.nome || '').trim() ? `Informe o item para ${acao}`
+    : !(quantidade > 0) ? `Informe a quantidade para ${acao}`
+      : !String(motivo || '').trim() ? `Escolha o motivo para ${acao}`
+        : pedeNome && !resp.trim() ? `Informe o responsável para ${acao}` : '';
 
   return (
     <Dialogo aoFechar={aoFechar} titulo={titulo} forma="ficha" largura="lg" classeCaixa="space-y-4">
-      <dl className="flex flex-wrap gap-x-3 gap-y-1 rounded-xl bg-polo-beige border-2 border-polo-navy/10 px-3 py-2 text-sm text-polo-navy">
+      <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-polo-tinta">
         {linhaDeDados.map(([r, v]) => (
-          <div key={r} className="flex gap-1"><dt className="text-gray-600">{r}</dt><dd className="font-bold">{v}</dd></div>
+          <div key={r} className="flex gap-1"><dt>{r}</dt><dd className="font-bold text-polo-navy">{v}</dd></div>
         ))}
       </dl>
 
       {!alterando && inicial.livre && (
         <div>
-          <label htmlFor={`${id}-nome`} className="block text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Item</label>
+          <label htmlFor={`${id}-nome`} className="block text-xs font-bold uppercase tracking-wide text-polo-tinta mb-1">Item</label>
           <input id={`${id}-nome`} value={item.nome} onChange={e => { setItem({ id: null, nome: e.target.value, livre: true }); setErro(''); }} maxLength={120}
-            placeholder="Nome do item" className="w-full min-h-14 rounded-2xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-lg text-polo-navy" />
+            placeholder="Nome do item" className="w-full min-h-14 rounded-2xl border-2 border-polo-linha focus:border-polo-navy px-4 text-lg text-polo-navy" />
         </div>
       )}
 
@@ -168,34 +179,34 @@ export default function JanelaDescarte({
       {alterando && !trocandoItem && (
         <div className="flex items-center gap-2">
           <p className="flex-1 min-w-0 text-polo-navy leading-tight">
-            <span className="block text-xs font-bold uppercase tracking-wide text-gray-600">Item</span>
+            <span className="block text-xs font-bold uppercase tracking-wide text-polo-tinta">Item</span>
             <span className="block font-bold text-lg break-words">{item.nome}</span>
           </p>
           <button type="button" onClick={() => setTrocandoItem(true)}
-            className="min-h-11 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-sm flex-shrink-0">
+            className="min-h-11 px-4 rounded-full border-2 border-polo-linha bg-white text-polo-navy font-bold text-sm flex-shrink-0">
             Trocar item
           </button>
         </div>
       )}
       {alterando && trocandoItem && (
         <div className="space-y-2">
-          <label htmlFor={`${id}-busca-item`} className="block text-xs font-bold uppercase tracking-wide text-gray-600">Qual é o item certo?</label>
+          <label htmlFor={`${id}-busca-item`} className="block text-xs font-bold uppercase tracking-wide text-polo-tinta">Qual é o item certo?</label>
           <input id={`${id}-busca-item`} value={buscaItem} onChange={e => setBuscaItem(e.target.value)} maxLength={120}
-            placeholder="Digite o nome" className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-base text-polo-navy" />
+            placeholder="Digite o nome" className="w-full min-h-14 rounded-xl border-2 border-polo-linha focus:border-polo-navy px-4 text-base text-polo-navy" />
           {achadosItem.map(p => (
             <button key={p.id} type="button" onClick={() => escolherItem({ id: p.id, nome: p.nome, livre: false })}
-              className="w-full min-h-11 px-3 rounded-xl border-2 border-polo-navy/10 bg-white text-left font-bold text-polo-navy">
+              className="w-full min-h-12 px-3 rounded-xl border-2 border-polo-linha bg-white text-left font-bold text-polo-navy">
               {p.nome}
             </button>
           ))}
           {buscaItem.trim() && !achadosItem.some(p => normalizarBusca(p.nome).trim() === normalizarBusca(buscaItem).trim()) && (
             <button type="button" onClick={() => escolherItem({ id: null, nome: buscaItem.trim(), livre: true })}
-              className="w-full min-h-11 px-3 rounded-xl border-2 border-dashed border-polo-navy/25 bg-white text-left text-polo-navy">
+              className="w-full min-h-12 px-3 rounded-xl border-2 border-dashed border-polo-linha bg-white text-left text-polo-navy">
               Usar “{buscaItem.trim()}” (fora da lista)
             </button>
           )}
           <button type="button" onClick={() => { setTrocandoItem(false); setBuscaItem(''); }}
-            className="min-h-11 px-4 rounded-xl border-[3px] border-polo-navy/15 bg-white text-polo-navy font-bold text-sm">
+            className="min-h-11 px-4 rounded-full border-2 border-polo-linha bg-white text-polo-navy font-bold text-sm">
             Manter {item.nome}
           </button>
         </div>
@@ -204,65 +215,66 @@ export default function JanelaDescarte({
       {!trocandoItem && (<>
         {pedeNome && (
           <div>
-            <label htmlFor={`${id}-resp`} className="block text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Responsável</label>
+            <label htmlFor={`${id}-resp`} className="block text-xs font-bold uppercase tracking-wide text-polo-tinta mb-1">Responsável</label>
             <input id={`${id}-resp`} value={resp} onChange={e => { setResp(e.target.value); setErro(''); }} maxLength={80}
               placeholder="Quem está registrando" autoComplete="off"
-              className="w-full min-h-12 rounded-xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-base text-polo-navy" />
+              className="w-full min-h-12 rounded-xl border-2 border-polo-linha focus:border-polo-navy px-4 text-base text-polo-navy" />
           </div>
         )}
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1" aria-hidden="true">Quantidade descartada</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-polo-tinta mb-1" aria-hidden="true">Quanto foi descartado</p>
           <div className="grid grid-cols-[1fr_auto] gap-2 items-stretch">
             <CampoNumerico valor={qtd} aoMudar={(v) => { setQtd(v); setErro(''); }} rotulo="Quantidade descartada"
               titulo={`Quantidade — ${item.nome || 'descarte'}`} unidade={unidade} decimal={false}
               casasFixas={unidade === 'kg' ? 3 : 0}
-              className="w-full min-h-14 rounded-2xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-3 text-2xl font-extrabold text-polo-navy" />
-            <div className="flex gap-1.5" role="radiogroup" aria-label="Unidade">
+              className="w-full min-h-14 alto:min-h-16 rounded-2xl border-2 border-polo-linha focus:border-polo-navy px-3 text-2xl font-extrabold text-polo-navy" />
+            {/* kg / unid: controle de duas opções, a escolhida em navy */}
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl border-2 border-polo-linha bg-white" role="radiogroup" aria-label="Unidade">
               {UNIDADES_NA_JANELA.map(u => (
                 <button key={u} type="button" role="radio" aria-checked={unidade === u} onClick={() => trocarUnidade(u)}
-                  className={`min-h-14 min-w-14 px-3 rounded-xl font-bold text-base border-[3px]
-                    ${unidade === u ? 'bg-polo-navy border-polo-navy text-polo-gold' : 'bg-white border-polo-navy/15 text-polo-navy'}`}>{u}</button>
+                  className={`min-h-11 alto:min-h-12 min-w-14 px-3 rounded-xl font-bold text-base
+                    ${unidade === u ? 'bg-polo-navy text-polo-gold' : 'text-polo-navy'}`}>{u}</button>
               ))}
             </div>
           </div>
         </div>
 
         <div>
-          <p id={`${id}-motivo`} className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-1">Motivo do descarte</p>
+          <p id={`${id}-motivo`} className="text-xs font-bold uppercase tracking-wide text-polo-tinta mb-1">Por quê?</p>
           {motivos.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 mb-3" role="radiogroup" aria-labelledby={`${id}-motivo`}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2" role="radiogroup" aria-labelledby={`${id}-motivo`}>
               {motivos.map(m => (
                 <button key={m} type="button" role="radio" aria-checked={motivo === m}
                   onClick={() => { setMotivo(m); setErro(''); }} className={chip(motivo === m)}>{m}</button>
               ))}
             </div>
           )}
-          <label htmlFor={`${id}-outro`} className="block text-xs font-semibold text-gray-600 mb-1">Outro motivo</label>
-          <div className="flex gap-2">
+          <label htmlFor={`${id}-outro`} className="sr-only">Outro motivo</label>
+          <div className="relative">
             <input id={`${id}-outro`} value={mic.ouvindo ? mic.parcial : (motivos.includes(motivo) ? '' : motivo)} maxLength={MAX_MOTIVO * 5}
               readOnly={mic.ouvindo} onChange={e => { setMotivo(e.target.value); setErro(''); }}
-              placeholder={mic.ouvindo ? 'Ouvindo… fale o motivo' : 'Escreva ou fale o motivo'}
-              className="flex-1 min-w-0 min-h-12 rounded-xl border-[3px] border-polo-navy/15 focus:border-polo-navy px-4 text-base text-polo-navy" />
+              placeholder={mic.ouvindo ? 'Ouvindo… fale o motivo' : 'Outro motivo — escreva ou fale'}
+              className={`w-full min-h-12 rounded-xl border-2 border-polo-linha focus:border-polo-navy pl-4 text-base text-polo-navy ${comVoz ? 'pr-14' : 'pr-4'}`} />
             {comVoz && (
               <button type="button" onClick={mic.ouvir} aria-pressed={mic.ouvindo}
                 aria-label={mic.ouvindo ? 'Parar de ouvir' : 'Falar o motivo'}
-                className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors
-                  ${mic.ouvindo ? 'bg-red-700 text-white animate-pulse' : 'bg-polo-gold text-polo-navy'}`}>
+                className={`absolute right-0.5 top-1/2 -translate-y-1/2 w-11 h-11 rounded-lg flex items-center justify-center transition-colors
+                  ${mic.ouvindo ? 'bg-perigo text-white animate-pulse' : 'bg-polo-gold-100 text-polo-navy'}`}>
                 <Icon name="microfone" size={22} />
               </button>
             )}
           </div>
         </div>
 
-        {erro && <p role="alert" className="text-sm font-bold text-red-700">{erro}</p>}
+        {erro && <p role="alert" className="text-sm font-bold text-perigo">{erro}</p>}
 
-        <button type="button" onClick={confirmar} disabled={salvando}
-          className={`w-full min-h-14 rounded-2xl font-black text-lg inline-flex items-center justify-center gap-2 disabled:opacity-80
-            ${alterando ? 'bg-polo-navy text-polo-gold' : 'bg-red-700 text-white'}`}>
+        <button type="button" onClick={confirmar} disabled={salvando || !!falta}
+          className={`w-full min-h-14 alto:min-h-[4.5rem] rounded-2xl font-black text-lg inline-flex items-center justify-center gap-2 px-3 text-center leading-tight
+            ${falta ? 'bg-polo-desligado text-polo-desligado-tinta' : alterando ? 'bg-polo-navy text-polo-gold' : 'bg-perigo text-white'}`}>
           <Icon name="check" size={24} />
-          {alterando
-            ? (salvando ? 'Salvando…' : `Salvar alteração${quantidade > 0 ? ` · ${fmtQtd(quantidade, unidade)}` : ''}`)
-            : (salvando ? 'Registrando…' : quantidade > 0 ? `Registrar descarte · ${fmtQtd(quantidade, unidade)}` : 'Registrar descarte')}
+          {falta || (alterando
+            ? (salvando ? 'Salvando…' : `Salvar alteração · ${fmtQtd(quantidade, unidade)}`)
+            : (salvando ? 'Registrando…' : `Registrar descarte · ${fmtQtd(quantidade, unidade)}`))}
         </button>
       </>)}
     </Dialogo>

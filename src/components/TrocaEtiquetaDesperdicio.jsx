@@ -12,19 +12,19 @@ const MODOS = [
   { id: 'desperdicio', para: '/desperdicio', rotulo: 'Desperdício', icone: 'perda' },
 ];
 
+// ⚠️ REDESIGN (25/11/2026): controle segmentado de 56 px; a tela aberta em
+// navy com o ícone dourado NAS DUAS (o vermelho fica só para descartar).
 export default function TrocaEtiquetaDesperdicio({ atual }) {
   return (
-    <nav aria-label="Etiquetas ou desperdício" className="grid grid-cols-2 gap-2">
+    <nav aria-label="Etiquetas ou desperdício" className="grid grid-cols-2 gap-1.5 bg-white border-2 border-polo-linha rounded-2xl p-1.5">
       {MODOS.map(m => {
         const ativo = m.id === atual;
         return (
           <Link key={m.id} to={m.para} aria-current={ativo ? 'page' : undefined}
-            className={`min-h-14 rounded-2xl border-[3px] font-titulo font-black uppercase tracking-wide text-base
+            className={`min-h-14 rounded-xl font-titulo font-black uppercase tracking-wide text-base
               inline-flex items-center justify-center gap-2 active:scale-[0.98] transition-transform
-              ${ativo
-                ? (m.id === 'desperdicio' ? 'bg-red-700 border-red-700 text-white' : 'bg-polo-navy border-polo-navy text-polo-gold')
-                : 'bg-white border-polo-navy/15 text-polo-navy'}`}>
-            <Icon name={m.icone} size={22} />{m.rotulo}
+              ${ativo ? 'bg-polo-navy text-white' : 'text-polo-navy hover:bg-polo-beige'}`}>
+            <span className={ativo ? 'text-polo-gold' : ''}><Icon name={m.icone} size={22} /></span>{m.rotulo}
           </Link>
         );
       })}

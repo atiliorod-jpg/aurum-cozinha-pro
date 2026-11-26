@@ -145,7 +145,7 @@ test('Etiquetas: a Administração é a mesma, sem o grupo Estoque, e a barra co
   await page.getByRole('link', { name: /^Etiqueta\b/ }).click();
   await expect(page.getByRole('heading', { name: 'Armazenamento' })).toBeVisible();
   // a barra do plano Etiquetas fica, com a aba Administração acesa
-  await expect(page.getByRole('navigation').getByRole('link', { name: /Administração/ })).toHaveClass(/text-polo-gold/);
+  await expect(page.getByRole('navigation').getByRole('link', { name: /Administração/ })).toHaveClass(/bg-polo-gold/); // redesign: a aba acesa é um bloco dourado
   // ⚠️ a impressora saiu daqui (23/11/2026): mora em Meus itens → Impressora
   await expect(page.getByRole('link', { name: /Impressora e rolo/ })).toHaveCount(0);
   await trocarDeTela(page, '/itens');

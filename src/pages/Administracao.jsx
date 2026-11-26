@@ -31,18 +31,21 @@ import Icon from '../components/Icons';
  *    MOSTRAR, sem mexer no que está aberto lá fora.
  */
 
-// jeito do Magurō (23/11/2026): cartão de 80 px, moldura de 3 px, ícone navy
-const classeCartao = 'bg-white rounded-2xl p-4 min-h-[80px] flex items-center gap-4 active:scale-[0.98] transition-transform border-[3px] border-polo-navy/10 hover:border-polo-gold shadow-sm';
+// jeito do Magurō (23/11/2026): cartão de 80 px. REDESIGN (25/11/2026): ícone
+// em bloco de 56 px — navy nas Consultas, dourado claro nos Ajustes —, descrição
+// em 15 px, e duas colunas quando a tela é larga.
+const classeCartao = 'bg-white rounded-2xl p-4 min-h-[88px] flex items-center gap-4 active:scale-[0.98] transition-transform border-2 border-polo-linha hover:border-polo-gold shadow-sm';
 
-function CartaoLink({ to, icone, titulo, desc }) {
+function CartaoLink({ to, icone, titulo, desc, tom = 'navy' }) {
   return (
     <Link to={to} className={classeCartao}>
-      <span className="w-12 h-12 rounded-xl bg-polo-navy text-polo-gold flex items-center justify-center flex-shrink-0">
-        <Icon name={icone} size={24} />
+      <span className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0
+        ${tom === 'navy' ? 'bg-polo-navy text-polo-gold' : 'bg-polo-gold-100 text-polo-navy'}`}>
+        <Icon name={icone} size={26} />
       </span>
       <span className="min-w-0">
         <span className="block font-bold text-lg text-polo-navy leading-tight">{titulo}</span>
-        <span className="block text-sm text-gray-600 mt-0.5">{desc}</span>
+        <span className="block text-[15px] text-polo-tinta mt-0.5 leading-snug">{desc}</span>
       </span>
     </Link>
   );
@@ -112,7 +115,7 @@ export default function Administracao() {
           <h2 id="adm-consultas" className="titulo-secao mb-2 px-1">
             {acesso.soEtiq ? 'Consultas' : 'Consultas e cadastro'}
           </h2>
-          <div className="space-y-2.5">
+          <div className="grid gap-2.5 md:grid-cols-2">
             {consultas.map(c => <CartaoLink key={c.to} {...c} />)}
           </div>
         </section>
@@ -120,9 +123,9 @@ export default function Administracao() {
 
       <section aria-labelledby="adm-ajustes">
         <h2 id="adm-ajustes" className="titulo-secao mb-2 px-1">Ajustes</h2>
-        <div className="space-y-2.5">
+        <div className="grid gap-2.5 md:grid-cols-2">
           {grupos.map(g => (
-            <CartaoLink key={g.id} to={`/administracao/${g.id}`} icone={g.icone} titulo={g.titulo}
+            <CartaoLink key={g.id} tom="dourado" to={`/administracao/${g.id}`} icone={g.icone} titulo={g.titulo}
               desc={(acesso.soEtiq && g.descEtiquetas) || g.desc} />
           ))}
         </div>

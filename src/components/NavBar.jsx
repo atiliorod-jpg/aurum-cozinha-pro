@@ -161,21 +161,20 @@ function BarraNav({ itens, badges = {} }) {
             key={to}
             to={to}
             end={to === '/'}
+            // ⚠️ REDESIGN (25/11/2026): a aba acesa é um BLOCO DOURADO com texto
+            // navy — o círculo claro de antes mal se via
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center justify-center pt-1.5 pb-2 gap-1 text-xs font-semibold transition-all relative
-               focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-lg
-               ${isActive || tambemAqui ? 'text-polo-gold' : 'text-white/90 active:text-white'}`
+              `flex-1 my-1.5 mx-1 min-h-14 flex flex-col items-center justify-center py-1.5 gap-1 text-sm font-semibold transition-colors relative
+               focus-visible:outline focus-visible:outline-2 focus-visible:outline-polo-gold rounded-xl
+               ${isActive || tambemAqui ? 'bg-polo-gold text-polo-navy' : 'text-white/90 active:text-white'}`
             }
           >
             {({ isActive: acesa }) => {
               const isActive = acesa || tambemAqui;
               return (
               <>
-                <span className={`px-3 py-1.5 rounded-full transition-all duration-200 flex items-center justify-center
-                  ${isActive ? 'bg-polo-gold/15 ring-1 ring-polo-gold/30 scale-110' : ''}`}>
-                  <Icon name={icon} size={19} strokeWidth={isActive ? 2.4 : 2} />
-                </span>
-                <span className="leading-none tracking-wide">{label}</span>
+                <Icon name={icon} size={20} strokeWidth={isActive ? 2.4 : 2} />
+                <span className="leading-none">{label}</span>
                 {listaDe(to).map((b, i) => (
                   <span key={i} aria-label={b.rotulo}
                     className={`absolute top-0.5 ${b.lado === 'esquerda' ? 'left-1/4' : 'right-1/4'} ${b.cor || 'bg-red-700'}

@@ -154,7 +154,8 @@ test('Etiquetas: item da biblioteca e item do zero entram em Meus itens e na tel
   // do zero (a busca continua preenchida ao trocar de aba: limpa antes)
   await page.getByLabel('Buscar item').fill('');
   await page.getByRole('button', { name: /Meus itens/ }).click();
-  await page.getByRole('button', { name: '+ Cadastrar item do zero' }).click();
+  // redesign (25/11/2026): "+ Cadastrar item do zero" virou "Novo item", ao lado da busca
+  await page.getByRole('button', { name: 'Novo item', exact: true }).click();
   const ficha = page.getByRole('dialog');
   await ficha.getByLabel('Nome').fill('Molho branco do robô');
   await ficha.getByLabel('Unidade').fill('L');

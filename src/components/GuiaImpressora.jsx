@@ -121,12 +121,13 @@ export default function GuiaImpressora() {
         funciona normalmente neles.
       </p>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+      {/* redesign (25/11/2026): o azul estava fora da marca */}
+      <div className="bg-polo-beige border-2 border-polo-linha rounded-xl p-3 text-sm text-polo-navy">
         <p className="font-bold mb-0.5">Precisa de ajuda para configurar?</p>
         <p>Configuramos junto com você na instalação.</p>
         <a href={linkSuporte('Olá! Preciso de ajuda para configurar a impressora de etiquetas.')} target="_blank" rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1.5 min-h-11 px-4 rounded-lg bg-blue-700 text-white font-bold">
-          <Icon name="suporte" size={16} /> Falar com o suporte no WhatsApp
+          className="mt-2 inline-flex items-center gap-1.5 min-h-11 px-4 rounded-xl bg-polo-navy text-white font-bold">
+          <span className="text-polo-gold"><Icon name="suporte" size={16} /></span> Falar com o suporte no WhatsApp
         </a>
       </div>
     </div>

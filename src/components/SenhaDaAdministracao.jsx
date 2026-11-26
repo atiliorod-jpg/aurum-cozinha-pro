@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import Layout from './Layout';
 import Aviso from './Aviso';
+import Icon from './Icons';
 import Dialogo from './Dialogo';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
@@ -23,7 +24,7 @@ import {
 /** O teclado grande, para senha de tamanho livre (entre `min` e `max` números). */
 export function TecladoVariavel({
   titulo, subtitulo = '', rotuloCampo, min = MIN_DIGITOS_ADM, max = MAX_DIGITOS_ADM,
-  textoBotao = 'Entrar', aoEnviar, aviso = '', avisoTom = 'neutro', rodape = null,
+  textoBotao = 'Entrar', aoEnviar, aviso = '', avisoTom = 'neutro', rodape = null, cadeado = false,
 }) {
   const [pin, setPin] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -59,15 +60,23 @@ export function TecladoVariavel({
     setErro(msg);
   };
 
-  const numero = 'h-16 text-3xl rounded-2xl font-black bg-white border-[3px] border-polo-navy/15 text-polo-navy active:scale-95 transition-transform disabled:opacity-40';
-  const acao = 'h-16 rounded-2xl font-bold text-base active:scale-95 transition-transform disabled:opacity-40';
+  // ⚠️ REDESIGN (25/11/2026): teclas de 72 px (64 no celular), borda na cor de
+  // linha; "Apagar" tracejado; "Entrar" desligado em bege escuro legível. As
+  // bolinhas acompanham o que foi digitado (a senha tem de 4 a 8 números).
+  const numero = 'h-16 sm:h-[4.5rem] text-3xl rounded-2xl font-black bg-white border-2 border-polo-linha text-polo-navy active:scale-95 transition-transform disabled:opacity-40';
+  const acao = 'h-16 sm:h-[4.5rem] rounded-2xl font-bold text-base active:scale-95 transition-transform';
   const pontos = Math.max(min, pin.length);
 
   return (
     <div className="space-y-4">
-      <div>
+      <div className={cadeado ? 'text-center' : ''}>
+        {cadeado && (
+          <span aria-hidden="true" className="mx-auto mb-2 w-16 h-16 rounded-full bg-polo-navy text-polo-gold flex items-center justify-center">
+            <Icon name="cadeado" size={28} />
+          </span>
+        )}
         <h2 className="text-lg sm:text-xl font-titulo font-black uppercase tracking-wide text-polo-navy leading-tight">{titulo}</h2>
-        {subtitulo && <p className="text-sm text-gray-600 mt-1">{subtitulo}</p>}
+        {subtitulo && <p className="text-sm text-polo-tinta mt-1">{subtitulo}</p>}
       </div>
       {/* o campo de verdade, escondido: leitor de tela e teclado físico (Enter envia) */}
       <input aria-label={rotuloCampo} ref={campoRef} type="password" inputMode="numeric" autoComplete="off"
@@ -87,10 +96,10 @@ export function TecladoVariavel({
           <button key={d} type="button" onClick={() => mudar(pin + d)} disabled={enviando || pin.length >= max} className={numero}>{d}</button>
         ))}
         <button type="button" onClick={() => mudar(pin.slice(0, -1))} disabled={enviando || !pin}
-          className={`${acao} bg-gray-100 text-gray-700`}>Apagar</button>
+          className={`${acao} bg-white border-2 border-dashed border-polo-linha text-polo-navy disabled:opacity-40`}>Apagar</button>
         <button type="button" onClick={() => mudar(pin + '0')} disabled={enviando || pin.length >= max} className={numero}>0</button>
         <button type="button" onClick={enviar} disabled={enviando || pin.length < min}
-          className={`${acao} bg-polo-navy text-polo-gold font-black`}>{textoBotao}</button>
+          className={`${acao} font-black bg-polo-navy text-polo-gold disabled:bg-polo-desligado disabled:text-polo-desligado-tinta`}>{textoBotao}</button>
       </div>
       {rodape}
     </div>
@@ -188,8 +197,8 @@ export default function SenhaDaAdministracao() {
   }
 
   return (
-    <div className="cartao">
-      <TecladoVariavel
+    <div className="cartao max-w-md mx-auto">
+      <TecladoVariavel cadeado
         titulo="Senha da Administração"
         subtitulo={`Fecha sozinha com ${MINUTOS_PARADA_ADM} minutos sem uso.`}
         rotuloCampo="Senha da Administração"

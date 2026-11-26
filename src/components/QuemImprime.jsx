@@ -93,9 +93,11 @@ export function TecladoSenha({
   const apagar = () => { if (!travado) setPin(p => p.slice(0, -1)); };
   const limpar = () => { if (!travado) setPin(''); };
 
-  const tecla = `${compacto ? 'h-14 text-2xl' : 'h-16 text-3xl'} rounded-2xl font-black active:scale-95 transition-transform disabled:opacity-40`;
-  const numero = `${tecla} bg-white border-[3px] border-polo-navy/15 text-polo-navy`;
-  const acao = `${compacto ? 'h-14' : 'h-16'} rounded-2xl font-bold text-base bg-gray-100 text-gray-700 active:scale-95 transition-transform disabled:opacity-40`;
+  // redesign (25/11/2026): teclas de 72 px fora da janela (64 no celular),
+  // borda na cor de linha; Limpar e Apagar tracejados
+  const tecla = `${compacto ? 'h-14 text-2xl' : 'h-16 sm:h-[4.5rem] text-3xl'} rounded-2xl font-black active:scale-95 transition-transform disabled:opacity-40`;
+  const numero = `${tecla} bg-white border-2 border-polo-linha text-polo-navy`;
+  const acao = `${compacto ? 'h-14' : 'h-16 sm:h-[4.5rem]'} rounded-2xl font-bold text-base bg-white border-2 border-dashed border-polo-linha text-polo-navy active:scale-95 transition-transform disabled:opacity-40`;
 
   return (
     <div className="space-y-4">
@@ -354,19 +356,25 @@ export default function QuemImprime({ dentroDaJanela = false, titulo = 'Quem vai
 // (o Reimprimir saiu daqui em 24/11/2026: virou um link discreto na tela)
 // `acao`: "Registrando" na tela de desperdício — a MESMA pessoa vale nas duas.
 // `aoTrocar`: a tela que limpa a busca junto (sem ele, só troca a pessoa).
-export function FaixaOperador({ acao = 'Imprimindo', aoTrocar = null }) {
+// `extra`: o que vai na mesma linha, à direita (o "Reimprimir" da tela Imprimir).
+// ⚠️ REDESIGN (25/11/2026, escolha do dono): sai a faixa azul; fica o texto e
+// a pílula "Trocar" — e o Reimprimir na mesma linha, à direita.
+export function FaixaOperador({ acao = 'Imprimindo', aoTrocar = null, extra = null }) {
   const { operador, trocar } = useOperador();
-  if (!operador) return null;
+  if (!operador) return extra ? <div className="flex justify-end">{extra}</div> : null;
   return (
-    <div className="flex items-center justify-between gap-2 bg-polo-navy text-white rounded-2xl pl-4 pr-1.5 py-1.5">
-      <p className="text-base min-w-0 truncate">{acao} como <strong className="text-polo-gold">{operador}</strong></p>
-      <button type="button" onClick={aoTrocar || trocar}
-        className="min-h-12 px-4 rounded-xl bg-white/10 text-white text-sm font-bold flex-shrink-0">
-        Trocar
+    <div className="flex items-center gap-2 flex-wrap">
+      <p className="text-base text-polo-navy min-w-0 truncate">{acao} como <strong>{operador}</strong></p>
+      <button type="button" onClick={aoTrocar || trocar} className={PILULA}>
+        <Icon name="equipe" size={18} />Trocar
       </button>
+      {extra && <div className="ml-auto">{extra}</div>}
     </div>
   );
 }
+
+// a pílula de ação secundária (Trocar, Reimprimir, Planilha...): 44 px
+export const PILULA = 'min-h-11 px-4 rounded-full bg-white border-2 border-polo-linha text-polo-navy text-sm font-bold inline-flex items-center gap-2 flex-shrink-0 active:scale-[0.97] transition-transform';
 
 // ── "Continuar imprimindo?" (pedido do dono, 03/11/2026, visto na Suflex) ──
 // A etiqueta saiu pela tela Imprimir: 5 segundos para dizer que continua.

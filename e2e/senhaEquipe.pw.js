@@ -125,7 +125,7 @@ test('Cozinha Pro: o lançamento pergunta quem está registrando, e a etiqueta s
   await expect(page.getByRole('spinbutton', { name: 'Quantidade de Filé de Frango (porção)' })).toHaveValue('2');
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
   const janela = page.getByRole('dialog');
-  await expect(janela.getByText('Assina: Maria')).toBeVisible();
+  await expect(janela.getByText('Assina Maria')).toBeVisible();
   await expect(janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ })).toBeEnabled();
   await page.keyboard.press('Escape');
   // o Histórico guarda quem registrou
@@ -156,9 +156,9 @@ test('Cozinha Pro: aberta por Entradas, a janela de imprimir não perde o nome n
   await entrarComo(page, 'Maria');
   await page.getByRole('button', { name: 'Registrar Entrada' }).click();
   const janela = page.getByRole('dialog');
-  await expect(janela.getByText('Assina: Maria')).toBeVisible();
+  await expect(janela.getByText('Assina Maria')).toBeVisible();
   await page.clock.fastForward('01:10');
-  await expect(janela.getByText('Assina: Maria')).toBeVisible();
+  await expect(janela.getByText('Assina Maria')).toBeVisible();
   await expect(janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ })).toBeEnabled();
   expect(erros, erros.join('\n')).toEqual([]);
 });

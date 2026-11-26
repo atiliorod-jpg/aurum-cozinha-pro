@@ -47,13 +47,14 @@ test('Etiquetas: vários métodos por item, prazo em horas e horário por métod
   // a tela de imprimir mostra os prazos com o estado
   await abrir(page, '/');
   await entrarComo(page, 'Maria');
-  await expect(page.locator('main')).toContainText('Refrigerado · Pista quente 4h');
+  // redesign (25/11/2026): o prazo por extenso, numa etiqueta colorida
+  await expect(page.locator('main')).toContainText('Refrigerado · Pista quente 4 h');
   await page.getByRole('button', { name: 'Imprimir etiqueta de Molho de tomate da casa' }).click();
   const janela = page.getByRole('dialog');
   const metodo = janela.getByLabel(/^Método de conservação/);
   // abre no principal: 3 dias, sem hora
   await expect(metodo).toHaveValue('m:refrigerado');
-  await expect(janela.getByText(/^Validade:/)).toContainText(/05\/11\/2026$/);
+  await expect(janela.getByText(/^Validade \d/)).toContainText(/05\/11\/2026$/);
   // ⚠️ 03/11/2026: só os métodos cadastrados no item, com prazo — nada de
   // "Outro armazenamento" — e a data e os dias não se mudam na impressão
   await expect(metodo.locator('option')).toHaveCount(3);
@@ -65,7 +66,7 @@ test('Etiquetas: vários métodos por item, prazo em horas e horário por métod
   await metodo.selectOption('m:m3');
   await expect(metodo.locator('option:checked')).toContainText('Pista quente');
   await expect(metodo.locator('option:checked')).toContainText('4 h');
-  await expect(janela.getByText(/^Validade:/)).toContainText(/02\/11\/2026 - 18:3\d/);
+  await expect(janela.getByText(/^Validade \d/)).toContainText(/02\/11\/2026 - 18:3\d/);
   await expect(janela.locator('.etiqueta-label').first()).toContainText('REFRIGERADO · PISTA QUENTE');
   await janela.getByRole('button', { name: /^Imprimir \d+ etiqueta/ }).click();
   await janela.getByRole('button', { name: 'Sim', exact: true }).click();

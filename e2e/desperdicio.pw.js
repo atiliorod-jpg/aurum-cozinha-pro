@@ -50,20 +50,19 @@ test('Etiquetas | Desperdício no topo: a mesma pessoa, o registro e o "Registra
   // a mesma pessoa, sem a senha de novo; a aba Imprimir continua acesa
   await expect(page.getByText(/Registrando como Maria/)).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Navegação principal' }).getByRole('link', { name: 'Imprimir' }))
-    .toHaveClass(/text-polo-gold/);
+    .toHaveClass(/bg-polo-gold/); // redesign: a aba acesa é um bloco dourado
 
   await page.getByRole('button', { name: 'Descartar Frango desfiado' }).click();
   const janela = page.getByRole('dialog', { name: 'Frango desfiado' });
-  // data, hora, turno e responsável saem sozinhos
-  for (const r of ['Data', 'Hora', 'Turno', 'Responsável']) await expect(janela.getByText(r, { exact: true })).toBeVisible();
+  // data, hora, turno e responsável saem sozinhos, numa linha pequena (redesign)
+  await expect(janela.getByText(/^\d{2}\/\d{2}\/\d{4} · \d{2}:\d{2}$/)).toBeVisible();
+  for (const r of ['Turno', 'Resp.']) await expect(janela.getByText(r, { exact: true })).toBeVisible();
   await expect(janela.getByText(/^(Manhã|Noite)$/)).toBeVisible();
-  // sem quantidade e motivo, diz o que falta
-  await janela.getByRole('button', { name: 'Registrar descarte', exact: true }).click();
-  await expect(janela.getByRole('alert')).toContainText('A quantidade precisa ser maior que zero.');
+  // ⚠️ O BOTÃO DIZ O QUE FALTA (redesign, 25/11/2026): desligado e explicando
+  await expect(janela.getByRole('button', { name: 'Informe a quantidade para registrar' })).toBeDisabled();
   await janela.getByLabel('Quantidade descartada').fill('1500');
   await expect(janela.getByLabel('Quantidade descartada')).toHaveValue('1,500');
-  await janela.getByRole('button', { name: 'Registrar descarte · 1,5 kg' }).click();
-  await expect(janela.getByRole('alert')).toContainText('Falta o motivo do descarte.');
+  await expect(janela.getByRole('button', { name: 'Escolha o motivo para registrar' })).toBeDisabled();
   await janela.getByRole('radio', { name: 'Vencido', exact: true }).click();
   await janela.getByRole('button', { name: 'Registrar descarte · 1,5 kg' }).click();
   await expect(page.getByText('Descarte registrado: Frango desfiado · 1,5 kg')).toBeVisible();
@@ -306,8 +305,7 @@ test('sem equipe cadastrada, o desperdício pede o responsável, e lembra para a
   const nome = janela.getByLabel('Responsável', { exact: true });
   await expect(nome).toHaveValue('Maria');
   await nome.fill('');
-  await janela.getByRole('button', { name: 'Registrar descarte · 1,5 kg' }).click();
-  await expect(janela.getByRole('alert')).toContainText('Falta o responsável.');
+  await expect(janela.getByRole('button', { name: 'Informe o responsável para registrar' })).toBeDisabled();
   await nome.fill('Carla');
   await janela.getByRole('button', { name: 'Registrar descarte · 1,5 kg' }).click();
   await expect(page.getByText('Frango desfiado · 1,5 kg · Vencido')).toBeVisible();
@@ -326,6 +324,8 @@ test.describe('no celular, com o dedo', () => {
     await entrarComo(page);
     await page.getByRole('button', { name: 'Descartar Frango desfiado' }).click();
     const janela = page.getByRole('dialog', { name: 'Frango desfiado' });
+    // com o motivo escolhido, o botão mostra a quantidade (sem ele, pede o motivo)
+    await janela.getByRole('radio', { name: 'Vencido', exact: true }).click();
     const teclado = page.getByRole('dialog', { name: 'Quantidade — Frango desfiado' });
     const tocar = async (...teclas) => { for (const t of teclas) await teclado.getByRole('button', { name: t, exact: true }).click(); };
     await janela.getByLabel('Quantidade descartada').click();

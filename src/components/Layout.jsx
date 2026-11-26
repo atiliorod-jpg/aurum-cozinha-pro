@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import NavBar from './NavBar';
 import BotaoFeedback from './BotaoFeedback';
@@ -164,12 +164,9 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
             saiu, e num PWA em tablet não existe botão de voltar do navegador.
             No plano Etiquetas vira etiqueta fixa: não há outra área para onde ir. */}
         {/* conta presa a uma unidade (M48): o selo da unidade não troca nada */}
-        {(soEtiq && (!variasUnidades || unidadeFixa)) || semCozinhas ? (
-          <span className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1 min-h-11">
-            <Icon name={mod.icone} size={18} />
-            <span className="text-xs font-semibold text-white/90 hidden sm:inline">{mod.label}</span>
-          </span>
-        ) : (
+        {/* ⚠️ REDESIGN (25/11/2026): a pílula FIXA ("Aurum Etiquetas") saiu —
+            só repetia o título. O botão de trocar de área (Pro) continua. */}
+        {(soEtiq && (!variasUnidades || unidadeFixa)) || semCozinhas ? null : (
           <button onClick={() => setTrocandoModulo(true)}
             aria-label={`Você está em ${mod.label}. Tocar para ir a outra área`}
             className="flex items-center gap-1 bg-white/10 rounded-full px-2.5 py-1 flex-shrink-0 mx-1
@@ -196,6 +193,7 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
               {/* ⚠️ A ADMINISTRAÇÃO ESTÁ ABERTA NESTE APARELHO (23/11/2026): o
                   cadeado dourado fica à vista em qualquer tela, e um toque
                   fecha na hora — sem esperar os 3 minutos parada. */}
+              {administracaoAberta && <FechaEm />}
               {administracaoAberta && (
                 <button type="button" onClick={fecharAdministracao} aria-label="Fechar a Administração"
                   title="Administração aberta — toque para fechar"
@@ -225,10 +223,8 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           )}
         </div>
       </header>
-      {/* marca d'água Aurum — decorativa, atrás do conteúdo */}
-      <div aria-hidden="true" className="fixed inset-0 pointer-events-none flex items-center justify-center print:hidden">
-        <img src={LOGO} alt="" className="w-72 h-72 opacity-[0.05] rounded-full" />
-      </div>
+      {/* ⚠️ SEM MARCA D'ÁGUA ATRÁS DAS LISTAS (redesign, 25/11/2026): o emblema
+          no fundo atrapalhava a leitura dos cartões */}
       {vendoConta && (
         <Dialogo aoFechar={() => setVendoConta(false)} titulo="Sua conta"
           forma="caixa" largura="sm" camada={130} respiro="p5" classeCaixa="space-y-4">
@@ -281,5 +277,26 @@ Os dados em cache neste aparelho serão apagados (o próximo usuário não vê n
           que lê como tela quebrada; então a barra inteira saiu. */}
       {!emAdmin && <NavBar soEtiquetas={soEtiq} />}
     </div>
+  );
+}
+
+// ── "Fecha em 0:45" (redesign, 25/11/2026) ─────────────────────────────
+// A Administração fecha sozinha com 3 minutos parada. O contador aparece SÓ
+// no último minuto: antes disso o tempo volta a 3:00 a cada toque e ficaria
+// mudando à toa no topo da tela.
+function FechaEm() {
+  const { admFechaEm } = useAuth();
+  const [agora, setAgora] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setAgora(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const restam = Math.max(0, Math.ceil(((admFechaEm?.() || 0) - agora) / 1000));
+  if (!restam || restam > 60) return null;
+  return (
+    <span role="timer" aria-live="off" aria-label={`A Administração fecha em ${restam} segundos`}
+      className="min-h-11 px-3 rounded-full bg-white/10 text-white text-xs font-bold flex items-center gap-1.5 flex-shrink-0">
+      <Icon name="relogio" size={14} />Fecha em 0:{String(restam).padStart(2, '0')}
+    </span>
   );
 }

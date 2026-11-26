@@ -28,6 +28,15 @@ import { fmtNum } from '../../utils/formatters';
 import { controlaEstoque, controlaPorPadrao, normalizarUnidade, UNIDADES_COMUNS } from '../../utils/itens';
 import { idDoNome } from '../../utils/planilhaItens';
 import Icon from '../../components/Icons';
+import PrazosDoItem from '../../components/PrazosDoItem';
+import { PILULA } from '../../components/QuemImprime';
+import { lerMedida, textoDaMedida } from '../../utils/medida';
+
+// "1kg" → "1 kg" (redesign, 25/11/2026: "kg · 1kg" na lista era ambíguo)
+const medidaLegivel = (m) => {
+  const l = lerMedida(m);
+  return l.numero ? textoDaMedida(l.numero, l.unidade) : (l.livre || '');
+};
 
 // Campo numérico fica como texto enquanto edita (apagar funciona); converte ao salvar.
 const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
@@ -53,6 +62,9 @@ const numVazio = (v) => (v === 0 || v == null ? '' : String(v));
 export default function Itens() {
   const { produtos, setProdutos, categorias, setCategorias, prefs, modulo,
           saidasParaConsumo, compras, aparas, desperdicio } = useApp();
+  // as etiquetas coloridas de prazo da lista (redesign, 25/11/2026)
+  const armazenamentosDaCasa = armazenamentosAtivos(prefs);
+  const estadosDaCasa = listarEstados(prefs);
   const { toast, confirm } = useUI();
   const { sessao, impersonando } = useAuth();
   const soEtiq = ehSoEtiquetas(produtoAtivo(sessao, impersonando));
@@ -280,11 +292,22 @@ export default function Itens() {
       <Abas opcoes={[['meus', `Meus itens (${meus.length})`], ['biblioteca', 'Adicionar prontos'], ['impressora', 'Impressora']]}
         valor={aba} aoTrocar={setAba} className="mb-4 print:hidden" />
 
+      {/* ⚠️ REDESIGN (25/11/2026): a busca e o "Novo item" na mesma linha; a
+          Planilha e o Organizar grupos viraram pílulas embaixo (eram três
+          botões grandes empilhados, disputando a atenção) */}
       {aba !== 'impressora' && (
-        <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
-          placeholder={aba === 'meus' ? 'Buscar nos meus itens…' : 'Buscar item pronto (ex.: picanha, sal, alface)…'}
-          aria-label="Buscar item"
-          className="busca-grande mb-4" />
+        <div className="flex gap-2 mb-3">
+          <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder={aba === 'meus' ? 'Buscar item…' : 'Buscar item pronto (ex.: picanha, sal, alface)…'}
+            aria-label="Buscar item"
+            className="busca-grande flex-1 min-w-0" />
+          {aba === 'meus' && (
+            <Botao largura="auto" className="px-4 flex-shrink-0"
+              onClick={() => setEditando({ nome: '', categoria: categorias[0] || 'OUTROS', unidade: 'kg', tipoData: tipoPadrao, prazos: {}, medidaPadrao: '', marca: '', sif: '' })}>
+              <Icon name="mais" size={20} />Novo item
+            </Botao>
+          )}
+        </div>
       )}
 
       {aba === 'impressora' ? (
@@ -299,17 +322,16 @@ export default function Itens() {
             </p>
           )}
 
-          <div className="flex gap-2 mb-4">
-            <Botao onClick={() => setEditando({ nome: '', categoria: categorias[0] || 'OUTROS', unidade: 'kg', tipoData: tipoPadrao, prazos: {}, medidaPadrao: '', marca: '', sif: '' })}
-              className="flex-1">+ Cadastrar item do zero</Botao>
+          <div className="flex gap-2 mb-4 flex-wrap">
             {/* Cadastro em massa: baixar, mexer no Excel, importar de volta */}
-            <Botao variante="secundario" largura="auto" className="px-4" onClick={() => setPlanilha(true)}>Planilha</Botao>
+            <button type="button" onClick={() => setPlanilha(true)} className={PILULA}>
+              <Icon name="relatorio" size={18} />Planilha
+            </button>
+            {/* os grupos da casa: criar, renomear, ordenar e apagar (Lote 11) */}
+            <button type="button" onClick={() => setOrganizando(true)} className={PILULA}>
+              <Icon name="lista" size={18} />Organizar grupos
+            </button>
           </div>
-          {/* os grupos da casa: criar, renomear, ordenar e apagar (Lote 11) */}
-          <button type="button" onClick={() => setOrganizando(true)}
-            className="w-full min-h-12 mb-4 rounded-xl border-2 border-polo-navy/20 bg-white text-sm font-bold text-polo-navy">
-            Organizar grupos
-          </button>
 
           {meus.length === 0 ? (
             <div className="bg-white rounded-xl p-6 text-center">
@@ -322,19 +344,23 @@ export default function Itens() {
             <div className="space-y-4">
               {gruposMeus.map(([cat, itens]) => (
                 <div key={cat}>
-                  <p className="titulo-secao mb-1.5 px-1">{cat}</p>
-                  <div className="bg-white rounded-2xl border-2 border-polo-navy/10 divide-y divide-gray-100 overflow-hidden">
+                  {/* o grupo com a contagem: "BOVINOS · 4 ITENS" */}
+                  <p className="titulo-secao mb-1.5 px-1">{cat} · {itens.length} {itens.length === 1 ? 'item' : 'itens'}</p>
+                  <div className="bg-white rounded-2xl border-2 border-polo-linha divide-y divide-polo-linha/60 overflow-hidden">
                     {itens.map(p => (
                       <button key={p.id} onClick={() => abrirItem(p)}
-                        className="w-full text-left px-4 py-3 flex items-center gap-3 active:bg-gray-50">
+                        className="w-full text-left px-4 py-3 min-h-14 flex items-center gap-3 active:bg-polo-beige">
                         <span className="min-w-0 flex-1">
-                          <span className="block font-bold text-base text-polo-navy truncate">{p.nome}</span>
-                          <span className="block text-xs text-gray-600">
-                            {p.unidade}
-                            {medidaDoProduto(p) && ` · ${medidaDoProduto(p)}`}
-                            {p.tipoData === 'abertura' && ' · data de abertura'}
-                            {p.marca && ` · ${p.marca}`}
+                          {/* ⚠️ "Picanha · 200 g · marca Aurum" (era "kg · 200g · Aurum") */}
+                          <span className="block text-polo-navy leading-tight break-words">
+                            <span className="font-bold text-lg">{p.nome}</span>
+                            <span className="text-sm text-polo-tinta">
+                              {medidaLegivel(medidaDoProduto(p)) && ` · ${medidaLegivel(medidaDoProduto(p))}`}
+                              {p.marca && ` · marca ${p.marca}`}
+                              {p.tipoData === 'abertura' && ' · data de abertura'}
+                            </span>
                           </span>
+                          {temAlgumPrazo(p) && <PrazosDoItem produto={p} armazenamentos={armazenamentosDaCasa} estados={estadosDaCasa} />}
                           {gruposDoProduto(p).length > 1 && (
                             <span className="block text-xs text-gray-600 truncate">
                               também em {gruposDoProduto(p).slice(1).join(', ')}
@@ -354,7 +380,7 @@ export default function Itens() {
                             sem prazo
                           </span>
                         )}
-                        <span aria-hidden="true" className="text-gray-500 text-lg leading-none flex-shrink-0">›</span>
+                        <span aria-hidden="true" className="w-8 text-center text-polo-tinta text-2xl leading-none flex-shrink-0">›</span>
                       </button>
                     ))}
                   </div>
@@ -984,12 +1010,13 @@ function ModalItem({ inicial, categorias, armazenamentos, todosArmazenamentos = 
           </>
         )}
 
+        {/* redesign (25/11/2026): Cancelar em contorno; o principal de 72 px
+            (56 no celular) */}
         <div className="flex gap-3 pt-1">
-          <button onClick={onFechar}
-            className="flex-1 border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl">Cancelar</button>
+          <Botao variante="contorno" tamanho="lg" onClick={onFechar} className="flex-1">Cancelar</Botao>
           {/* método repetido trava: dois "Resfriado" sem estado, e a impressão
               não teria como saber qual dos dois prazos vale */}
-          <Botao onClick={() => onSalvar(form)} disabled={!(form.nome || '').trim() || repetidos.size > 0} className="flex-1">
+          <Botao tamanho="lg" onClick={() => onSalvar(form)} disabled={!(form.nome || '').trim() || repetidos.size > 0} className="flex-1">
             {inicial.id ? 'Salvar' : 'Adicionar'}
           </Botao>
         </div>
