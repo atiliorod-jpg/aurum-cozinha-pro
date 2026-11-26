@@ -181,6 +181,20 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (25/11/2026) — ANÁLISE DE UMA PROPOSTA DE REDESIGN (nada aplicado)
+
+O dono mandou `Downloads/aurum-redesign-prompt.zip` (PROMPT.md de outra IA + capturas
+antes/depois; o zip de fotos do WhatsApp veio por engano). Análise em
+`ANALISE_REDESIGN_2026-11-25.md`: a maior parte vale (barra de baixo com bloco dourado,
+cabeçalho sem a pílula no Etiquetas, sem marca d'água atrás das listas, Reimprimir na
+linha do nome, validade em destaque, Descartar em contorno, botão que diz o que falta,
+Meus itens mais limpo, Administração em 2 colunas, WhatsApp na cor da marca), com
+ajustes (56 px no celular para caber sem rolar; bolinhas da senha 4–8; "Fecha em" só
+no último minuto; prévia NÃO "tamanho real"; manter "Trocar" na janela). **Decisão do
+dono: o método de conservação na janela de imprimir fica como está** (caixa em
+destaque). Esperando: aplicar em 4 lotes?; faixa "Imprimindo como" azul ou texto
+simples?; prazos da lista como etiquetas coloridas ou texto?
+
 ## Onde paramos (24/11/2026, noite) — DESPERDÍCIO: GRAMAS, VOZ, ALTERAR (M66 APLICADA) + AUDITORIA
 
 Pedido do dono: gramas; motivo por voz; voz que entende "bolinho de costela 10
