@@ -85,59 +85,62 @@ export default function CartaoEquipe({ titulo = 'Equipe', descricao = '' }) {
     }
   };
 
+  // ⚠️ REDESIGN (26/11/2026): um cartão por nome — a inicial, a situação da
+  // senha, o último uso e as duas ações em contorno (zerar em azul, remover
+  // em vinho). O campo de adicionar leva o ícone de pessoa.
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4 space-y-3">
+    <div className="cartao space-y-3">
       <div>
-        <h2 className="text-base font-bold text-polo-navy">{titulo}</h2>
-        {descricao && <p className="text-sm text-gray-600 mt-0.5">{descricao}</p>}
+        <h2 className="titulo-secao">{titulo}</h2>
+        {descricao && <p className="text-sm text-polo-tinta mt-0.5">{descricao}</p>}
         {/* ⚠️ TEXTO CURTO (24/11/2026, pedido do dono): saíram "não precisa ter
             conta de acesso…" (as contas da equipe nem existem mais) e a
             explicação longa dos dias de uso. */}
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="text-sm text-polo-tinta mt-1">
           Cada um cria a própria senha de {DIGITOS} números. Quem fica {DIAS_SEM_USO} dias de uso sem entrar sai da lista.
         </p>
       </div>
 
       {pessoas.length === 0 ? (
-        <p className="text-sm text-gray-600 italic">Ninguém cadastrado ainda.</p>
+        <p className="text-sm text-polo-tinta">Ninguém cadastrado ainda.</p>
       ) : (
-        <ul className="divide-y divide-gray-100 border-y border-gray-100">
+        <ul className="grid gap-2 sm:grid-cols-2">
           {pessoas.map(p => {
             const com = temSenha(senhasEquipe, p);
             const resta = diasParaSair(usoEquipe, p);
             const perto = resta !== null && resta <= AVISAR_FALTANDO;
             const uso = com ? textoDoUltimoUso(ultimoUso(usoEquipe, p)) : '';
             return (
-              <li key={p} className="py-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-base font-semibold text-polo-navy min-w-0 break-words flex-1">{p}</span>
-                  <span className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2 py-0.5
-                    ${com ? 'bg-polo-navy text-polo-gold' : 'bg-amber-100 text-amber-900'}`}>
-                    {com && <Icon name="cadeado" size={12} />}{com ? 'com senha' : '1º acesso'}
+              <li key={p} className="rounded-2xl border-2 border-polo-linha p-3 space-y-2">
+                <div className="flex items-start gap-3">
+                  <span aria-hidden="true" className="w-11 h-11 rounded-full bg-polo-navy text-polo-gold font-titulo font-extrabold text-lg flex items-center justify-center flex-shrink-0">
+                    {(p.trim()[0] || '?').toUpperCase()}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-bold text-polo-navy break-words">{p}</p>
+                    {uso && <p className="text-xs text-polo-tinta">{uso}</p>}
+                  </div>
+                  <span className={`inline-flex items-center gap-1 text-xs font-bold rounded-full px-2.5 py-1 flex-shrink-0
+                    ${com ? 'bg-ok-suave text-ok-tinta' : 'bg-amber-100 text-amber-900'}`}>
+                    {com && <Icon name="cadeado" size={12} />}{com ? 'Com senha' : '1º acesso'}
                   </span>
                 </div>
-                {(uso || perto) && (
-                  <p className="text-xs mt-1">
-                    {uso && <span className="text-gray-600">{uso}</span>}
-                    {uso && perto && <span className="text-gray-600"> · </span>}
-                    {perto && (
-                      <strong className="text-amber-900">
-                        {resta === 0 ? 'sai da lista hoje' : `sai da lista em ${resta} ${resta === 1 ? 'dia' : 'dias'} de uso sem entrar`}
-                      </strong>
-                    )}
+                {perto && (
+                  <p className="text-xs font-bold text-amber-900">
+                    {resta === 0 ? 'Sai da lista hoje' : `Sai da lista em ${resta} ${resta === 1 ? 'dia' : 'dias'} de uso sem entrar`}
                   </p>
                 )}
-                <div className="flex flex-wrap gap-2 mt-1.5">
+                <div className="flex gap-2">
                   {ehDono && com && (
                     <button type="button" onClick={() => zerar(p)} disabled={zerando === p}
                       aria-label={`Zerar senha de ${p}`}
-                      className="min-h-12 px-3 rounded-xl border-2 border-polo-navy/20 text-polo-navy text-sm font-bold
-                                 inline-flex items-center gap-1.5 disabled:opacity-50">
+                      className="flex-1 min-h-11 px-3 rounded-xl border-2 border-polo-linha bg-white text-polo-navy text-sm font-bold
+                                 inline-flex items-center justify-center gap-1.5 disabled:opacity-50">
                       <Icon name="cadeado" size={14} />{zerando === p ? 'Zerando…' : 'Zerar senha'}
                     </button>
                   )}
                   <button type="button" onClick={() => remover(p)} aria-label={`Remover ${p}`}
-                    className="min-h-12 px-3 rounded-xl text-red-700 text-sm font-semibold">
+                    className="flex-1 min-h-11 px-3 rounded-xl border-2 border-perigo/40 bg-white text-perigo text-sm font-bold">
                     Remover
                   </button>
                 </div>
@@ -147,15 +150,21 @@ export default function CartaoEquipe({ titulo = 'Equipe', descricao = '' }) {
         </ul>
       )}
 
-      <div className="flex items-center gap-2">
-        <input aria-label="Nome da pessoa" type="text" value={novaPessoa} onChange={e => setNovaPessoa(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') adicionar(); }}
-          placeholder="Nome da pessoa"
-          className="flex-1 min-w-0 min-h-12 border-2 border-polo-navy/15 rounded-xl px-3 text-base" />
-        <Botao onClick={adicionar} tamanho="sm" largura="auto">Adicionar</Botao>
+      {/* flex-wrap: no celular o botão desce para a linha de baixo — lado a
+          lado, ele espremia o campo até cortar o nome ("Nome da pe") */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-polo-linha pt-3">
+        <div className="relative flex-1 min-w-[12rem]">
+          <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-polo-tinta">
+            <Icon name="pessoa" size={20} />
+          </span>
+          <input aria-label="Nome da pessoa" type="text" value={novaPessoa} onChange={e => setNovaPessoa(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') adicionar(); }}
+            placeholder="Nome da pessoa" className="campo pl-11" />
+        </div>
+        <Botao onClick={adicionar} largura="auto" className="px-4 flex-1 sm:flex-none"><Icon name="mais" size={18} />Adicionar</Botao>
       </div>
       {!ehDono && pessoas.some(p => temSenha(senhasEquipe, p)) && (
-        <p className="text-sm text-gray-600">Só a conta dona zera senhas.</p>
+        <p className="text-sm text-polo-tinta">Só a conta dona zera senhas.</p>
       )}
     </div>
   );

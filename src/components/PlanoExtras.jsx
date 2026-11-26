@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { montarPixBRCode } from '../utils/pix';
 import { Link } from 'react-router-dom';
 import Botao from './Botao';
+import Icon from './Icons';
 import { useAuth } from '../store/AuthContext';
 import { useUI } from '../store/UIContext';
 import { supabase } from '../lib/supabase';
@@ -72,18 +73,25 @@ export function ResumoDoPlano() {
     : st.tipo === 'aguardando' ? 'aguardando liberação'
     : 'assinatura vencida';
   const valor = parcela ? brl(parcela) : brl(mensalCombinado(prod.id, extras, sessao?.desconto));
+  // ⚠️ REDESIGN (26/11/2026): a faixa azul-marinho com o botão dourado. O
+  // LINK É A FAIXA INTEIRA (um alvo só); o "botão" é só o desenho do destino.
+  // Pagamento atrasado ou vencido troca o azul pelo vermelho claro.
   return (
     <Link to="/pagamento"
-      className={`mb-4 rounded-xl px-4 py-3 flex items-center justify-between gap-3 min-h-11 border
-        ${alerta ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200'}`}>
+      className={`mb-4 rounded-2xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 min-h-11
+        ${alerta ? 'bg-perigo-suave border-2 border-perigo/40' : 'bg-polo-navy'}`}>
       <span className="min-w-0">
-        <span className="block text-sm font-bold text-polo-navy">Planos e pagamento</span>
-        <span className={`block text-xs ${alerta ? 'text-red-800 font-semibold' : 'text-gray-600'}`}>
+        <span className={`block text-xs font-bold uppercase tracking-wide ${alerta ? 'text-perigo-tinta' : 'text-polo-gold'}`}>Seu plano</span>
+        <span className={`block text-sm font-bold ${alerta ? 'text-perigo-tinta' : 'text-white'}`}>
           {prod.label} · {situacao}{st.tipo === 'isento' ? '' : ` · ${valor}/mês`}
           {imp.linhas.length > 0 && ` + impressora (parcela ${imp.linhas[0].numero} de ${imp.linhas[0].de})`}
         </span>
       </span>
-      <span className="text-polo-navy text-lg flex-shrink-0" aria-hidden>›</span>
+      <span className={`inline-flex items-center gap-1 min-h-11 px-4 rounded-xl text-sm font-bold flex-shrink-0
+        ${alerta ? 'bg-perigo text-white' : 'bg-polo-gold text-polo-navy'}`}>
+        <span>Planos e pagamento</span>
+        <Icon name="seta" size={16} />
+      </span>
     </Link>
   );
 }

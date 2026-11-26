@@ -10,6 +10,7 @@ import { useApp } from '../../store/AppContext';
 import { useUI } from '../../store/UIContext';
 import { usePwaInstall } from '../../lib/pwaInstall';
 import { fmtData, plural } from '../../utils/formatters';
+import Icon from '../Icons';
 
 // A fila de erro mostrava `kind`/`op` crus — nomes internos do banco. Quem lê
 // precisa reconhecer o lançamento, não o esquema.
@@ -52,32 +53,50 @@ export function CartaoFilaComErro() {
   );
 }
 
+// o ícone quadrado dos dois cartões de baixo da Conta (redesign, 26/11/2026)
+function IconeDoCartao({ nome }) {
+  return (
+    <span aria-hidden="true" className="w-11 h-11 rounded-xl bg-polo-beige text-polo-navy flex items-center justify-center flex-shrink-0">
+      <Icon name={nome} size={22} />
+    </span>
+  );
+}
+
 /** Instalar o app na tela inicial deste aparelho. */
 export function CartaoInstalarApp() {
   const { podeInstalar, instalado, ios, instalar } = usePwaInstall();
+  // ⚠️ REDESIGN (26/11/2026): dá para instalar direto → o cartão INTEIRO é o
+  // botão, com a seta, como as Novidades ao lado. Sem o convite do navegador
+  // (iPhone, ou ele ainda não ofereceu), o cartão ensina o caminho.
+  if (!instalado && !ios && podeInstalar) {
+    return (
+      <button type="button" onClick={instalar}
+        className="cartao w-full flex items-center gap-3 text-left active:scale-[0.99] transition-transform">
+        <IconeDoCartao nome="celular" />
+        <span className="min-w-0 flex-1">
+          <span className="block font-bold text-polo-navy">Instalar o app</span>
+          <span className="block text-xs text-polo-tinta mt-0.5">Coloca o ícone da Aurum na tela inicial, abrindo em tela cheia.</span>
+        </span>
+        <Icon name="seta" size={20} className="text-polo-navy flex-shrink-0" />
+      </button>
+    );
+  }
   return (
-    <div className="cartao">
-      <div className="flex items-start gap-3">
-        <div className="flex-1">
-          <h2 className="text-sm font-bold text-polo-navy">Instalar o app neste aparelho</h2>
-          {instalado ? (
-            <p className="text-xs text-green-800 mt-0.5">App já instalado neste aparelho.</p>
-          ) : ios ? (
-            <p className="text-xs text-gray-600 mt-0.5">
-              No iPhone ou iPad: toque em <strong>Compartilhar</strong> no Safari e em <strong>"Adicionar à Tela de Início"</strong>.
-            </p>
-          ) : podeInstalar ? (
-            <p className="text-xs text-gray-600 mt-0.5">Coloca o ícone da Aurum na tela inicial, abrindo em tela cheia.</p>
-          ) : (
-            <p className="text-xs text-gray-600 mt-0.5">
-              Se o botão não aparecer: abra o menu <strong>⋮</strong> do navegador e toque em <strong>"Instalar aplicativo"</strong>.
-              Caso não apareça, feche o navegador por completo e abra o app de novo.
-            </p>
-          )}
-        </div>
-        {!instalado && !ios && podeInstalar && (
-          <button onClick={instalar}
-            className="bg-polo-navy text-polo-gold font-bold px-4 min-h-12 rounded-xl text-sm whitespace-nowrap">Instalar</button>
+    <div className="cartao flex items-start gap-3">
+      <IconeDoCartao nome="celular" />
+      <div className="min-w-0 flex-1">
+        <h2 className="font-bold text-polo-navy">Instalar o app</h2>
+        {instalado ? (
+          <p className="text-xs text-ok-tinta mt-0.5">App já instalado neste aparelho.</p>
+        ) : ios ? (
+          <p className="text-xs text-polo-tinta mt-0.5">
+            No iPhone ou iPad: toque em <strong>Compartilhar</strong> no Safari e em <strong>"Adicionar à Tela de Início"</strong>.
+          </p>
+        ) : (
+          <p className="text-xs text-polo-tinta mt-0.5">
+            Abra o menu <strong>⋮</strong> do navegador e toque em <strong>"Instalar aplicativo"</strong>.
+            Se não aparecer, feche o navegador por completo e abra o app de novo.
+          </p>
         )}
       </div>
     </div>
@@ -88,12 +107,13 @@ export function CartaoInstalarApp() {
 export function CartaoNovidades() {
   return (
     <Link to="/novidades"
-      className="flex items-center justify-between cartao active:scale-[0.99] transition-transform">
-      <div>
-        <h2 className="text-sm font-bold text-polo-navy">Novidades do app</h2>
-        <p className="text-xs text-gray-600 mt-0.5">Veja o que mudou nas últimas atualizações.</p>
-      </div>
-      <span aria-hidden="true" className="text-polo-navy text-lg">›</span>
+      className="cartao flex items-center gap-3 active:scale-[0.99] transition-transform">
+      <IconeDoCartao nome="ideia" />
+      <span className="min-w-0 flex-1">
+        <span className="block font-bold text-polo-navy">Novidades do app</span>
+        <span className="block text-xs text-polo-tinta mt-0.5">Veja o que mudou nas últimas atualizações.</span>
+      </span>
+      <Icon name="seta" size={20} className="text-polo-navy flex-shrink-0" />
     </Link>
   );
 }

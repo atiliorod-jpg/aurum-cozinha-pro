@@ -239,20 +239,27 @@ export function CartaoSenhaDaAdministracao() {
   if (!administracaoComSenha) return null; // banco sem a M62: não há senha para trocar
   const fechar = () => { setFase(null); setNova(''); };
   return (
+    // redesign (26/11/2026): o ícone da chave, e o botão em contorno
     <div className="cartao space-y-3">
-      <div>
-        <h2 className="text-sm font-bold text-polo-navy">Senha da Administração</h2>
-        <p className="text-xs text-gray-600 mt-0.5">
-          De {MIN_DIGITOS_ADM} a {MAX_DIGITOS_ADM} números. Abre a Administração em qualquer aparelho e fecha
-          sozinha com {MINUTOS_PARADA_ADM} minutos sem uso.
-        </p>
-        {sessao?.demo && (
-          <p className="text-xs text-gray-600 mt-1">Na demonstração ela começa {SENHA_DA_DEMO} e vale só neste aparelho.</p>
-        )}
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="w-11 h-11 rounded-xl bg-polo-gold-100 text-polo-gold-700 flex items-center justify-center flex-shrink-0">
+          <Icon name="chave" size={22} />
+        </span>
+        <div className="min-w-0">
+          <h2 className="titulo-secao">Senha da Administração</h2>
+          <p className="text-sm text-polo-tinta mt-0.5">
+            De {MIN_DIGITOS_ADM} a {MAX_DIGITOS_ADM} números. Abre a Administração em qualquer aparelho e fecha
+            sozinha com {MINUTOS_PARADA_ADM} minutos sem uso.
+          </p>
+          {sessao?.demo && (
+            <p className="text-xs text-polo-tinta mt-1">Na demonstração ela começa {SENHA_DA_DEMO} e vale só neste aparelho.</p>
+          )}
+        </div>
       </div>
-      <button type="button" onClick={() => setFase('nova')}
-        className="w-full min-h-12 rounded-xl border-2 border-polo-navy/20 bg-white text-sm font-bold text-polo-navy">
-        Trocar a senha da Administração
+      {/* o nome falado diz de qual senha é; na tela, "Trocar a senha" basta */}
+      <button type="button" onClick={() => setFase('nova')} aria-label="Trocar a senha da Administração"
+        className="w-full min-h-12 rounded-xl border-2 border-polo-navy bg-white text-sm font-bold text-polo-navy">
+        Trocar a senha
       </button>
       {fase && (
         <Dialogo titulo="Senha da Administração" aoFechar={fechar} forma="caixa" largura="sm" respiro="p5">

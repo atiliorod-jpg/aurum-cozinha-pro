@@ -181,6 +181,57 @@ O nome impresso vem do **estoque** (opcional) com queda para o da conta.
 
 ---
 
+## Onde paramos (26/11/2026, tarde) — 8 TELAS NOVAS DAS FOTOS DO DONO (lotes A, B e C)
+
+O dono mandou 8 fotos antes/depois ("verifique se estão bons os ajustes e se pode
+implementar"; Adicionar prontos SEM microfone). Tudo aplicado, em três commits:
+- **Lote A** (3c1f9ff) — Meus itens → **Adicionar prontos** (busca sem voz, grupos em
+  pílula, "kg/unid" e "Abertura" como etiquetas, "Já tenho" verde ou "+ Adicionar";
+  aria-label `Nome — Adicionar`/`Nome — Já tenho`) e **Impressora** (dois cartões lado a
+  lado, "Pedir refil pelo WhatsApp", passo a passo em abas Android/Windows/iPhone com o
+  aviso vermelho, faixa navy "Precisa de ajuda?"). O iPhone continua UMA linha (decisão antiga).
+- **Lote B** (93b6df5) — **Relatório de desperdício**: períodos + datas na mesma linha,
+  4 números (total, registros, item que mais saiu, motivo mais comum), segmentado Por
+  item/grupo/turno/pessoa/motivo/Um por um, barras com valor, Imprimir e Baixar planilha.
+- **Lote C** — a Administração:
+  - **A casa**: Nome e CNPJ num bloco "Protegido: só muda por pedido" com a pílula que abre
+    a Ajuda em "Pedido" (`abrirAjuda('pedido')`); CEP + Endereço na mesma linha; botão
+    desligado "Nenhuma alteração para salvar". O CNPJ da caixa é o MESMO que sai no papel
+    (`cnpjDaConta || gravado.cnpj`). Ao lado (lg) / embaixo (celular): **"Assim sai na
+    etiqueta"** com o que está sendo DIGITADO e o rodapé pintado (`EtiquetaLabel
+    destacarRodape` — fundo + anel PARA DENTRO, não mexe na medida).
+  - **Etiqueta**: armazenamento com Nome + Temperatura lado a lado e o contador "5/14";
+    estados em PÍLULAS com o nome ainda editável dentro (o id não muda); "Campos da etiqueta"
+    com CHAVES liga/desliga (`Chave` ganhou `id` para o `<label htmlFor>` — tocar no texto
+    liga); faixa "Rolo 60 × 50 mm · … · somente leitura"; prévia ao lado, presa no topo
+    (`top: calc(var(--faixa-topo) + 5rem)`), com RESFRIADO + o 1º estado da casa.
+    Peça nova: `CartaoPreviaDaEtiqueta` (CartoesConfig) usa `PreviaEtiquetaItem`, que
+    agora aceita `estabelecimentoConta`, `responsavel` e `destacarRodape`.
+  - **Desperdício**: motivos em pílulas com ×; turnos em cartões com sol/lua e a **régua
+    das 24 h** (começa no 1º turno, dourado de dia, navy de noite, marcas a cada 6 h).
+    ⚠️ Lua/sol NÃO é pelo horário (a "Noite" da demo começa às 16h): primeiro o nome
+    (noite/madrugada/fechamento × manhã/tarde/dia/almoço), senão o turno que cruza a meia-noite.
+    "Salvar turnos" sempre à vista, desligado sem mudança.
+  - **Equipe**: um cartão por nome (inicial, "Com senha"/"1º acesso", último uso, Zerar
+    senha em contorno, Remover em vinho); campo com ícone de pessoa; Senha da
+    Administração (ícone de chave, botão "Trocar a senha" — nome falado continua "Trocar a
+    senha da Administração") e Aparelhos conectados ("2 de 3" + barra das vagas, "este
+    aparelho") lado a lado no lg (`[&>*:only-child]:col-span-2` quando sobra um só).
+  - **Conta**: faixa navy "Seu plano · … [Planos e pagamento ›]" (vermelho claro se
+    atrasado; o link é a faixa inteira); Minha senha + Suporte remoto lado a lado; suporte
+    em duas opções num controle só (um toque AUTORIZA, como antes; a marcada fica desligada;
+    tocar na outra troca a permissão e conta 24 h de novo); Meus dados com Baixar (navy) e
+    Restaurar (contorno; input de arquivo `sr-only`, não `hidden` — o teclado chega);
+    Instalar o app + Novidades em dois cartões com seta (dá para instalar → o cartão inteiro
+    é o botão).
+  - Ícones novos em Icons.jsx: `sol`, `lua`, `chave`, `pessoa`, `seta`.
+  - ⚠️ Os campos de "adicionar" (armazenamento, estado, motivo, pessoa) usam `flex-wrap` +
+    `min-w-[12rem] !w-auto`: no celular o botão desce para a linha de baixo (lado a lado
+    ele espremia o campo: "Nome da pe").
+  - ⚠️ React Compiler: `autorizar` (que lê `Date.now()`) chamado dentro de um `.map` no
+    JSX deu erro de pureza no lint — os dois botões do suporte ficaram escritos à mão.
+- O "Fecha em" continua só no último minuto (as fotos mostram sempre; decisão anterior).
+
 ## Onde paramos (26/11/2026) — REDESIGN APLICADO (o app inteiro)
 
 O dono aprovou a proposta (ver `ANALISE_REDESIGN_2026-11-25.md`) para aplicar TUDO de

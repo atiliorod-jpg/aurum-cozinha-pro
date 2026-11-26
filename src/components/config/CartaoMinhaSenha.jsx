@@ -49,13 +49,13 @@ export default function CartaoMinhaSenha({ toast }) {
   return (
     <div className="cartao space-y-3">
       <div>
-        <h2 className="text-sm font-bold text-polo-navy">Trocar minha senha</h2>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <h2 className="titulo-secao">Minha senha</h2>
+        <p className="text-sm text-polo-tinta mt-0.5">
           A senha do login da casa, a que entra com o e-mail.
         </p>
       </div>
       {!aberto ? (
-        <Botao variante="secundario" tamanho="sm" largura="auto" onClick={() => setAberto(true)}>
+        <Botao variante="contorno" tamanho="sm" onClick={() => setAberto(true)}>
           Trocar senha
         </Botao>
       ) : (
@@ -66,7 +66,7 @@ export default function CartaoMinhaSenha({ toast }) {
           <input type={ver ? 'text' : 'password'} autoComplete="new-password" value={repetir}
             onChange={e => setRepetir(e.target.value)} placeholder="Repita a nova senha"
             aria-label="Repita a nova senha" className={inputCls} />
-          <label className="flex items-center gap-2 text-sm text-gray-600 min-h-12">
+          <label className="flex items-center gap-2 text-sm text-polo-tinta min-h-12">
             <input type="checkbox" checked={ver} onChange={e => setVer(e.target.checked)} />
             Mostrar o que estou digitando
           </label>

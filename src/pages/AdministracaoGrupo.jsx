@@ -8,8 +8,9 @@ import { GRUPOS_ADMIN, useAcessosAdmin } from '../store/acessosAdmin';
 import { temRecurso } from '../utils/modulos';
 import {
   CartaoSuporteRemoto, CartaoArmazenamentos, CartaoEstados, CartaoEtiquetas, CartaoEstabelecimento,
-  CartaoMeusDados,
+  CartaoMeusDados, CartaoPreviaDaEtiqueta,
 } from '../components/config/CartoesConfig';
+import { listarEstados } from '../utils/metodos';
 import CartaoAparelhos from '../components/config/CartaoAparelhos';
 import { CartaoMotivosDescarte, CartaoTurnosDescarte } from '../components/config/CartoesDesperdicio';
 import { CartaoSenhaDaAdministracao } from '../components/SenhaDaAdministracao';
@@ -89,18 +90,26 @@ function GrupoCasa({ a }) {
 function GrupoEtiqueta({ a }) {
   const { prefs, setPref } = useApp();
   const { toast, confirm } = useUI();
+  // a prévia mostra o RESFRIADO com o primeiro estado da casa: assim renomear
+  // um armazenamento ou um estado já aparece na etiqueta ao lado
+  const estado = listarEstados(prefs)[0];
   return (
-    <>
-      {/* Armazenamento vem primeiro: define o que a etiqueta imprime */}
-      <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
-      {/* os estados (pista fria...) vivem dentro de um armazenamento — Lote 11 */}
-      <CartaoEstados prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
-      {/* ⚠️ QR só no Pro: quem lê o código é a baixa pela etiqueta e a
-          contagem por câmera, telas que só existem lá. */}
-      <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} mostrarQR={!a.soEtiq} />
-      {/* ⚠️ A impressora (conectar, rolo, etiqueta de teste) mora em Meus itens
-          → Impressora desde 23/11/2026 — o dono tirou o cartão daqui. */}
-    </>
+    // ⚠️ REDESIGN (26/11/2026): os cartões à esquerda e a prévia ao lado no
+    // computador (presa no topo ao rolar); no celular ela vem no fim.
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-4 lg:items-start">
+      <div>
+        {/* Armazenamento vem primeiro: define o que a etiqueta imprime */}
+        <CartaoArmazenamentos prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
+        {/* os estados (pista fria...) vivem dentro de um armazenamento — Lote 11 */}
+        <CartaoEstados prefs={prefs} setPref={setPref} toast={toast} confirm={confirm} />
+        {/* ⚠️ QR só no Pro: quem lê o código é a baixa pela etiqueta e a
+            contagem por câmera, telas que só existem lá. */}
+        <CartaoEtiquetas prefs={prefs} setPref={setPref} toast={toast} mostrarQR={!a.soEtiq} />
+        {/* ⚠️ A impressora (conectar, rolo, etiqueta de teste) mora em Meus itens
+            → Impressora desde 23/11/2026 — o dono tirou o cartão daqui. */}
+      </div>
+      <CartaoPreviaDaEtiqueta metodo={{ armazenamento: 'resfriado', estado: estado?.id, dias: 3 }} />
+    </div>
   );
 }
 
@@ -127,9 +136,12 @@ function GrupoEquipe({ a }) {
           equipe, os cargos e a matriz de acessos. Um login da casa entra em
           todos os aparelhos; os nomes acima dizem quem fez; e a senha abaixo
           abre a Administração, Meus itens e os relatórios. */}
-      <CartaoSenhaDaAdministracao />
-      {/* quais aparelhos estão com a conta aberta, e o "Tirar" (M64) */}
-      {a.aparelhos && <CartaoAparelhos />}
+      {/* redesign (26/11/2026): os dois lado a lado no computador */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start lg:[&>*:only-child]:col-span-2">
+        <CartaoSenhaDaAdministracao />
+        {/* quais aparelhos estão com a conta aberta, e o "Tirar" (M64) */}
+        {a.aparelhos && <CartaoAparelhos />}
+      </div>
     </>
   );
 }
@@ -166,19 +178,24 @@ function GrupoConta({ a }) {
     <>
       {/* uma linha: plano, situação e o caminho para Planos e pagamento */}
       {a.plano && <ResumoDoPlano />}
-      {/* ⚠️ Logo abaixo do plano: a conta entregue pela Aurum chega com a senha
-          que a Aurum sorteou, e trocar é a primeira coisa que o dono faz. O
-          cartão some sozinho para quem não é a conta dona. */}
-      <CartaoMinhaSenha toast={toast} />
-      {/* Autorizar a Aurum a ver os dados da casa é de quem assina o contrato */}
-      {a.suporte && <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />}
+      {/* redesign (26/11/2026): senha e suporte lado a lado no computador */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start lg:[&>*:only-child]:col-span-2">
+        {/* ⚠️ Logo abaixo do plano: a conta entregue pela Aurum chega com a senha
+            que a Aurum sorteou, e trocar é a primeira coisa que o dono faz. O
+            cartão some sozinho para quem não é a conta dona. */}
+        <CartaoMinhaSenha toast={toast} />
+        {/* Autorizar a Aurum a ver os dados da casa é de quem assina o contrato */}
+        {a.suporte && <CartaoSuporteRemoto prefs={prefs} setPrefs={setPrefs} toast={toast} />}
+      </div>
       {/* ⚠️ Os Termos prometem esta exportação (cláusula 15) — nos dois planos */}
       {a.copia && (
         <CartaoMeusDados exportarBackup={exportarBackup} importarBackup={importarBackup}
           toast={toast} confirm={confirm} />
       )}
-      <CartaoInstalarApp />
-      <CartaoNovidades />
+      <div className="sm:grid sm:grid-cols-2 sm:gap-4">
+        <CartaoInstalarApp />
+        <CartaoNovidades />
+      </div>
       {a.zonaPerigo && <CartaoZonaPerigo />}
     </>
   );

@@ -128,7 +128,7 @@ const NIVEL_PADRAO = { linhasNome: 1, sifLoteSeparado: false, linhasEndereco: 1 
 // Um bloco de etiqueta física (repetido N vezes conforme a quantidade de cópias).
 // ⚠️ EXPORTADA para a prévia da ficha do item (Meus itens → "Ver etiqueta"):
 // o desenho é um só, e a prévia de lá não pode virar uma terceira versão.
-export function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADRAO }) {
+export function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIVEL_PADRAO, destacarRodape = false }) {
   const c = config.campos;
   const comQR = config.incluirQR && qr?.svg;
   const est = estabelecimento || {};
@@ -233,7 +233,11 @@ export function EtiquetaLabel({ campos, config, qr, estabelecimento, nivel = NIV
         {c.responsavel !== false && <Linha rotulo="RESP." valor={campos.responsavel} corpo={corpo} />}
       </div>
       {/* Rodapé: estabelecimento + ID + QR */}
-      <div className="flex items-end justify-between gap-1 border-t border-black" style={{ paddingTop: '0.8mm', marginTop: '0.8mm', flexShrink: 0 }}>
+      {/* `destacarRodape`: em Administração → A casa a prévia pinta o que
+          aqueles campos mudam. Fundo e anel PARA DENTRO — não mexem no tamanho
+          de nada, e a medida do que cabe no papel continua a mesma. */}
+      <div className={`flex items-end justify-between gap-1 border-t border-black${destacarRodape ? ' bg-amber-100 ring-2 ring-inset ring-amber-400' : ''}`}
+        style={{ paddingTop: '0.8mm', marginTop: '0.8mm', flexShrink: 0 }}>
         {/* ⚠️ 2,1 mm saía ilegível no papel — o dono leu a etiqueta impressa e
             apontou o CNPJ e o endereço. Numa térmica, letra menor que ~2,4 mm
             perde o traço: o ponto é grande demais para desenhar a curva. */}

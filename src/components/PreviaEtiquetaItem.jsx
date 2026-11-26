@@ -18,13 +18,18 @@ import { hoje, fmtHora } from '../utils/formatters';
 //  impressa neste minuto, sem o responsável (quem imprime decide) e sem o QR
 //  (o código só existe quando a etiqueta é impressa de verdade).
 // =====================================================================
-export default function PreviaEtiquetaItem({ item, metodo }) {
+//  Na Administração (redesign, 26/11/2026) ela vira a coluna "Assim sai na
+//  etiqueta": `estabelecimentoConta` mostra o que está sendo DIGITADO em A casa
+//  (antes de salvar), `responsavel` dá efeito à chave do RESP., e
+//  `destacarRodape` pinta a parte que aqueles campos mudam.
+export default function PreviaEtiquetaItem({ item, metodo, estabelecimentoConta, responsavel = '', destacarRodape = false }) {
   const { prefs, estoqueAtual, unidadeAtual } = useApp();
   const { sessao } = useAuth();
+  const estConta = estabelecimentoConta ?? prefs.estabelecimento;
   const { nome: nomeImpresso, estabelecimento } = useMemo(() => dadosDaEtiqueta({
     unidade: unidadeAtual, estoque: estoqueAtual, nomeConta: sessao?.restauranteNome,
-    cnpjConta: sessao?.cnpj, estabelecimentoConta: prefs.estabelecimento,
-  }), [unidadeAtual, estoqueAtual, sessao?.restauranteNome, sessao?.cnpj, prefs.estabelecimento]);
+    cnpjConta: sessao?.cnpj, estabelecimentoConta: estConta,
+  }), [unidadeAtual, estoqueAtual, sessao?.restauranteNome, sessao?.cnpj, estConta]);
   const config = useMemo(() => ({ ...configEtiqueta(prefs), incluirQR: false }), [prefs]);
   const armaz = acharArmazenamento(prefs, metodo.armazenamento);
   const estado = listarEstados(prefs).find(e => e.id === metodo.estado);
@@ -45,13 +50,14 @@ export default function PreviaEtiquetaItem({ item, metodo }) {
     medida: (item.medidaPadrao || '').trim(),
     marca: (item.marca || '').trim(),
     sif: (item.sif || '').trim(),
+    responsavel,
     hora,
   });
   return (
     <div>
       <div className="bg-gray-100 rounded-xl p-3 flex justify-center overflow-x-auto">
         <div className="shadow-md flex-shrink-0">
-          <EtiquetaLabel campos={campos} config={config} estabelecimento={estabelecimento} />
+          <EtiquetaLabel campos={campos} config={config} estabelecimento={estabelecimento} destacarRodape={destacarRodape} />
         </div>
       </div>
       <p className="text-xs text-gray-600 mt-1">

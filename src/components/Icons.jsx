@@ -383,6 +383,39 @@ const PATHS = {
       <line x1="12" x2="12.01" y1="20" y2="20" />
     </>
   ),
+  // redesign (26/11/2026): os turnos (sol e lua), a senha da Administração
+  // (chave), o campo do nome (pessoa) e a seta dos cartões que levam adiante
+  sol: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2" />
+      <path d="M12 20v2" />
+      <path d="m4.93 4.93 1.41 1.41" />
+      <path d="m17.66 17.66 1.41 1.41" />
+      <path d="M2 12h2" />
+      <path d="M20 12h2" />
+      <path d="m6.34 17.66-1.41 1.41" />
+      <path d="m19.07 4.93-1.41 1.41" />
+    </>
+  ),
+  lua: (
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+  ),
+  chave: (
+    <>
+      <path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" />
+      <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />
+    </>
+  ),
+  pessoa: (
+    <>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </>
+  ),
+  seta: (
+    <path d="m9 18 6-6-6-6" />
+  ),
 };
 
 export default function Icon({ name, size = 20, strokeWidth = 2, className = '' }) {

@@ -9,10 +9,11 @@
 //  O nome vem de `rotulo` (aria-label) ou, quando o texto já está na tela ao
 //  lado, de `rotuladoPor` (o id desse texto, vira aria-labelledby).
 // =====================================================================
-export default function Chave({ ligada, aoTrocar, rotulo, rotuladoPor, cor = 'verde', desativada = false }) {
+// `id`: para um <label htmlFor> ao lado — tocar no texto liga/desliga a chave.
+export default function Chave({ ligada, aoTrocar, rotulo, rotuladoPor, cor = 'verde', desativada = false, id }) {
   const corLigada = cor === 'laranja' ? 'bg-orange-600' : 'bg-green-600';
   return (
-    <button type="button" role="switch" aria-checked={!!ligada} aria-label={rotulo} aria-labelledby={rotuladoPor} disabled={desativada}
+    <button type="button" id={id} role="switch" aria-checked={!!ligada} aria-label={rotulo} aria-labelledby={rotuladoPor} disabled={desativada}
       onClick={() => aoTrocar(!ligada)}
       className="relative w-14 h-11 flex items-center justify-center flex-shrink-0 disabled:opacity-50">
       <span aria-hidden="true" className={`w-12 h-6 rounded-full transition-colors relative ${ligada ? corLigada : 'bg-gray-500'}`}>
